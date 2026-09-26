@@ -27,6 +27,7 @@ import type {
   Veiculo,
   Cidade,
   PrecoMaterial,
+  Material,
 } from '@/types/concreteira'
 import {
   Truck,
@@ -50,6 +51,7 @@ export default function LancamentoCargas() {
   const [motoristas, setMotoristas] = useState<Motorista[]>([])
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [cidades, setCidades] = useState<Cidade[]>([])
+  const [materiais, setMateriais] = useState<Material[]>([])
   const [salvando, setSalvando] = useState(false)
 
   // Modo de dosagem: 'automatico' (por traço) ou 'manual' (digitação dos 6 insumos)
@@ -102,18 +104,20 @@ export default function LancamentoCargas() {
     async function init() {
       if (!empresaAtiva) return
       try {
-        const [tr, mot, veic, cid, prc] = await Promise.all([
+        const [tr, mot, veic, cid, prc, mats] = await Promise.all([
           ConcreteiraService.getTracos(empresaAtiva.id),
           ConcreteiraService.getMotoristas(empresaAtiva.id),
           ConcreteiraService.getVeiculos(empresaAtiva.id),
           ConcreteiraService.getCidades(empresaAtiva.id),
           ConcreteiraService.getPrecosMaterial(empresaAtiva.id),
+          ConcreteiraService.getMateriais(empresaAtiva.id),
         ])
         setTracos(tr)
         setPrecos(prc)
         setMotoristas(mot)
         setVeiculos(veic)
         setCidades(cid)
+        setMateriais(mats)
 
         if (tr.length > 0) {
           setTracoSelecionadoId(tr[0].id)
@@ -581,7 +585,7 @@ export default function LancamentoCargas() {
                 </CardTitle>
                 <CardDescription className="text-xs mt-1">
                   {modoDosagem === 'automatico'
-                    ? `Dosagem base do traço por m³ multiplicada pelo volume (${volume} m³). Baixa de estoque apenas para Cimento e Aditivo.`
+                    ? `Dosagem base do traço por m³ multiplicada pelo volume (${volume} m³). Baixa de estoque apenas para ${materiais.find((m) => m.codigo === 'cimento')?.nome || 'CP II F-40 / CP V ARI'} e Aditivo.`
                     : `Modo manual ativo: informe a dosagem de cada insumo em kg/m³. O consumo gravado e os custos são multiplicados automaticamente pelo volume (${volume} m³).`}
                 </CardDescription>
               </div>
@@ -747,9 +751,9 @@ export default function LancamentoCargas() {
                 >
                   <span className="font-semibold text-foreground flex items-center gap-1">
                     {modoDosagem === 'manual'
-                      ? 'Cimento (kg/m³)'
-                      : 'Cimento (kg)'}
-                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal">
+                      ? `${materiais.find((m) => m.codigo === 'cimento')?.nome || 'CP II F-40 / CP V ARI'} (kg/m³)`
+                      : `${materiais.find((m) => m.codigo === 'cimento')?.nome || 'CP II F-40 / CP V ARI'} (kg)`}
+                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal shrink-0">
                       Estoque
                     </span>
                   </span>

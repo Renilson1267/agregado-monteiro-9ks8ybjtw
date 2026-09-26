@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dialog'
 import { ConcreteiraService } from '@/services/concreteira'
 import { useEmpresa } from '@/hooks/use-empresa'
-import type { Traco, PrecoMaterial, Carga } from '@/types/concreteira'
+import type { Traco, PrecoMaterial, Carga, Material } from '@/types/concreteira'
 import {
   FlaskConical,
   PlusCircle,
@@ -36,6 +36,7 @@ export default function Tracos() {
   const { empresaAtiva } = useEmpresa()
   const [tracos, setTracos] = useState<Traco[]>([])
   const [precos, setPrecos] = useState<PrecoMaterial[]>([])
+  const [materiais, setMateriais] = useState<Material[]>([])
   const [cargas, setCargas] = useState<Carga[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -59,14 +60,16 @@ export default function Tracos() {
     if (!empresaAtiva) return
     setLoading(true)
     try {
-      const [data, prc, crgs] = await Promise.all([
+      const [data, prc, crgs, mats] = await Promise.all([
         ConcreteiraService.getTracos(empresaAtiva.id),
         ConcreteiraService.getPrecosMaterial(empresaAtiva.id),
         ConcreteiraService.getCargas({ empresaId: empresaAtiva.id }),
+        ConcreteiraService.getMateriais(empresaAtiva.id),
       ])
       setTracos(data)
       setPrecos(prc)
       setCargas(crgs)
+      setMateriais(mats)
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar traços',
@@ -289,9 +292,16 @@ export default function Tracos() {
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="p-2 rounded bg-background/60 border border-border/30">
-                    <span className="text-muted-foreground block text-[10px]">
-                      Cimento (R${' '}
-                      {(calculoTeorico.detalhes.cimento || 0).toFixed(2)})
+                    <span
+                      className="text-muted-foreground block text-[10px] truncate"
+                      title={
+                        materiais.find((m) => m.codigo === 'cimento')?.nome ||
+                        'CP II F-40 / CP V ARI'
+                      }
+                    >
+                      {materiais.find((m) => m.codigo === 'cimento')?.nome ||
+                        'CP II F-40 / CP V ARI'}{' '}
+                      (R$ {(calculoTeorico.detalhes.cimento || 0).toFixed(2)})
                     </span>
                     <span className="font-mono font-bold text-foreground text-sm">
                       {t.consumo_cimento}
@@ -423,8 +433,17 @@ export default function Tracos() {
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
                 <div className="space-y-1">
-                  <Label htmlFor="cimen" className="text-xs">
-                    Cimento (kg/m³)
+                  <Label
+                    htmlFor="cimen"
+                    className="text-xs truncate block"
+                    title={
+                      materiais.find((m) => m.codigo === 'cimento')?.nome ||
+                      'CP II F-40 / CP V ARI'
+                    }
+                  >
+                    {materiais.find((m) => m.codigo === 'cimento')?.nome ||
+                      'CP II F-40 / CP V ARI'}{' '}
+                    (kg/m³)
                   </Label>
                   <Input
                     id="cimen"

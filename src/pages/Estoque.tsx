@@ -228,8 +228,10 @@ export default function Estoque() {
                   Registrar Entrada / Reposição de Insumo Controlado
                 </DialogTitle>
                 <DialogDescription>
-                  Gera uma movimentação de estoque para Cimento ou Aditivo no
-                  silo ou tanque correspondente.
+                  Gera uma movimentação de estoque para{' '}
+                  {materiais.find((m) => m.codigo === 'cimento')?.nome ||
+                    'CP II F-40 / CP V ARI'}{' '}
+                  ou Aditivo no silo ou tanque correspondente.
                 </DialogDescription>
               </DialogHeader>
 
@@ -370,7 +372,7 @@ export default function Estoque() {
                         </CardTitle>
                         <CardDescription className="text-xs uppercase tracking-wider font-mono">
                           {mat.codigo === 'cimento'
-                            ? 'Silo de Cimento'
+                            ? `Silo de ${mat.nome}`
                             : 'Tanque de Aditivo Químico'}
                         </CardDescription>
                       </div>

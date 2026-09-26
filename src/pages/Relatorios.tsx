@@ -251,13 +251,13 @@ export default function Relatorios() {
       'Traço',
       'Custo Total (R$)',
       'Custo por m3 (R$)',
-      'Cimento (kg)',
-      'Aditivo (L)',
-      'Agua (L)',
-      'Areia (kg)',
-      'Brita 12 (kg)',
-      'Brita 19 (kg)',
-      'Po de Pedra (kg)',
+      `${materiais.find((m) => m.codigo === 'cimento')?.nome || 'CP II F-40 / CP V ARI'} (kg)`,
+      `${materiais.find((m) => m.codigo === 'aditivo')?.nome || 'Aditivo'} (L)`,
+      `${materiais.find((m) => m.codigo === 'agua')?.nome || 'Água'} (L)`,
+      `${materiais.find((m) => m.codigo === 'areia')?.nome || 'Areia'} (kg)`,
+      `${materiais.find((m) => m.codigo === 'brita12')?.nome || 'Brita 12'} (kg)`,
+      `${materiais.find((m) => m.codigo === 'brita19')?.nome || 'Brita 19'} (kg)`,
+      `${materiais.find((m) => m.codigo === 'po_pedra')?.nome || 'Pó de Pedra'} (kg)`,
       'Motorista',
       'Placa',
       'Cidade',
@@ -494,7 +494,10 @@ export default function Relatorios() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ALL">Todos os Materiais</SelectItem>
-                        <SelectItem value="cimento">Cimento</SelectItem>
+                        <SelectItem value="cimento">
+                          {materiais.find((m) => m.codigo === 'cimento')
+                            ?.nome || 'CP II F-40 / CP V ARI'}
+                        </SelectItem>
                         <SelectItem value="aditivo">Aditivo</SelectItem>
                         <SelectItem value="agua">Água</SelectItem>
                         <SelectItem value="areia">Areia</SelectItem>
@@ -661,7 +664,17 @@ export default function Relatorios() {
             </div>
 
             <div className="p-3.5 rounded-lg border border-border/40 bg-card/60">
-              <p className="text-xs text-muted-foreground">Cimento Consumido</p>
+              <p
+                className="text-xs text-muted-foreground truncate"
+                title={
+                  materiais.find((m) => m.codigo === 'cimento')?.nome ||
+                  'CP II F-40 / CP V ARI'
+                }
+              >
+                {materiais.find((m) => m.codigo === 'cimento')?.nome ||
+                  'CP II F-40 / CP V ARI'}{' '}
+                Consumido
+              </p>
               <p className="text-2xl font-bold font-mono text-foreground mt-1">
                 {(totalCimento / 1000).toFixed(2)} t
               </p>
@@ -686,8 +699,15 @@ export default function Relatorios() {
             <CardContent className="pt-0">
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
                 <div className="p-2.5 rounded bg-background/60 border border-border/30">
-                  <span className="text-muted-foreground block text-[11px]">
-                    Cimento
+                  <span
+                    className="text-muted-foreground block text-[11px] truncate"
+                    title={
+                      materiais.find((m) => m.codigo === 'cimento')?.nome ||
+                      'CP II F-40 / CP V ARI'
+                    }
+                  >
+                    {materiais.find((m) => m.codigo === 'cimento')?.nome ||
+                      'CP II F-40 / CP V ARI'}
                   </span>
                   <span className="font-mono font-bold text-foreground block text-sm">
                     R$ {custoCimento.toFixed(2)}
@@ -890,7 +910,11 @@ export default function Relatorios() {
                       <th className="py-2.5 px-3">Traço</th>
                       <th className="py-2.5 px-3">Custo Total</th>
                       <th className="py-2.5 px-3">Custo/m³</th>
-                      <th className="py-2.5 px-3">Cimento (kg)</th>
+                      <th className="py-2.5 px-3">
+                        {materiais.find((m) => m.codigo === 'cimento')?.nome ||
+                          'CP II F-40 / CP V ARI'}{' '}
+                        (kg)
+                      </th>
                       <th className="py-2.5 px-3">Aditivo (L)</th>
                       <th className="py-2.5 px-3">Água (L)</th>
                       <th className="py-2.5 px-3">Areia (kg)</th>
@@ -1163,8 +1187,16 @@ export default function Relatorios() {
                       </span>
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div className="p-2 rounded bg-muted/20 border border-border/20">
-                          <span className="text-muted-foreground block text-[10px]">
-                            Cimento: {(u.consumos.cimento / 1000).toFixed(1)} t
+                          <span
+                            className="text-muted-foreground block text-[10px] truncate"
+                            title={
+                              materiais.find((m) => m.codigo === 'cimento')
+                                ?.nome || 'CP II F-40 / CP V ARI'
+                            }
+                          >
+                            {materiais.find((m) => m.codigo === 'cimento')
+                              ?.nome || 'CP II F-40 / CP V ARI'}
+                            : {(u.consumos.cimento / 1000).toFixed(1)} t
                           </span>
                           <span className="font-mono font-semibold">
                             R${' '}
@@ -1375,7 +1407,10 @@ export default function Relatorios() {
                     </tr>
                     <tr>
                       <td className="py-2.5 px-3 font-medium">
-                        Consumo de Cimento
+                        Consumo (
+                        {materiais.find((m) => m.codigo === 'cimento')?.nome ||
+                          'CP II F-40 / CP V ARI'}
+                        )
                       </td>
                       {dadosComparativo.unidades.map((u) => (
                         <td

@@ -198,7 +198,7 @@ export default function Index() {
   // Dados para gráfico de consumo por material (em toneladas ou L)
   const dadosGraficoConsumo = [
     {
-      material: 'Cimento (t)',
+      material: `${materiais.find((m) => m.codigo === 'cimento')?.nome || 'CP II F-40 / CP V ARI'} (t)`,
       valor: Number((consumoMes.cimento / 1000).toFixed(1)),
       fill: '#f59e0b',
     },
@@ -367,10 +367,18 @@ export default function Index() {
         {/* KPI 3: Saldo Cimento (destaque da planilha) */}
         <Card className="bg-card/70 border-border/40 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Estoque Cimento
+            <CardTitle
+              className="text-xs font-medium text-muted-foreground uppercase tracking-wider truncate"
+              title={
+                materiais.find((m) => m.codigo === 'cimento')?.nome ||
+                'CP II F-40 / CP V ARI'
+              }
+            >
+              Estoque{' '}
+              {materiais.find((m) => m.codigo === 'cimento')?.nome ||
+                'CP II F-40 / CP V ARI'}
             </CardTitle>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-semibold">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-semibold shrink-0">
               Silo Controlado
             </span>
           </CardHeader>
@@ -744,7 +752,11 @@ export default function Index() {
                   <th className="py-2.5 px-3">Traço</th>
                   <th className="py-2.5 px-3">Custo Total</th>
                   <th className="py-2.5 px-3">Custo/m³</th>
-                  <th className="py-2.5 px-3">Cimento (kg)</th>
+                  <th className="py-2.5 px-3">
+                    {materiais.find((m) => m.codigo === 'cimento')?.nome ||
+                      'CP II F-40 / CP V ARI'}{' '}
+                    (kg)
+                  </th>
                   <th className="py-2.5 px-3">Aditivo (L)</th>
                   <th className="py-2.5 px-3">Motorista / Placa</th>
                   <th className="py-2.5 px-3">Destino</th>
