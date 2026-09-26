@@ -50,7 +50,9 @@ import {
   Building,
   User,
   Trash2,
+  FileSpreadsheet,
 } from 'lucide-react'
+import { ModalImportarCargasCSV } from '@/components/ModalImportarCargasCSV'
 import {
   formatarCpfCnpj,
   formatarCep,
@@ -287,6 +289,7 @@ export default function Cadastros() {
   const [ufCidade, setUfCidade] = useState('PB')
 
   const [salvando, setSalvando] = useState(false)
+  const [openImportarCsv, setOpenImportarCsv] = useState(false)
 
   const carregarTudo = async () => {
     if (!empresaAtiva) return
@@ -663,16 +666,29 @@ export default function Cadastros() {
             atendidas da unidade {empresaAtiva?.nome || ''}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={carregarTudo}
-          disabled={loading}
-          className="gap-2"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Atualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setOpenImportarCsv(true)}
+            className="gap-2 bg-primary text-primary-foreground font-semibold shadow-sm"
+            title="Importar cargas e controle diário de materiais da empresa ativa via CSV"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Importar Cargas (CSV)
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={carregarTudo}
+            disabled={loading}
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="usuarios" className="w-full">
@@ -2176,6 +2192,15 @@ export default function Cadastros() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Modal Importador CSV de Cargas e Controle Diário */}
+      <ModalImportarCargasCSV
+        open={openImportarCsv}
+        onOpenChange={setOpenImportarCsv}
+        onImportadoSucesso={() => {
+          carregarTudo()
+        }}
+      />
     </div>
   )
 }

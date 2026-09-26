@@ -51,6 +51,7 @@ import {
   Gauge,
   KeyRound,
   Check,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { Link, useNavigate } from 'react-router-dom'
@@ -842,6 +843,21 @@ export default function LancamentoCargas() {
             </p>
           </div>
         </div>
+
+        {!isBalanceiro && (
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="gap-2 text-xs font-semibold shadow-sm border-border/60 hover:bg-muted/40"
+            title="Ir para tela de cadastros e importação de planilha de controle diário"
+          >
+            <Link to="/cadastros">
+              <FileSpreadsheet className="w-4 h-4 text-primary" />
+              Importar CSV da Unidade
+            </Link>
+          </Button>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

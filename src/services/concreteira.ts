@@ -1506,4 +1506,358 @@ export const ConcreteiraService = {
       .eq('email', email.trim().toLowerCase())
       .is('user_id', null)
   },
+
+  // Importação em Lote de Cargas do Controle Diário (com deduplicação e auto-cadastro)
+  async importarCargasControleDiario(
+    empresaId: string,
+    cargas: Array<{
+      dataIso: string
+      volume_m3: number
+      consumo_brita12: number
+      consumo_brita19: number
+      consumo_areia: number
+      consumo_po_pedra: number
+      consumo_cimento: number
+      consumo_aditivo: number
+      motorista_nome: string | null
+      veiculo_placa: string | null
+      cidade_nome: string | null
+      observacao: string | null
+      carga_zerada: boolean
+      dosagemM3: {
+        brita12: number
+        brita19: number
+        areia: number
+        po_pedra: number
+        cimento: number
+        aditivo: number
+      }
+      tracoChave: string
+      tracoSugeridoNome: string
+    }>,
+    opcoes?: {
+      deduplicar?: boolean
+      gerarBaixaEstoque?: boolean
+    },
+  ): Promise<{
+    importadas: number
+    duplicadasIgnoradas: number
+    motoristasCriados: number
+    veiculosCriados: number
+    cidadesCriadas: number
+    tracosCriados: number
+  }> {
+    const deduplicar = opcoes?.deduplicar ?? true
+    const gerarBaixa = opcoes?.gerarBaixaEstoque ?? true
+
+    // 1. Carregar cadastros existentes da empresa para reaproveitar/vincular
+    const [
+      motoristasExistentes,
+      veiculosExistentes,
+      cidadesExistentes,
+      tracosExistentes,
+      cargasExistentes,
+      materiaisExistentes,
+    ] = await Promise.all([
+      this.getMotoristas(empresaId),
+      this.getVeiculos(empresaId),
+      this.getCidades(empresaId),
+      this.getTracos(empresaId),
+      // Cargas existentes para deduplicação (data, volume, traco_nome ou consumo_cimento)
+      deduplicar
+        ? (supabase as any)
+            .from('cargas')
+            .select(
+              'id, data, volume_m3, consumo_cimento, consumo_brita12, consumo_brita19, traco_nome',
+            )
+            .eq('empresa_id', empresaId)
+            .then(({ data }: any) => (data || []) as any[])
+        : Promise.resolve([]),
+      gerarBaixa ? this.getMateriais(empresaId) : Promise.resolve([]),
+    ])
+
+    const motoristasMap = new Map<string, string>()
+    motoristasExistentes.forEach((m) =>
+      motoristasMap.set(m.nome.toUpperCase().trim(), m.id),
+    )
+
+    const veiculosMap = new Map<string, string>()
+    veiculosExistentes.forEach((v) =>
+      veiculosMap.set(v.placa.toUpperCase().trim(), v.id),
+    )
+
+    const cidadesMap = new Map<string, string>()
+    cidadesExistentes.forEach((c) =>
+      cidadesMap.set(c.nome.toUpperCase().trim(), c.id),
+    )
+
+    const tracosMap = new Map<string, { id: string; nome: string }>()
+    tracosExistentes.forEach((t) => {
+      // Indexa tanto por nome quanto por combinação de dosagem
+      tracosMap.set(t.nome.toLowerCase().trim(), { id: t.id, nome: t.nome })
+      const keyDosagem = `${Math.round(Number(t.consumo_cimento))}_${Math.round(Number(t.consumo_brita12))}_${Math.round(Number(t.consumo_brita19))}_${Math.round(Number(t.consumo_areia))}_${Math.round(Number(t.consumo_po_pedra || 0))}`
+      tracosMap.set(keyDosagem, { id: t.id, nome: t.nome })
+    })
+
+    let motoristasCriados = 0
+    let veiculosCriados = 0
+    let cidadesCriadas = 0
+    let tracosCriados = 0
+
+    // 2. Coletar nomes novos para cadastrar
+    for (const c of cargas) {
+      if (
+        c.motorista_nome &&
+        !motoristasMap.has(c.motorista_nome.toUpperCase().trim())
+      ) {
+        const nomeMot = c.motorista_nome.toUpperCase().trim()
+        try {
+          const novo = await this.salvarMotorista(
+            nomeMot,
+            true,
+            undefined,
+            empresaId,
+          )
+          if (novo?.id) {
+            motoristasMap.set(nomeMot, novo.id)
+            motoristasCriados++
+          }
+        } catch (e) {
+          console.warn('Motorista já existente ou conflito:', nomeMot, e)
+        }
+      }
+
+      if (
+        c.veiculo_placa &&
+        !veiculosMap.has(c.veiculo_placa.toUpperCase().trim())
+      ) {
+        const placa = c.veiculo_placa.toUpperCase().trim()
+        try {
+          const novo = await this.salvarVeiculo(
+            placa,
+            'Betoneira',
+            true,
+            undefined,
+            empresaId,
+          )
+          if (novo?.id) {
+            veiculosMap.set(placa, novo.id)
+            veiculosCriados++
+          }
+        } catch (e) {
+          console.warn('Veículo já existente ou conflito:', placa, e)
+        }
+      }
+
+      if (
+        c.cidade_nome &&
+        !cidadesMap.has(c.cidade_nome.toUpperCase().trim())
+      ) {
+        const nomeCid = c.cidade_nome.toUpperCase().trim()
+        try {
+          const nova = await this.salvarCidade(
+            nomeCid,
+            'PB',
+            undefined,
+            empresaId,
+          )
+          if (nova?.id) {
+            cidadesMap.set(nomeCid, nova.id)
+            cidadesCriadas++
+          }
+        } catch (e) {
+          console.warn('Cidade já existente ou conflito:', nomeCid, e)
+        }
+      }
+
+      // Traços
+      if (!c.carga_zerada) {
+        const keyDosagem = `${Math.round(c.dosagemM3.cimento)}_${Math.round(c.dosagemM3.brita12)}_${Math.round(c.dosagemM3.brita19)}_${Math.round(c.dosagemM3.areia)}_${Math.round(c.dosagemM3.po_pedra || 0)}`
+        if (
+          !tracosMap.has(keyDosagem) &&
+          !tracosMap.has(c.tracoSugeridoNome.toLowerCase().trim())
+        ) {
+          try {
+            const novoTraco = await this.salvarTraco(
+              {
+                nome: c.tracoSugeridoNome,
+                descricao: `Traço derivado do Controle Diário (Cimento: ${Math.round(c.dosagemM3.cimento)}kg/m³)`,
+                fck_mpa:
+                  c.dosagemM3.cimento >= 320
+                    ? 30
+                    : c.dosagemM3.cimento >= 280
+                      ? 25
+                      : 20,
+                consumo_brita12: c.dosagemM3.brita12,
+                consumo_brita19: c.dosagemM3.brita19,
+                consumo_areia: c.dosagemM3.areia,
+                consumo_po_pedra: c.dosagemM3.po_pedra,
+                consumo_cimento: c.dosagemM3.cimento,
+                consumo_aditivo: c.dosagemM3.aditivo,
+                ativo: true,
+              },
+              empresaId,
+            )
+            if (novoTraco?.id) {
+              const tracoObj = { id: novoTraco.id, nome: novoTraco.nome }
+              tracosMap.set(keyDosagem, tracoObj)
+              tracosMap.set(c.tracoSugeridoNome.toLowerCase().trim(), tracoObj)
+              tracosCriados++
+            }
+          } catch (e) {
+            console.warn(
+              'Traço já existente ou conflito:',
+              c.tracoSugeridoNome,
+              e,
+            )
+          }
+        }
+      }
+    }
+
+    // 3. Obter próximo número sequencial de carga
+    let proximoNum = await this.getProximoNumeroCarga(empresaId)
+
+    // Mapa de deduplicação existente: data_volume_cimento_b12
+    const cargasDedupSet = new Set<string>()
+    cargasExistentes.forEach((cg) => {
+      const sig = `${cg.data}_${Number(cg.volume_m3).toFixed(1)}_${Math.round(Number(cg.consumo_cimento))}_${Math.round(Number(cg.consumo_brita12))}`
+      cargasDedupSet.add(sig)
+    })
+
+    // Materiais controlados para estoque (cimento e aditivo)
+    const matCimento = materiaisExistentes.find(
+      (m) => m.codigo === 'cimento' && m.controla_estoque !== false,
+    )
+    const matAditivo = materiaisExistentes.find(
+      (m) => m.codigo === 'aditivo' && m.controla_estoque !== false,
+    )
+
+    let importadas = 0
+    let duplicadasIgnoradas = 0
+
+    // Ordenar cargas por data cronológica para numeração lógica
+    const cargasOrdenadas = [...cargas].sort((a, b) =>
+      a.dataIso.localeCompare(b.dataIso),
+    )
+
+    for (const c of cargasOrdenadas) {
+      // Assinatura de deduplicação
+      const sig = `${c.dataIso}_${Number(c.volume_m3).toFixed(1)}_${Math.round(c.consumo_cimento)}_${Math.round(c.consumo_brita12)}`
+      if (deduplicar && cargasDedupSet.has(sig)) {
+        duplicadasIgnoradas++
+        continue
+      }
+
+      // Resolver vínculos
+      const motId = c.motorista_nome
+        ? motoristasMap.get(c.motorista_nome.toUpperCase().trim())
+        : null
+      const veicId = c.veiculo_placa
+        ? veiculosMap.get(c.veiculo_placa.toUpperCase().trim())
+        : null
+      const cidId = c.cidade_nome
+        ? cidadesMap.get(c.cidade_nome.toUpperCase().trim())
+        : null
+
+      const keyDosagem = `${Math.round(c.dosagemM3.cimento)}_${Math.round(c.dosagemM3.brita12)}_${Math.round(c.dosagemM3.brita19)}_${Math.round(c.dosagemM3.areia)}_${Math.round(c.dosagemM3.po_pedra || 0)}`
+      const tracoInfo = c.carga_zerada
+        ? null
+        : tracosMap.get(keyDosagem) ||
+          tracosMap.get(c.tracoSugeridoNome.toLowerCase().trim()) ||
+          null
+
+      const tracoNomeFinal = c.carga_zerada
+        ? 'Carga Zerada'
+        : tracoInfo?.nome || c.tracoSugeridoNome
+
+      const numeroCargaAtual = proximoNum++
+
+      // Gravar carga
+      const { data: cargaSalva, error: errCarga } = await (supabase as any)
+        .from('cargas')
+        .insert({
+          empresa_id: empresaId,
+          numero_carga: numeroCargaAtual,
+          data: c.dataIso,
+          volume_m3: c.volume_m3,
+          traco_id: tracoInfo?.id || null,
+          traco_nome: tracoNomeFinal,
+          motorista_id: motId || null,
+          motorista_nome: c.motorista_nome || null,
+          veiculo_id: veicId || null,
+          veiculo_placa: c.veiculo_placa || null,
+          cidade_id: cidId || null,
+          cidade_nome: c.cidade_nome || null,
+          consumo_brita12: c.consumo_brita12,
+          consumo_brita19: c.consumo_brita19,
+          consumo_areia: c.consumo_areia,
+          consumo_po_pedra: c.consumo_po_pedra,
+          consumo_cimento: c.consumo_cimento,
+          consumo_aditivo: c.consumo_aditivo,
+          consumo_agua: 0,
+          observacao:
+            c.observacao || 'Importado via planilha de Controle Diário',
+          carga_zerada: c.carga_zerada,
+        })
+        .select()
+        .single()
+
+      if (errCarga) {
+        console.error('Erro ao gravar carga na importação:', errCarga)
+        continue
+      }
+
+      // Adiciona ao set de deduplicação caso haja repetições no próprio arquivo
+      cargasDedupSet.add(sig)
+      importadas++
+
+      // Gerar saída de estoque para cimento e aditivo (se configurado)
+      if (gerarBaixa && !c.carga_zerada && cargaSalva?.id) {
+        const docName = `CARGA-${String(numeroCargaAtual).padStart(5, '0')}`
+        const movimentacoes: any[] = []
+
+        if (c.consumo_cimento > 0 && matCimento?.id) {
+          movimentacoes.push({
+            empresa_id: empresaId,
+            material_id: matCimento.id,
+            tipo: 'SAIDA',
+            quantidade: c.consumo_cimento,
+            data: c.dataIso,
+            carga_id: cargaSalva.id,
+            documento: docName,
+            observacao: `Consumo na carga de ${c.volume_m3}m³ (${tracoNomeFinal})`,
+          })
+        }
+
+        if (c.consumo_aditivo > 0 && matAditivo?.id) {
+          movimentacoes.push({
+            empresa_id: empresaId,
+            material_id: matAditivo.id,
+            tipo: 'SAIDA',
+            quantidade: c.consumo_aditivo,
+            data: c.dataIso,
+            carga_id: cargaSalva.id,
+            documento: docName,
+            observacao: `Consumo na carga de ${c.volume_m3}m³ (${tracoNomeFinal})`,
+          })
+        }
+
+        if (movimentacoes.length > 0) {
+          await (supabase as any)
+            .from('movimentacoes_estoque')
+            .insert(movimentacoes)
+        }
+      }
+    }
+
+    return {
+      importadas,
+      duplicadasIgnoradas,
+      motoristasCriados,
+      veiculosCriados,
+      cidadesCriadas,
+      tracosCriados,
+    }
+  },
 }
