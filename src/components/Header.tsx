@@ -8,7 +8,9 @@ import {
   Plus,
   Scale,
   ShieldCheck,
+  Download,
 } from 'lucide-react'
+import { usePwaInstall } from '@/hooks/use-pwa-install'
 import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from '@/assets/logos'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
@@ -32,6 +34,7 @@ export function Header() {
   const navigate = useNavigate()
   const { signOut } = useAuth()
   const { empresas, empresaAtiva, selecionarEmpresa } = useEmpresa()
+  const { isInstallable, installApp } = usePwaInstall()
   const {
     perfil,
     isBalanceiro,
@@ -205,6 +208,19 @@ export function Header() {
 
         {/* Seletor Desktop de Empresa, Perfil e Usuário/Logout */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Botão de Instalar como PWA (exibido quando suportado pelo navegador) */}
+          {isInstallable && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={installApp}
+              className="h-9 px-3 gap-1.5 border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary font-bold shadow-sm transition-all animate-in fade-in"
+              title="Instalar GC MIX como aplicativo no computador ou celular"
+            >
+              <Download className="w-4 h-4 text-primary animate-bounce" />
+              <span className="hidden sm:inline">Instalar App</span>
+            </Button>
+          )}{' '}
           {/* Badge de Perfil (Vinculado ao cadastro do usuário) */}
           <div
             className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs bg-card ${
@@ -227,7 +243,6 @@ export function Header() {
               </span>
             </div>
           </div>
-
           {/* Seletor Desktop de Empresa e Status */}
           {podeTrocarEmpresa ? (
             <DropdownMenu>
@@ -320,7 +335,6 @@ export function Header() {
               </div>
             </div>
           )}
-
           {/* Menu do Usuário Logado & Logout */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

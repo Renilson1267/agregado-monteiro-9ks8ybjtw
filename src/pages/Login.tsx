@@ -22,12 +22,15 @@ import {
   AlertCircle,
   Sparkles,
   Building2,
+  Download,
 } from 'lucide-react'
 import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from '@/assets/logos'
+import { usePwaInstall } from '@/hooks/use-pwa-install'
 
 export default function Login() {
   const navigate = useNavigate()
   const { user, signIn, signUp, loading: authLoading } = useAuth()
+  const { isInstallable, installApp } = usePwaInstall()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -313,6 +316,19 @@ export default function Login() {
                 'Entrar no Sistema'
               )}
             </Button>
+
+            {/* Atalho de instalação do PWA na tela inicial de login */}
+            {isInstallable && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={installApp}
+                className="w-full h-9 text-xs font-semibold gap-1.5 border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Instalar aplicativo GC MIX no dispositivo</span>
+              </Button>
+            )}
 
             {/* Dica para primeiro acesso padrão com o seed */}
             {!modoPrimeiroAcesso && (
