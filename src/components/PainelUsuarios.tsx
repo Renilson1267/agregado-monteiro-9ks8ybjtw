@@ -96,7 +96,7 @@ export function PainelUsuarios() {
     setEmail('')
     setSenha('')
     setPerfil('balanceiro')
-    // Padrão: primeira empresa ou Monteiro se existir
+    // Padrão para novo balanceiro: primeira empresa; para admin seria 'todas'
     const primeiraEmpresa = empresas[0]?.id || 'todas'
     setEmpresaId(primeiraEmpresa)
     setAtivo(true)
@@ -464,9 +464,16 @@ export function PainelUsuarios() {
                 </Label>
                 <Select
                   value={perfil}
-                  onValueChange={(val: 'administrador' | 'balanceiro') =>
+                  onValueChange={(val: 'administrador' | 'balanceiro') => {
                     setPerfil(val)
-                  }
+                    if (val === 'administrador' && empresaId !== 'todas') {
+                      // Sugere multicompany para administrador
+                      setEmpresaId('todas')
+                    } else if (val === 'balanceiro' && empresaId === 'todas') {
+                      // Força seleção de uma empresa específica para balanceiro
+                      setEmpresaId(empresas[0]?.id || '')
+                    }
+                  }}
                   disabled={salvando}
                 >
                   <SelectTrigger className="h-9 text-xs">
@@ -484,8 +491,13 @@ export function PainelUsuarios() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">
-                  Empresa Permitida
+                <Label className="text-xs font-semibold flex items-center justify-between">
+                  <span>Empresa Permitida</span>
+                  {perfil === 'administrador' && (
+                    <span className="text-[10px] text-primary font-normal">
+                      (Multicompany liberado)
+                    </span>
+                  )}
                 </Label>
                 <Select
                   value={empresaId}
@@ -498,12 +510,15 @@ export function PainelUsuarios() {
                   <SelectContent>
                     {perfil === 'administrador' && (
                       <SelectItem value="todas">
-                        Todas as Empresas (Livre)
+                        Todas as Empresas (Monteiro, SJE e futuras)
                       </SelectItem>
                     )}
                     {empresas.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id}>
-                        {emp.nome}
+                        {emp.nome}{' '}
+                        {perfil === 'balanceiro'
+                          ? '(Obrigatório)'
+                          : '(Unidade inicial)'}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -514,15 +529,24 @@ export function PainelUsuarios() {
             {perfil === 'balanceiro' ? (
               <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300">
                 <strong>Regra Balanceiro:</strong> Cai direto na expedição
-                (/lancamentos) com campos liberados para digitação. Não tem
-                acesso a custos, cadastros ou relatórios e fica restrito à
-                empresa selecionada.
+                (/lancamentos) com campos liberados para digitação. Fica FIXO na
+                sua unidade selecionada (
+                {empresas.find((e) => e.id === empresaId)?.nome ||
+                  'Selecione acima'}
+                ) sem poder trocar de empresa.
               </div>
             ) : (
-              <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-[11px] text-primary">
-                <strong>Regra Administrador:</strong> Acesso irrestrito a todas
-                as áreas, relatórios com custos, insumos, clientes, estoque e
-                gestão de usuários.
+              <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-[11px] text-primary space-y-1">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                  Administrador Multicompany (Monteiro + SJE)
+                </div>
+                <p>
+                  O Administrador tem acesso irrestrito a todas as empresas e
+                  pode alternar livremente entre Monteiro e SJE pelo seletor do
+                  topo. Os dados de cada unidade permanecem isolados e
+                  protegidos.
+                </p>
               </div>
             )}
 

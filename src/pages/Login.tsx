@@ -102,12 +102,13 @@ export default function Login() {
           return
         }
 
-        // Criar registro na tabela usuarios_app
+        // Criar registro na tabela usuarios_app (multicompany: empresa_id null para alternar entre Monteiro e SJE)
         try {
           await ConcreteiraService.salvarUsuarioApp({
             nome: nome.trim(),
             email: email.trim().toLowerCase(),
             perfil: 'administrador',
+            empresa_id: null,
             ativo: true,
           })
         } catch (dbErr) {

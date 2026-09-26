@@ -47,8 +47,8 @@ export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
       setEmpresas(lista)
 
       if (lista.length > 0) {
-        // Se o usuário estiver vinculado a uma empresa específica (ex: balanceiro)
-        if (empresaVinculadaId) {
+        // Se o usuário for balanceiro e estiver vinculado a uma empresa específica
+        if (isBalanceiro && empresaVinculadaId) {
           const vinculada = lista.find((e) => e.id === empresaVinculadaId)
           if (vinculada) {
             setEmpresaAtiva(vinculada)
@@ -57,11 +57,12 @@ export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
           }
         }
 
+        // Para Administrador (ou usuário sem vínculo fixo):
+        // Usa a empresa salva no localStorage (última utilizada) ou a padrão
         const savedId = localStorage.getItem(STORAGE_KEY)
         const encontrada = lista.find(
           (e) => e.id === savedId || e.slug === savedId,
         )
-        // Preferir salva ou primeira ativa
         const padrao = encontrada || lista[0]
         setEmpresaAtiva(padrao)
         if (padrao) {
@@ -73,26 +74,26 @@ export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoading(false)
     }
-  }, [empresaVinculadaId])
+  }, [isBalanceiro, empresaVinculadaId])
 
   useEffect(() => {
     carregarEmpresas()
   }, [carregarEmpresas])
 
-  // Se o usuário tiver empresa vinculada e for balanceiro, fixar
+  // Se for balanceiro com empresa vinculada, fixar sempre na sua unidade
   useEffect(() => {
-    if (empresaVinculadaId && empresas.length > 0) {
+    if (isBalanceiro && empresaVinculadaId && empresas.length > 0) {
       const vinculada = empresas.find((e) => e.id === empresaVinculadaId)
       if (vinculada && empresaAtiva?.id !== vinculada.id) {
         setEmpresaAtiva(vinculada)
         localStorage.setItem(STORAGE_KEY, vinculada.id)
       }
     }
-  }, [empresaVinculadaId, empresas, empresaAtiva?.id])
+  }, [isBalanceiro, empresaVinculadaId, empresas, empresaAtiva?.id])
 
   const selecionarEmpresa = (idOrSlug: string) => {
-    // Balanceiro com empresa vinculada não pode trocar para outra empresa
-    if (isBalanceiro && empresaVinculadaId) {
+    // Balanceiro não pode trocar para outra empresa
+    if (isBalanceiro) {
       return
     }
     const emp = empresas.find((e) => e.id === idOrSlug || e.slug === idOrSlug)

@@ -107,10 +107,15 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
     user?.email?.split('@')[0] ||
     'Usuário'
   const emailUsuario = usuarioApp?.email || user?.email || ''
-  const empresaVinculadaId = usuarioApp?.empresa_id || null
-  const empresaVinculadaNome = usuarioApp?.empresa_nome || null
-  const podeTrocarEmpresa =
-    isAdministrador && !usuarioApp?.empresa_id ? true : isAdministrador
+  // Administrador tem acesso irrestrito e multicompany (pode alternar livremente entre Monteiro, SJE ou qualquer outra unidade).
+  // Apenas o Balanceiro fica estritamente restrito à sua empresa vinculada.
+  const empresaVinculadaId = isBalanceiro
+    ? usuarioApp?.empresa_id || null
+    : null
+  const empresaVinculadaNome = isBalanceiro
+    ? usuarioApp?.empresa_nome || null
+    : null
+  const podeTrocarEmpresa = isAdministrador
 
   return (
     <UsuarioContext.Provider
