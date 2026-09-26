@@ -28,6 +28,7 @@ export type Database = {
           consumo_po_pedra: number
           created_at: string
           data: string
+          empresa_id: string | null
           id: string
           motorista_id: string | null
           motorista_nome: string | null
@@ -51,6 +52,7 @@ export type Database = {
           consumo_po_pedra?: number
           created_at?: string
           data: string
+          empresa_id?: string | null
           id?: string
           motorista_id?: string | null
           motorista_nome?: string | null
@@ -74,6 +76,7 @@ export type Database = {
           consumo_po_pedra?: number
           created_at?: string
           data?: string
+          empresa_id?: string | null
           id?: string
           motorista_id?: string | null
           motorista_nome?: string | null
@@ -91,6 +94,13 @@ export type Database = {
             columns: ['cidade_id']
             isOneToOne: false
             referencedRelation: 'cidades'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'cargas_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: false
+            referencedRelation: 'empresas'
             referencedColumns: ['id']
           },
           {
@@ -119,21 +129,56 @@ export type Database = {
       cidades: {
         Row: {
           created_at: string
+          empresa_id: string | null
           id: string
           nome: string
           uf: string
         }
         Insert: {
           created_at?: string
+          empresa_id?: string | null
           id?: string
           nome: string
           uf?: string
         }
         Update: {
           created_at?: string
+          empresa_id?: string | null
           id?: string
           nome?: string
           uf?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'cidades_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: false
+            referencedRelation: 'empresas'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      empresas: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          nome: string
+          slug: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          slug: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          slug?: string
         }
         Relationships: []
       }
@@ -141,6 +186,7 @@ export type Database = {
         Row: {
           codigo: string
           created_at: string
+          empresa_id: string | null
           estoque_minimo: number
           id: string
           nome: string
@@ -150,6 +196,7 @@ export type Database = {
         Insert: {
           codigo: string
           created_at?: string
+          empresa_id?: string | null
           estoque_minimo?: number
           id?: string
           nome: string
@@ -159,34 +206,54 @@ export type Database = {
         Update: {
           codigo?: string
           created_at?: string
+          empresa_id?: string | null
           estoque_minimo?: number
           id?: string
           nome?: string
           ordem?: number
           unidade?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'materiais_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: false
+            referencedRelation: 'empresas'
+            referencedColumns: ['id']
+          },
+        ]
       }
       motoristas: {
         Row: {
           ativo: boolean
           created_at: string
+          empresa_id: string | null
           id: string
           nome: string
         }
         Insert: {
           ativo?: boolean
           created_at?: string
+          empresa_id?: string | null
           id?: string
           nome: string
         }
         Update: {
           ativo?: boolean
           created_at?: string
+          empresa_id?: string | null
           id?: string
           nome?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'motoristas_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: false
+            referencedRelation: 'empresas'
+            referencedColumns: ['id']
+          },
+        ]
       }
       movimentacoes_estoque: {
         Row: {
@@ -194,6 +261,7 @@ export type Database = {
           created_at: string
           data: string
           documento: string | null
+          empresa_id: string | null
           id: string
           material_id: string
           observacao: string | null
@@ -205,6 +273,7 @@ export type Database = {
           created_at?: string
           data?: string
           documento?: string | null
+          empresa_id?: string | null
           id?: string
           material_id: string
           observacao?: string | null
@@ -216,6 +285,7 @@ export type Database = {
           created_at?: string
           data?: string
           documento?: string | null
+          empresa_id?: string | null
           id?: string
           material_id?: string
           observacao?: string | null
@@ -231,10 +301,55 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
+            foreignKeyName: 'movimentacoes_estoque_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: false
+            referencedRelation: 'empresas'
+            referencedColumns: ['id']
+          },
+          {
             foreignKeyName: 'movimentacoes_estoque_material_id_fkey'
             columns: ['material_id']
             isOneToOne: false
             referencedRelation: 'materiais'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      precos_material: {
+        Row: {
+          created_at: string
+          empresa_id: string | null
+          id: string
+          material_codigo: string
+          mes_ano: string
+          preco_unitario: number
+          unidade: string
+        }
+        Insert: {
+          created_at?: string
+          empresa_id?: string | null
+          id?: string
+          material_codigo: string
+          mes_ano: string
+          preco_unitario?: number
+          unidade?: string
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string | null
+          id?: string
+          material_codigo?: string
+          mes_ano?: string
+          preco_unitario?: number
+          unidade?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'precos_material_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: false
+            referencedRelation: 'empresas'
             referencedColumns: ['id']
           },
         ]
@@ -250,6 +365,7 @@ export type Database = {
           consumo_po_pedra: number
           created_at: string
           descricao: string | null
+          empresa_id: string | null
           fck_mpa: number | null
           id: string
           nome: string
@@ -264,6 +380,7 @@ export type Database = {
           consumo_po_pedra?: number
           created_at?: string
           descricao?: string | null
+          empresa_id?: string | null
           fck_mpa?: number | null
           id?: string
           nome: string
@@ -278,16 +395,26 @@ export type Database = {
           consumo_po_pedra?: number
           created_at?: string
           descricao?: string | null
+          empresa_id?: string | null
           fck_mpa?: number | null
           id?: string
           nome?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'tracos_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: false
+            referencedRelation: 'empresas'
+            referencedColumns: ['id']
+          },
+        ]
       }
       veiculos: {
         Row: {
           ativo: boolean
           created_at: string
+          empresa_id: string | null
           id: string
           modelo: string | null
           placa: string
@@ -295,6 +422,7 @@ export type Database = {
         Insert: {
           ativo?: boolean
           created_at?: string
+          empresa_id?: string | null
           id?: string
           modelo?: string | null
           placa: string
@@ -302,11 +430,20 @@ export type Database = {
         Update: {
           ativo?: boolean
           created_at?: string
+          empresa_id?: string | null
           id?: string
           modelo?: string | null
           placa?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'veiculos_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: false
+            referencedRelation: 'empresas'
+            referencedColumns: ['id']
+          },
+        ]
       }
     }
     Views: {

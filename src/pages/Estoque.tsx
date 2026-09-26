@@ -73,12 +73,22 @@ export default function Estoque() {
     try {
       const [mats, movs] = await Promise.all([
         ConcreteiraService.getMateriais(empresaAtiva.id),
-        ConcreteiraService.getMovimentacoes(filtroMaterial, empresaAtiva.id),
+        ConcreteiraService.getMovimentacoes(
+          filtroMaterial,
+          empresaAtiva.id,
+          true,
+        ),
       ])
       setMateriais(mats)
       setMovimentacoes(movs)
-      if (mats.length > 0 && !materialEntradaId) {
-        setMaterialEntradaId(mats[0].id)
+      // Seleciona material inicial apenas dentre os controlados
+      const matsControlados = mats.filter((m) => m.controla_estoque !== false)
+      if (
+        matsControlados.length > 0 &&
+        (!materialEntradaId ||
+          !matsControlados.some((m) => m.id === materialEntradaId))
+      ) {
+        setMaterialEntradaId(matsControlados[0].id)
       }
     } catch (e: any) {
       console.error(e)
@@ -183,8 +193,9 @@ export default function Estoque() {
             )}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Acompanhe o saldo dos silos, caixas de brita/areia e registre notas
-            de reposição da unidade {empresaAtiva?.nome || ''}
+            Acompanhe o saldo dos silos de cimento e tanques de aditivo da
+            unidade {empresaAtiva?.nome || ''}. (Agregados têm controle
+            exclusivo por consumo).
           </p>
         </div>
 
@@ -200,7 +211,7 @@ export default function Estoque() {
             Atualizar
           </Button>
 
-          {/* Dialog Registrar Entrada */}
+          {/* Dialog Registrar Entrada - apenas para cimento e aditivo */}
           <Dialog open={openEntrada} onOpenChange={setOpenEntrada}>
             <DialogTrigger asChild>
               <Button
@@ -214,17 +225,17 @@ export default function Estoque() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
-                  Registrar Entrada / Reposição de Material
+                  Registrar Entrada / Reposição de Insumo Controlado
                 </DialogTitle>
                 <DialogDescription>
-                  Gera uma movimentação positiva de estoque no silo ou pátio
-                  correspondente.
+                  Gera uma movimentação de estoque para Cimento ou Aditivo no
+                  silo ou tanque correspondente.
                 </DialogDescription>
               </DialogHeader>
 
               <form onSubmit={handleSalvarEntrada} className="space-y-4 py-2">
                 <div className="space-y-2">
-                  <Label htmlFor="materialEntrada">Material *</Label>
+                  <Label htmlFor="materialEntrada">Material Controlado *</Label>
                   <Select
                     value={materialEntradaId}
                     onValueChange={setMaterialEntradaId}
@@ -233,11 +244,13 @@ export default function Estoque() {
                       <SelectValue placeholder="Selecione o material" />
                     </SelectTrigger>
                     <SelectContent>
-                      {materiais.map((m) => (
-                        <SelectItem key={m.id} value={m.id}>
-                          {m.nome} ({m.unidade})
-                        </SelectItem>
-                      ))}
+                      {materiais
+                        .filter((m) => m.controla_estoque !== false)
+                        .map((m) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.nome} ({m.unidade})
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -317,110 +330,164 @@ export default function Estoque() {
         </div>
       </div>
 
-      {/* Grid de Materiais com Saldo e Estoque Mínimo */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {materiais.map((mat) => {
-          const saldo = mat.saldo || 0
-          const critico = saldo <= mat.estoque_minimo
-
-          return (
-            <Card
-              key={mat.id}
-              className={`border-border/40 bg-card/70 relative overflow-hidden ${critico ? 'border-destructive/40' : ''}`}
+      {/* Grid de Materiais Controlados (Cimento e Aditivo) */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+            Insumos com Controle de Estoque
+            <Badge
+              variant="outline"
+              className="text-xs text-primary border-primary/30"
             >
-              <div
-                className={`h-1.5 w-full ${critico ? 'bg-destructive' : 'bg-primary'}`}
-              />
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-base font-semibold">
-                      {mat.nome}
-                    </CardTitle>
-                    <CardDescription className="text-xs uppercase tracking-wider font-mono">
-                      Cód: {mat.codigo}
-                    </CardDescription>
-                  </div>
-                  <Badge
-                    variant={critico ? 'destructive' : 'outline'}
-                    className="text-xs"
-                  >
-                    {critico ? 'Reposição Urgente' : 'Estoque Regular'}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-baseline justify-between">
-                  <div>
-                    <span className="text-3xl font-extrabold text-foreground">
-                      {saldo.toLocaleString('pt-BR')}
-                    </span>{' '}
-                    <span className="text-sm font-medium text-muted-foreground">
-                      {mat.unidade}
-                    </span>
-                  </div>
-                  {saldo >= 1000 && mat.unidade === 'kg' && (
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                      {(saldo / 1000).toFixed(2)} t
-                    </span>
-                  )}
-                </div>
+              Silo & Tanque
+            </Badge>
+          </h2>
+          <span className="text-xs text-muted-foreground">
+            Baixa automática nas cargas com alerta de estoque mínimo
+          </span>
+        </div>
 
-                <div className="p-2.5 rounded-lg bg-background/50 border border-border/30 text-xs space-y-1">
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Estoque Mínimo (Alerta):</span>
-                    <span className="font-semibold text-foreground">
-                      {mat.estoque_minimo.toLocaleString('pt-BR')} {mat.unidade}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Margem Operacional:</span>
-                    <span
-                      className={
-                        saldo - mat.estoque_minimo < 0
-                          ? 'text-destructive font-bold'
-                          : 'text-emerald-500 font-medium'
-                      }
-                    >
-                      {(saldo - mat.estoque_minimo).toLocaleString('pt-BR')}{' '}
-                      {mat.unidade}
-                    </span>
-                  </div>
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {materiais
+            .filter((m) => m.controla_estoque !== false)
+            .map((mat) => {
+              const saldo = mat.saldo || 0
+              const critico = saldo <= mat.estoque_minimo
 
-                <div className="flex items-center justify-between pt-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs h-8 text-muted-foreground hover:text-foreground gap-1 px-2"
-                    onClick={() => {
-                      setMaterialEditando(mat)
-                      setNovoMinimo(mat.estoque_minimo)
-                      setOpenMinimo(true)
-                    }}
-                  >
-                    <Settings2 className="w-3.5 h-3.5" />
-                    Alterar Mínimo
-                  </Button>
+              return (
+                <Card
+                  key={mat.id}
+                  className={`border-border/40 bg-card/70 relative overflow-hidden shadow-sm ${critico ? 'border-destructive/40' : ''}`}
+                >
+                  <div
+                    className={`h-1.5 w-full ${critico ? 'bg-destructive' : 'bg-primary'}`}
+                  />
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-lg font-semibold">
+                          {mat.nome}
+                        </CardTitle>
+                        <CardDescription className="text-xs uppercase tracking-wider font-mono">
+                          {mat.codigo === 'cimento'
+                            ? 'Silo de Cimento'
+                            : 'Tanque de Aditivo Químico'}
+                        </CardDescription>
+                      </div>
+                      <Badge
+                        variant={critico ? 'destructive' : 'outline'}
+                        className="text-xs"
+                      >
+                        {critico ? 'Reposição Urgente' : 'Estoque Regular'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-baseline justify-between">
+                      <div>
+                        <span className="text-3xl font-extrabold text-foreground">
+                          {saldo.toLocaleString('pt-BR')}
+                        </span>{' '}
+                        <span className="text-sm font-medium text-muted-foreground">
+                          {mat.unidade}
+                        </span>
+                      </div>
+                      {saldo >= 1000 && mat.unidade === 'kg' && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                          {(saldo / 1000).toFixed(2)} t
+                        </span>
+                      )}
+                    </div>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs h-8 gap-1 px-2 text-primary hover:text-primary"
-                    onClick={() => {
-                      setMaterialEntradaId(mat.id)
-                      setOpenEntrada(true)
-                    }}
-                  >
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    Repor
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
+                    <div className="p-2.5 rounded-lg bg-background/50 border border-border/30 text-xs space-y-1">
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Estoque Mínimo (Alerta):</span>
+                        <span className="font-semibold text-foreground">
+                          {mat.estoque_minimo.toLocaleString('pt-BR')}{' '}
+                          {mat.unidade}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Margem Operacional:</span>
+                        <span
+                          className={
+                            saldo - mat.estoque_minimo < 0
+                              ? 'text-destructive font-bold'
+                              : 'text-emerald-500 font-medium'
+                          }
+                        >
+                          {(saldo - mat.estoque_minimo).toLocaleString('pt-BR')}{' '}
+                          {mat.unidade}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs h-8 text-muted-foreground hover:text-foreground gap-1 px-2"
+                        onClick={() => {
+                          setMaterialEditando(mat)
+                          setNovoMinimo(mat.estoque_minimo)
+                          setOpenMinimo(true)
+                        }}
+                      >
+                        <Settings2 className="w-3.5 h-3.5" />
+                        Alterar Mínimo
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-8 gap-1 px-2 text-primary hover:text-primary"
+                        onClick={() => {
+                          setMaterialEntradaId(mat.id)
+                          setOpenEntrada(true)
+                        }}
+                      >
+                        <PlusCircle className="w-3.5 h-3.5" />
+                        Repor Estoque
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+        </div>
       </div>
+
+      {/* Seção Informativa: Materiais Apenas Consumo */}
+      <Card className="border-border/30 bg-muted/20">
+        <CardHeader className="py-3 px-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <div>
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Boxes className="w-4 h-4 text-muted-foreground" />
+                Agregados e Materiais em Modo Apenas Consumo
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Brita 12, Brita 19, Areia e Pó de Pedra são registrados
+                diretamente no consumo das cargas (sem saldo de estoque, baixa
+                ou alerta mínimo).
+              </CardDescription>
+            </div>
+            <div className="flex gap-1.5 flex-wrap">
+              {materiais
+                .filter((m) => m.controla_estoque === false)
+                .map((m) => (
+                  <Badge
+                    key={m.id}
+                    variant="secondary"
+                    className="text-xs font-normal"
+                  >
+                    {m.nome}
+                  </Badge>
+                ))}
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
 
       {/* Dialog Editar Estoque Mínimo */}
       <Dialog open={openMinimo} onOpenChange={setOpenMinimo}>
@@ -499,16 +566,18 @@ export default function Estoque() {
               Filtrar Material:
             </span>
             <Select value={filtroMaterial} onValueChange={setFiltroMaterial}>
-              <SelectTrigger className="w-[180px] h-8 text-xs">
-                <SelectValue placeholder="Todos os materiais" />
+              <SelectTrigger className="w-[190px] h-8 text-xs">
+                <SelectValue placeholder="Materiais Controlados" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">Todos os Materiais</SelectItem>
-                {materiais.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.nome}
-                  </SelectItem>
-                ))}
+                <SelectItem value="ALL">Cimento e Aditivo</SelectItem>
+                {materiais
+                  .filter((m) => m.controla_estoque !== false)
+                  .map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.nome}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>

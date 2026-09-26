@@ -15,6 +15,7 @@ export interface Material {
   estoque_minimo: number
   ordem: number
   saldo?: number
+  controla_estoque?: boolean
   created_at?: string
 }
 
@@ -59,6 +60,17 @@ export interface Cidade {
   created_at?: string
 }
 
+export interface CustoBreakdown {
+  cimento: number
+  aditivo: number
+  areia: number
+  brita12: number
+  brita19: number
+  po_pedra: number
+  total: number
+  custoPorM3: number
+}
+
 export interface Carga {
   id: string
   empresa_id?: string
@@ -81,6 +93,7 @@ export interface Carga {
   consumo_aditivo: number
   observacao: string | null
   carga_zerada: boolean
+  custo?: CustoBreakdown
   created_at?: string
 }
 
@@ -113,6 +126,8 @@ export interface DashboardKPIs {
   cargasHoje: number
   volumeMes: number
   cargasMes: number
+  custoTotalMes: number
+  custoMedioPorM3Mes: number
   consumoMes: {
     cimento: number
     aditivo: number
@@ -122,4 +137,38 @@ export interface DashboardKPIs {
     po_pedra: number
   }
   estoqueAbaixoMinimo: number
+}
+
+export interface ComparativoUnidade {
+  empresaId: string
+  empresaNome: string
+  empresaSlug: string
+  volumeTotal: number
+  cargasTotal: number
+  cargasZeradas: number
+  custoTotal: number
+  custoPorM3: number
+  consumos: {
+    cimento: number
+    aditivo: number
+    areia: number
+    brita12: number
+    brita19: number
+    po_pedra: number
+  }
+  custosPorMaterial: {
+    cimento: number
+    aditivo: number
+    areia: number
+    brita12: number
+    brita19: number
+    po_pedra: number
+  }
+  porTraco: Array<{
+    tracoNome: string
+    volume: number
+    cargas: number
+    custoTotal: number
+    custoPorM3: number
+  }>
 }

@@ -17,24 +17,26 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog'
 import { ConcreteiraService } from '@/services/concreteira'
 import { useEmpresa } from '@/hooks/use-empresa'
-import type { Traco } from '@/types/concreteira'
+import type { Traco, PrecoMaterial, Carga } from '@/types/concreteira'
 import {
   FlaskConical,
   PlusCircle,
   Edit2,
   Layers,
-  CheckCircle,
+  DollarSign,
+  TrendingUp,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 export default function Tracos() {
   const { empresaAtiva } = useEmpresa()
   const [tracos, setTracos] = useState<Traco[]>([])
+  const [precos, setPrecos] = useState<PrecoMaterial[]>([])
+  const [cargas, setCargas] = useState<Carga[]>([])
   const [loading, setLoading] = useState(true)
 
   // Dialog Form
@@ -57,8 +59,14 @@ export default function Tracos() {
     if (!empresaAtiva) return
     setLoading(true)
     try {
-      const data = await ConcreteiraService.getTracos(empresaAtiva.id)
+      const [data, prc, crgs] = await Promise.all([
+        ConcreteiraService.getTracos(empresaAtiva.id),
+        ConcreteiraService.getPrecosMaterial(empresaAtiva.id),
+        ConcreteiraService.getCargas({ empresaId: empresaAtiva.id }),
+      ])
       setTracos(data)
+      setPrecos(prc)
+      setCargas(crgs)
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar traços',
@@ -185,115 +193,171 @@ export default function Tracos() {
         </Button>
       </div>
 
-      {/* Grid de Traços Cadastrados */}
+      {/* Grid de Traços Cadastrados com Custos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {tracos.map((t) => (
-          <Card
-            key={t.id}
-            className="border-border/40 bg-card/70 flex flex-col justify-between hover:border-primary/40 transition-colors"
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-base font-semibold">
-                    {t.nome}
-                  </CardTitle>
-                  {t.fck_mpa && (
-                    <Badge
-                      variant="outline"
-                      className="mt-1 text-xs bg-primary/10 text-primary border-primary/30"
-                    >
-                      fck ≥ {t.fck_mpa} MPa
-                    </Badge>
-                  )}
+        {tracos.map((t) => {
+          const calculoTeorico = ConcreteiraService.calcularCustoTracoM3(
+            t,
+            precos,
+          )
+          const custoTeoricoM3 = calculoTeorico.totalPorM3
+
+          // Cargas reais expedidas com este traço
+          const cargasDesteTraco = cargas.filter(
+            (c) =>
+              (c.traco_id === t.id || c.traco_nome === t.nome) &&
+              !c.carga_zerada,
+          )
+          const volumeExpedido = cargasDesteTraco.reduce(
+            (acc, c) => acc + Number(c.volume_m3),
+            0,
+          )
+          const custoTotalReal = cargasDesteTraco.reduce(
+            (acc, c) => acc + (c.custo?.total || 0),
+            0,
+          )
+          const custoMedioRealM3 =
+            volumeExpedido > 0 ? custoTotalReal / volumeExpedido : 0
+
+          return (
+            <Card
+              key={t.id}
+              className="border-border/40 bg-card/70 flex flex-col justify-between hover:border-primary/40 transition-colors shadow-sm"
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="text-base font-semibold">
+                      {t.nome}
+                    </CardTitle>
+                    {t.fck_mpa && (
+                      <Badge
+                        variant="outline"
+                        className="mt-1 text-xs bg-primary/10 text-primary border-primary/30"
+                      >
+                        fck ≥ {t.fck_mpa} MPa
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    onClick={() => abrirEdicao(t)}
+                    title="Editar Traço"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={() => abrirEdicao(t)}
-                  title="Editar Traço"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </Button>
-              </div>
-              {t.descricao && (
-                <CardDescription className="text-xs mt-2 line-clamp-2">
-                  {t.descricao}
-                </CardDescription>
-              )}
-            </CardHeader>
+                {t.descricao && (
+                  <CardDescription className="text-xs mt-2 line-clamp-2">
+                    {t.descricao}
+                  </CardDescription>
+                )}
+              </CardHeader>
 
-            <CardContent className="space-y-3 pt-0">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 border-t border-border/30 pt-3">
-                <Layers className="w-3.5 h-3.5 text-primary" />
-                Consumo por m³ de concreto:
-              </div>
+              <CardContent className="space-y-3 pt-0">
+                {/* Bloco de Custo por m³ */}
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-primary flex items-center gap-1">
+                      <DollarSign className="w-3.5 h-3.5" />
+                      Custo Teórico Insumos (1 m³):
+                    </span>
+                    <span className="text-sm font-extrabold text-foreground font-mono">
+                      R$ {custoTeoricoM3.toFixed(2)}/m³
+                    </span>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="p-2 rounded bg-background/60 border border-border/30">
-                  <span className="text-muted-foreground block text-[10px]">
-                    Cimento
-                  </span>
-                  <span className="font-mono font-bold text-foreground text-sm">
-                    {t.consumo_cimento}
-                  </span>{' '}
-                  kg/m³
-                </div>
-
-                <div className="p-2 rounded bg-background/60 border border-border/30">
-                  <span className="text-muted-foreground block text-[10px]">
-                    Aditivo
-                  </span>
-                  <span className="font-mono font-bold text-foreground text-sm">
-                    {t.consumo_aditivo}
-                  </span>{' '}
-                  L/m³
-                </div>
-
-                <div className="p-2 rounded bg-background/60 border border-border/30">
-                  <span className="text-muted-foreground block text-[10px]">
-                    Areia
-                  </span>
-                  <span className="font-mono font-bold text-foreground text-sm">
-                    {t.consumo_areia}
-                  </span>{' '}
-                  kg/m³
-                </div>
-
-                <div className="p-2 rounded bg-background/60 border border-border/30">
-                  <span className="text-muted-foreground block text-[10px]">
-                    Brita 12
-                  </span>
-                  <span className="font-mono font-bold text-foreground text-sm">
-                    {t.consumo_brita12}
-                  </span>{' '}
-                  kg/m³
-                </div>
-
-                <div className="p-2 rounded bg-background/60 border border-border/30">
-                  <span className="text-muted-foreground block text-[10px]">
-                    Brita 19
-                  </span>
-                  <span className="font-mono font-bold text-foreground text-sm">
-                    {t.consumo_brita19}
-                  </span>{' '}
-                  kg/m³
+                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-primary/10">
+                    <span className="flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3 text-emerald-500" />
+                      Custo Médio Expedido ({cargasDesteTraco.length} cargas):
+                    </span>
+                    <span className="font-mono font-medium text-foreground">
+                      {custoMedioRealM3 > 0
+                        ? `R$ ${custoMedioRealM3.toFixed(2)}/m³`
+                        : 'Sem histórico'}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="p-2 rounded bg-background/60 border border-border/30">
-                  <span className="text-muted-foreground block text-[10px]">
-                    Pó de Pedra
-                  </span>
-                  <span className="font-mono font-bold text-foreground text-sm">
-                    {t.consumo_po_pedra}
-                  </span>{' '}
-                  kg/m³
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 border-t border-border/30 pt-3">
+                  <Layers className="w-3.5 h-3.5 text-primary" />
+                  Consumo por m³ de concreto:
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[10px]">
+                      Cimento (R${' '}
+                      {(calculoTeorico.detalhes.cimento || 0).toFixed(2)})
+                    </span>
+                    <span className="font-mono font-bold text-foreground text-sm">
+                      {t.consumo_cimento}
+                    </span>{' '}
+                    kg/m³
+                  </div>
+
+                  <div className="p-2 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[10px]">
+                      Aditivo (R${' '}
+                      {(calculoTeorico.detalhes.aditivo || 0).toFixed(2)})
+                    </span>
+                    <span className="font-mono font-bold text-foreground text-sm">
+                      {t.consumo_aditivo}
+                    </span>{' '}
+                    L/m³
+                  </div>
+
+                  <div className="p-2 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[10px]">
+                      Areia (R${' '}
+                      {(calculoTeorico.detalhes.areia || 0).toFixed(2)})
+                    </span>
+                    <span className="font-mono font-bold text-foreground text-sm">
+                      {t.consumo_areia}
+                    </span>{' '}
+                    kg/m³
+                  </div>
+
+                  <div className="p-2 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[10px]">
+                      Brita 12 (R${' '}
+                      {(calculoTeorico.detalhes.brita12 || 0).toFixed(2)})
+                    </span>
+                    <span className="font-mono font-bold text-foreground text-sm">
+                      {t.consumo_brita12}
+                    </span>{' '}
+                    kg/m³
+                  </div>
+
+                  <div className="p-2 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[10px]">
+                      Brita 19 (R${' '}
+                      {(calculoTeorico.detalhes.brita19 || 0).toFixed(2)})
+                    </span>
+                    <span className="font-mono font-bold text-foreground text-sm">
+                      {t.consumo_brita19}
+                    </span>{' '}
+                    kg/m³
+                  </div>
+
+                  <div className="p-2 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[10px]">
+                      Pó de Pedra (R${' '}
+                      {(calculoTeorico.detalhes.po_pedra || 0).toFixed(2)})
+                    </span>
+                    <span className="font-mono font-bold text-foreground text-sm">
+                      {t.consumo_po_pedra}
+                    </span>{' '}
+                    kg/m³
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       {/* Dialog Formulário de Traço */}

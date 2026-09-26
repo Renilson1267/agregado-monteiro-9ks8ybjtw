@@ -7,6 +7,9 @@ import type {
   Cidade,
   Carga,
   MovimentacaoEstoque,
+  PrecoMaterial,
+  CustoBreakdown,
+  ComparativoUnidade,
 } from '@/types/concreteira'
 
 export const ConcreteiraService = {
@@ -49,6 +52,9 @@ export const ConcreteiraService = {
 
     return (materiais || []).map((mat: any) => ({
       ...mat,
+      controla_estoque:
+        mat.controla_estoque ??
+        (mat.codigo === 'cimento' || mat.codigo === 'aditivo'),
       estoque_minimo: Number(mat.estoque_minimo) || 0,
       saldo: Number((saldos[mat.id] || 0).toFixed(2)),
     }))
@@ -68,12 +74,13 @@ export const ConcreteiraService = {
   async getMovimentacoes(
     materialId?: string,
     empresaId?: string,
+    apenasControlados = true,
   ): Promise<MovimentacaoEstoque[]> {
     let query = (supabase as any)
       .from('movimentacoes_estoque')
       .select('*, material:materiais(*)')
       .order('created_at', { ascending: false })
-      .limit(200)
+      .limit(300)
 
     if (empresaId) {
       query = query.eq('empresa_id', empresaId)
@@ -85,7 +92,19 @@ export const ConcreteiraService = {
 
     const { data, error } = await query
     if (error) throw error
-    return data || []
+    let result = (data || []) as MovimentacaoEstoque[]
+
+    // Se apenasControlados for true, filtra movimentações para materiais de estoque controlado (cimento e aditivo)
+    if (apenasControlados && (!materialId || materialId === 'ALL')) {
+      result = result.filter((m) => {
+        const mat = m.material
+        if (!mat) return true
+        if (mat.controla_estoque !== undefined) return mat.controla_estoque
+        return mat.codigo === 'cimento' || mat.codigo === 'aditivo'
+      })
+    }
+
+    return result
   },
 
   async registrarEntradaEstoque(payload: {
@@ -292,7 +311,7 @@ export const ConcreteiraService = {
     return data
   },
 
-  // Cargas
+  // Cargas com cálculo de custo dos insumos embutido
   async getCargas(filtros?: {
     empresaId?: string
     dataInicio?: string
@@ -300,6 +319,7 @@ export const ConcreteiraService = {
     cidade?: string
     motorista?: string
     veiculo?: string
+    material?: string
     apenasZeradas?: boolean
   }): Promise<Carga[]> {
     let query = (supabase as any)
@@ -321,7 +341,181 @@ export const ConcreteiraService = {
 
     const { data, error } = await query
     if (error) throw error
-    return data || []
+
+    let cargas = (data || []) as Carga[]
+
+    // Filtro adicional por material: apenas cargas que consumiram aquele material (> 0)
+    if (filtros?.material && filtros.material !== 'ALL') {
+      const matKey = filtros.material
+      cargas = cargas.filter((c) => {
+        if (matKey === 'cimento') return Number(c.consumo_cimento) > 0
+        if (matKey === 'aditivo') return Number(c.consumo_aditivo) > 0
+        if (matKey === 'areia') return Number(c.consumo_areia) > 0
+        if (matKey === 'brita12') return Number(c.consumo_brita12) > 0
+        if (matKey === 'brita19') return Number(c.consumo_brita19) > 0
+        if (matKey === 'po_pedra') return Number(c.consumo_po_pedra) > 0
+        return true
+      })
+    }
+
+    // Buscar tabela de preços para enriquecer com o cálculo de custo
+    const precos = await this.getPrecosMaterial(filtros?.empresaId)
+
+    return cargas.map((c) => {
+      const custo = this.calcularCustoCarga(c, precos)
+      return {
+        ...c,
+        custo,
+      }
+    })
+  },
+
+  // Resolver o preço unitário aplicável a um material em uma data
+  getPrecoUnitarioParaData(
+    materialCodigo: string,
+    dataStr: string,
+    precos: PrecoMaterial[],
+  ): number {
+    if (!precos || precos.length === 0) return 0
+
+    // Filtra preços para o material
+    const precosMat = precos.filter((p) => p.material_codigo === materialCodigo)
+    if (precosMat.length === 0) return 0
+
+    // Extrair ano-mes da carga: '2026-09-15' -> '09/2026'
+    const [ano, mes] = dataStr ? dataStr.slice(0, 7).split('-') : ['', '']
+    const mesAnoCarga = `${mes}/${ano}`
+
+    // 1. Tentar encontrar preço exato do mês da carga
+    const precoExato = precosMat.find((p) => p.mes_ano === mesAnoCarga)
+    if (precoExato) return Number(precoExato.preco_unitario) || 0
+
+    // 2. Se não houver, pegar o mais recente anterior à data da carga
+    // Converte mes_ano 'MM/YYYY' para YYYY-MM para comparação cronológica
+    const parseMesAno = (ma: string) => {
+      const [m, y] = ma.split('/')
+      return `${y}-${m}`
+    }
+    const targetYm = `${ano}-${mes}`
+
+    const anteriores = precosMat
+      .filter((p) => parseMesAno(p.mes_ano) <= targetYm)
+      .sort((a, b) =>
+        parseMesAno(b.mes_ano).localeCompare(parseMesAno(a.mes_ano)),
+      )
+
+    if (anteriores.length > 0) {
+      return Number(anteriores[0].preco_unitario) || 0
+    }
+
+    // 3. Fallback: qualquer preço disponível ordenado pelo mais recente
+    const ordenados = [...precosMat].sort((a, b) =>
+      parseMesAno(b.mes_ano).localeCompare(parseMesAno(a.mes_ano)),
+    )
+    return Number(ordenados[0]?.preco_unitario) || 0
+  },
+
+  // Calcula o custo total e breakdown de uma carga
+  calcularCustoCarga(carga: Carga, precos: PrecoMaterial[]): CustoBreakdown {
+    if (carga.carga_zerada) {
+      return {
+        cimento: 0,
+        aditivo: 0,
+        areia: 0,
+        brita12: 0,
+        brita19: 0,
+        po_pedra: 0,
+        total: 0,
+        custoPorM3: 0,
+      }
+    }
+
+    const pCimento = this.getPrecoUnitarioParaData(
+      'cimento',
+      carga.data,
+      precos,
+    )
+    const pAditivo = this.getPrecoUnitarioParaData(
+      'aditivo',
+      carga.data,
+      precos,
+    )
+    const pAreia = this.getPrecoUnitarioParaData('areia', carga.data, precos)
+    const pBrita12 = this.getPrecoUnitarioParaData(
+      'brita12',
+      carga.data,
+      precos,
+    )
+    const pBrita19 = this.getPrecoUnitarioParaData(
+      'brita19',
+      carga.data,
+      precos,
+    )
+    const pPoPedra = this.getPrecoUnitarioParaData(
+      'po_pedra',
+      carga.data,
+      precos,
+    )
+
+    const cCimento = Number(carga.consumo_cimento || 0) * pCimento
+    const cAditivo = Number(carga.consumo_aditivo || 0) * pAditivo
+    const cAreia = Number(carga.consumo_areia || 0) * pAreia
+    const cBrita12 = Number(carga.consumo_brita12 || 0) * pBrita12
+    const cBrita19 = Number(carga.consumo_brita19 || 0) * pBrita19
+    const cPoPedra = Number(carga.consumo_po_pedra || 0) * pPoPedra
+
+    const total = cCimento + cAditivo + cAreia + cBrita12 + cBrita19 + cPoPedra
+    const vol = Number(carga.volume_m3) || 0
+    const custoPorM3 = vol > 0 ? total / vol : 0
+
+    return {
+      cimento: Number(cCimento.toFixed(2)),
+      aditivo: Number(cAditivo.toFixed(2)),
+      areia: Number(cAreia.toFixed(2)),
+      brita12: Number(cBrita12.toFixed(2)),
+      brita19: Number(cBrita19.toFixed(2)),
+      po_pedra: Number(cPoPedra.toFixed(2)),
+      total: Number(total.toFixed(2)),
+      custoPorM3: Number(custoPorM3.toFixed(2)),
+    }
+  },
+
+  // Calcula custo teórico por m³ de um traço padrão
+  calcularCustoTracoM3(
+    traco: Traco,
+    precos: PrecoMaterial[],
+  ): {
+    totalPorM3: number
+    detalhes: Record<string, number>
+  } {
+    const hoje = new Date().toISOString().split('T')[0]
+    const pCimento = this.getPrecoUnitarioParaData('cimento', hoje, precos)
+    const pAditivo = this.getPrecoUnitarioParaData('aditivo', hoje, precos)
+    const pAreia = this.getPrecoUnitarioParaData('areia', hoje, precos)
+    const pBrita12 = this.getPrecoUnitarioParaData('brita12', hoje, precos)
+    const pBrita19 = this.getPrecoUnitarioParaData('brita19', hoje, precos)
+    const pPoPedra = this.getPrecoUnitarioParaData('po_pedra', hoje, precos)
+
+    const cCimento = Number(traco.consumo_cimento || 0) * pCimento
+    const cAditivo = Number(traco.consumo_aditivo || 0) * pAditivo
+    const cAreia = Number(traco.consumo_areia || 0) * pAreia
+    const cBrita12 = Number(traco.consumo_brita12 || 0) * pBrita12
+    const cBrita19 = Number(traco.consumo_brita19 || 0) * pBrita19
+    const cPoPedra = Number(traco.consumo_po_pedra || 0) * pPoPedra
+
+    const total = cCimento + cAditivo + cAreia + cBrita12 + cBrita19 + cPoPedra
+
+    return {
+      totalPorM3: Number(total.toFixed(2)),
+      detalhes: {
+        cimento: Number(cCimento.toFixed(2)),
+        aditivo: Number(cAditivo.toFixed(2)),
+        areia: Number(cAreia.toFixed(2)),
+        brita12: Number(cBrita12.toFixed(2)),
+        brita19: Number(cBrita19.toFixed(2)),
+        po_pedra: Number(cPoPedra.toFixed(2)),
+      },
+    }
   },
 
   async getProximoNumeroCarga(empresaId?: string): Promise<number> {
@@ -394,18 +588,24 @@ export const ConcreteiraService = {
 
     if (cargaErr) throw cargaErr
 
-    // 2. Se não for zerada, gerar saídas de estoque
+    // 2. Se não for zerada, gerar saídas de estoque SOMENTE para materiais com controla_estoque === true (cimento e aditivo)
     if (!payload.carga_zerada) {
       const materiais = await this.getMateriais(payload.empresa_id)
-      const matMap = new Map(materiais.map((m) => [m.codigo, m.id]))
+      const docName = `CARGA-${String(carga.numero_carga).padStart(5, '0')}`
       const saídas: any[] = []
 
-      const docName = `CARGA-${String(carga.numero_carga).padStart(5, '0')}`
+      // Materiais controlados: cimento e aditivo
+      const matCimento = materiais.find(
+        (m) => m.codigo === 'cimento' && m.controla_estoque !== false,
+      )
+      const matAditivo = materiais.find(
+        (m) => m.codigo === 'aditivo' && m.controla_estoque !== false,
+      )
 
-      if (payload.consumo_cimento > 0 && matMap.get('cimento')) {
+      if (payload.consumo_cimento > 0 && matCimento) {
         saídas.push({
           empresa_id: payload.empresa_id || null,
-          material_id: matMap.get('cimento'),
+          material_id: matCimento.id,
           tipo: 'SAIDA',
           quantidade: payload.consumo_cimento,
           data: payload.data,
@@ -414,10 +614,10 @@ export const ConcreteiraService = {
           observacao: `Consumo na carga de ${payload.volume_m3}m³`,
         })
       }
-      if (payload.consumo_aditivo > 0 && matMap.get('aditivo')) {
+      if (payload.consumo_aditivo > 0 && matAditivo) {
         saídas.push({
           empresa_id: payload.empresa_id || null,
-          material_id: matMap.get('aditivo'),
+          material_id: matAditivo.id,
           tipo: 'SAIDA',
           quantidade: payload.consumo_aditivo,
           data: payload.data,
@@ -426,54 +626,8 @@ export const ConcreteiraService = {
           observacao: `Consumo na carga de ${payload.volume_m3}m³`,
         })
       }
-      if (payload.consumo_areia > 0 && matMap.get('areia')) {
-        saídas.push({
-          empresa_id: payload.empresa_id || null,
-          material_id: matMap.get('areia'),
-          tipo: 'SAIDA',
-          quantidade: payload.consumo_areia,
-          data: payload.data,
-          carga_id: carga.id,
-          documento: docName,
-          observacao: `Consumo na carga de ${payload.volume_m3}m³`,
-        })
-      }
-      if (payload.consumo_brita12 > 0 && matMap.get('brita12')) {
-        saídas.push({
-          empresa_id: payload.empresa_id || null,
-          material_id: matMap.get('brita12'),
-          tipo: 'SAIDA',
-          quantidade: payload.consumo_brita12,
-          data: payload.data,
-          carga_id: carga.id,
-          documento: docName,
-          observacao: `Consumo na carga de ${payload.volume_m3}m³`,
-        })
-      }
-      if (payload.consumo_brita19 > 0 && matMap.get('brita19')) {
-        saídas.push({
-          empresa_id: payload.empresa_id || null,
-          material_id: matMap.get('brita19'),
-          tipo: 'SAIDA',
-          quantidade: payload.consumo_brita19,
-          data: payload.data,
-          carga_id: carga.id,
-          documento: docName,
-          observacao: `Consumo na carga de ${payload.volume_m3}m³`,
-        })
-      }
-      if (payload.consumo_po_pedra > 0 && matMap.get('po_pedra')) {
-        saídas.push({
-          empresa_id: payload.empresa_id || null,
-          material_id: matMap.get('po_pedra'),
-          tipo: 'SAIDA',
-          quantidade: payload.consumo_po_pedra,
-          data: payload.data,
-          carga_id: carga.id,
-          documento: docName,
-          observacao: `Consumo na carga de ${payload.volume_m3}m³`,
-        })
-      }
+
+      // IMPORTANTE: Britas, Areia e Pó de Pedra NÃO geram movimentação de saída de estoque!
 
       if (saídas.length > 0) {
         await (supabase as any).from('movimentacoes_estoque').insert(saídas)
@@ -484,7 +638,7 @@ export const ConcreteiraService = {
   },
 
   // Custos / Preços Unitários
-  async getPrecosMaterial(empresaId?: string): Promise<any[]> {
+  async getPrecosMaterial(empresaId?: string): Promise<PrecoMaterial[]> {
     let query = (supabase as any)
       .from('precos_material')
       .select('*')
@@ -497,5 +651,178 @@ export const ConcreteiraService = {
     const { data, error } = await query
     if (error) throw error
     return data || []
+  },
+
+  // Relatório Comparativo Monteiro × SJE
+  async getComparativoUnidades(filtros?: {
+    dataInicio?: string
+    dataFim?: string
+  }): Promise<{
+    unidades: ComparativoUnidade[]
+    totaisGerais: {
+      volumeTotal: number
+      cargasTotal: number
+      custoTotal: number
+      custoPorM3: number
+    }
+  }> {
+    // Busca todas as empresas ativas
+    const { data: empresas, error: empErr } = await (supabase as any)
+      .from('empresas')
+      .select('*')
+      .eq('ativo', true)
+      .order('nome')
+
+    if (empErr) throw empErr
+
+    // Busca todas as cargas no período sem filtrar por empresa
+    let cargasQuery = (supabase as any).from('cargas').select('*')
+    if (filtros?.dataInicio)
+      cargasQuery = cargasQuery.gte('data', filtros.dataInicio)
+    if (filtros?.dataFim) cargasQuery = cargasQuery.lte('data', filtros.dataFim)
+
+    const { data: todasCargas, error: crgErr } = await cargasQuery
+    if (crgErr) throw crgErr
+
+    // Busca todos os preços
+    const { data: todosPrecos, error: prcErr } = await (supabase as any)
+      .from('precos_material')
+      .select('*')
+    if (prcErr) throw prcErr
+
+    const listaCargas = (todasCargas || []) as Carga[]
+    const listaPrecos = (todosPrecos || []) as PrecoMaterial[]
+
+    const unidades: ComparativoUnidade[] = (empresas || []).map((emp: any) => {
+      const cargasEmpresa = listaCargas.filter((c) => c.empresa_id === emp.id)
+      const precosEmpresa = listaPrecos.filter((p) => p.empresa_id === emp.id)
+
+      let volumeTotal = 0
+      let cargasTotal = cargasEmpresa.length
+      let cargasZeradas = 0
+      let custoTotal = 0
+
+      const consumos = {
+        cimento: 0,
+        aditivo: 0,
+        areia: 0,
+        brita12: 0,
+        brita19: 0,
+        po_pedra: 0,
+      }
+
+      const custosPorMaterial = {
+        cimento: 0,
+        aditivo: 0,
+        areia: 0,
+        brita12: 0,
+        brita19: 0,
+        po_pedra: 0,
+      }
+
+      const tracosMap: Record<
+        string,
+        {
+          tracoNome: string
+          volume: number
+          cargas: number
+          custoTotal: number
+        }
+      > = {}
+
+      cargasEmpresa.forEach((c) => {
+        if (c.carga_zerada) {
+          cargasZeradas++
+          return
+        }
+
+        const vol = Number(c.volume_m3) || 0
+        volumeTotal += vol
+
+        const cCimento = Number(c.consumo_cimento) || 0
+        const cAditivo = Number(c.consumo_aditivo) || 0
+        const cAreia = Number(c.consumo_areia) || 0
+        const cBrita12 = Number(c.consumo_brita12) || 0
+        const cBrita19 = Number(c.consumo_brita19) || 0
+        const cPoPedra = Number(c.consumo_po_pedra) || 0
+
+        consumos.cimento += cCimento
+        consumos.aditivo += cAditivo
+        consumos.areia += cAreia
+        consumos.brita12 += cBrita12
+        consumos.brita19 += cBrita19
+        consumos.po_pedra += cPoPedra
+
+        const custoBreakdown = this.calcularCustoCarga(c, precosEmpresa)
+        custoTotal += custoBreakdown.total
+        custosPorMaterial.cimento += custoBreakdown.cimento
+        custosPorMaterial.aditivo += custoBreakdown.aditivo
+        custosPorMaterial.areia += custoBreakdown.areia
+        custosPorMaterial.brita12 += custoBreakdown.brita12
+        custosPorMaterial.brita19 += custoBreakdown.brita19
+        custosPorMaterial.po_pedra += custoBreakdown.po_pedra
+
+        const tNome = c.traco_nome || 'Não identificado'
+        if (!tracosMap[tNome]) {
+          tracosMap[tNome] = {
+            tracoNome: tNome,
+            volume: 0,
+            cargas: 0,
+            custoTotal: 0,
+          }
+        }
+        tracosMap[tNome].volume += vol
+        tracosMap[tNome].cargas += 1
+        tracosMap[tNome].custoTotal += custoBreakdown.total
+      })
+
+      const porTraco = Object.values(tracosMap).map((t) => ({
+        ...t,
+        volume: Number(t.volume.toFixed(1)),
+        custoTotal: Number(t.custoTotal.toFixed(2)),
+        custoPorM3:
+          t.volume > 0 ? Number((t.custoTotal / t.volume).toFixed(2)) : 0,
+      }))
+
+      const custoPorM3 =
+        volumeTotal > 0 ? Number((custoTotal / volumeTotal).toFixed(2)) : 0
+
+      return {
+        empresaId: emp.id,
+        empresaNome: emp.nome,
+        empresaSlug: emp.slug,
+        volumeTotal: Number(volumeTotal.toFixed(1)),
+        cargasTotal,
+        cargasZeradas,
+        custoTotal: Number(custoTotal.toFixed(2)),
+        custoPorM3,
+        consumos,
+        custosPorMaterial: {
+          cimento: Number(custosPorMaterial.cimento.toFixed(2)),
+          aditivo: Number(custosPorMaterial.aditivo.toFixed(2)),
+          areia: Number(custosPorMaterial.areia.toFixed(2)),
+          brita12: Number(custosPorMaterial.brita12.toFixed(2)),
+          brita19: Number(custosPorMaterial.brita19.toFixed(2)),
+          po_pedra: Number(custosPorMaterial.po_pedra.toFixed(2)),
+        },
+        porTraco,
+      }
+    })
+
+    const volGeral = unidades.reduce((a, b) => a + b.volumeTotal, 0)
+    const crgGeral = unidades.reduce((a, b) => a + b.cargasTotal, 0)
+    const custoGeral = unidades.reduce((a, b) => a + b.custoTotal, 0)
+    const custoPorM3Geral =
+      volGeral > 0 ? Number((custoGeral / volGeral).toFixed(2)) : 0
+
+    return {
+      unidades,
+      totaisGerais: {
+        volumeTotal: Number(volGeral.toFixed(1)),
+        cargasTotal: crgGeral,
+        custoTotal: Number(custoGeral.toFixed(2)),
+        custoPorM3: custoPorM3Geral,
+      },
+    }
   },
 }

@@ -20,13 +20,20 @@ import {
 } from '@/components/ui/select'
 import { ConcreteiraService } from '@/services/concreteira'
 import { useEmpresa } from '@/hooks/use-empresa'
-import type { Traco, Motorista, Veiculo, Cidade } from '@/types/concreteira'
+import type {
+  Traco,
+  Motorista,
+  Veiculo,
+  Cidade,
+  PrecoMaterial,
+} from '@/types/concreteira'
 import {
   Truck,
   Calculator,
   CheckCircle2,
   AlertCircle,
   ArrowLeft,
+  DollarSign,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { Link, useNavigate } from 'react-router-dom'
@@ -35,6 +42,7 @@ export default function LancamentoCargas() {
   const navigate = useNavigate()
   const { empresaAtiva } = useEmpresa()
   const [tracos, setTracos] = useState<Traco[]>([])
+  const [precos, setPrecos] = useState<PrecoMaterial[]>([])
   const [motoristas, setMotoristas] = useState<Motorista[]>([])
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [cidades, setCidades] = useState<Cidade[]>([])
@@ -64,13 +72,15 @@ export default function LancamentoCargas() {
     async function init() {
       if (!empresaAtiva) return
       try {
-        const [tr, mot, veic, cid] = await Promise.all([
+        const [tr, mot, veic, cid, prc] = await Promise.all([
           ConcreteiraService.getTracos(empresaAtiva.id),
           ConcreteiraService.getMotoristas(empresaAtiva.id),
           ConcreteiraService.getVeiculos(empresaAtiva.id),
           ConcreteiraService.getCidades(empresaAtiva.id),
+          ConcreteiraService.getPrecosMaterial(empresaAtiva.id),
         ])
         setTracos(tr)
+        setPrecos(prc)
         setMotoristas(mot)
         setVeiculos(veic)
         setCidades(cid)
@@ -175,6 +185,35 @@ export default function LancamentoCargas() {
   }
 
   const tracoAtual = tracos.find((t) => t.id === tracoSelecionadoId)
+
+  // Estimativa de custo da carga a ser lançada
+  const custoEstimado = cargaZerada
+    ? { total: 0, custoPorM3: 0 }
+    : ConcreteiraService.calcularCustoCarga(
+        {
+          id: '',
+          numero_carga: 0,
+          data: dataCarga,
+          volume_m3: volume,
+          traco_id: tracoSelecionadoId,
+          traco_nome: tracoAtual?.nome || null,
+          motorista_id: null,
+          motorista_nome: null,
+          veiculo_id: null,
+          veiculo_placa: null,
+          cidade_id: null,
+          cidade_nome: null,
+          consumo_brita12: brita12,
+          consumo_brita19: brita19,
+          consumo_areia: areia,
+          consumo_po_pedra: poPedra,
+          consumo_cimento: cimento,
+          consumo_aditivo: aditivo,
+          observacao: null,
+          carga_zerada: false,
+        },
+        precos,
+      )
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -296,16 +335,45 @@ export default function LancamentoCargas() {
                 </CardTitle>
                 <CardDescription className="text-xs">
                   {tracoAtual
-                    ? `Baseado no consumo por m³ do traço selecionado (ajuste manual permitido se necessário)`
+                    ? `Baseado no consumo por m³ do traço selecionado (ajuste manual permitido se necessário). Baixa de estoque ocorre apenas para Cimento e Aditivo.`
                     : 'Insumos calculados'}
                 </CardDescription>
               </div>
-              <span className="text-xs font-mono px-2.5 py-1 rounded-md bg-primary/10 text-primary">
-                Multiplicador: {volume} m³
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono px-2.5 py-1 rounded-md bg-primary/10 text-primary">
+                  Multiplicador: {volume} m³
+                </span>
+              </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Box de Custo Estimado da Carga */}
+            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-emerald-500 shrink-0" />
+                <div>
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 block">
+                    Custo Estimado dos Insumos da Carga
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Calculado com base na tabela de preços unitários vigente
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-bold font-mono text-foreground">
+                  R${' '}
+                  {custoEstimado.total.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+                <span className="text-xs text-muted-foreground font-mono">
+                  (R$ {custoEstimado.custoPorM3.toFixed(2)}/m³)
+                </span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5 p-3 rounded-lg border border-border/40 bg-background/50">
                 <Label

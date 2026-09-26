@@ -21,6 +21,8 @@ import {
   ShieldAlert,
   BarChart2,
   RefreshCw,
+  DollarSign,
+  Coins,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -85,6 +87,19 @@ export default function Index() {
     0,
   )
 
+  // Custos no mês
+  const custoTotalMes = cargasMesValidas.reduce(
+    (acc, c) => acc + (c.custo?.total || 0),
+    0,
+  )
+  const custoMedioPorM3Mes = volumeMes > 0 ? custoTotalMes / volumeMes : 0
+
+  const custoTotalDia = cargasDia.reduce(
+    (acc, c) => acc + (c.custo?.total || 0),
+    0,
+  )
+  const custoMedioPorM3Dia = volumeDia > 0 ? custoTotalDia / volumeDia : 0
+
   // Consumo no mês
   const consumoMes = {
     cimento: cargasMesValidas.reduce(
@@ -110,9 +125,9 @@ export default function Index() {
     ),
   }
 
-  // Alertas de estoque
+  // Alertas de estoque: apenas para materiais com controle de estoque ativo (cimento e aditivo)
   const alertasEstoque = materiais.filter(
-    (m) => (m.saldo || 0) <= m.estoque_minimo,
+    (m) => m.controla_estoque !== false && (m.saldo || 0) <= m.estoque_minimo,
   )
 
   // Gráfico 1: Evolução diária recente (últimas 14 datas de produção)
@@ -292,7 +307,7 @@ export default function Index() {
         </div>
       )}
 
-      {/* Grid de KPIs Superiores */}
+      {/* Grid de KPIs Superiores: Volume & Estoques */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1 */}
         <Card className="bg-card/70 border-border/40 shadow-sm">
@@ -350,7 +365,7 @@ export default function Index() {
               Estoque Cimento
             </CardTitle>
             <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-semibold">
-              Silo Principal
+              Silo Controlado
             </span>
           </CardHeader>
           <CardContent>
@@ -379,7 +394,7 @@ export default function Index() {
               Estoque Aditivo
             </CardTitle>
             <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-500 font-semibold">
-              Tanque Químico
+              Tanque Controlado
             </span>
           </CardHeader>
           <CardContent>
@@ -393,6 +408,77 @@ export default function Index() {
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Plastificante e redutor de água
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Bloco de Custos dos Insumos (Item 2) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card className="bg-gradient-to-br from-emerald-500/10 to-transparent border-emerald-500/30">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+              Custo Total Insumos (Mês Ref.)
+            </CardTitle>
+            <DollarSign className="w-4 h-4 text-emerald-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold font-mono text-foreground">
+              R${' '}
+              {custoTotalMes.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Soma dos insumos consumidos em {volumeMes.toFixed(1)} m³ no mês
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-primary/10 to-transparent border-primary/30">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-medium text-primary uppercase tracking-wider">
+              Custo Médio dos Insumos por m³
+            </CardTitle>
+            <Coins className="w-4 h-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold font-mono text-foreground">
+              R${' '}
+              {custoMedioPorM3Mes.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}{' '}
+              <span className="text-sm font-normal text-muted-foreground">
+                / m³
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Média ponderada do metro cúbico expedido na unidade
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card/70 border-border/40">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Custo do Último Dia (
+              {ultimaDataStr.split('-').reverse().join('/')})
+            </CardTitle>
+            <DollarSign className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold font-mono text-foreground">
+              R${' '}
+              {custoTotalDia.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1 font-mono">
+              R$ {custoMedioPorM3Dia.toFixed(2)}/m³ ({volumeDia.toFixed(1)} m³
+              expedidos)
             </p>
           </CardContent>
         </Card>
@@ -515,16 +601,17 @@ export default function Index() {
         </Card>
       </div>
 
-      {/* Seção Estoque Atual de Materiais */}
+      {/* Seção Estoque Atual de Materiais Controlados (Cimento e Aditivo) */}
       <Card className="border-border/40 bg-card/60">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-base font-semibold">
-              Saldo Atual de Estoques
+              Saldo dos Insumos com Estoque Controlado
             </CardTitle>
             <CardDescription className="text-xs">
-              Posição atualizada considerando entradas, saídas automáticas por
-              cargas e saldo de abertura
+              Apenas Cimento e Aditivo possuem controle contínuo de saldo e
+              alerta mínimo. Demais agregados são gerenciados por consumo
+              direto.
             </CardDescription>
           </div>
           <Button asChild variant="outline" size="sm" className="gap-1 text-xs">
@@ -535,69 +622,89 @@ export default function Index() {
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {materiais.map((mat) => {
-              const saldo = mat.saldo || 0
-              const percentual =
-                mat.estoque_minimo > 0
-                  ? (saldo / mat.estoque_minimo) * 100
-                  : 100
-              const estaCritico = saldo <= mat.estoque_minimo
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {materiais
+              .filter((m) => m.controla_estoque !== false)
+              .map((mat) => {
+                const saldo = mat.saldo || 0
+                const estaCritico = saldo <= mat.estoque_minimo
 
-              return (
-                <div
-                  key={mat.id}
-                  className={`p-3 rounded-lg border transition-all ${
-                    estaCritico
-                      ? 'border-destructive/40 bg-destructive/5'
-                      : 'border-border/40 bg-background/50'
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <p
-                      className="text-xs font-medium text-muted-foreground truncate"
-                      title={mat.nome}
-                    >
-                      {mat.nome}
-                    </p>
-                    {estaCritico && (
-                      <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />
-                    )}
+                return (
+                  <div
+                    key={mat.id}
+                    className={`p-4 rounded-lg border transition-all ${
+                      estaCritico
+                        ? 'border-destructive/40 bg-destructive/5'
+                        : 'border-border/40 bg-background/50'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {mat.nome}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {mat.codigo === 'cimento'
+                            ? 'Silo de Cimento'
+                            : 'Tanque de Aditivo'}
+                        </p>
+                      </div>
+                      {estaCritico ? (
+                        <Badge variant="destructive" className="text-xs gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          Reposição Necessária
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="text-xs text-emerald-500 border-emerald-500/30"
+                        >
+                          Regular
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="mt-3 flex items-baseline gap-2">
+                      <span className="text-3xl font-extrabold text-foreground">
+                        {saldo >= 1000
+                          ? (saldo / 1000).toLocaleString('pt-BR', {
+                              maximumFractionDigits: 2,
+                            })
+                          : saldo.toLocaleString('pt-BR')}
+                      </span>
+                      <span className="text-sm text-muted-foreground font-medium">
+                        {saldo >= 1000 && mat.unidade === 'kg'
+                          ? 'toneladas (t)'
+                          : mat.unidade}
+                      </span>
+                      {saldo >= 1000 && mat.unidade === 'kg' && (
+                        <span className="text-xs text-muted-foreground font-mono ml-auto">
+                          ({saldo.toLocaleString('pt-BR')} kg)
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground border-t border-border/30 pt-2">
+                      <span>
+                        Estoque Mínimo de Alerta:{' '}
+                        <strong className="text-foreground">
+                          {mat.estoque_minimo.toLocaleString('pt-BR')}{' '}
+                          {mat.unidade}
+                        </strong>
+                      </span>
+                      <span
+                        className={
+                          estaCritico
+                            ? 'text-destructive font-semibold'
+                            : 'text-emerald-500 font-medium'
+                        }
+                      >
+                        Margem:{' '}
+                        {(saldo - mat.estoque_minimo).toLocaleString('pt-BR')}{' '}
+                        {mat.unidade}
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-2">
-                    <span className="text-xl font-bold text-foreground">
-                      {saldo >= 1000
-                        ? (saldo / 1000).toLocaleString('pt-BR', {
-                            maximumFractionDigits: 1,
-                          })
-                        : saldo.toLocaleString('pt-BR')}
-                    </span>{' '}
-                    <span className="text-xs text-muted-foreground font-medium">
-                      {saldo >= 1000 && mat.unidade === 'kg'
-                        ? 't'
-                        : mat.unidade}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
-                    <span>
-                      Mín:{' '}
-                      {mat.estoque_minimo >= 1000
-                        ? `${mat.estoque_minimo / 1000}t`
-                        : `${mat.estoque_minimo}${mat.unidade}`}
-                    </span>
-                    <span
-                      className={
-                        estaCritico
-                          ? 'text-destructive font-semibold'
-                          : 'text-emerald-500'
-                      }
-                    >
-                      {estaCritico ? 'Baixo' : 'OK'}
-                    </span>
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })}
           </div>
         </CardContent>
       </Card>
@@ -629,6 +736,8 @@ export default function Index() {
                   <th className="py-2.5 px-3">Data</th>
                   <th className="py-2.5 px-3">Volume</th>
                   <th className="py-2.5 px-3">Traço</th>
+                  <th className="py-2.5 px-3">Custo Total</th>
+                  <th className="py-2.5 px-3">Custo/m³</th>
                   <th className="py-2.5 px-3">Cimento (kg)</th>
                   <th className="py-2.5 px-3">Aditivo (L)</th>
                   <th className="py-2.5 px-3">Motorista / Placa</th>
@@ -656,6 +765,14 @@ export default function Index() {
                       title={c.traco_nome || '—'}
                     >
                       {c.traco_nome || '—'}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                      {c.custo ? `R$ ${c.custo.total.toFixed(2)}` : '—'}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-muted-foreground">
+                      {c.custo && c.custo.custoPorM3 > 0
+                        ? `R$ ${c.custo.custoPorM3.toFixed(2)}`
+                        : '—'}
                     </td>
                     <td className="py-2.5 px-3 font-mono">
                       {Number(c.consumo_cimento).toLocaleString('pt-BR')}
