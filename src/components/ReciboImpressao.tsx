@@ -53,11 +53,11 @@ function ViaRecibo({
 
   return (
     <div
-      className="via-recibo-card bg-white text-black font-sans leading-tight border border-black p-2.5 rounded-none text-[8pt] shadow-none"
+      className="via-recibo-card bg-white text-black font-sans leading-tight border border-black p-2 rounded-none text-[7.5pt] shadow-none"
       style={{ backgroundColor: '#ffffff', color: '#000000' }}
     >
       {/* TARJETA SUPERIOR DE IDENTIFICAÇÃO DA VIA */}
-      <div className="flex justify-between items-center bg-gray-100 border border-black px-2 py-0.5 mb-1.5 text-[7.5pt]">
+      <div className="flex justify-between items-center bg-gray-100 border border-black px-2 py-0.5 mb-1 text-[7pt]">
         <div className="font-extrabold tracking-wider uppercase flex items-center gap-2">
           <span className="inline-block w-2 h-2 bg-black rounded-full print:bg-black" />
           <span>{identificacaoVia}</span>
@@ -65,40 +65,40 @@ function ViaRecibo({
             <span className="font-normal text-gray-700">({subtituloVia})</span>
           )}
         </div>
-        <div className="font-mono font-bold text-[8pt]">
+        <div className="font-mono font-bold text-[7.5pt]">
           OS Nº {ordem.numero_os}
         </div>
       </div>
 
       {/* CABEÇALHO COM LOGOMARCA / IDENTIFICAÇÃO E RECIBO Nº */}
-      <div className="border border-black p-1.5 mb-1.5 flex justify-between items-center gap-2">
+      <div className="border border-black p-1 mb-1 flex justify-between items-center gap-2">
         {/* Logo oficial da empresa GC MIX & Pedreira Cordeiro */}
-        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
           <img
             src={LOGO_GC_MIX_HORIZONTAL}
             alt={LOGO_ALT_TEXT}
-            className="h-12 w-auto max-w-[170px] sm:max-w-[200px] object-contain shrink-0 rounded-[3px] border border-black/10"
+            className="h-10 w-auto max-w-[150px] sm:max-w-[180px] object-contain shrink-0 rounded-[3px] border border-black/10"
             style={{ imageRendering: 'auto' }}
           />
           <div className="leading-tight min-w-0 flex-1">
-            <h1 className="font-extrabold text-[9pt] uppercase tracking-tight text-black truncate">
+            <h1 className="font-extrabold text-[8.5pt] uppercase tracking-tight text-black truncate">
               {nomeEmpresa}
             </h1>
-            <p className="text-[6.8pt] uppercase font-semibold text-gray-800 leading-tight">
+            <p className="text-[6.5pt] uppercase font-semibold text-gray-800 leading-tight">
               {enderecoEmpresa}
             </p>
-            <p className="text-[6.8pt] text-gray-800 leading-tight">
+            <p className="text-[6.5pt] text-gray-800 leading-tight">
               Telefone: {telefoneEmpresa} — CNPJ: {cnpjEmpresa}
             </p>
           </div>
         </div>
 
         {/* Bloco Número do Recibo e Data */}
-        <div className="text-right border-l border-black pl-3 shrink-0">
-          <div className="text-sm font-black tracking-wider uppercase text-black leading-none">
+        <div className="text-right border-l border-black pl-2.5 shrink-0">
+          <div className="text-xs font-black tracking-wider uppercase text-black leading-none">
             RECIBO Nº {ordem.numero_os}
           </div>
-          <div className="text-[7.5pt] font-medium mt-1 text-gray-800">
+          <div className="text-[7pt] font-medium mt-0.5 text-gray-800">
             Emissão: {dataEmissaoFormatada}
           </div>
         </div>
@@ -501,13 +501,13 @@ export const ReciboImpressao = forwardRef<HTMLDivElement, ReciboImpressaoProps>(
         {!viaUnica && (
           <>
             {/* LINHA DE CORTE TRACEJADA COM ÍCONE DE TESOURA */}
-            <div className="my-2.5 py-1 flex items-center gap-2 select-none text-gray-500">
-              <div className="flex-1 border-t-2 border-dashed border-gray-400" />
-              <div className="flex items-center gap-1.5 text-[7pt] font-semibold uppercase tracking-wider text-gray-600 bg-white px-2">
-                <Scissors className="w-3.5 h-3.5 text-gray-600" />
+            <div className="my-1.5 py-0.5 flex items-center gap-2 select-none text-gray-500">
+              <div className="flex-1 border-t border-dashed border-gray-400" />
+              <div className="flex items-center gap-1 text-[6.5pt] font-semibold uppercase tracking-wider text-gray-600 bg-white px-2">
+                <Scissors className="w-3 h-3 text-gray-600" />
                 <span>Linha de Corte — Destaque aqui</span>
               </div>
-              <div className="flex-1 border-t-2 border-dashed border-gray-400" />
+              <div className="flex-1 border-t border-dashed border-gray-400" />
             </div>
 
             {/* VIA 2 — CLIENTE */}
@@ -523,7 +523,7 @@ export const ReciboImpressao = forwardRef<HTMLDivElement, ReciboImpressaoProps>(
         )}
 
         {/* RODAPÉ DO DOCUMENTO IMPRESSO */}
-        <div className="mt-2 pt-1 border-t border-gray-300 flex justify-between text-[6.5pt] text-gray-500 print:text-black">
+        <div className="mt-1 pt-0.5 border-t border-gray-300 flex justify-between text-[6pt] text-gray-500 print:text-black">
           <span>SISTEMA DE CONCRETO USINADO — GC MIX</span>
           <span>
             {viaUnica

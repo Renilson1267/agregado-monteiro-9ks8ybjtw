@@ -512,10 +512,13 @@ export default function Ordens() {
 
   return (
     <div className="space-y-6">
-      {/* DOCUMENTO EXCLUSIVO DE IMPRESSÃO A4 (renderizado apenas durante window.print) */}
+      {/* DOCUMENTO EXCLUSIVO DE IMPRESSÃO A4 (renderizado durante window.print) */}
       {ordemParaImprimir && (
         <div className="print-only bg-white text-black p-0 m-0">
-          <ReciboImpressao ordem={ordemParaImprimir} empresa={empresaAtiva} />
+          <ReciboImpressao
+            ordem={ordemParaImprimir}
+            empresa={empresaAtiva || null}
+          />
         </div>
       )}
 
