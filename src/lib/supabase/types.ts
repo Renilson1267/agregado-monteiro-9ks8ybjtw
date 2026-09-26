@@ -21,6 +21,7 @@ export type Database = {
           cidade_id: string | null
           cidade_nome: string | null
           consumo_aditivo: number
+          consumo_agua: number | null
           consumo_areia: number
           consumo_brita12: number
           consumo_brita19: number
@@ -45,6 +46,7 @@ export type Database = {
           cidade_id?: string | null
           cidade_nome?: string | null
           consumo_aditivo?: number
+          consumo_agua?: number | null
           consumo_areia?: number
           consumo_brita12?: number
           consumo_brita19?: number
@@ -69,6 +71,7 @@ export type Database = {
           cidade_id?: string | null
           cidade_nome?: string | null
           consumo_aditivo?: number
+          consumo_agua?: number | null
           consumo_areia?: number
           consumo_brita12?: number
           consumo_brita19?: number
@@ -187,34 +190,43 @@ export type Database = {
           codigo: string
           controla_estoque: boolean
           created_at: string
+          densidade: number | null
           empresa_id: string | null
           estoque_minimo: number
           id: string
           nome: string
           ordem: number
+          preco_compra: number | null
           unidade: string
+          unidade_compra: string | null
         }
         Insert: {
           codigo: string
           controla_estoque?: boolean
           created_at?: string
+          densidade?: number | null
           empresa_id?: string | null
           estoque_minimo?: number
           id?: string
           nome: string
           ordem?: number
+          preco_compra?: number | null
           unidade?: string
+          unidade_compra?: string | null
         }
         Update: {
           codigo?: string
           controla_estoque?: boolean
           created_at?: string
+          densidade?: number | null
           empresa_id?: string | null
           estoque_minimo?: number
           id?: string
           nome?: string
           ordem?: number
+          preco_compra?: number | null
           unidade?: string
+          unidade_compra?: string | null
         }
         Relationships: [
           {
@@ -361,6 +373,7 @@ export type Database = {
         Row: {
           ativo: boolean
           consumo_aditivo: number
+          consumo_agua: number | null
           consumo_areia: number
           consumo_brita12: number
           consumo_brita19: number
@@ -376,6 +389,7 @@ export type Database = {
         Insert: {
           ativo?: boolean
           consumo_aditivo?: number
+          consumo_agua?: number | null
           consumo_areia?: number
           consumo_brita12?: number
           consumo_brita19?: number
@@ -391,6 +405,7 @@ export type Database = {
         Update: {
           ativo?: boolean
           consumo_aditivo?: number
+          consumo_agua?: number | null
           consumo_areia?: number
           consumo_brita12?: number
           consumo_brita19?: number
