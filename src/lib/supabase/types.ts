@@ -172,6 +172,7 @@ export type Database = {
           created_at: string
           email: string | null
           empresa_id: string
+          exibir_insumos_os: boolean
           id: string
           logradouro: string | null
           nome: string
@@ -192,6 +193,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           empresa_id: string
+          exibir_insumos_os?: boolean
           id?: string
           logradouro?: string | null
           nome: string
@@ -212,6 +214,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           empresa_id?: string
+          exibir_insumos_os?: boolean
           id?: string
           logradouro?: string | null
           nome?: string
@@ -439,6 +442,7 @@ export type Database = {
           destinatario_telefone: string | null
           destinatario_uf: string | null
           empresa_id: string
+          exibir_insumos_os: boolean
           hora_carga: string | null
           hora_chegada_central: string | null
           hora_chegada_obra: string | null
@@ -447,12 +451,15 @@ export type Database = {
           hora_saida_central: string | null
           hora_saida_obra: string | null
           id: string
+          insumos_detalhados: Json | null
           itens: Json
           km_final: number | null
           km_inicial: number | null
           lacre: string | null
+          local_descarga: string | null
           moldagem_central: string | null
           motorista_nome: string | null
+          nome_obra: string | null
           nome_responsavel_termo: string | null
           numero_os: number
           observacoes: string | null
@@ -461,6 +468,7 @@ export type Database = {
           slump_central_saida: string | null
           slump_peca_medido: string | null
           slump_peca_saida: string | null
+          slump_tolerancia: string | null
           veiculo_placa: string | null
           vendedor_nome: string | null
           visto_motorista_central: string | null
@@ -485,6 +493,7 @@ export type Database = {
           destinatario_telefone?: string | null
           destinatario_uf?: string | null
           empresa_id: string
+          exibir_insumos_os?: boolean
           hora_carga?: string | null
           hora_chegada_central?: string | null
           hora_chegada_obra?: string | null
@@ -493,12 +502,15 @@ export type Database = {
           hora_saida_central?: string | null
           hora_saida_obra?: string | null
           id?: string
+          insumos_detalhados?: Json | null
           itens?: Json
           km_final?: number | null
           km_inicial?: number | null
           lacre?: string | null
+          local_descarga?: string | null
           moldagem_central?: string | null
           motorista_nome?: string | null
+          nome_obra?: string | null
           nome_responsavel_termo?: string | null
           numero_os: number
           observacoes?: string | null
@@ -507,6 +519,7 @@ export type Database = {
           slump_central_saida?: string | null
           slump_peca_medido?: string | null
           slump_peca_saida?: string | null
+          slump_tolerancia?: string | null
           veiculo_placa?: string | null
           vendedor_nome?: string | null
           visto_motorista_central?: string | null
@@ -531,6 +544,7 @@ export type Database = {
           destinatario_telefone?: string | null
           destinatario_uf?: string | null
           empresa_id?: string
+          exibir_insumos_os?: boolean
           hora_carga?: string | null
           hora_chegada_central?: string | null
           hora_chegada_obra?: string | null
@@ -539,12 +553,15 @@ export type Database = {
           hora_saida_central?: string | null
           hora_saida_obra?: string | null
           id?: string
+          insumos_detalhados?: Json | null
           itens?: Json
           km_final?: number | null
           km_inicial?: number | null
           lacre?: string | null
+          local_descarga?: string | null
           moldagem_central?: string | null
           motorista_nome?: string | null
+          nome_obra?: string | null
           nome_responsavel_termo?: string | null
           numero_os?: number
           observacoes?: string | null
@@ -553,6 +570,7 @@ export type Database = {
           slump_central_saida?: string | null
           slump_peca_medido?: string | null
           slump_peca_saida?: string | null
+          slump_tolerancia?: string | null
           veiculo_placa?: string | null
           vendedor_nome?: string | null
           visto_motorista_central?: string | null

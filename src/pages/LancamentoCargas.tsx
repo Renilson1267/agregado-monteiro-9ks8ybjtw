@@ -147,20 +147,36 @@ export default function LancamentoCargas() {
   const [nomeObra, setNomeObra] = useState<string>('')
   const [localDescarga, setLocalDescarga] = useState<string>('')
   const [discriminacaoProduto, setDiscriminacaoProduto] = useState<string>('')
-  const [slumpCentralMedido, setSlumpCentralMedido] = useState<string>('12')
-  const [slumpCentralSaida, setSlumpCentralSaida] = useState<string>('12')
+  const [slumpCentralMedido, setSlumpCentralMedido] = useState<string>('')
+  const [slumpCentralSaida, setSlumpCentralSaida] = useState<string>('')
   const [slumpTolerancia, setSlumpTolerancia] = useState<string>('+-2')
   const [lacre, setLacre] = useState<string>('')
   const [kmInicial, setKmInicial] = useState<string>('')
   const [kmFinal, setKmFinal] = useState<string>('')
 
-  // Horários
+  // Helper para somar minutos a um horário "HH:mm"
+  const somarMinutosHora = (hora: string, minutos: number): string => {
+    if (!hora || !hora.includes(':')) return ''
+    const [h, m] = hora.split(':').map((v) => parseInt(v, 10))
+    if (isNaN(h) || isNaN(m)) return ''
+    const totalMinutos = (h * 60 + m + minutos) % (24 * 60)
+    const totalPositivo = (totalMinutos + 24 * 60) % (24 * 60)
+    const nh = Math.floor(totalPositivo / 60)
+    const nm = totalPositivo % 60
+    return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`
+  }
+
+  // Horários: hora da carga inicializa com a hora atual, saída usina com +30 min
   const [horaCarga, setHoraCarga] = useState<string>(() =>
     new Date().toTimeString().slice(0, 5),
   )
-  const [horaSaidaCentral, setHoraSaidaCentral] = useState<string>(() =>
-    new Date().toTimeString().slice(0, 5),
-  )
+  const [horaSaidaCentral, setHoraSaidaCentral] = useState<string>(() => {
+    const agora = new Date()
+    agora.setMinutes(agora.getMinutes() + 30)
+    return agora.toTimeString().slice(0, 5)
+  })
+  const [saidaCentralEditadaManualmente, setSaidaCentralEditadaManualmente] =
+    useState<boolean>(false)
   const [horaChegadaObra, setHoraChegadaObra] = useState<string>('')
   const [horaInicioDescarga, setHoraInicioDescarga] = useState<string>('')
   const [horaFimDescarga, setHoraFimDescarga] = useState<string>('')
@@ -625,7 +641,7 @@ export default function LancamentoCargas() {
 
     const descr =
       discriminacaoProduto.trim() ||
-      `${nomeTracoGravado}${traco?.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ''} - SLUMP ${slumpCentralMedido || '12'}`
+      `${nomeTracoGravado}${traco?.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ''}${slumpCentralMedido ? ` - SLUMP ${slumpCentralMedido}` : ''}`
 
     setSalvando(true)
     try {
@@ -671,8 +687,8 @@ export default function LancamentoCargas() {
           nome_obra: nomeObra.trim() || null,
           local_descarga: localDescarga.trim() || null,
           discriminacao_produto: descr,
-          slump_central_medido: slumpCentralMedido.trim() || '12',
-          slump_central_saida: slumpCentralSaida.trim() || '12',
+          slump_central_medido: slumpCentralMedido.trim() || null,
+          slump_central_saida: slumpCentralSaida.trim() || null,
           slump_tolerancia: slumpTolerancia.trim() || '+-2',
           lacre: lacre.trim() || null,
           km_inicial: kmInicial ? Number(kmInicial) : null,
@@ -2113,7 +2129,7 @@ export default function LancamentoCargas() {
                         )
                         if (traco) {
                           setDiscriminacaoProduto(
-                            `CONCRETO USINADO ${traco.nome}${traco.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ''} - SLUMP ${slumpCentralMedido || '12'} ${slumpTolerancia || '+-2'}`,
+                            `CONCRETO USINADO ${traco.nome}${traco.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ''}${slumpCentralMedido ? ` - SLUMP ${slumpCentralMedido} ${slumpTolerancia || '+-2'}` : ''}`,
                           )
                         }
                       }}
@@ -2150,7 +2166,7 @@ export default function LancamentoCargas() {
                     value={slumpCentralMedido}
                     onChange={(e) => setSlumpCentralMedido(e.target.value)}
                     className="text-xs font-mono font-semibold"
-                    placeholder="12"
+                    placeholder="Em branco (motorista preenche)"
                   />
                 </div>
 
@@ -2169,27 +2185,23 @@ export default function LancamentoCargas() {
 
                 <div className="space-y-1 sm:col-span-2">
                   <Label htmlFor="motoristaEntrega" className="text-xs">
-                    Motorista (Cadastrado)
+                    Motorista (Digitação livre ou seleção)
                   </Label>
-                  <Select
+                  <Input
+                    id="motoristaEntrega"
+                    list="lista-motoristas"
                     value={motoristaNome}
-                    onValueChange={setMotoristaNome}
-                  >
-                    <SelectTrigger id="motoristaEntrega" className="text-xs">
-                      <SelectValue placeholder="Selecione o motorista" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {motoristas.map((m) => (
-                        <SelectItem
-                          key={m.id}
-                          value={m.nome}
-                          className="text-xs"
-                        >
-                          {m.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(e) => setMotoristaNome(e.target.value)}
+                    placeholder="Nome do motorista (ou selecione da lista)"
+                    className="text-xs"
+                  />
+                  <datalist id="lista-motoristas">
+                    {motoristas.map((m) => (
+                      <option key={m.id} value={m.nome}>
+                        {m.nome}
+                      </option>
+                    ))}
+                  </datalist>
                 </div>
 
                 <div className="space-y-1 sm:col-span-2">
@@ -2280,23 +2292,37 @@ export default function LancamentoCargas() {
                     id="horaCarga"
                     type="time"
                     value={horaCarga}
-                    onChange={(e) => setHoraCarga(e.target.value)}
+                    onChange={(e) => {
+                      const novaHora = e.target.value
+                      setHoraCarga(novaHora)
+                      if (!saidaCentralEditadaManualmente) {
+                        setHoraSaidaCentral(somarMinutosHora(novaHora, 30))
+                      }
+                    }}
                     className="text-xs"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <Label
-                    htmlFor="horaSaidaCentral"
-                    className="text-xs text-muted-foreground"
-                  >
-                    Saída Usina
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="horaSaidaCentral"
+                      className="text-xs text-muted-foreground"
+                    >
+                      Saída Usina
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">
+                      {saidaCentralEditadaManualmente ? '(editado)' : '(+30m)'}
+                    </span>
+                  </div>
                   <Input
                     id="horaSaidaCentral"
                     type="time"
                     value={horaSaidaCentral}
-                    onChange={(e) => setHoraSaidaCentral(e.target.value)}
+                    onChange={(e) => {
+                      setHoraSaidaCentral(e.target.value)
+                      setSaidaCentralEditadaManualmente(true)
+                    }}
                     className="text-xs"
                   />
                 </div>

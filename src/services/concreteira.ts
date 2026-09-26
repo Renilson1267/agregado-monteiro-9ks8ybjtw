@@ -814,6 +814,8 @@ export const ConcreteiraService = {
       slump_central_medido?: string | null
       slump_central_saida?: string | null
       slump_tolerancia?: string | null
+      slump_peca_medido?: string | null
+      slump_peca_saida?: string | null
       lacre?: string | null
       km_inicial?: number | null
       km_final?: number | null
@@ -921,8 +923,8 @@ export const ConcreteiraService = {
         itens,
         exibir_insumos_os: payload.entrega.exibir_insumos_os ?? true,
         insumos_detalhados: insumosDetalhados,
-        slump_central_medido: payload.entrega.slump_central_medido || '12',
-        slump_central_saida: payload.entrega.slump_central_saida || '12',
+        slump_central_medido: payload.entrega.slump_central_medido || null,
+        slump_central_saida: payload.entrega.slump_central_saida || null,
         slump_tolerancia: payload.entrega.slump_tolerancia || '+-2',
         agua_adic_central: 0,
         moldagem_central: payload.entrega.moldagem_central || 'SIM',
@@ -930,8 +932,8 @@ export const ConcreteiraService = {
           payload.entrega.visto_motorista_central ||
           payload.carga.motorista_nome ||
           null,
-        slump_peca_medido: payload.entrega.slump_central_medido || '12',
-        slump_peca_saida: payload.entrega.slump_central_saida || '12',
+        slump_peca_medido: payload.entrega.slump_peca_medido || null,
+        slump_peca_saida: payload.entrega.slump_peca_saida || null,
         peca_concretada: payload.entrega.peca_concretada || 'PISO / ESTRUTURAL',
         veiculo_placa: payload.carga.veiculo_placa || null,
         motorista_nome: payload.carga.motorista_nome || null,

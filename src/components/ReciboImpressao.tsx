@@ -258,20 +258,21 @@ export const ReciboImpressao = forwardRef<HTMLDivElement, ReciboImpressaoProps>(
                 <td className="border-r border-black font-semibold">
                   {ordem.slump_central_medido
                     ? `${ordem.slump_central_medido} ${ordem.slump_tolerancia ? `(${ordem.slump_tolerancia})` : ''}`
-                    : '—'}
+                    : ''}
                 </td>
                 <td className="border-r border-black font-semibold">
-                  {ordem.slump_central_saida || '—'}
+                  {ordem.slump_central_saida || ''}
                 </td>
                 <td className="border-r border-black font-mono">
-                  {ordem.agua_adic_central != null
+                  {ordem.agua_adic_central != null &&
+                  ordem.agua_adic_central > 0
                     ? `${ordem.agua_adic_central} L`
-                    : '0 L'}
+                    : ''}
                 </td>
                 <td className="border-r border-black">
-                  {ordem.moldagem_central || '—'}
+                  {ordem.moldagem_central || ''}
                 </td>
-                <td>{ordem.visto_motorista_central || '—'}</td>
+                <td>{ordem.visto_motorista_central || ''}</td>
               </tr>
               {/* Linha 2: Peça Concretada */}
               <tr className="bg-gray-50 text-[7.5pt] font-bold border-b border-black">
@@ -287,20 +288,20 @@ export const ReciboImpressao = forwardRef<HTMLDivElement, ReciboImpressaoProps>(
               </tr>
               <tr className="h-7">
                 <td className="border-r border-black font-semibold">
-                  {ordem.slump_peca_medido || '—'}
+                  {ordem.slump_peca_medido || ''}
                 </td>
                 <td className="border-r border-black font-semibold">
-                  {ordem.slump_peca_saida || '—'}
+                  {ordem.slump_peca_saida || ''}
                 </td>
                 <td className="border-r border-black font-mono">
-                  {ordem.agua_adic_peca != null
+                  {ordem.agua_adic_peca != null && ordem.agua_adic_peca > 0
                     ? `${ordem.agua_adic_peca} L`
-                    : '0 L'}
+                    : ''}
                 </td>
                 <td className="border-r border-black uppercase">
-                  {ordem.peca_concretada || '—'}
+                  {ordem.peca_concretada || ''}
                 </td>
-                <td>{ordem.visto_motorista_peca || '—'}</td>
+                <td>{ordem.visto_motorista_peca || ''}</td>
               </tr>
             </tbody>
           </table>
@@ -331,21 +332,21 @@ export const ReciboImpressao = forwardRef<HTMLDivElement, ReciboImpressaoProps>(
             <tbody>
               <tr className="border-b border-black h-7">
                 <td className="border-r border-black font-mono font-bold text-[9pt]">
-                  {ordem.veiculo_placa || '—'}
+                  {ordem.veiculo_placa || ''}
                 </td>
                 <td className="border-r border-black uppercase font-semibold">
-                  {ordem.motorista_nome || '—'}
+                  {ordem.motorista_nome || ''}
                 </td>
                 <td className="border-r border-black font-mono">
-                  {ordem.lacre || '—'}
+                  {ordem.lacre || ''}
                 </td>
                 <td className="border-r border-black font-mono">
-                  {ordem.km_inicial ?? '—'}
+                  {ordem.km_inicial ?? ''}
                 </td>
                 <td className="border-r border-black font-mono">
-                  {ordem.km_final ?? '—'}
+                  {ordem.km_final ?? ''}
                 </td>
-                <td className="font-mono">{ordem.hora_carga || '—'}</td>
+                <td className="font-mono">{ordem.hora_carga || ''}</td>
               </tr>
               {/* Horários */}
               <tr className="bg-gray-50 text-[7.5pt] font-bold border-b border-black">
@@ -364,21 +365,21 @@ export const ReciboImpressao = forwardRef<HTMLDivElement, ReciboImpressaoProps>(
               </tr>
               <tr className="border-b border-black h-7 text-[8pt] font-mono">
                 <td className="border-r border-black">
-                  {ordem.hora_saida_central || '—'}
+                  {ordem.hora_saida_central || ''}
                 </td>
                 <td className="border-r border-black">
-                  {ordem.hora_chegada_obra || '—'}
+                  {ordem.hora_chegada_obra || ''}
                 </td>
                 <td className="border-r border-black">
-                  {ordem.hora_inicio_descarga || '—'}
+                  {ordem.hora_inicio_descarga || ''}
                 </td>
                 <td className="border-r border-black">
-                  {ordem.hora_fim_descarga || '—'}
+                  {ordem.hora_fim_descarga || ''}
                 </td>
                 <td className="border-r border-black">
-                  {ordem.hora_saida_obra || '—'}
+                  {ordem.hora_saida_obra || ''}
                 </td>
-                <td>{ordem.hora_chegada_central || '—'}</td>
+                <td>{ordem.hora_chegada_central || ''}</td>
               </tr>
               {/* Visto Obra */}
               <tr className="h-6 text-left">
