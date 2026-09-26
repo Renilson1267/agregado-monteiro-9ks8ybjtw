@@ -59,6 +59,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { ReciboImpressao } from '@/components/ReciboImpressao'
+import { printElementInIsolatedIframe } from '@/lib/imprimir-recibo'
 import type { OrdemServico } from '@/types/concreteira'
 import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from '@/assets/logos'
 
@@ -399,6 +400,19 @@ export default function Index() {
 
   const handleImprimir = () => {
     window.print()
+  }
+
+  const handleImprimirReciboOS = async () => {
+    const el = document.getElementById('recibo-impressao-modal-index')
+    if (el) {
+      await printElementInIsolatedIframe(el, {
+        title: `OS_${osParaReimpressao?.numero_os}_Recibo_GC_MIX`,
+        waitForImages: true,
+        delayMs: 300,
+      })
+    } else {
+      window.print()
+    }
   }
 
   return (
@@ -1507,7 +1521,7 @@ export default function Index() {
               </span>
               <Button
                 type="button"
-                onClick={() => window.print()}
+                onClick={handleImprimirReciboOS}
                 className="gap-2 bg-primary text-primary-foreground text-xs h-8"
               >
                 <Printer className="w-3.5 h-3.5" />
@@ -1521,7 +1535,10 @@ export default function Index() {
           </DialogHeader>
 
           {osParaReimpressao && (
-            <div className="mt-2 border rounded-lg p-2 bg-white text-black shadow-inner print:border-none print:p-0 print:m-0 print:shadow-none">
+            <div
+              id="recibo-impressao-modal-index"
+              className="mt-2 border rounded-lg p-2 bg-white text-black shadow-inner print:border-none print:p-0 print:m-0 print:shadow-none"
+            >
               <ReciboImpressao
                 ordem={osParaReimpressao}
                 empresa={empresaAtiva || null}
@@ -1539,11 +1556,11 @@ export default function Index() {
             </Button>
             <Button
               type="button"
-              onClick={() => window.print()}
+              onClick={handleImprimirReciboOS}
               className="gap-2"
             >
               <Printer className="w-4 h-4" />
-              Imprimir
+              Imprimir Recibo
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -65,6 +65,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { ReciboImpressao } from '@/components/ReciboImpressao'
+import { printElementInIsolatedIframe } from '@/lib/imprimir-recibo'
 import {
   formatarCpfCnpj,
   formatarTelefone,
@@ -2747,7 +2748,20 @@ export default function LancamentoCargas() {
               </span>
               <Button
                 type="button"
-                onClick={() => window.print()}
+                onClick={async () => {
+                  const el = document.getElementById(
+                    'recibo-impressao-modal-lancamento',
+                  )
+                  if (el) {
+                    await printElementInIsolatedIframe(el, {
+                      title: `OS_${osGeradaParaImpressao?.numero_os}_Recibo_GC_MIX`,
+                      waitForImages: true,
+                      delayMs: 300,
+                    })
+                  } else {
+                    window.print()
+                  }
+                }}
                 className="gap-2 bg-primary text-primary-foreground text-xs h-8"
               >
                 <Printer className="w-3.5 h-3.5" />
@@ -2762,7 +2776,10 @@ export default function LancamentoCargas() {
           </DialogHeader>
 
           {osGeradaParaImpressao && (
-            <div className="mt-2 border rounded-lg p-2 bg-white text-black shadow-inner print:border-none print:p-0 print:m-0 print:shadow-none">
+            <div
+              id="recibo-impressao-modal-lancamento"
+              className="mt-2 border rounded-lg p-2 bg-white text-black shadow-inner print:border-none print:p-0 print:m-0 print:shadow-none"
+            >
               <ReciboImpressao
                 ordem={osGeradaParaImpressao}
                 empresa={empresaAtiva || null}
@@ -2783,7 +2800,20 @@ export default function LancamentoCargas() {
             </Button>
             <Button
               type="button"
-              onClick={() => window.print()}
+              onClick={async () => {
+                const el = document.getElementById(
+                  'recibo-impressao-modal-lancamento',
+                )
+                if (el) {
+                  await printElementInIsolatedIframe(el, {
+                    title: `OS_${osGeradaParaImpressao?.numero_os}_Recibo_GC_MIX`,
+                    waitForImages: true,
+                    delayMs: 300,
+                  })
+                } else {
+                  window.print()
+                }
+              }}
               className="gap-2"
             >
               <Printer className="w-4 h-4" />

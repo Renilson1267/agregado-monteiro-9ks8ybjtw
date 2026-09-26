@@ -480,11 +480,14 @@ export const ReciboImpressao = forwardRef<HTMLDivElement, ReciboImpressaoProps>(
     return (
       <div
         ref={ref}
+        id="recibo-impressao-raiz"
         className="recibo-container-impressao bg-white text-black font-sans leading-tight mx-auto p-0 max-w-[210mm]"
         style={{
           color: '#000000',
           backgroundColor: '#ffffff',
           width: '100%',
+          display: 'block',
+          visibility: 'visible',
         }}
       >
         {/* VIA 1 — EMPRESA */}

@@ -38,6 +38,7 @@ import type {
   ItemOrdemServico,
 } from '@/types/concreteira'
 import { ReciboImpressao } from '@/components/ReciboImpressao'
+import { printElementInIsolatedIframe } from '@/lib/imprimir-recibo'
 import {
   FileText,
   Plus,
@@ -491,8 +492,17 @@ export default function Ordens() {
   // Ação de Impressão
   const dispararImpressao = (os: OrdemServico) => {
     setOrdemParaImprimir(os)
-    setTimeout(() => {
-      window.print()
+    setTimeout(async () => {
+      const el = document.getElementById('recibo-impressao-ordens')
+      if (el) {
+        await printElementInIsolatedIframe(el, {
+          title: `OS_${os.numero_os}_Recibo_GC_MIX`,
+          waitForImages: true,
+          delayMs: 300,
+        })
+      } else {
+        window.print()
+      }
     }, 150)
   }
 
@@ -512,9 +522,12 @@ export default function Ordens() {
 
   return (
     <div className="space-y-6">
-      {/* DOCUMENTO EXCLUSIVO DE IMPRESSÃO A4 (renderizado durante window.print) */}
+      {/* DOCUMENTO EXCLUSIVO DE IMPRESSÃO A4 (renderizado durante window.print e captura de iframe) */}
       {ordemParaImprimir && (
-        <div className="print-only bg-white text-black p-0 m-0">
+        <div
+          id="recibo-impressao-ordens"
+          className="print-only bg-white text-black p-0 m-0"
+        >
           <ReciboImpressao
             ordem={ordemParaImprimir}
             empresa={empresaAtiva || null}

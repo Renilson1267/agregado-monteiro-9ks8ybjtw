@@ -224,6 +224,23 @@
     overflow: visible !important;
   }
 
+  /* Quando houver recibo sendo impresso no DOM (modal ou tela), esconde todo o resto do app */
+  body:has(.recibo-container-impressao) #root {
+    display: none !important;
+  }
+
+  /* Caso o recibo esteja dentro de #root (ex: tela de Ordens), reexibe o container do recibo e seus ancestrais */
+  body:has(#root .recibo-container-impressao) #root {
+    display: block !important;
+  }
+  body:has(#root .recibo-container-impressao) #root > div,
+  body:has(#root .recibo-container-impressao) #root > div > div,
+  body:has(#root .recibo-container-impressao) main {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
   /* Ocultar elementos de navegação e UI que nunca devem ser impressos */
   header,
   aside,
@@ -253,6 +270,16 @@
     padding: 0 !important;
   }
 
+  /* Se o portal contém o recibo, garante que ele seja o único visível */
+  body:has([data-radix-portal] .recibo-container-impressao) #root {
+    display: none !important;
+  }
+  body:has([data-radix-portal] .recibo-container-impressao)
+    [data-radix-portal] {
+    display: block !important;
+    visibility: visible !important;
+  }
+
   /* Reset completo do Radix DialogContent para fluxo de documento A4 */
   [role='dialog'] {
     position: static !important;
@@ -269,6 +296,13 @@
     padding: 0 !important;
     margin: 0 !important;
     overflow: visible !important;
+  }
+
+  /* Remove o overflow-y-auto do Radix DialogContent no print para não cortar ou zerar página */
+  [role='dialog'].overflow-y-auto,
+  [role='dialog'] [class*='overflow-y-auto'] {
+    overflow: visible !important;
+    max-height: none !important;
   }
 
   /* Ocultar header, footer e botão fechar nativos do Dialog */
@@ -310,6 +344,14 @@
   .recibo-container-impressao * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Quando houver recibo no DOM, esconde explicitamente o cabeçalho gerencial de impressão da tela Index/Relatorios */
+  body:has(.recibo-container-impressao)
+    .print-only:not(:has(.recibo-container-impressao)):not(
+      .recibo-container-impressao
+    ) {
+    display: none !important;
   }
 
   /* Quando houver recibo no DOM, neutralizar qualquer display:none acidental em seus ancestrais */
