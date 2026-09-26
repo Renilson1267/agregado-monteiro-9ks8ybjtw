@@ -15,7 +15,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
-  Layers,
   ShieldCheck,
   Lock,
   Mail,
@@ -24,6 +23,7 @@ import {
   Sparkles,
   Building2,
 } from 'lucide-react'
+import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from '@/assets/logos'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -175,20 +175,34 @@ export default function Login() {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
       <Card className="w-full max-w-md border-border/40 bg-card/90 backdrop-blur-md shadow-2xl relative z-10">
-        <CardHeader className="space-y-2 text-center pb-6">
-          <div className="mx-auto w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/25 mb-1">
-            <Layers className="w-8 h-8" />
+        <CardHeader className="space-y-3 text-center pb-6">
+          {/* Logo oficial GC MIX & Pedreira Cordeiro com moldura de alto contraste para ambos os temas */}
+          <div className="mx-auto flex flex-col items-center">
+            <div className="p-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-border/60 shadow-lg shadow-primary/10">
+              <img
+                src={LOGO_GC_MIX_QUADRADA}
+                alt={LOGO_ALT_TEXT}
+                className="w-24 h-24 object-contain rounded-xl"
+              />
+            </div>
           </div>
-          <CardTitle className="text-2xl font-black tracking-tight flex items-center justify-center gap-2">
-            Concreteira Multi-Empresa
-          </CardTitle>
-          <CardDescription className="text-sm">
+
+          <div>
+            <CardTitle className="text-2xl font-black tracking-tight flex items-center justify-center gap-2">
+              GC MIX Concreto Usinado
+            </CardTitle>
+            <p className="text-xs font-medium text-muted-foreground mt-0.5">
+              & Pedreira Cordeiro
+            </p>
+          </div>
+
+          <CardDescription className="text-xs sm:text-sm">
             {modoPrimeiroAcesso
               ? 'Configuração inicial: crie o primeiro Administrador Geral'
               : 'Gestão integrada de usinas, produção, expedição e insumos'}
           </CardDescription>
 
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-semibold text-primary mx-auto mt-1">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-semibold text-primary mx-auto">
             <Building2 className="w-3.5 h-3.5" />
             <span>Unidades Monteiro & SJE</span>
           </div>

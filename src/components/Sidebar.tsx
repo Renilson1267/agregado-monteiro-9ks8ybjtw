@@ -9,12 +9,12 @@ import {
   Users,
   Sun,
   Moon,
-  Layers,
   Building2,
   Settings,
   FileText,
   FileSpreadsheet,
 } from 'lucide-react'
+import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from '@/assets/logos'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
@@ -62,10 +62,14 @@ export function Sidebar() {
         <div className="mb-4">
           <Link
             to={isBalanceiro ? '/lancamentos' : '/'}
-            className="flex items-center justify-center w-12 h-12 rounded-2xl bg-primary text-primary-foreground font-black text-xl shadow-md hover:scale-105 transition-transform"
-            title={`Concreteira - ${empresaAtiva?.nome || 'Sistema'}`}
+            className="flex items-center justify-center w-13 h-13 p-1 rounded-2xl bg-white dark:bg-slate-900 border border-border/60 shadow-md hover:scale-105 transition-all overflow-hidden"
+            title={`GC MIX Concreto Usinado & Pedreira Cordeiro — ${empresaAtiva?.nome || 'Sistema'}`}
           >
-            <Layers className="w-6 h-6" />
+            <img
+              src={LOGO_GC_MIX_QUADRADA}
+              alt={LOGO_ALT_TEXT}
+              className="w-full h-full object-contain rounded-xl"
+            />
           </Link>
         </div>
 

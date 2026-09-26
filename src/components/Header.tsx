@@ -3,14 +3,13 @@ import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import {
   Menu,
-  Layers,
   Building2,
   ChevronDown,
   Plus,
-  User,
   Scale,
   ShieldCheck,
 } from 'lucide-react'
+import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from '@/assets/logos'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import {
@@ -84,12 +83,21 @@ export function Header() {
               className="w-[260px] bg-card border-r-border/30"
             >
               <div className="flex items-center gap-2 mb-6 mt-2">
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
-                  <Layers className="w-4 h-4" />
+                <div className="w-9 h-9 p-0.5 rounded-xl bg-white dark:bg-slate-900 border border-border/60 flex items-center justify-center shrink-0">
+                  <img
+                    src={LOGO_GC_MIX_QUADRADA}
+                    alt={LOGO_ALT_TEXT}
+                    className="w-full h-full object-contain rounded-lg"
+                  />
                 </div>
-                <span className="font-bold text-foreground">
-                  Concreteira {nomeEmpresa}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <span className="block font-bold text-foreground text-sm truncate leading-tight">
+                    GC MIX
+                  </span>
+                  <span className="block text-[10px] text-muted-foreground truncate">
+                    {nomeEmpresa}
+                  </span>
+                </div>
               </div>
               <nav className="flex flex-col gap-2">
                 {navLinks.map((link) => (

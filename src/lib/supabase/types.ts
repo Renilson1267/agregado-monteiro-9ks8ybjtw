@@ -698,6 +698,50 @@ export type Database = {
           },
         ]
       }
+      usuarios_app: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          email: string
+          empresa_id: string | null
+          id: string
+          nome: string
+          perfil: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          email: string
+          empresa_id?: string | null
+          id?: string
+          nome: string
+          perfil: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          email?: string
+          empresa_id?: string | null
+          id?: string
+          nome?: string
+          perfil?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'usuarios_app_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: false
+            referencedRelation: 'empresas'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       veiculos: {
         Row: {
           ativo: boolean

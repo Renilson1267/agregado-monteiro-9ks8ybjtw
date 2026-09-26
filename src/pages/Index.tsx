@@ -60,6 +60,7 @@ import {
 } from '@/components/ui/dialog'
 import { ReciboImpressao } from '@/components/ReciboImpressao'
 import type { OrdemServico } from '@/types/concreteira'
+import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from '@/assets/logos'
 
 type PeriodoTipo =
   | 'hoje'
@@ -635,22 +636,31 @@ export default function Index() {
         </table>
       </div>
 
-      {/* Top Banner & Ações */}
-      <div className="no-print flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/40 pb-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <span>Usina {empresaAtiva?.nome || 'Concreteira'}</span>
-            <Badge
-              variant="outline"
-              className="text-xs bg-primary/10 text-primary border-primary/30"
-            >
-              Unidade {empresaAtiva?.slug?.toUpperCase() || 'ATIVA'}
-            </Badge>
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Acompanhamento de produção, expedição de cargas, custos e saldos de
-            estoque
-          </p>
+      {/* Top Banner & Ações com Logo Oficial GC MIX */}
+      <div className="no-print flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-border/40 pb-4">
+        <div className="flex items-center gap-3.5">
+          <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-border/60 shadow-sm shrink-0">
+            <img
+              src={LOGO_GC_MIX_HORIZONTAL}
+              alt={LOGO_ALT_TEXT}
+              className="h-10 sm:h-12 w-auto max-w-[170px] sm:max-w-[210px] object-contain rounded-lg"
+            />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2 flex-wrap">
+              <span>Usina {empresaAtiva?.nome || 'Concreteira'}</span>
+              <Badge
+                variant="outline"
+                className="text-xs bg-primary/10 text-primary border-primary/30 font-semibold"
+              >
+                Unidade {empresaAtiva?.slug?.toUpperCase() || 'ATIVA'}
+              </Badge>
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+              GC MIX Concreto Usinado & Pedreira Cordeiro — Produção, expedição
+              e estoques
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">

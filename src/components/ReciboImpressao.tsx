@@ -1,6 +1,7 @@
 import { forwardRef } from 'react'
 import type { OrdemServico, Empresa } from '@/types/concreteira'
 import { Scissors } from 'lucide-react'
+import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from '@/assets/logos'
 
 interface ReciboImpressaoProps {
   ordem: OrdemServico
@@ -70,23 +71,23 @@ function ViaRecibo({
       </div>
 
       {/* CABEÇALHO COM LOGOMARCA / IDENTIFICAÇÃO E RECIBO Nº */}
-      <div className="border border-black p-1.5 mb-1.5 flex justify-between items-center">
-        {/* Logo / Nome Fantasia da concreteira */}
-        <div className="flex items-center gap-2.5">
-          <div className="border-2 border-black px-1.5 py-0.5 font-black tracking-tighter flex flex-col items-center leading-none">
-            <span className="text-base font-black">GC MIX</span>
-            <span className="text-[5.5pt] tracking-widest uppercase font-bold">
-              CONCRETO USINADO
-            </span>
-          </div>
-          <div className="leading-tight">
-            <h1 className="font-extrabold text-[9.5pt] uppercase tracking-tight text-black">
+      <div className="border border-black p-1.5 mb-1.5 flex justify-between items-center gap-2">
+        {/* Logo oficial da empresa GC MIX & Pedreira Cordeiro */}
+        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+          <img
+            src={LOGO_GC_MIX_HORIZONTAL}
+            alt={LOGO_ALT_TEXT}
+            className="h-12 w-auto max-w-[170px] sm:max-w-[200px] object-contain shrink-0 rounded-[3px] border border-black/10"
+            style={{ imageRendering: 'auto' }}
+          />
+          <div className="leading-tight min-w-0 flex-1">
+            <h1 className="font-extrabold text-[9pt] uppercase tracking-tight text-black truncate">
               {nomeEmpresa}
             </h1>
-            <p className="text-[7pt] uppercase font-semibold text-gray-800">
+            <p className="text-[6.8pt] uppercase font-semibold text-gray-800 leading-tight">
               {enderecoEmpresa}
             </p>
-            <p className="text-[7pt] text-gray-800">
+            <p className="text-[6.8pt] text-gray-800 leading-tight">
               Telefone: {telefoneEmpresa} — CNPJ: {cnpjEmpresa}
             </p>
           </div>
@@ -94,10 +95,10 @@ function ViaRecibo({
 
         {/* Bloco Número do Recibo e Data */}
         <div className="text-right border-l border-black pl-3 shrink-0">
-          <div className="text-sm font-black tracking-wider uppercase text-black">
+          <div className="text-sm font-black tracking-wider uppercase text-black leading-none">
             RECIBO Nº {ordem.numero_os}
           </div>
-          <div className="text-[7.5pt] font-medium mt-0.5 text-gray-800">
+          <div className="text-[7.5pt] font-medium mt-1 text-gray-800">
             Emissão: {dataEmissaoFormatada}
           </div>
         </div>
