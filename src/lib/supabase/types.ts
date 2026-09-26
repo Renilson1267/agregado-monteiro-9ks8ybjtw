@@ -161,27 +161,116 @@ export type Database = {
           },
         ]
       }
-      empresas: {
+      clientes: {
         Row: {
           ativo: boolean
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          complemento: string | null
+          cpf_cnpj: string
           created_at: string
+          email: string | null
+          empresa_id: string
           id: string
+          logradouro: string | null
           nome: string
-          slug: string
+          nome_fantasia: string | null
+          numero: string | null
+          observacoes: string | null
+          telefone: string | null
+          tipo: string
+          uf: string | null
         }
         Insert: {
           ativo?: boolean
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          cpf_cnpj: string
           created_at?: string
+          email?: string | null
+          empresa_id: string
           id?: string
+          logradouro?: string | null
           nome: string
-          slug: string
+          nome_fantasia?: string | null
+          numero?: string | null
+          observacoes?: string | null
+          telefone?: string | null
+          tipo?: string
+          uf?: string | null
         }
         Update: {
           ativo?: boolean
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          cpf_cnpj?: string
           created_at?: string
+          email?: string | null
+          empresa_id?: string
+          id?: string
+          logradouro?: string | null
+          nome?: string
+          nome_fantasia?: string | null
+          numero?: string | null
+          observacoes?: string | null
+          telefone?: string | null
+          tipo?: string
+          uf?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'clientes_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: false
+            referencedRelation: 'empresas'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      empresas: {
+        Row: {
+          ativo: boolean
+          cidade: string | null
+          cnpj: string | null
+          created_at: string
+          endereco: string | null
+          id: string
+          nome: string
+          razao_social: string | null
+          slug: string
+          telefone: string | null
+          uf: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          cidade?: string | null
+          cnpj?: string | null
+          created_at?: string
+          endereco?: string | null
+          id?: string
+          nome: string
+          razao_social?: string | null
+          slug: string
+          telefone?: string | null
+          uf?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          cidade?: string | null
+          cnpj?: string | null
+          created_at?: string
+          endereco?: string | null
           id?: string
           nome?: string
+          razao_social?: string | null
           slug?: string
+          telefone?: string | null
+          uf?: string | null
         }
         Relationships: []
       }
@@ -331,6 +420,169 @@ export type Database = {
           },
         ]
       }
+      ordens_servico: {
+        Row: {
+          agua_adic_central: number | null
+          agua_adic_peca: number | null
+          agua_adicional_termo: number | null
+          bomba_estacionaria: string | null
+          carga_id: string | null
+          cliente_id: string | null
+          created_at: string
+          data_emissao: string
+          destinatario_bairro: string | null
+          destinatario_cep: string | null
+          destinatario_cidade: string | null
+          destinatario_cpf_cnpj: string | null
+          destinatario_endereco: string | null
+          destinatario_nome: string
+          destinatario_telefone: string | null
+          destinatario_uf: string | null
+          empresa_id: string
+          hora_carga: string | null
+          hora_chegada_central: string | null
+          hora_chegada_obra: string | null
+          hora_fim_descarga: string | null
+          hora_inicio_descarga: string | null
+          hora_saida_central: string | null
+          hora_saida_obra: string | null
+          id: string
+          itens: Json
+          km_final: number | null
+          km_inicial: number | null
+          lacre: string | null
+          moldagem_central: string | null
+          motorista_nome: string | null
+          nome_responsavel_termo: string | null
+          numero_os: number
+          observacoes: string | null
+          peca_concretada: string | null
+          slump_central_medido: string | null
+          slump_central_saida: string | null
+          slump_peca_medido: string | null
+          slump_peca_saida: string | null
+          veiculo_placa: string | null
+          vendedor_nome: string | null
+          visto_motorista_central: string | null
+          visto_motorista_peca: string | null
+          visto_obra: string | null
+        }
+        Insert: {
+          agua_adic_central?: number | null
+          agua_adic_peca?: number | null
+          agua_adicional_termo?: number | null
+          bomba_estacionaria?: string | null
+          carga_id?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          data_emissao?: string
+          destinatario_bairro?: string | null
+          destinatario_cep?: string | null
+          destinatario_cidade?: string | null
+          destinatario_cpf_cnpj?: string | null
+          destinatario_endereco?: string | null
+          destinatario_nome: string
+          destinatario_telefone?: string | null
+          destinatario_uf?: string | null
+          empresa_id: string
+          hora_carga?: string | null
+          hora_chegada_central?: string | null
+          hora_chegada_obra?: string | null
+          hora_fim_descarga?: string | null
+          hora_inicio_descarga?: string | null
+          hora_saida_central?: string | null
+          hora_saida_obra?: string | null
+          id?: string
+          itens?: Json
+          km_final?: number | null
+          km_inicial?: number | null
+          lacre?: string | null
+          moldagem_central?: string | null
+          motorista_nome?: string | null
+          nome_responsavel_termo?: string | null
+          numero_os: number
+          observacoes?: string | null
+          peca_concretada?: string | null
+          slump_central_medido?: string | null
+          slump_central_saida?: string | null
+          slump_peca_medido?: string | null
+          slump_peca_saida?: string | null
+          veiculo_placa?: string | null
+          vendedor_nome?: string | null
+          visto_motorista_central?: string | null
+          visto_motorista_peca?: string | null
+          visto_obra?: string | null
+        }
+        Update: {
+          agua_adic_central?: number | null
+          agua_adic_peca?: number | null
+          agua_adicional_termo?: number | null
+          bomba_estacionaria?: string | null
+          carga_id?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          data_emissao?: string
+          destinatario_bairro?: string | null
+          destinatario_cep?: string | null
+          destinatario_cidade?: string | null
+          destinatario_cpf_cnpj?: string | null
+          destinatario_endereco?: string | null
+          destinatario_nome?: string
+          destinatario_telefone?: string | null
+          destinatario_uf?: string | null
+          empresa_id?: string
+          hora_carga?: string | null
+          hora_chegada_central?: string | null
+          hora_chegada_obra?: string | null
+          hora_fim_descarga?: string | null
+          hora_inicio_descarga?: string | null
+          hora_saida_central?: string | null
+          hora_saida_obra?: string | null
+          id?: string
+          itens?: Json
+          km_final?: number | null
+          km_inicial?: number | null
+          lacre?: string | null
+          moldagem_central?: string | null
+          motorista_nome?: string | null
+          nome_responsavel_termo?: string | null
+          numero_os?: number
+          observacoes?: string | null
+          peca_concretada?: string | null
+          slump_central_medido?: string | null
+          slump_central_saida?: string | null
+          slump_peca_medido?: string | null
+          slump_peca_saida?: string | null
+          veiculo_placa?: string | null
+          vendedor_nome?: string | null
+          visto_motorista_central?: string | null
+          visto_motorista_peca?: string | null
+          visto_obra?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ordens_servico_carga_id_fkey'
+            columns: ['carga_id']
+            isOneToOne: false
+            referencedRelation: 'cargas'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ordens_servico_cliente_id_fkey'
+            columns: ['cliente_id']
+            isOneToOne: false
+            referencedRelation: 'clientes'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'ordens_servico_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: false
+            referencedRelation: 'empresas'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       precos_material: {
         Row: {
           created_at: string
@@ -468,7 +720,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      proximo_numero_os: { Args: { p_empresa_id: string }; Returns: number }
     }
     Enums: {
       [_ in never]: never

@@ -104,6 +104,7 @@ export default function Cadastros() {
   const [cidadeCliente, setCidadeCliente] = useState('')
   const [ufCliente, setUfCliente] = useState('PB')
   const [observacoesCliente, setObservacoesCliente] = useState('')
+  const [exibirInsumosOsCliente, setExibirInsumosOsCliente] = useState(true)
   const [buscandoCnpj, setBuscandoCnpj] = useState(false)
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [filtroClientes, setFiltroClientes] = useState('')
@@ -418,6 +419,7 @@ export default function Cadastros() {
     setCidadeCliente('')
     setUfCliente('PB')
     setObservacoesCliente('')
+    setExibirInsumosOsCliente(true)
     setOpenCliente(true)
   }
 
@@ -437,6 +439,7 @@ export default function Cadastros() {
     setCidadeCliente(cli.cidade || '')
     setUfCliente(cli.uf || 'PB')
     setObservacoesCliente(cli.observacoes || '')
+    setExibirInsumosOsCliente(cli.exibir_insumos_os ?? true)
     setOpenCliente(true)
   }
 
@@ -590,6 +593,7 @@ export default function Cadastros() {
           uf: ufCliente.trim().toUpperCase() || 'PB',
           observacoes: observacoesCliente.trim() || null,
           ativo: true,
+          exibir_insumos_os: exibirInsumosOsCliente,
         },
         empresaAtiva?.id,
       )
@@ -744,6 +748,7 @@ export default function Cadastros() {
                         <th className="py-2.5 px-3">Telefone</th>
                         <th className="py-2.5 px-3">Cidade / Bairro</th>
                         <th className="py-2.5 px-3">CEP</th>
+                        <th className="py-2.5 px-3">Insumos na OS</th>
                         <th className="py-2.5 px-3 text-right">Ações</th>
                       </tr>
                     </thead>
@@ -787,6 +792,22 @@ export default function Cadastros() {
                           </td>
                           <td className="py-2.5 px-3 font-mono text-muted-foreground">
                             {cli.cep || '—'}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <Badge
+                              variant={
+                                cli.exibir_insumos_os !== false
+                                  ? 'outline'
+                                  : 'secondary'
+                              }
+                              className={
+                                cli.exibir_insumos_os !== false
+                                  ? 'text-emerald-600 border-emerald-500/40 bg-emerald-500/10 text-[10px]'
+                                  : 'text-muted-foreground text-[10px]'
+                              }
+                            >
+                              {cli.exibir_insumos_os !== false ? 'Sim' : 'Não'}
+                            </Badge>
                           </td>
                           <td className="py-2.5 px-3 text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -2091,6 +2112,34 @@ export default function Cadastros() {
                 onChange={(e) => setObservacoesCliente(e.target.value)}
                 className="text-xs"
               />
+            </div>
+
+            {/* Configuração de Relatório Impresso: Exibir insumos na OS */}
+            <div className="p-3 rounded-lg border border-border/50 bg-muted/20 flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label
+                  htmlFor="exibirInsumosCli"
+                  className="text-xs font-semibold cursor-pointer"
+                >
+                  Exibir Insumos na OS impressa (Padrão para este cliente)
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Se ativado, as Ordens de Serviço deste cliente detalham os
+                  quilos/litros de cada insumo no recibo A4.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="exibirInsumosCli"
+                  type="checkbox"
+                  checked={exibirInsumosOsCliente}
+                  onChange={(e) => setExibirInsumosOsCliente(e.target.checked)}
+                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                />
+                <span className="text-xs font-medium">
+                  {exibirInsumosOsCliente ? 'Sim' : 'Não'}
+                </span>
+              </div>
             </div>
 
             <DialogFooter className="gap-2 sm:gap-0 pt-2">

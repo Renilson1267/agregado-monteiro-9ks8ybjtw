@@ -47,6 +47,16 @@ import {
   Area,
 } from 'recharts'
 import { Link } from 'react-router-dom'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { ReciboImpressao } from '@/components/ReciboImpressao'
+import type { OrdemServico } from '@/types/concreteira'
 
 type PeriodoTipo =
   | 'hoje'
@@ -60,6 +70,9 @@ export default function Index() {
   const [materiais, setMateriais] = useState<Material[]>([])
   const [cargas, setCargas] = useState<Carga[]>([])
   const [loading, setLoading] = useState(true)
+  const [osParaReimpressao, setOsParaReimpressao] =
+    useState<OrdemServico | null>(null)
+  const [modalReimpressaoAberta, setModalReimpressaoAberta] = useState(false)
 
   // Filtros de período
   const [tipoPeriodo, setTipoPeriodo] = useState<PeriodoTipo>('mes_atual')
@@ -941,6 +954,7 @@ export default function Index() {
               <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border/40">
                 <tr>
                   <th className="py-2.5 px-3">Carga #</th>
+                  <th className="py-2.5 px-3">OS</th>
                   <th className="py-2.5 px-3">Data</th>
                   <th className="py-2.5 px-3">Volume</th>
                   <th className="py-2.5 px-3">Traço</th>
@@ -957,7 +971,7 @@ export default function Index() {
                 {cargasFiltradas.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={11}
+                      colSpan={12}
                       className="py-6 text-center text-muted-foreground italic"
                     >
                       Nenhuma carga encontrada para o período selecionado.
@@ -971,6 +985,28 @@ export default function Index() {
                     >
                       <td className="py-2.5 px-3 font-mono font-medium text-foreground">
                         #{String(c.numero_carga).padStart(4, '0')}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        {c.ordem_servico ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setOsParaReimpressao(c.ordem_servico!)
+                              setModalReimpressaoAberta(true)
+                            }}
+                            className="h-6 px-1.5 text-[10px] font-mono font-bold text-primary border-primary/30 hover:bg-primary/10 gap-1"
+                            title="Clique para reimprimir o recibo da OS"
+                          >
+                            <Printer className="w-3 h-3" />
+                            OS {c.ordem_servico.numero_os}
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground/40 text-[11px]">
+                            —
+                          </span>
+                        )}
                       </td>
                       <td className="py-2.5 px-3 text-muted-foreground">
                         {c.data.split('-').reverse().join('/')}
@@ -1043,6 +1079,62 @@ export default function Index() {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal de Reimpressão de OS a partir da listagem */}
+      <Dialog
+        open={modalReimpressaoAberta}
+        onOpenChange={setModalReimpressaoAberta}
+      >
+        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between pr-6 text-base">
+              <span className="flex items-center gap-2">
+                <Printer className="w-5 h-5 text-primary" />
+                Reimprimir Ordem de Serviço Nº {osParaReimpressao?.numero_os}
+              </span>
+              <Button
+                type="button"
+                onClick={() => window.print()}
+                className="gap-2 bg-primary text-primary-foreground text-xs h-8"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Imprimir Recibo (A4)
+              </Button>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Recibo formatado com dados da carga, transporte, verificação de
+              slump, termo de responsabilidade e canhoto.
+            </DialogDescription>
+          </DialogHeader>
+
+          {osParaReimpressao && empresaAtiva && (
+            <div className="mt-2 border rounded-lg p-2 bg-white text-black shadow-inner">
+              <ReciboImpressao
+                ordem={osParaReimpressao}
+                empresa={empresaAtiva}
+              />
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0 mt-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setModalReimpressaoAberta(false)}
+            >
+              Fechar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => window.print()}
+              className="gap-2"
+            >
+              <Printer className="w-4 h-4" />
+              Imprimir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

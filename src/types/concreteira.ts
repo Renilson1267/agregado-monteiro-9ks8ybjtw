@@ -30,7 +30,14 @@ export interface Cliente {
   uf?: string | null
   observacoes?: string | null
   ativo: boolean
+  exibir_insumos_os?: boolean
   created_at?: string
+}
+
+export interface InsumoDetalhadoOS {
+  material: string
+  quantidade: number
+  unidade: string
 }
 
 export interface ItemOrdemServico {
@@ -57,12 +64,21 @@ export interface OrdemServico {
   destinatario_uf?: string | null
   destinatario_cep?: string | null
 
+  // Obra e Local
+  nome_obra?: string | null
+  local_descarga?: string | null
+
   // Itens
   itens: ItemOrdemServico[]
+
+  // Insumos no recibo
+  exibir_insumos_os?: boolean
+  insumos_detalhados?: InsumoDetalhadoOS[]
 
   // Verificação Slump
   slump_central_medido?: string | null
   slump_central_saida?: string | null
+  slump_tolerancia?: string | null
   agua_adic_central?: number | null
   moldagem_central?: string | null
   visto_motorista_central?: string | null
@@ -196,6 +212,9 @@ export interface Carga {
   observacao: string | null
   carga_zerada: boolean
   custo?: CustoBreakdown
+  ordem_servico?: OrdemServico | null
+  numero_os?: number | null
+  ordem_servico_id?: string | null
   created_at?: string
 }
 

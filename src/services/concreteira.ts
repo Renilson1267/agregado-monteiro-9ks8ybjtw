@@ -469,14 +469,32 @@ export const ConcreteiraService = {
       })
     }
 
-    // Buscar tabela de preços para enriquecer com o cálculo de custo
-    const precos = await this.getPrecosMaterial(filtros?.empresaId)
+    // Buscar tabela de preços e também ordens de serviço vinculadas a essas cargas
+    const [precos, ordensServico] = await Promise.all([
+      this.getPrecosMaterial(filtros?.empresaId),
+      (supabase as any)
+        .from('ordens_servico')
+        .select('*')
+        .not('carga_id', 'is', null)
+        .then(({ data }: any) => (data || []) as OrdemServico[]),
+    ])
+
+    const ordensPorCargaId = new Map<string, OrdemServico>()
+    ordensServico.forEach((os) => {
+      if (os.carga_id) {
+        ordensPorCargaId.set(os.carga_id, os)
+      }
+    })
 
     return cargas.map((c) => {
       const custo = this.calcularCustoCarga(c, precos)
+      const osVinculada = ordensPorCargaId.get(c.id) || null
       return {
         ...c,
         custo,
+        ordem_servico: osVinculada,
+        numero_os: osVinculada ? osVinculada.numero_os : null,
+        ordem_servico_id: osVinculada ? osVinculada.id : null,
       }
     })
   },
@@ -759,6 +777,193 @@ export const ConcreteiraService = {
     return carga
   },
 
+  // Salva a carga e gera automaticamente a Ordem de Serviço sequencial (SJE seguindo 4337+, etc.)
+  async criarCargaComOS(payload: {
+    carga: {
+      empresa_id?: string
+      data: string
+      volume_m3: number
+      traco_id?: string
+      traco_nome?: string
+      motorista_nome?: string
+      veiculo_placa?: string
+      cidade_nome?: string
+      consumo_brita12: number
+      consumo_brita19: number
+      consumo_areia: number
+      consumo_po_pedra: number
+      consumo_cimento: number
+      consumo_aditivo: number
+      consumo_agua?: number
+      observacao?: string
+      carga_zerada?: boolean
+    }
+    entrega: {
+      cliente_id?: string | null
+      destinatario_nome: string
+      destinatario_cpf_cnpj?: string | null
+      destinatario_telefone?: string | null
+      destinatario_endereco?: string | null
+      destinatario_bairro?: string | null
+      destinatario_cidade?: string | null
+      destinatario_uf?: string | null
+      destinatario_cep?: string | null
+      nome_obra?: string | null
+      local_descarga?: string | null
+      discriminacao_produto?: string | null
+      slump_central_medido?: string | null
+      slump_central_saida?: string | null
+      slump_tolerancia?: string | null
+      lacre?: string | null
+      km_inicial?: number | null
+      km_final?: number | null
+      hora_carga?: string | null
+      hora_saida_central?: string | null
+      hora_chegada_obra?: string | null
+      hora_inicio_descarga?: string | null
+      hora_fim_descarga?: string | null
+      hora_saida_obra?: string | null
+      hora_chegada_central?: string | null
+      visto_obra?: string | null
+      visto_motorista_central?: string | null
+      peca_concretada?: string | null
+      moldagem_central?: string | null
+      observacoes?: string | null
+      exibir_insumos_os?: boolean
+    }
+  }): Promise<{ carga: Carga; ordemServico: OrdemServico }> {
+    const empresaId = payload.carga.empresa_id!
+    // 1. Criar a Carga
+    const carga = await this.criarCarga(payload.carga)
+
+    // 2. Obter próximo número sequencial da OS para a empresa
+    const proximoNumOS = await this.getProximoNumeroOS(empresaId)
+
+    // 3. Montar itens da OS (discriminando o traço e volume)
+    const discriminacao =
+      payload.entrega.discriminacao_produto ||
+      payload.carga.traco_nome ||
+      'CONCRETO USINADO'
+
+    const itens = [
+      {
+        quantidade: Number(payload.carga.volume_m3) || 8.0,
+        unidade: 'm3',
+        discriminacao,
+      },
+    ]
+
+    // 4. Montar detalhamento dos insumos da carga
+    const insumosDetalhados: Array<{
+      material: string
+      quantidade: number
+      unidade: string
+    }> = [
+      {
+        material: 'Cimento',
+        quantidade: payload.carga.consumo_cimento,
+        unidade: 'kg',
+      },
+      {
+        material: 'Aditivo',
+        quantidade: payload.carga.consumo_aditivo,
+        unidade: 'L',
+      },
+      {
+        material: 'Água',
+        quantidade: payload.carga.consumo_agua || 0,
+        unidade: 'L',
+      },
+      {
+        material: 'Areia',
+        quantidade: payload.carga.consumo_areia,
+        unidade: 'kg',
+      },
+      {
+        material: 'Brita 12',
+        quantidade: payload.carga.consumo_brita12,
+        unidade: 'kg',
+      },
+      {
+        material: 'Brita 19',
+        quantidade: payload.carga.consumo_brita19,
+        unidade: 'kg',
+      },
+      {
+        material: 'Pó de Pedra',
+        quantidade: payload.carga.consumo_po_pedra,
+        unidade: 'kg',
+      },
+    ].filter((ins) => ins.quantidade > 0)
+
+    // 5. Salvar Ordem de Serviço
+    const ordemServico = await this.salvarOrdemServico(
+      {
+        empresa_id: empresaId,
+        numero_os: proximoNumOS,
+        data_emissao: payload.carga.data,
+        cliente_id: payload.entrega.cliente_id || null,
+        carga_id: carga.id,
+        destinatario_nome:
+          payload.entrega.destinatario_nome || 'CONSUMIDOR FINAL',
+        destinatario_cpf_cnpj: payload.entrega.destinatario_cpf_cnpj || null,
+        destinatario_telefone: payload.entrega.destinatario_telefone || null,
+        destinatario_endereco: payload.entrega.destinatario_endereco || null,
+        destinatario_bairro: payload.entrega.destinatario_bairro || null,
+        destinatario_cidade:
+          payload.entrega.destinatario_cidade ||
+          payload.carga.cidade_nome ||
+          null,
+        destinatario_uf: payload.entrega.destinatario_uf || 'PB',
+        destinatario_cep: payload.entrega.destinatario_cep || null,
+        nome_obra: payload.entrega.nome_obra || null,
+        local_descarga: payload.entrega.local_descarga || null,
+        itens,
+        exibir_insumos_os: payload.entrega.exibir_insumos_os ?? true,
+        insumos_detalhados: insumosDetalhados,
+        slump_central_medido: payload.entrega.slump_central_medido || '12',
+        slump_central_saida: payload.entrega.slump_central_saida || '12',
+        slump_tolerancia: payload.entrega.slump_tolerancia || '+-2',
+        agua_adic_central: 0,
+        moldagem_central: payload.entrega.moldagem_central || 'SIM',
+        visto_motorista_central:
+          payload.entrega.visto_motorista_central ||
+          payload.carga.motorista_nome ||
+          null,
+        slump_peca_medido: payload.entrega.slump_central_medido || '12',
+        slump_peca_saida: payload.entrega.slump_central_saida || '12',
+        peca_concretada: payload.entrega.peca_concretada || 'PISO / ESTRUTURAL',
+        veiculo_placa: payload.carga.veiculo_placa || null,
+        motorista_nome: payload.carga.motorista_nome || null,
+        lacre: payload.entrega.lacre || null,
+        km_inicial: payload.entrega.km_inicial ?? null,
+        km_final: payload.entrega.km_final ?? null,
+        hora_carga:
+          payload.entrega.hora_carga || new Date().toTimeString().slice(0, 5),
+        hora_saida_central: payload.entrega.hora_saida_central || null,
+        hora_chegada_obra: payload.entrega.hora_chegada_obra || null,
+        hora_inicio_descarga: payload.entrega.hora_inicio_descarga || null,
+        hora_fim_descarga: payload.entrega.hora_fim_descarga || null,
+        hora_saida_obra: payload.entrega.hora_saida_obra || null,
+        hora_chegada_central: payload.entrega.hora_chegada_central || null,
+        visto_obra: payload.entrega.visto_obra || null,
+        observacoes:
+          payload.entrega.observacoes || payload.carga.observacao || null,
+      },
+      empresaId,
+    )
+
+    return {
+      carga: {
+        ...carga,
+        ordem_servico: ordemServico,
+        numero_os: ordemServico.numero_os,
+        ordem_servico_id: ordemServico.id,
+      },
+      ordemServico,
+    }
+  },
+
   // Custos / Preços Unitários
   async getPrecosMaterial(empresaId?: string): Promise<PrecoMaterial[]> {
     let query = (supabase as any)
@@ -1019,6 +1224,7 @@ export const ConcreteiraService = {
           uf: cliente.uf || 'PB',
           observacoes: cliente.observacoes || null,
           ativo: cliente.ativo ?? true,
+          exibir_insumos_os: cliente.exibir_insumos_os ?? true,
           ...(empresaId ? { empresa_id: empresaId } : {}),
         })
         .eq('id', cliente.id)
@@ -1046,6 +1252,7 @@ export const ConcreteiraService = {
           uf: cliente.uf || 'PB',
           observacoes: cliente.observacoes || null,
           ativo: cliente.ativo ?? true,
+          exibir_insumos_os: cliente.exibir_insumos_os ?? true,
         })
         .select()
         .single()
@@ -1117,9 +1324,14 @@ export const ConcreteiraService = {
       destinatario_cidade: os.destinatario_cidade || null,
       destinatario_uf: os.destinatario_uf || 'PB',
       destinatario_cep: os.destinatario_cep || null,
+      nome_obra: os.nome_obra || null,
+      local_descarga: os.local_descarga || null,
       itens: os.itens || [],
+      exibir_insumos_os: os.exibir_insumos_os ?? true,
+      insumos_detalhados: os.insumos_detalhados || [],
       slump_central_medido: os.slump_central_medido || null,
       slump_central_saida: os.slump_central_saida || null,
+      slump_tolerancia: os.slump_tolerancia || '+-2',
       agua_adic_central:
         os.agua_adic_central != null ? Number(os.agua_adic_central) : 0,
       moldagem_central: os.moldagem_central || null,

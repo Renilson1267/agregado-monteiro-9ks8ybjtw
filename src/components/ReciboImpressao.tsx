@@ -89,6 +89,27 @@ export const ReciboImpressao = forwardRef<HTMLDivElement, ReciboImpressaoProps>(
               </span>
             </div>
 
+            {(ordem.nome_obra || ordem.local_descarga) && (
+              <>
+                {ordem.nome_obra && (
+                  <div className="col-span-6 flex">
+                    <span className="font-bold w-20">Obra:</span>
+                    <span className="uppercase font-semibold flex-1">
+                      {ordem.nome_obra}
+                    </span>
+                  </div>
+                )}
+                {ordem.local_descarga && (
+                  <div className="col-span-6 flex">
+                    <span className="font-bold w-28">Local Descarga:</span>
+                    <span className="uppercase flex-1">
+                      {ordem.local_descarga}
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+
             <div className="col-span-8 flex">
               <span className="font-bold w-20">Endereço:</span>
               <span className="uppercase flex-1">
@@ -179,6 +200,33 @@ export const ReciboImpressao = forwardRef<HTMLDivElement, ReciboImpressaoProps>(
               )}
             </tbody>
           </table>
+
+          {/* TABELA CONDICIONAL DE INSUMOS DA CARGA (quando exibir_insumos_os === true) */}
+          {ordem.exibir_insumos_os &&
+            ordem.insumos_detalhados &&
+            ordem.insumos_detalhados.length > 0 && (
+              <div className="border-t border-black bg-gray-50/50 p-1.5">
+                <div className="text-[7.5pt] font-bold uppercase tracking-wider text-gray-700 mb-1 px-1">
+                  Composição dos Insumos da Carga:
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 px-1">
+                  {ordem.insumos_detalhados.map((ins, i) => (
+                    <div
+                      key={i}
+                      className="border border-black/40 bg-white px-2 py-0.5 text-[7.5pt] flex justify-between items-center"
+                    >
+                      <span className="font-semibold uppercase text-gray-800">
+                        {ins.material}:
+                      </span>
+                      <span className="font-mono font-bold">
+                        {Number(ins.quantidade).toLocaleString('pt-BR')}{' '}
+                        {ins.unidade}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
         </div>
 
         {/* BLOCO DE VERIFICAÇÃO SLUMP (CENTRAL E PEÇA CONCRETADA) */}
@@ -208,7 +256,9 @@ export const ReciboImpressao = forwardRef<HTMLDivElement, ReciboImpressaoProps>(
               {/* Linha 1: Central */}
               <tr className="border-b border-black h-7">
                 <td className="border-r border-black font-semibold">
-                  {ordem.slump_central_medido || '—'}
+                  {ordem.slump_central_medido
+                    ? `${ordem.slump_central_medido} ${ordem.slump_tolerancia ? `(${ordem.slump_tolerancia})` : ''}`
+                    : '—'}
                 </td>
                 <td className="border-r border-black font-semibold">
                   {ordem.slump_central_saida || '—'}
