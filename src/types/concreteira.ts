@@ -3,6 +3,102 @@ export interface Empresa {
   nome: string
   slug: string
   ativo: boolean
+  razao_social?: string
+  cnpj?: string
+  telefone?: string
+  endereco?: string
+  cidade?: string
+  uf?: string
+  created_at?: string
+}
+
+export interface Cliente {
+  id: string
+  empresa_id: string
+  tipo: 'PF' | 'PJ'
+  cpf_cnpj: string
+  nome: string
+  nome_fantasia?: string | null
+  telefone?: string | null
+  email?: string | null
+  cep?: string | null
+  logradouro?: string | null
+  numero?: string | null
+  complemento?: string | null
+  bairro?: string | null
+  cidade?: string | null
+  uf?: string | null
+  observacoes?: string | null
+  ativo: boolean
+  created_at?: string
+}
+
+export interface ItemOrdemServico {
+  quantidade: number
+  unidade: string
+  discriminacao: string
+}
+
+export interface OrdemServico {
+  id: string
+  empresa_id: string
+  numero_os: number
+  data_emissao: string
+  cliente_id?: string | null
+  carga_id?: string | null
+
+  // Destinatário
+  destinatario_nome: string
+  destinatario_cpf_cnpj?: string | null
+  destinatario_telefone?: string | null
+  destinatario_endereco?: string | null
+  destinatario_bairro?: string | null
+  destinatario_cidade?: string | null
+  destinatario_uf?: string | null
+  destinatario_cep?: string | null
+
+  // Itens
+  itens: ItemOrdemServico[]
+
+  // Verificação Slump
+  slump_central_medido?: string | null
+  slump_central_saida?: string | null
+  agua_adic_central?: number | null
+  moldagem_central?: string | null
+  visto_motorista_central?: string | null
+
+  slump_peca_medido?: string | null
+  slump_peca_saida?: string | null
+  agua_adic_peca?: number | null
+  peca_concretada?: string | null
+  visto_motorista_peca?: string | null
+
+  // Transporte
+  veiculo_placa?: string | null
+  motorista_nome?: string | null
+  lacre?: string | null
+  km_inicial?: number | null
+  km_final?: number | null
+  hora_carga?: string | null
+
+  // Horários
+  hora_saida_central?: string | null
+  hora_chegada_obra?: string | null
+  hora_inicio_descarga?: string | null
+  hora_fim_descarga?: string | null
+  hora_saida_obra?: string | null
+  hora_chegada_central?: string | null
+
+  // Visto Obra & Observações
+  visto_obra?: string | null
+  vendedor_nome?: string | null
+  bomba_estacionaria?: string | null
+  observacoes?: string | null
+
+  // Termo
+  agua_adicional_termo?: number | null
+  nome_responsavel_termo?: string | null
+
   created_at?: string
 }
 

@@ -7,12 +7,12 @@ import { EmpresaProvider } from '@/hooks/use-empresa'
 import Layout from './components/Layout'
 import Index from './pages/Index'
 import LancamentoCargas from './pages/LancamentoCargas'
-import Estoque from './pages/Estoque'
 import Tracos from './pages/Tracos'
+import Estoque from './pages/Estoque'
 import Cadastros from './pages/Cadastros'
+import Ordens from './pages/Ordens'
 import Relatorios from './pages/Relatorios'
 import NotFound from './pages/NotFound'
-
 const App = () => (
   <BrowserRouter
     future={{ v7_startTransition: false, v7_relativeSplatPath: false }}
@@ -29,6 +29,7 @@ const App = () => (
               <Route path="/estoque" element={<Estoque />} />
               <Route path="/tracos" element={<Tracos />} />
               <Route path="/cadastros" element={<Cadastros />} />
+              <Route path="/ordens" element={<Ordens />} />
               <Route path="/relatorios" element={<Relatorios />} />
             </Route>
             <Route path="*" element={<NotFound />} />

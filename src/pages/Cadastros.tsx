@@ -43,7 +43,23 @@ import {
   CheckCircle2,
   AlertCircle,
   FileText,
+  UserCheck,
+  Search,
+  Building,
+  User,
+  Trash2,
 } from 'lucide-react'
+import {
+  formatarCpfCnpj,
+  formatarCep,
+  formatarTelefone,
+  validarCPF,
+  validarCNPJ,
+  limparMascara,
+  consultarCNPJ,
+  consultarCEP,
+} from '@/lib/documentos'
+import type { Cliente } from '@/types/concreteira'
 import { Textarea } from '@/components/ui/textarea'
 import {
   parseNFeXML,
@@ -68,7 +84,29 @@ export default function Cadastros() {
   const [cidades, setCidades] = useState<Cidade[]>([])
   const [materiais, setMateriais] = useState<Material[]>([])
   const [precos, setPrecos] = useState<PrecoMaterial[]>([])
+  const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Estado do Modal de Cliente
+  const [openCliente, setOpenCliente] = useState(false)
+  const [clienteEditando, setClienteEditando] = useState<Cliente | null>(null)
+  const [tipoCliente, setTipoCliente] = useState<'PF' | 'PJ'>('PJ')
+  const [cpfCnpjCliente, setCpfCnpjCliente] = useState('')
+  const [nomeCliente, setNomeCliente] = useState('')
+  const [nomeFantasiaCliente, setNomeFantasiaCliente] = useState('')
+  const [telefoneCliente, setTelefoneCliente] = useState('')
+  const [emailCliente, setEmailCliente] = useState('')
+  const [cepCliente, setCepCliente] = useState('')
+  const [logradouroCliente, setLogradouroCliente] = useState('')
+  const [numeroCliente, setNumeroCliente] = useState('')
+  const [complementoCliente, setComplementoCliente] = useState('')
+  const [bairroCliente, setBairroCliente] = useState('')
+  const [cidadeCliente, setCidadeCliente] = useState('')
+  const [ufCliente, setUfCliente] = useState('PB')
+  const [observacoesCliente, setObservacoesCliente] = useState('')
+  const [buscandoCnpj, setBuscandoCnpj] = useState(false)
+  const [buscandoCep, setBuscandoCep] = useState(false)
+  const [filtroClientes, setFiltroClientes] = useState('')
 
   // Modal Insumo / Material
   const [openMaterial, setOpenMaterial] = useState(false)
@@ -251,18 +289,20 @@ export default function Cadastros() {
     if (!empresaAtiva) return
     setLoading(true)
     try {
-      const [mot, vei, cid, mats, prcs] = await Promise.all([
+      const [mot, vei, cid, mats, prcs, clis] = await Promise.all([
         ConcreteiraService.getMotoristas(empresaAtiva.id),
         ConcreteiraService.getVeiculos(empresaAtiva.id),
         ConcreteiraService.getCidades(empresaAtiva.id),
         ConcreteiraService.getMateriais(empresaAtiva.id),
         ConcreteiraService.getPrecosMaterial(empresaAtiva.id),
+        ConcreteiraService.getClientes(empresaAtiva.id),
       ])
       setMotoristas(mot)
       setVeiculos(vei)
       setCidades(cid)
       setMateriais(mats)
       setPrecos(prcs)
+      setClientes(clis)
     } catch (e: any) {
       toast({
         title: 'Erro ao carregar cadastros',
@@ -361,6 +401,244 @@ export default function Cadastros() {
     }
   }
 
+  // Abertura do modal de cliente
+  const handleNovoCliente = () => {
+    setClienteEditando(null)
+    setTipoCliente('PJ')
+    setCpfCnpjCliente('')
+    setNomeCliente('')
+    setNomeFantasiaCliente('')
+    setTelefoneCliente('')
+    setEmailCliente('')
+    setCepCliente('')
+    setLogradouroCliente('')
+    setNumeroCliente('')
+    setComplementoCliente('')
+    setBairroCliente('')
+    setCidadeCliente('')
+    setUfCliente('PB')
+    setObservacoesCliente('')
+    setOpenCliente(true)
+  }
+
+  const handleEditarCliente = (cli: Cliente) => {
+    setClienteEditando(cli)
+    setTipoCliente(cli.tipo || 'PJ')
+    setCpfCnpjCliente(formatarCpfCnpj(cli.cpf_cnpj))
+    setNomeCliente(cli.nome || '')
+    setNomeFantasiaCliente(cli.nome_fantasia || '')
+    setTelefoneCliente(cli.telefone ? formatarTelefone(cli.telefone) : '')
+    setEmailCliente(cli.email || '')
+    setCepCliente(cli.cep ? formatarCep(cli.cep) : '')
+    setLogradouroCliente(cli.logradouro || '')
+    setNumeroCliente(cli.numero || '')
+    setComplementoCliente(cli.complemento || '')
+    setBairroCliente(cli.bairro || '')
+    setCidadeCliente(cli.cidade || '')
+    setUfCliente(cli.uf || 'PB')
+    setObservacoesCliente(cli.observacoes || '')
+    setOpenCliente(true)
+  }
+
+  // Busca automática ao sair do campo CPF/CNPJ
+  const handleBlurCpfCnpj = async () => {
+    const raw = limparMascara(cpfCnpjCliente)
+    if (!raw) return
+
+    if (tipoCliente === 'PF') {
+      if (raw.length === 11) {
+        if (!validarCPF(raw)) {
+          toast({
+            title: 'CPF com dígitos inválidos',
+            description:
+              'Verifique se os 11 números foram digitados corretamente.',
+            variant: 'destructive',
+          })
+        }
+      }
+    } else {
+      // PJ: busca na BrasilAPI
+      if (raw.length === 14) {
+        if (!validarCNPJ(raw)) {
+          toast({
+            title: 'CNPJ inválido',
+            description: 'Verifique o número digitado.',
+            variant: 'destructive',
+          })
+          return
+        }
+
+        setBuscandoCnpj(true)
+        try {
+          const dados = await consultarCNPJ(raw)
+          if (dados.razao_social) setNomeCliente(dados.razao_social)
+          if (dados.nome_fantasia) setNomeFantasiaCliente(dados.nome_fantasia)
+          if (dados.ddd_telefone_1) setTelefoneCliente(dados.ddd_telefone_1)
+          if (dados.email) setEmailCliente(dados.email.toLowerCase())
+          if (dados.cep) setCepCliente(formatarCep(dados.cep))
+          if (dados.logradouro) setLogradouroCliente(dados.logradouro)
+          if (dados.numero) setNumeroCliente(dados.numero)
+          if (dados.complemento) setComplementoCliente(dados.complemento)
+          if (dados.bairro) setBairroCliente(dados.bairro)
+          if (dados.municipio) setCidadeCliente(dados.municipio)
+          if (dados.uf) setUfCliente(dados.uf)
+
+          toast({
+            title: 'Dados do CNPJ preenchidos!',
+            description: dados.razao_social,
+          })
+        } catch (err: any) {
+          toast({
+            title: 'Consulta automática indisponível',
+            description: err.message,
+          })
+        } finally {
+          setBuscandoCnpj(false)
+        }
+      }
+    }
+  }
+
+  // Busca automática de endereço ao sair do campo CEP
+  const handleBlurCep = async () => {
+    const raw = limparMascara(cepCliente)
+    if (raw.length !== 8) return
+
+    setBuscandoCep(true)
+    try {
+      const dados = await consultarCEP(raw)
+      if (dados.logradouro) setLogradouroCliente(dados.logradouro)
+      if (dados.bairro) setBairroCliente(dados.bairro)
+      if (dados.localidade) setCidadeCliente(dados.localidade)
+      if (dados.uf) setUfCliente(dados.uf)
+      if (dados.complemento && !complementoCliente)
+        setComplementoCliente(dados.complemento)
+
+      toast({
+        title: 'Endereço localizado via CEP!',
+        description: `${dados.localidade} - ${dados.uf}`,
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Aviso de CEP',
+        description: err.message,
+      })
+    } finally {
+      setBuscandoCep(false)
+    }
+  }
+
+  // Salvar cliente
+  const handleSalvarClienteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!nomeCliente.trim()) {
+      toast({
+        title: 'Campo obrigatório',
+        description: 'Informe o Nome ou Razão Social do cliente.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const docLimpo = limparMascara(cpfCnpjCliente)
+    if (!docLimpo) {
+      toast({
+        title: 'Campo obrigatório',
+        description: `Informe o ${tipoCliente === 'PF' ? 'CPF' : 'CNPJ'} do cliente.`,
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (tipoCliente === 'PF' && !validarCPF(docLimpo)) {
+      toast({
+        title: 'CPF Inválido',
+        description:
+          'O número de CPF informado possui dígitos verificadores incorretos.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (tipoCliente === 'PJ' && !validarCNPJ(docLimpo)) {
+      toast({
+        title: 'CNPJ Inválido',
+        description:
+          'O número de CNPJ informado possui dígitos verificadores incorretos.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setSalvando(true)
+    try {
+      await ConcreteiraService.salvarCliente(
+        {
+          id: clienteEditando?.id,
+          tipo: tipoCliente,
+          cpf_cnpj: formatarCpfCnpj(docLimpo),
+          nome: nomeCliente.trim(),
+          nome_fantasia: nomeFantasiaCliente.trim() || null,
+          telefone: telefoneCliente.trim() || null,
+          email: emailCliente.trim() || null,
+          cep: cepCliente.trim() || null,
+          logradouro: logradouroCliente.trim() || null,
+          numero: numeroCliente.trim() || null,
+          complemento: complementoCliente.trim() || null,
+          bairro: bairroCliente.trim() || null,
+          cidade: cidadeCliente.trim() || null,
+          uf: ufCliente.trim().toUpperCase() || 'PB',
+          observacoes: observacoesCliente.trim() || null,
+          ativo: true,
+        },
+        empresaAtiva?.id,
+      )
+
+      toast({
+        title: clienteEditando
+          ? 'Cliente atualizado com sucesso!'
+          : 'Cliente cadastrado com sucesso!',
+      })
+      setOpenCliente(false)
+      carregarTudo()
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao salvar cliente',
+        description: err.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const handleExcluirCliente = async (id: string, nome: string) => {
+    if (!confirm(`Deseja realmente remover o cliente "${nome}"?`)) return
+    try {
+      await ConcreteiraService.excluirCliente(id)
+      toast({ title: 'Cliente removido' })
+      carregarTudo()
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao excluir',
+        description: err.message,
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // Filtro de clientes
+  const clientesFiltrados = clientes.filter((c) => {
+    if (!filtroClientes) return true
+    const termo = filtroClientes.toLowerCase()
+    return (
+      c.nome?.toLowerCase().includes(termo) ||
+      c.cpf_cnpj?.toLowerCase().includes(termo) ||
+      c.cidade?.toLowerCase().includes(termo) ||
+      c.bairro?.toLowerCase().includes(termo)
+    )
+  })
+
   return (
     <div className="space-y-6">
       {/* Topo */}
@@ -391,11 +669,15 @@ export default function Cadastros() {
         </Button>
       </div>
 
-      <Tabs defaultValue="insumos" className="w-full">
-        <TabsList className="grid grid-cols-4 w-full max-w-xl">
+      <Tabs defaultValue="clientes" className="w-full">
+        <TabsList className="grid grid-cols-5 w-full max-w-2xl">
+          <TabsTrigger value="clientes" className="gap-2">
+            <UserCheck className="w-4 h-4" />
+            Clientes ({clientes.length})
+          </TabsTrigger>
           <TabsTrigger value="insumos" className="gap-2">
             <Boxes className="w-4 h-4" />
-            Insumos / Custos ({materiais.length})
+            Insumos ({materiais.length})
           </TabsTrigger>
           <TabsTrigger value="motoristas" className="gap-2">
             <Users className="w-4 h-4" />
@@ -410,6 +692,135 @@ export default function Cadastros() {
             Cidades ({cidades.length})
           </TabsTrigger>
         </TabsList>
+
+        {/* TAB CLIENTES */}
+        <TabsContent value="clientes" className="mt-6 space-y-4">
+          <Card className="border-border/40 bg-card/70">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-3">
+              <div>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-primary" />
+                  Cadastro de Clientes e Destinatários
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Pessoas Físicas e Jurídicas para emissão de Ordens de Serviço,
+                  com busca automática de CNPJ (BrasilAPI) e CEP (ViaCEP)
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome, documento, cidade..."
+                    value={filtroClientes}
+                    onChange={(e) => setFiltroClientes(e.target.value)}
+                    className="pl-8 h-9 text-xs"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleNovoCliente}
+                  className="gap-1 bg-primary text-primary-foreground text-xs shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Novo Cliente
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {clientesFiltrados.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground text-xs italic">
+                  Nenhum cliente encontrado. Clique em "Novo Cliente" para
+                  adicionar.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border/40">
+                      <tr>
+                        <th className="py-2.5 px-3">Tipo</th>
+                        <th className="py-2.5 px-3">Razão Social / Nome</th>
+                        <th className="py-2.5 px-3">CPF / CNPJ</th>
+                        <th className="py-2.5 px-3">Telefone</th>
+                        <th className="py-2.5 px-3">Cidade / Bairro</th>
+                        <th className="py-2.5 px-3">CEP</th>
+                        <th className="py-2.5 px-3 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/20">
+                      {clientesFiltrados.map((cli) => (
+                        <tr
+                          key={cli.id}
+                          className="hover:bg-muted/20 transition-colors"
+                        >
+                          <td className="py-2.5 px-3">
+                            <Badge
+                              variant={
+                                cli.tipo === 'PJ' ? 'default' : 'secondary'
+                              }
+                              className="text-[10px] uppercase font-bold"
+                            >
+                              {cli.tipo === 'PJ' ? 'PJ' : 'PF'}
+                            </Badge>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="font-semibold text-foreground block">
+                              {cli.nome}
+                            </span>
+                            {cli.nome_fantasia && (
+                              <span className="text-[10px] text-muted-foreground block">
+                                {cli.nome_fantasia}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-muted-foreground">
+                            {cli.cpf_cnpj}
+                          </td>
+                          <td className="py-2.5 px-3 text-muted-foreground">
+                            {cli.telefone || '—'}
+                          </td>
+                          <td className="py-2.5 px-3 text-muted-foreground">
+                            {cli.cidade
+                              ? `${cli.cidade} - ${cli.uf || 'PB'}`
+                              : '—'}
+                            {cli.bairro ? ` (${cli.bairro})` : ''}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-muted-foreground">
+                            {cli.cep || '—'}
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => handleEditarCliente(cli)}
+                                title="Editar Cliente"
+                              >
+                                <Edit2 className="w-3.5 h-3.5 text-foreground" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                onClick={() =>
+                                  handleExcluirCliente(cli.id, cli.nome)
+                                }
+                                title="Excluir Cliente"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* TAB INSUMOS / MATERIAIS */}
         <TabsContent value="insumos" className="mt-6 space-y-4">
@@ -1404,6 +1815,305 @@ export default function Cadastros() {
               {aplicandoXml ? 'Aplicando...' : 'Aplicar ao Cadastro'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Modal Criar / Editar Cliente */}
+      <Dialog open={openCliente} onOpenChange={setOpenCliente}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCheck className="w-5 h-5 text-primary" />
+              {clienteEditando ? 'Editar Cliente' : 'Novo Cadastro de Cliente'}
+            </DialogTitle>
+            <CardDescription className="text-xs">
+              Preencha os dados cadastrais. Ao digitar o CNPJ ou CEP, os dados
+              serão buscados automaticamente na Receita / Correios.
+            </CardDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSalvarClienteSubmit} className="space-y-4 py-2">
+            {/* Tipo de Pessoa e Documento */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Tipo de Pessoa *</Label>
+                <Select
+                  value={tipoCliente}
+                  onValueChange={(val: 'PF' | 'PJ') => {
+                    setTipoCliente(val)
+                    setCpfCnpjCliente('')
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PJ">Pessoa Jurídica (CNPJ)</SelectItem>
+                    <SelectItem value="PF">Pessoa Física (CPF)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="sm:col-span-2 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="docCliente" className="text-xs">
+                    {tipoCliente === 'PF'
+                      ? 'CPF *'
+                      : 'CNPJ (Busca Automática) *'}
+                  </Label>
+                  {buscandoCnpj && (
+                    <span className="text-[10px] text-primary flex items-center gap-1 animate-pulse">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      Consultando BrasilAPI...
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <Input
+                    id="docCliente"
+                    placeholder={
+                      tipoCliente === 'PF'
+                        ? '000.000.000-00'
+                        : '00.000.000/0000-00'
+                    }
+                    value={cpfCnpjCliente}
+                    onChange={(e) =>
+                      setCpfCnpjCliente(formatarCpfCnpj(e.target.value))
+                    }
+                    onBlur={handleBlurCpfCnpj}
+                    className="h-9 text-xs font-mono"
+                    required
+                  />
+                  {tipoCliente === 'PJ' && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleBlurCpfCnpj}
+                      className="absolute right-1 top-1 h-7 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+                      title="Forçar consulta na BrasilAPI"
+                    >
+                      Buscar
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Razão Social e Nome Fantasia */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="nomeCli" className="text-xs">
+                  {tipoCliente === 'PJ' ? 'Razão Social *' : 'Nome Completo *'}
+                </Label>
+                <Input
+                  id="nomeCli"
+                  placeholder={
+                    tipoCliente === 'PJ'
+                      ? 'Ex: CABRAL LEITE CONSTRUCOES LTDA'
+                      : 'Ex: João da Silva'
+                  }
+                  value={nomeCliente}
+                  onChange={(e) => setNomeCliente(e.target.value)}
+                  className="h-9 text-xs"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="fantasiaCli" className="text-xs">
+                  Nome Fantasia / Apelido
+                </Label>
+                <Input
+                  id="fantasiaCli"
+                  placeholder="Ex: Cabral Construtora"
+                  value={nomeFantasiaCliente}
+                  onChange={(e) => setNomeFantasiaCliente(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Contato: Telefone e Email */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="telCli" className="text-xs">
+                  Telefone / WhatsApp
+                </Label>
+                <Input
+                  id="telCli"
+                  placeholder="(83) 99999-9999"
+                  value={telefoneCliente}
+                  onChange={(e) =>
+                    setTelefoneCliente(formatarTelefone(e.target.value))
+                  }
+                  className="h-9 text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="emailCli" className="text-xs">
+                  E-mail
+                </Label>
+                <Input
+                  id="emailCli"
+                  type="email"
+                  placeholder="contato@cliente.com.br"
+                  value={emailCliente}
+                  onChange={(e) => setEmailCliente(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Endereço */}
+            <div className="p-3 rounded-lg border border-border/40 bg-muted/20 space-y-3">
+              <div className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-primary">
+                  <MapPin className="w-3.5 h-3.5" />
+                  Endereço e Localização da Obra / Sede
+                </span>
+                {buscandoCep && (
+                  <span className="text-[10px] text-primary flex items-center gap-1 animate-pulse font-normal">
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    Buscando ViaCEP...
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="cepCli" className="text-xs">
+                    CEP
+                  </Label>
+                  <Input
+                    id="cepCli"
+                    placeholder="58755-000"
+                    value={cepCliente}
+                    onChange={(e) => setCepCliente(formatarCep(e.target.value))}
+                    onBlur={handleBlurCep}
+                    className="h-9 text-xs font-mono"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 space-y-1.5">
+                  <Label htmlFor="logCli" className="text-xs">
+                    Logradouro / Rua
+                  </Label>
+                  <Input
+                    id="logCli"
+                    placeholder="Ex: POVOADO DEPOIS DE SÃO JOSÉ DE PRINCESA"
+                    value={logradouroCliente}
+                    onChange={(e) => setLogradouroCliente(e.target.value)}
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="numCli" className="text-xs">
+                    Número
+                  </Label>
+                  <Input
+                    id="numCli"
+                    placeholder="S/N ou nº"
+                    value={numeroCliente}
+                    onChange={(e) => setNumeroCliente(e.target.value)}
+                    className="h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="complCli" className="text-xs">
+                    Complemento
+                  </Label>
+                  <Input
+                    id="complCli"
+                    placeholder="Ex: Galpão / Fazenda"
+                    value={complementoCliente}
+                    onChange={(e) => setComplementoCliente(e.target.value)}
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="bairroCli" className="text-xs">
+                    Bairro / Sítio
+                  </Label>
+                  <Input
+                    id="bairroCli"
+                    placeholder="Ex: Centro ou Sítio"
+                    value={bairroCliente}
+                    onChange={(e) => setBairroCliente(e.target.value)}
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="cidCli" className="text-xs">
+                    Município
+                  </Label>
+                  <Input
+                    id="cidCli"
+                    placeholder="Ex: Princesa Isabel"
+                    value={cidadeCliente}
+                    onChange={(e) => setCidadeCliente(e.target.value)}
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="ufCli" className="text-xs">
+                    UF
+                  </Label>
+                  <Input
+                    id="ufCli"
+                    placeholder="PB"
+                    maxLength={2}
+                    value={ufCliente}
+                    onChange={(e) => setUfCliente(e.target.value.toUpperCase())}
+                    className="h-9 text-xs font-mono uppercase"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Observações */}
+            <div className="space-y-1.5">
+              <Label htmlFor="obsCli" className="text-xs">
+                Observações do Cliente
+              </Label>
+              <Textarea
+                id="obsCli"
+                rows={2}
+                placeholder="Observações sobre entrega, acesso à obra, restrição de horário..."
+                value={observacoesCliente}
+                onChange={(e) => setObservacoesCliente(e.target.value)}
+                className="text-xs"
+              />
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpenCliente(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={salvando}
+                className="bg-primary text-primary-foreground"
+              >
+                {salvando
+                  ? 'Salvando...'
+                  : clienteEditando
+                    ? 'Salvar Alterações'
+                    : 'Cadastrar Cliente'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

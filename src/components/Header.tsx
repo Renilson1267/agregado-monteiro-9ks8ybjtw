@@ -21,6 +21,7 @@ const navLinks = [
   { label: 'Estoque', path: '/estoque' },
   { label: 'Traços / Dosagens', path: '/tracos' },
   { label: 'Cadastros', path: '/cadastros' },
+  { label: 'Ordens & Recibos', path: '/ordens' },
   { label: 'Relatórios', path: '/relatorios' },
 ]
 

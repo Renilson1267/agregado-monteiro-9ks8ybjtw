@@ -7,12 +7,13 @@ import {
   Boxes,
   FlaskConical,
   Users,
-  FileSpreadsheet,
   Sun,
   Moon,
   Layers,
   Building2,
   Settings,
+  FileText,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
@@ -25,6 +26,7 @@ const navItems = [
   { icon: Boxes, label: 'Estoque', path: '/estoque' },
   { icon: FlaskConical, label: 'Traços / Dosagens', path: '/tracos' },
   { icon: Users, label: 'Cadastros', path: '/cadastros' },
+  { icon: FileText, label: 'Ordens & Recibos', path: '/ordens' },
   { icon: FileSpreadsheet, label: 'Relatórios', path: '/relatorios' },
 ]
 

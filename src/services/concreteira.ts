@@ -10,6 +10,8 @@ import type {
   PrecoMaterial,
   CustoBreakdown,
   ComparativoUnidade,
+  Cliente,
+  OrdemServico,
 } from '@/types/concreteira'
 
 export const ConcreteiraService = {
@@ -974,5 +976,207 @@ export const ConcreteiraService = {
         custoPorM3: custoPorM3Geral,
       },
     }
+  },
+
+  // =========================================================
+  // Clientes
+  // =========================================================
+  async getClientes(empresaId?: string): Promise<Cliente[]> {
+    let query = (supabase as any)
+      .from('clientes')
+      .select('*')
+      .order('nome', { ascending: true })
+
+    if (empresaId) {
+      query = query.eq('empresa_id', empresaId)
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+    return data || []
+  },
+
+  async salvarCliente(
+    cliente: Partial<Cliente>,
+    empresaId?: string,
+  ): Promise<Cliente> {
+    if (cliente.id) {
+      const { data, error } = await (supabase as any)
+        .from('clientes')
+        .update({
+          tipo: cliente.tipo || 'PJ',
+          cpf_cnpj: cliente.cpf_cnpj,
+          nome: cliente.nome,
+          nome_fantasia: cliente.nome_fantasia || null,
+          telefone: cliente.telefone || null,
+          email: cliente.email || null,
+          cep: cliente.cep || null,
+          logradouro: cliente.logradouro || null,
+          numero: cliente.numero || null,
+          complemento: cliente.complemento || null,
+          bairro: cliente.bairro || null,
+          cidade: cliente.cidade || null,
+          uf: cliente.uf || 'PB',
+          observacoes: cliente.observacoes || null,
+          ativo: cliente.ativo ?? true,
+          ...(empresaId ? { empresa_id: empresaId } : {}),
+        })
+        .eq('id', cliente.id)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    } else {
+      const { data, error } = await (supabase as any)
+        .from('clientes')
+        .insert({
+          empresa_id: empresaId || cliente.empresa_id,
+          tipo: cliente.tipo || 'PJ',
+          cpf_cnpj: cliente.cpf_cnpj,
+          nome: cliente.nome,
+          nome_fantasia: cliente.nome_fantasia || null,
+          telefone: cliente.telefone || null,
+          email: cliente.email || null,
+          cep: cliente.cep || null,
+          logradouro: cliente.logradouro || null,
+          numero: cliente.numero || null,
+          complemento: cliente.complemento || null,
+          bairro: cliente.bairro || null,
+          cidade: cliente.cidade || null,
+          uf: cliente.uf || 'PB',
+          observacoes: cliente.observacoes || null,
+          ativo: cliente.ativo ?? true,
+        })
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    }
+  },
+
+  async excluirCliente(id: string): Promise<void> {
+    const { error } = await (supabase as any)
+      .from('clientes')
+      .delete()
+      .eq('id', id)
+    if (error) throw error
+  },
+
+  // =========================================================
+  // Ordens de Serviço / Recibos
+  // =========================================================
+  async getOrdensServico(empresaId?: string): Promise<OrdemServico[]> {
+    let query = (supabase as any)
+      .from('ordens_servico')
+      .select('*')
+      .order('numero_os', { ascending: false })
+
+    if (empresaId) {
+      query = query.eq('empresa_id', empresaId)
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+    return data || []
+  },
+
+  async getProximoNumeroOS(empresaId: string): Promise<number> {
+    const { data, error } = await (supabase as any).rpc('proximo_numero_os', {
+      p_empresa_id: empresaId,
+    })
+    if (error) {
+      // Fallback em caso de erro na RPC
+      const { data: ultimas } = await (supabase as any)
+        .from('ordens_servico')
+        .select('numero_os')
+        .eq('empresa_id', empresaId)
+        .order('numero_os', { ascending: false })
+        .limit(1)
+      const maxNum =
+        ultimas && ultimas[0]?.numero_os ? Number(ultimas[0].numero_os) : 4336
+      return maxNum + 1
+    }
+    return Number(data) || 4337
+  },
+
+  async salvarOrdemServico(
+    os: Partial<OrdemServico>,
+    empresaId: string,
+  ): Promise<OrdemServico> {
+    const payload = {
+      empresa_id: empresaId,
+      numero_os: os.numero_os,
+      data_emissao: os.data_emissao || new Date().toISOString().split('T')[0],
+      cliente_id: os.cliente_id || null,
+      carga_id: os.carga_id || null,
+      destinatario_nome: os.destinatario_nome,
+      destinatario_cpf_cnpj: os.destinatario_cpf_cnpj || null,
+      destinatario_telefone: os.destinatario_telefone || null,
+      destinatario_endereco: os.destinatario_endereco || null,
+      destinatario_bairro: os.destinatario_bairro || null,
+      destinatario_cidade: os.destinatario_cidade || null,
+      destinatario_uf: os.destinatario_uf || 'PB',
+      destinatario_cep: os.destinatario_cep || null,
+      itens: os.itens || [],
+      slump_central_medido: os.slump_central_medido || null,
+      slump_central_saida: os.slump_central_saida || null,
+      agua_adic_central:
+        os.agua_adic_central != null ? Number(os.agua_adic_central) : 0,
+      moldagem_central: os.moldagem_central || null,
+      visto_motorista_central: os.visto_motorista_central || null,
+      slump_peca_medido: os.slump_peca_medido || null,
+      slump_peca_saida: os.slump_peca_saida || null,
+      agua_adic_peca: os.agua_adic_peca != null ? Number(os.agua_adic_peca) : 0,
+      peca_concretada: os.peca_concretada || null,
+      visto_motorista_peca: os.visto_motorista_peca || null,
+      veiculo_placa: os.veiculo_placa || null,
+      motorista_nome: os.motorista_nome || null,
+      lacre: os.lacre || null,
+      km_inicial: os.km_inicial != null ? Number(os.km_inicial) : null,
+      km_final: os.km_final != null ? Number(os.km_final) : null,
+      hora_carga: os.hora_carga || null,
+      hora_saida_central: os.hora_saida_central || null,
+      hora_chegada_obra: os.hora_chegada_obra || null,
+      hora_inicio_descarga: os.hora_inicio_descarga || null,
+      hora_fim_descarga: os.hora_fim_descarga || null,
+      hora_saida_obra: os.hora_saida_obra || null,
+      hora_chegada_central: os.hora_chegada_central || null,
+      visto_obra: os.visto_obra || null,
+      vendedor_nome: os.vendedor_nome || null,
+      bomba_estacionaria: os.bomba_estacionaria || null,
+      observacoes: os.observacoes || null,
+      agua_adicional_termo:
+        os.agua_adicional_termo != null
+          ? Number(os.agua_adicional_termo)
+          : null,
+      nome_responsavel_termo: os.nome_responsavel_termo || null,
+    }
+
+    if (os.id) {
+      const { data, error } = await (supabase as any)
+        .from('ordens_servico')
+        .update(payload)
+        .eq('id', os.id)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    } else {
+      const { data, error } = await (supabase as any)
+        .from('ordens_servico')
+        .insert(payload)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    }
+  },
+
+  async excluirOrdemServico(id: string): Promise<void> {
+    const { error } = await (supabase as any)
+      .from('ordens_servico')
+      .delete()
+      .eq('id', id)
+    if (error) throw error
   },
 }

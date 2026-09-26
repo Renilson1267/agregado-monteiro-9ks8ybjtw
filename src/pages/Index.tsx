@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import {
   Card,
   CardContent,
@@ -8,6 +8,15 @@ import {
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ConcreteiraService } from '@/services/concreteira'
 import { useEmpresa } from '@/hooks/use-empresa'
 import type { Material, Carga } from '@/types/concreteira'
@@ -23,6 +32,8 @@ import {
   RefreshCw,
   DollarSign,
   Coins,
+  Printer,
+  Filter,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -32,17 +43,28 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  Legend,
   AreaChart,
   Area,
 } from 'recharts'
 import { Link } from 'react-router-dom'
+
+type PeriodoTipo =
+  | 'hoje'
+  | '7dias'
+  | 'mes_atual'
+  | 'mes_anterior'
+  | 'personalizado'
 
 export default function Index() {
   const { empresaAtiva } = useEmpresa()
   const [materiais, setMateriais] = useState<Material[]>([])
   const [cargas, setCargas] = useState<Carga[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Filtros de período
+  const [tipoPeriodo, setTipoPeriodo] = useState<PeriodoTipo>('mes_atual')
+  const [dataInicioPersonalizada, setDataInicioPersonalizada] = useState('')
+  const [dataFimPersonalizada, setDataFimPersonalizada] = useState('')
 
   const carregarDados = async () => {
     if (!empresaAtiva) return
@@ -68,176 +90,267 @@ export default function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaAtiva?.id])
 
-  // Cálculos de KPIs
-  // Consideramos data de referência a data mais recente no banco (para exibir dados expressivos se for histórico) ou hoje
-  const hojeStr = new Date().toISOString().split('T')[0]
-  const ultimaDataStr = cargas.length > 0 ? cargas[0].data : hojeStr
-  const mesRefStr = ultimaDataStr.slice(0, 7) // 'YYYY-MM'
+  // Determinação das datas limites baseadas no período escolhido
+  const { dataInicioEfetiva, dataFimEfetiva, labelPeriodo } = useMemo(() => {
+    const hoje = new Date()
+    const hojeStr = hoje.toISOString().split('T')[0]
 
-  // Cargas do "dia mais recente" e do "mês de referência"
-  const cargasDia = cargas.filter(
-    (c) => c.data === ultimaDataStr && !c.carga_zerada,
-  )
-  const volumeDia = cargasDia.reduce((acc, c) => acc + Number(c.volume_m3), 0)
+    // Se houver cargas, usamos a data mais recente das cargas ou hoje como âncora
+    const dataMaisRecente = cargas.length > 0 ? cargas[0].data : hojeStr
+    const dataRefObj = new Date(dataMaisRecente + 'T12:00:00')
 
-  const cargasMes = cargas.filter((c) => c.data.startsWith(mesRefStr))
-  const cargasMesValidas = cargasMes.filter((c) => !c.carga_zerada)
-  const volumeMes = cargasMesValidas.reduce(
-    (acc, c) => acc + Number(c.volume_m3),
-    0,
-  )
-
-  // Custos no mês
-  const custoTotalMes = cargasMesValidas.reduce(
-    (acc, c) => acc + (c.custo?.total || 0),
-    0,
-  )
-  const custoMedioPorM3Mes = volumeMes > 0 ? custoTotalMes / volumeMes : 0
-
-  const custoTotalDia = cargasDia.reduce(
-    (acc, c) => acc + (c.custo?.total || 0),
-    0,
-  )
-  const custoMedioPorM3Dia = volumeDia > 0 ? custoTotalDia / volumeDia : 0
-
-  // Consumo no mês
-  const consumoMes = {
-    cimento: cargasMesValidas.reduce(
-      (a, c) => a + Number(c.consumo_cimento),
-      0,
-    ),
-    aditivo: cargasMesValidas.reduce(
-      (a, c) => a + Number(c.consumo_aditivo),
-      0,
-    ),
-    areia: cargasMesValidas.reduce((a, c) => a + Number(c.consumo_areia), 0),
-    brita12: cargasMesValidas.reduce(
-      (a, c) => a + Number(c.consumo_brita12),
-      0,
-    ),
-    brita19: cargasMesValidas.reduce(
-      (a, c) => a + Number(c.consumo_brita19),
-      0,
-    ),
-    po_pedra: cargasMesValidas.reduce(
-      (a, c) => a + Number(c.consumo_po_pedra),
-      0,
-    ),
-    agua: cargasMesValidas.reduce((a, c) => a + Number(c.consumo_agua || 0), 0),
-  }
-
-  // Alertas de estoque: apenas para materiais com controle de estoque ativo (cimento e aditivo)
-  const alertasEstoque = materiais.filter(
-    (m) => m.controla_estoque !== false && (m.saldo || 0) <= m.estoque_minimo,
-  )
-
-  // Gráfico 1: Evolução diária recente (últimas 14 datas de produção)
-  const diasAgrupados: Record<
-    string,
-    { data: string; volume: number; cargas: number }
-  > = {}
-  cargas.forEach((c) => {
-    if (!diasAgrupados[c.data]) {
-      diasAgrupados[c.data] = { data: c.data, volume: 0, cargas: 0 }
-    }
-    if (!c.carga_zerada) {
-      diasAgrupados[c.data].volume += Number(c.volume_m3)
-    }
-    diasAgrupados[c.data].cargas += 1
-  })
-
-  const dadosGraficoDias = Object.values(diasAgrupados)
-    .sort((a, b) => a.data.localeCompare(b.data))
-    .slice(-14)
-    .map((d) => ({
-      ...d,
-      dataFormatada: d.data.slice(5).replace('-', '/'),
-      volume: Number(d.volume.toFixed(1)),
-    }))
-
-  // Gráfico 2: Evolução por mês de volume
-  const mesesAgrupados: Record<
-    string,
-    { mes: string; volume: number; cargas: number }
-  > = {}
-  cargas.forEach((c) => {
-    const mes = c.data.slice(0, 7)
-    if (!mesesAgrupados[mes]) {
-      mesesAgrupados[mes] = { mes, volume: 0, cargas: 0 }
-    }
-    if (!c.carga_zerada) {
-      mesesAgrupados[mes].volume += Number(c.volume_m3)
-    }
-    mesesAgrupados[mes].cargas += 1
-  })
-  const dadosGraficoMeses = Object.values(mesesAgrupados)
-    .sort((a, b) => a.mes.localeCompare(b.mes))
-    .map((m) => {
-      const [ano, mes] = m.mes.split('-')
-      const nomesMes = [
-        'Jan',
-        'Fev',
-        'Mar',
-        'Abr',
-        'Mai',
-        'Jun',
-        'Jul',
-        'Ago',
-        'Set',
-        'Out',
-        'Nov',
-        'Dez',
-      ]
+    if (tipoPeriodo === 'hoje') {
       return {
-        mesLabel: `${nomesMes[Number(mes) - 1]}/${ano.slice(2)}`,
-        volume: Number(m.volume.toFixed(1)),
-        cargas: m.cargas,
+        dataInicioEfetiva: dataMaisRecente,
+        dataFimEfetiva: dataMaisRecente,
+        labelPeriodo: `Hoje / Última Data (${dataMaisRecente.split('-').reverse().join('/')})`,
       }
+    }
+
+    if (tipoPeriodo === '7dias') {
+      const seteDiasAtras = new Date(dataRefObj)
+      seteDiasAtras.setDate(seteDiasAtras.getDate() - 6)
+      const iniStr = seteDiasAtras.toISOString().split('T')[0]
+      return {
+        dataInicioEfetiva: iniStr,
+        dataFimEfetiva: dataMaisRecente,
+        labelPeriodo: `Últimos 7 dias (${iniStr.split('-').reverse().join('/')} a ${dataMaisRecente.split('-').reverse().join('/')})`,
+      }
+    }
+
+    if (tipoPeriodo === 'mes_atual') {
+      const ano = dataRefObj.getFullYear()
+      const mes = dataRefObj.getMonth() // 0-11
+      const primeiroDia = new Date(ano, mes, 1).toISOString().split('T')[0]
+      const ultimoDia = new Date(ano, mes + 1, 0).toISOString().split('T')[0]
+      const nomeMes = dataRefObj.toLocaleString('pt-BR', {
+        month: 'long',
+        year: 'numeric',
+      })
+      return {
+        dataInicioEfetiva: primeiroDia,
+        dataFimEfetiva: ultimoDia,
+        labelPeriodo: `Mês Atual (${nomeMes})`,
+      }
+    }
+
+    if (tipoPeriodo === 'mes_anterior') {
+      const ano = dataRefObj.getFullYear()
+      const mes = dataRefObj.getMonth() - 1 // Mês anterior
+      const primeiroDia = new Date(ano, mes, 1).toISOString().split('T')[0]
+      const ultimoDia = new Date(ano, mes + 1, 0).toISOString().split('T')[0]
+      const dataAntObj = new Date(ano, mes, 1)
+      const nomeMes = dataAntObj.toLocaleString('pt-BR', {
+        month: 'long',
+        year: 'numeric',
+      })
+      return {
+        dataInicioEfetiva: primeiroDia,
+        dataFimEfetiva: ultimoDia,
+        labelPeriodo: `Mês Anterior (${nomeMes})`,
+      }
+    }
+
+    // Personalizado
+    const ini = dataInicioPersonalizada || 'Início'
+    const fim = dataFimPersonalizada || 'Hoje'
+    return {
+      dataInicioEfetiva: dataInicioPersonalizada || undefined,
+      dataFimEfetiva: dataFimPersonalizada || undefined,
+      labelPeriodo: `Personalizado (${ini.includes('-') ? ini.split('-').reverse().join('/') : ini} a ${fim.includes('-') ? fim.split('-').reverse().join('/') : fim})`,
+    }
+  }, [tipoPeriodo, dataInicioPersonalizada, dataFimPersonalizada, cargas])
+
+  // Cargas filtradas pelo período ativo
+  const cargasFiltradas = useMemo(() => {
+    return cargas.filter((c) => {
+      if (dataInicioEfetiva && c.data < dataInicioEfetiva) return false
+      if (dataFimEfetiva && c.data > dataFimEfetiva) return false
+      return true
+    })
+  }, [cargas, dataInicioEfetiva, dataFimEfetiva])
+
+  // Cargas válidas do período
+  const cargasValidasPeriodo = useMemo(() => {
+    return cargasFiltradas.filter((c) => !c.carga_zerada)
+  }, [cargasFiltradas])
+
+  const cargasZeradasPeriodo = useMemo(() => {
+    return cargasFiltradas.filter((c) => c.carga_zerada)
+  }, [cargasFiltradas])
+
+  // Cálculos de KPIs no período filtrado
+  const volumePeriodo = useMemo(() => {
+    return cargasValidasPeriodo.reduce((acc, c) => acc + Number(c.volume_m3), 0)
+  }, [cargasValidasPeriodo])
+
+  const custoTotalPeriodo = useMemo(() => {
+    return cargasValidasPeriodo.reduce(
+      (acc, c) => acc + (c.custo?.total || 0),
+      0,
+    )
+  }, [cargasValidasPeriodo])
+
+  const custoMedioPorM3Periodo = useMemo(() => {
+    return volumePeriodo > 0 ? custoTotalPeriodo / volumePeriodo : 0
+  }, [volumePeriodo, custoTotalPeriodo])
+
+  // Consumo de materiais no período filtrado
+  const consumoPeriodo = useMemo(() => {
+    return {
+      cimento: cargasValidasPeriodo.reduce(
+        (a, c) => a + Number(c.consumo_cimento),
+        0,
+      ),
+      aditivo: cargasValidasPeriodo.reduce(
+        (a, c) => a + Number(c.consumo_aditivo),
+        0,
+      ),
+      areia: cargasValidasPeriodo.reduce(
+        (a, c) => a + Number(c.consumo_areia),
+        0,
+      ),
+      brita12: cargasValidasPeriodo.reduce(
+        (a, c) => a + Number(c.consumo_brita12),
+        0,
+      ),
+      brita19: cargasValidasPeriodo.reduce(
+        (a, c) => a + Number(c.consumo_brita19),
+        0,
+      ),
+      po_pedra: cargasValidasPeriodo.reduce(
+        (a, c) => a + Number(c.consumo_po_pedra),
+        0,
+      ),
+      agua: cargasValidasPeriodo.reduce(
+        (a, c) => a + Number(c.consumo_agua || 0),
+        0,
+      ),
+    }
+  }, [cargasValidasPeriodo])
+
+  // Alertas de estoque: materiais com controle de estoque ativo abaixo do mínimo
+  const alertasEstoque = useMemo(() => {
+    return materiais.filter(
+      (m) => m.controla_estoque !== false && (m.saldo || 0) <= m.estoque_minimo,
+    )
+  }, [materiais])
+
+  // Gráfico 1: Evolução diária no período filtrado
+  const dadosGraficoDias = useMemo(() => {
+    const diasAgrupados: Record<
+      string,
+      { data: string; volume: number; cargas: number }
+    > = {}
+
+    // Se tiver poucas datas no período filtrado, mostra as do período
+    const baseCargas = cargasFiltradas.length > 0 ? cargasFiltradas : cargas
+
+    baseCargas.forEach((c) => {
+      if (!diasAgrupados[c.data]) {
+        diasAgrupados[c.data] = { data: c.data, volume: 0, cargas: 0 }
+      }
+      if (!c.carga_zerada) {
+        diasAgrupados[c.data].volume += Number(c.volume_m3)
+      }
+      diasAgrupados[c.data].cargas += 1
     })
 
-  // Dados para gráfico de consumo por material (em toneladas ou L)
-  const dadosGraficoConsumo = [
-    {
-      material: `${materiais.find((m) => m.codigo === 'cimento')?.nome || 'CP II F-40 / CP V ARI'} (t)`,
-      valor: Number((consumoMes.cimento / 1000).toFixed(1)),
-      fill: '#f59e0b',
-    },
-    {
-      material: 'Areia (t)',
-      valor: Number((consumoMes.areia / 1000).toFixed(1)),
-      fill: '#eab308',
-    },
-    {
-      material: 'Brita 12 (t)',
-      valor: Number((consumoMes.brita12 / 1000).toFixed(1)),
-      fill: '#64748b',
-    },
-    {
-      material: 'Brita 19 (t)',
-      valor: Number((consumoMes.brita19 / 1000).toFixed(1)),
-      fill: '#475569',
-    },
-    {
-      material: 'Pó de Pedra (t)',
-      valor: Number((consumoMes.po_pedra / 1000).toFixed(1)),
-      fill: '#94a3b8',
-    },
-    {
-      material: 'Aditivo (×10 L)',
-      valor: Number((consumoMes.aditivo / 10).toFixed(1)),
-      fill: '#06b6d4',
-    },
-    {
-      material: 'Água (m³)',
-      valor: Number((consumoMes.agua / 1000).toFixed(1)),
-      fill: '#0284c7',
-    },
-  ]
+    return Object.values(diasAgrupados)
+      .sort((a, b) => a.data.localeCompare(b.data))
+      .slice(-20) // até 20 dias mais recentes do recorte
+      .map((d) => ({
+        ...d,
+        dataFormatada: d.data.slice(5).replace('-', '/'),
+        volume: Number(d.volume.toFixed(1)),
+      }))
+  }, [cargasFiltradas, cargas])
+
+  // Gráfico 2: Consumo por material no período
+  const nomeCimento =
+    materiais.find((m) => m.codigo === 'cimento')?.nome ||
+    'CP II F-40 / CP V ARI'
+
+  const dadosGraficoConsumo = useMemo(() => {
+    return [
+      {
+        material: `${nomeCimento} (t)`,
+        valor: Number((consumoPeriodo.cimento / 1000).toFixed(1)),
+        fill: '#f59e0b',
+      },
+      {
+        material: 'Areia (t)',
+        valor: Number((consumoPeriodo.areia / 1000).toFixed(1)),
+        fill: '#eab308',
+      },
+      {
+        material: 'Brita 12 (t)',
+        valor: Number((consumoPeriodo.brita12 / 1000).toFixed(1)),
+        fill: '#64748b',
+      },
+      {
+        material: 'Brita 19 (t)',
+        valor: Number((consumoPeriodo.brita19 / 1000).toFixed(1)),
+        fill: '#475569',
+      },
+      {
+        material: 'Pó de Pedra (t)',
+        valor: Number((consumoPeriodo.po_pedra / 1000).toFixed(1)),
+        fill: '#94a3b8',
+      },
+      {
+        material: 'Aditivo (×10 L)',
+        valor: Number((consumoPeriodo.aditivo / 10).toFixed(1)),
+        fill: '#06b6d4',
+      },
+      {
+        material: 'Água (m³)',
+        valor: Number((consumoPeriodo.agua / 1000).toFixed(1)),
+        fill: '#0284c7',
+      },
+    ]
+  }, [consumoPeriodo, nomeCimento])
+
+  const handleImprimir = () => {
+    window.print()
+  }
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border/40 pb-4">
+      {/* CABEÇALHO EXCLUSIVO PARA IMPRESSÃO A4 (visível apenas em window.print) */}
+      <div className="print-only border-b border-gray-400 pb-3 mb-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-xl font-bold uppercase tracking-wider text-black">
+              {empresaAtiva?.razao_social ||
+                `CONCRETEIRA ${empresaAtiva?.nome?.toUpperCase() || ''}`}
+            </h1>
+            <p className="text-sm font-semibold text-gray-800">
+              Dashboard Gerencial e Operacional — Unidade{' '}
+              {empresaAtiva?.nome || ''}
+            </p>
+            {empresaAtiva?.cnpj && (
+              <p className="text-xs text-gray-600">
+                CNPJ: {empresaAtiva.cnpj}{' '}
+                {empresaAtiva.telefone ? `• Tel: ${empresaAtiva.telefone}` : ''}
+              </p>
+            )}
+          </div>
+          <div className="text-right text-xs text-gray-600">
+            <p>Data de Emissão: {new Date().toLocaleString('pt-BR')}</p>
+            <p>Relatório A4 Executivo</p>
+          </div>
+        </div>
+        <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-700">
+          <strong>Período Analisado:</strong> {labelPeriodo} |{' '}
+          <strong>Cargas no Recorte:</strong> {cargasFiltradas.length} (
+          {cargasZeradasPeriodo.length} zeradas) |{' '}
+          <strong>Volume Expedido:</strong> {volumePeriodo.toFixed(1)} m³
+        </div>
+      </div>
+
+      {/* Top Banner & Ações */}
+      <div className="no-print flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/40 pb-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <span>Usina {empresaAtiva?.nome || 'Concreteira'}</span>
@@ -249,11 +362,22 @@ export default function Index() {
             </Badge>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Acompanhamento diário de produção, expedição de cargas e saldo de
-            estoques da unidade {empresaAtiva?.nome || ''}
+            Acompanhamento de produção, expedição de cargas, custos e saldos de
+            estoque
           </p>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleImprimir}
+            className="gap-2 bg-primary text-primary-foreground shadow-sm"
+          >
+            <Printer className="w-4 h-4" />
+            Imprimir / Salvar PDF
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -264,10 +388,11 @@ export default function Index() {
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Atualizar
           </Button>
+
           <Button
             asChild
             size="sm"
-            className="gap-2 bg-primary text-primary-foreground"
+            className="gap-2 bg-secondary text-secondary-foreground"
           >
             <Link to="/lancamentos">
               <Truck className="w-4 h-4" />
@@ -276,6 +401,70 @@ export default function Index() {
           </Button>
         </div>
       </div>
+
+      {/* Barra de Filtro de Período do Dashboard */}
+      <Card className="no-print bg-card/70 border-border/40 shadow-sm">
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Filter className="w-4 h-4 text-primary" />
+              <span>Filtrar Período do Dashboard:</span>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+              <Select
+                value={tipoPeriodo}
+                onValueChange={(val) => setTipoPeriodo(val as PeriodoTipo)}
+              >
+                <SelectTrigger className="w-[180px] h-9 text-xs">
+                  <SelectValue placeholder="Selecione o período" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hoje">Hoje / Último Dia</SelectItem>
+                  <SelectItem value="7dias">Últimos 7 dias</SelectItem>
+                  <SelectItem value="mes_atual">Mês Atual</SelectItem>
+                  <SelectItem value="mes_anterior">Mês Anterior</SelectItem>
+                  <SelectItem value="personalizado">Personalizado</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {tipoPeriodo === 'personalizado' && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs text-muted-foreground">De:</Label>
+                    <Input
+                      type="date"
+                      value={dataInicioPersonalizada}
+                      onChange={(e) =>
+                        setDataInicioPersonalizada(e.target.value)
+                      }
+                      className="h-9 w-36 text-xs"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs text-muted-foreground">
+                      Até:
+                    </Label>
+                    <Input
+                      type="date"
+                      value={dataFimPersonalizada}
+                      onChange={(e) => setDataFimPersonalizada(e.target.value)}
+                      className="h-9 w-36 text-xs"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <Badge
+                variant="outline"
+                className="text-xs font-mono py-1 px-2.5"
+              >
+                {cargasFiltradas.length} cargas no recorte
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Alertas de Estoque Baixo */}
       {alertasEstoque.length > 0 && (
@@ -313,70 +502,64 @@ export default function Index() {
         </div>
       )}
 
-      {/* Grid de KPIs Superiores: Volume & Estoques */}
+      {/* Grid de KPIs Superiores: Volume & Estoques Alimentados pelo Filtro */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1 */}
+        {/* KPI 1: Volume Expedido */}
         <Card className="bg-card/70 border-border/40 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Volume do Último Dia
+              Volume Expedido
             </CardTitle>
             <Layers className="w-4 h-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-extrabold text-foreground">
-              {volumeDia.toFixed(1)}{' '}
+              {volumePeriodo.toFixed(1)}{' '}
               <span className="text-base font-normal text-muted-foreground">
                 m³
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5 text-muted-foreground/80" />
-              Data de ref: {ultimaDataStr.split('-').reverse().join('/')} (
-              {cargasDia.length} cargas)
+              <span>{labelPeriodo}</span>
             </p>
           </CardContent>
         </Card>
 
-        {/* KPI 2 */}
+        {/* KPI 2: Cargas Expedidas */}
         <Card className="bg-card/70 border-border/40 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Volume do Mês de Ref.
+              Cargas Expedidas
             </CardTitle>
             <TrendingUp className="w-4 h-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-extrabold text-foreground">
-              {volumeMes.toFixed(1)}{' '}
+              {cargasValidasPeriodo.length}{' '}
               <span className="text-base font-normal text-muted-foreground">
-                m³
+                cargas
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <span>{cargasMes.length} cargas expedidas</span>
-              {cargasMes.filter((c) => c.carga_zerada).length > 0 && (
-                <span className="text-amber-500">
-                  ({cargasMes.filter((c) => c.carga_zerada).length} canceladas)
+              <span>{cargasFiltradas.length} totais</span>
+              {cargasZeradasPeriodo.length > 0 && (
+                <span className="text-amber-500 font-medium">
+                  ({cargasZeradasPeriodo.length} canceladas)
                 </span>
               )}
             </p>
           </CardContent>
         </Card>
 
-        {/* KPI 3: Saldo Cimento (destaque da planilha) */}
+        {/* KPI 3: Saldo Cimento Silo */}
         <Card className="bg-card/70 border-border/40 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle
               className="text-xs font-medium text-muted-foreground uppercase tracking-wider truncate"
-              title={
-                materiais.find((m) => m.codigo === 'cimento')?.nome ||
-                'CP II F-40 / CP V ARI'
-              }
+              title={nomeCimento}
             >
-              Estoque{' '}
-              {materiais.find((m) => m.codigo === 'cimento')?.nome ||
-                'CP II F-40 / CP V ARI'}
+              Estoque {nomeCimento}
             </CardTitle>
             <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-semibold shrink-0">
               Silo Controlado
@@ -396,12 +579,12 @@ export default function Index() {
               {(
                 materiais.find((m) => m.codigo === 'cimento')?.saldo || 0
               ).toLocaleString('pt-BR')}{' '}
-              kg em estoque
+              kg em estoque atual
             </p>
           </CardContent>
         </Card>
 
-        {/* KPI 4: Saldo Aditivo */}
+        {/* KPI 4: Saldo Aditivo Tanque */}
         <Card className="bg-card/70 border-border/40 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -427,25 +610,26 @@ export default function Index() {
         </Card>
       </div>
 
-      {/* Bloco de Custos dos Insumos (Item 2) */}
+      {/* Bloco de Custos dos Insumos Alimentados pelo Período */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card className="bg-gradient-to-br from-emerald-500/10 to-transparent border-emerald-500/30">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-              Custo Total Insumos (Mês Ref.)
+              Custo Total Insumos (Período)
             </CardTitle>
             <DollarSign className="w-4 h-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold font-mono text-foreground">
               R${' '}
-              {custoTotalMes.toLocaleString('pt-BR', {
+              {custoTotalPeriodo.toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Soma dos insumos consumidos em {volumeMes.toFixed(1)} m³ no mês
+              Soma dos insumos consumidos em {volumePeriodo.toFixed(1)} m³ no
+              período
             </p>
           </CardContent>
         </Card>
@@ -460,7 +644,7 @@ export default function Index() {
           <CardContent>
             <div className="text-2xl font-bold font-mono text-foreground">
               R${' '}
-              {custoMedioPorM3Mes.toLocaleString('pt-BR', {
+              {custoMedioPorM3Periodo.toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}{' '}
@@ -469,7 +653,7 @@ export default function Index() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Média ponderada do metro cúbico expedido na unidade
+              Média ponderada do m³ expedido na unidade
             </p>
           </CardContent>
         </Card>
@@ -477,22 +661,20 @@ export default function Index() {
         <Card className="bg-card/70 border-border/40">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Custo do Último Dia (
-              {ultimaDataStr.split('-').reverse().join('/')})
+              Cimento Consumido (Período)
             </CardTitle>
-            <DollarSign className="w-4 h-4 text-muted-foreground" />
+            <BarChart2 className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold font-mono text-foreground">
-              R${' '}
-              {custoTotalDia.toLocaleString('pt-BR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {(consumoPeriodo.cimento / 1000).toFixed(2)}{' '}
+              <span className="text-sm font-normal text-muted-foreground">
+                toneladas
+              </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1 font-mono">
-              R$ {custoMedioPorM3Dia.toFixed(2)}/m³ ({volumeDia.toFixed(1)} m³
-              expedidos)
+              Aditivo: {consumoPeriodo.aditivo.toLocaleString('pt-BR')} L |
+              Água: {(consumoPeriodo.agua / 1000).toFixed(1)} m³
             </p>
           </CardContent>
         </Card>
@@ -504,7 +686,7 @@ export default function Index() {
         <Card className="border-border/40 bg-card/60">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center justify-between">
-              <span>Produção Diária (Últimos Dias)</span>
+              <span>Produção Diária (Período)</span>
               <span className="text-xs font-normal text-muted-foreground">
                 Volume em m³
               </span>
@@ -566,17 +748,18 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        {/* Gráfico 2: Consumo no Mês por Material */}
+        {/* Gráfico 2: Consumo no Período por Material */}
         <Card className="border-border/40 bg-card/60">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center justify-between">
-              <span>Consumo de Insumos no Mês</span>
+              <span>Consumo de Insumos no Período</span>
               <span className="text-xs font-normal text-muted-foreground">
                 Toneladas / Litros
               </span>
             </CardTitle>
             <CardDescription className="text-xs">
-              Total de agregados, cimento e aditivos consumidos nas cargas
+              Total de agregados, cimento e aditivos consumidos nas cargas do
+              recorte
             </CardDescription>
           </CardHeader>
           <CardContent className="h-[280px]">
@@ -628,7 +811,12 @@ export default function Index() {
               direto.
             </CardDescription>
           </div>
-          <Button asChild variant="outline" size="sm" className="gap-1 text-xs">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="no-print gap-1 text-xs"
+          >
             <Link to="/estoque">
               Ver Histórico Completo
               <ArrowUpRight className="w-3.5 h-3.5" />
@@ -723,18 +911,24 @@ export default function Index() {
         </CardContent>
       </Card>
 
-      {/* Cargas Recentes na Usina */}
+      {/* Cargas do Período */}
       <Card className="border-border/40 bg-card/60">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-base font-semibold">
-              Últimas Cargas Despachadas
+              Cargas do Período ({cargasFiltradas.length})
             </CardTitle>
             <CardDescription className="text-xs">
-              Registro contínuo da balança e dosador da usina
+              Expedições registradas na usina no intervalo selecionado (
+              {labelPeriodo})
             </CardDescription>
           </div>
-          <Button asChild variant="outline" size="sm" className="gap-1 text-xs">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="no-print gap-1 text-xs"
+          >
             <Link to="/relatorios">
               Ver Relatório Detalhado
               <ArrowUpRight className="w-3.5 h-3.5" />
@@ -752,11 +946,7 @@ export default function Index() {
                   <th className="py-2.5 px-3">Traço</th>
                   <th className="py-2.5 px-3">Custo Total</th>
                   <th className="py-2.5 px-3">Custo/m³</th>
-                  <th className="py-2.5 px-3">
-                    {materiais.find((m) => m.codigo === 'cimento')?.nome ||
-                      'CP II F-40 / CP V ARI'}{' '}
-                    (kg)
-                  </th>
+                  <th className="py-2.5 px-3">{nomeCimento} (kg)</th>
                   <th className="py-2.5 px-3">Aditivo (L)</th>
                   <th className="py-2.5 px-3">Motorista / Placa</th>
                   <th className="py-2.5 px-3">Destino</th>
@@ -764,76 +954,93 @@ export default function Index() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/20">
-                {cargas.slice(0, 8).map((c) => (
-                  <tr
-                    key={c.id}
-                    className="hover:bg-muted/20 transition-colors"
-                  >
-                    <td className="py-2.5 px-3 font-mono font-medium text-foreground">
-                      #{String(c.numero_carga).padStart(4, '0')}
-                    </td>
-                    <td className="py-2.5 px-3 text-muted-foreground">
-                      {c.data.split('-').reverse().join('/')}
-                    </td>
-                    <td className="py-2.5 px-3 font-semibold text-foreground">
-                      {Number(c.volume_m3).toFixed(1)} m³
-                    </td>
+                {cargasFiltradas.length === 0 ? (
+                  <tr>
                     <td
-                      className="py-2.5 px-3 max-w-[180px] truncate text-muted-foreground"
-                      title={c.traco_nome || '—'}
+                      colSpan={11}
+                      className="py-6 text-center text-muted-foreground italic"
                     >
-                      {c.traco_nome || '—'}
-                    </td>
-                    <td className="py-2.5 px-3 font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                      {c.custo ? `R$ ${c.custo.total.toFixed(2)}` : '—'}
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-muted-foreground">
-                      {c.custo && c.custo.custoPorM3 > 0
-                        ? `R$ ${c.custo.custoPorM3.toFixed(2)}`
-                        : '—'}
-                    </td>
-                    <td className="py-2.5 px-3 font-mono">
-                      {Number(c.consumo_cimento).toLocaleString('pt-BR')}
-                    </td>
-                    <td className="py-2.5 px-3 font-mono">
-                      {Number(c.consumo_aditivo).toLocaleString('pt-BR')}
-                    </td>
-                    <td className="py-2.5 px-3 text-muted-foreground">
-                      {c.motorista_nome ? (
-                        `${c.motorista_nome} (${c.veiculo_placa || '—'})`
-                      ) : (
-                        <span className="text-muted-foreground/50">
-                          Não informado
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3 text-muted-foreground">
-                      {c.cidade_nome || (
-                        <span className="text-muted-foreground/50">—</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3 text-right">
-                      {c.carga_zerada ? (
-                        <Badge
-                          variant="destructive"
-                          className="text-[10px] uppercase font-bold"
-                        >
-                          Zerada / Cancelada
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] text-emerald-500 border-emerald-500/30 bg-emerald-500/10"
-                        >
-                          Entregue
-                        </Badge>
-                      )}
+                      Nenhuma carga encontrada para o período selecionado.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  cargasFiltradas.slice(0, 15).map((c) => (
+                    <tr
+                      key={c.id}
+                      className="hover:bg-muted/20 transition-colors"
+                    >
+                      <td className="py-2.5 px-3 font-mono font-medium text-foreground">
+                        #{String(c.numero_carga).padStart(4, '0')}
+                      </td>
+                      <td className="py-2.5 px-3 text-muted-foreground">
+                        {c.data.split('-').reverse().join('/')}
+                      </td>
+                      <td className="py-2.5 px-3 font-semibold text-foreground">
+                        {Number(c.volume_m3).toFixed(1)} m³
+                      </td>
+                      <td
+                        className="py-2.5 px-3 max-w-[180px] truncate text-muted-foreground"
+                        title={c.traco_nome || '—'}
+                      >
+                        {c.traco_nome || '—'}
+                      </td>
+                      <td className="py-2.5 px-3 font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                        {c.custo ? `R$ ${c.custo.total.toFixed(2)}` : '—'}
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-muted-foreground">
+                        {c.custo && c.custo.custoPorM3 > 0
+                          ? `R$ ${c.custo.custoPorM3.toFixed(2)}`
+                          : '—'}
+                      </td>
+                      <td className="py-2.5 px-3 font-mono">
+                        {Number(c.consumo_cimento).toLocaleString('pt-BR')}
+                      </td>
+                      <td className="py-2.5 px-3 font-mono">
+                        {Number(c.consumo_aditivo).toLocaleString('pt-BR')}
+                      </td>
+                      <td className="py-2.5 px-3 text-muted-foreground">
+                        {c.motorista_nome ? (
+                          `${c.motorista_nome} (${c.veiculo_placa || '—'})`
+                        ) : (
+                          <span className="text-muted-foreground/50">
+                            Não informado
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-muted-foreground">
+                        {c.cidade_nome || (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        {c.carga_zerada ? (
+                          <Badge
+                            variant="destructive"
+                            className="text-[10px] uppercase font-bold"
+                          >
+                            Zerada / Cancelada
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] text-emerald-500 border-emerald-500/30 bg-emerald-500/10"
+                          >
+                            Entregue
+                          </Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
+          {cargasFiltradas.length > 15 && (
+            <p className="text-xs text-muted-foreground mt-3 text-center">
+              Mostrando as 15 primeiras de {cargasFiltradas.length} cargas do
+              período. Acesse Relatórios para exportação completa.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
