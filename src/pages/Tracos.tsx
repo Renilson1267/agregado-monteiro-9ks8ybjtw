@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog'
 import { ConcreteiraService } from '@/services/concreteira'
 import { useEmpresa } from '@/hooks/use-empresa'
+import { useUsuario } from '@/hooks/use-usuario'
 import type { Traco, PrecoMaterial, Carga, Material } from '@/types/concreteira'
 import {
   FlaskConical,
@@ -34,6 +35,7 @@ import { toast } from '@/hooks/use-toast'
 
 export default function Tracos() {
   const { empresaAtiva } = useEmpresa()
+  const { isBalanceiro } = useUsuario()
   const [tracos, setTracos] = useState<Traco[]>([])
   const [precos, setPrecos] = useState<PrecoMaterial[]>([])
   const [materiais, setMateriais] = useState<Material[]>([])
@@ -260,30 +262,32 @@ export default function Tracos() {
               </CardHeader>
 
               <CardContent className="space-y-3 pt-0">
-                {/* Bloco de Custo por m³ */}
-                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-primary flex items-center gap-1">
-                      <DollarSign className="w-3.5 h-3.5" />
-                      Custo Teórico Insumos (1 m³):
-                    </span>
-                    <span className="text-sm font-extrabold text-foreground font-mono">
-                      R$ {custoTeoricoM3.toFixed(2)}/m³
-                    </span>
-                  </div>
+                {/* Bloco de Custo por m³ (Apenas Administrador) */}
+                {!isBalanceiro && (
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-primary flex items-center gap-1">
+                        <DollarSign className="w-3.5 h-3.5" />
+                        Custo Teórico Insumos (1 m³):
+                      </span>
+                      <span className="text-sm font-extrabold text-foreground font-mono">
+                        R$ {custoTeoricoM3.toFixed(2)}/m³
+                      </span>
+                    </div>
 
-                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-primary/10">
-                    <span className="flex items-center gap-1">
-                      <TrendingUp className="w-3 h-3 text-emerald-500" />
-                      Custo Médio Expedido ({cargasDesteTraco.length} cargas):
-                    </span>
-                    <span className="font-mono font-medium text-foreground">
-                      {custoMedioRealM3 > 0
-                        ? `R$ ${custoMedioRealM3.toFixed(2)}/m³`
-                        : 'Sem histórico'}
-                    </span>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-primary/10">
+                      <span className="flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3 text-emerald-500" />
+                        Custo Médio Expedido ({cargasDesteTraco.length} cargas):
+                      </span>
+                      <span className="font-mono font-medium text-foreground">
+                        {custoMedioRealM3 > 0
+                          ? `R$ ${custoMedioRealM3.toFixed(2)}/m³`
+                          : 'Sem histórico'}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 border-t border-border/30 pt-3">
                   <Layers className="w-3.5 h-3.5 text-primary" />
@@ -301,7 +305,8 @@ export default function Tracos() {
                     >
                       {materiais.find((m) => m.codigo === 'cimento')?.nome ||
                         'CP II F-40 / CP V ARI'}{' '}
-                      (R$ {(calculoTeorico.detalhes.cimento || 0).toFixed(2)})
+                      {!isBalanceiro &&
+                        `(R$ ${(calculoTeorico.detalhes.cimento || 0).toFixed(2)})`}
                     </span>
                     <span className="font-mono font-bold text-foreground text-sm">
                       {t.consumo_cimento}
@@ -311,8 +316,9 @@ export default function Tracos() {
 
                   <div className="p-2 rounded bg-background/60 border border-border/30">
                     <span className="text-muted-foreground block text-[10px]">
-                      Aditivo (R${' '}
-                      {(calculoTeorico.detalhes.aditivo || 0).toFixed(2)})
+                      Aditivo{' '}
+                      {!isBalanceiro &&
+                        `(R$ ${(calculoTeorico.detalhes.aditivo || 0).toFixed(2)})`}
                     </span>
                     <span className="font-mono font-bold text-foreground text-sm">
                       {t.consumo_aditivo}
@@ -322,8 +328,9 @@ export default function Tracos() {
 
                   <div className="p-2 rounded bg-background/60 border border-border/30">
                     <span className="text-muted-foreground block text-[10px]">
-                      Areia (R${' '}
-                      {(calculoTeorico.detalhes.areia || 0).toFixed(2)})
+                      Areia{' '}
+                      {!isBalanceiro &&
+                        `(R$ ${(calculoTeorico.detalhes.areia || 0).toFixed(2)})`}
                     </span>
                     <span className="font-mono font-bold text-foreground text-sm">
                       {t.consumo_areia}
@@ -333,8 +340,9 @@ export default function Tracos() {
 
                   <div className="p-2 rounded bg-background/60 border border-border/30">
                     <span className="text-muted-foreground block text-[10px]">
-                      Brita 12 (R${' '}
-                      {(calculoTeorico.detalhes.brita12 || 0).toFixed(2)})
+                      Brita 12{' '}
+                      {!isBalanceiro &&
+                        `(R$ ${(calculoTeorico.detalhes.brita12 || 0).toFixed(2)})`}
                     </span>
                     <span className="font-mono font-bold text-foreground text-sm">
                       {t.consumo_brita12}
@@ -344,8 +352,9 @@ export default function Tracos() {
 
                   <div className="p-2 rounded bg-background/60 border border-border/30">
                     <span className="text-muted-foreground block text-[10px]">
-                      Brita 19 (R${' '}
-                      {(calculoTeorico.detalhes.brita19 || 0).toFixed(2)})
+                      Brita 19{' '}
+                      {!isBalanceiro &&
+                        `(R$ ${(calculoTeorico.detalhes.brita19 || 0).toFixed(2)})`}
                     </span>
                     <span className="font-mono font-bold text-foreground text-sm">
                       {t.consumo_brita19}
@@ -355,8 +364,9 @@ export default function Tracos() {
 
                   <div className="p-2 rounded bg-background/60 border border-border/30">
                     <span className="text-muted-foreground block text-[10px]">
-                      Pó de Pedra (R${' '}
-                      {(calculoTeorico.detalhes.po_pedra || 0).toFixed(2)})
+                      Pó de Pedra{' '}
+                      {!isBalanceiro &&
+                        `(R$ ${(calculoTeorico.detalhes.po_pedra || 0).toFixed(2)})`}
                     </span>
                     <span className="font-mono font-bold text-foreground text-sm">
                       {t.consumo_po_pedra}

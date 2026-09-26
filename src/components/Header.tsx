@@ -21,35 +21,51 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useAuth } from '@/hooks/use-auth'
 import { useEmpresa } from '@/hooks/use-empresa'
-import { useUsuario, PerfilUsuario } from '@/hooks/use-usuario'
+import { useUsuario } from '@/hooks/use-usuario'
 import { ModalGerenciarEmpresas } from '@/components/ModalGerenciarEmpresas'
 import { useNavigate } from 'react-router-dom'
-
-const navLinks = [
-  { label: 'Dashboard', path: '/' },
-  { label: 'Lançar Cargas', path: '/lancamentos' },
-  { label: 'Estoque', path: '/estoque' },
-  { label: 'Traços / Dosagens', path: '/tracos' },
-  { label: 'Cadastros', path: '/cadastros' },
-  { label: 'Ordens & Recibos', path: '/ordens' },
-  { label: 'Relatórios', path: '/relatorios' },
-]
+import { LogOut } from 'lucide-react'
 
 export function Header() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { signOut } = useAuth()
   const { empresas, empresaAtiva, selecionarEmpresa } = useEmpresa()
-  const { perfil, isBalanceiro, alternarPerfil, nomePerfil } = useUsuario()
+  const {
+    perfil,
+    isBalanceiro,
+    isAdministrador,
+    nomePerfil,
+    nomeUsuario,
+    emailUsuario,
+    podeTrocarEmpresa,
+    empresaVinculadaNome,
+  } = useUsuario()
   const [modalEmpresasOpen, setModalEmpresasOpen] = useState(false)
 
   const nomeEmpresa = empresaAtiva?.nome || 'Selecione'
 
-  const handleTrocarPerfil = (novo: PerfilUsuario) => {
-    alternarPerfil(novo)
-    if (novo === 'balanceiro') {
-      navigate('/lancamentos')
-    }
+  // Links visíveis no cabeçalho conforme o perfil
+  const navLinks = isBalanceiro
+    ? [
+        { label: 'Lançar Cargas', path: '/lancamentos' },
+        { label: 'Ordens & Recibos', path: '/ordens' },
+      ]
+    : [
+        { label: 'Dashboard', path: '/' },
+        { label: 'Lançar Cargas', path: '/lancamentos' },
+        { label: 'Estoque', path: '/estoque' },
+        { label: 'Traços / Dosagens', path: '/tracos' },
+        { label: 'Cadastros', path: '/cadastros' },
+        { label: 'Ordens & Recibos', path: '/ordens' },
+        { label: 'Relatórios', path: '/relatorios' },
+      ]
+
+  const handleLogout = async () => {
+    await signOut()
+    navigate('/login', { replace: true })
   }
 
   return (
@@ -95,53 +111,64 @@ export function Header() {
           </Sheet>
 
           {/* Seletor Mobile de Empresa */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 px-2.5 font-bold text-xs bg-card"
-              >
-                <Building2 className="w-3.5 h-3.5 text-primary" />
-                <span className="truncate max-w-[120px]">{nomeEmpresa}</span>
-                <ChevronDown className="w-3 h-3 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48">
-              <DropdownMenuLabel className="text-xs">
-                Trocar Empresa
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {empresas.map((emp) => (
-                <DropdownMenuItem
-                  key={emp.id}
-                  onClick={() => selecionarEmpresa(emp.id)}
-                  className="flex items-center justify-between text-xs"
+          {podeTrocarEmpresa ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 px-2.5 font-bold text-xs bg-card"
                 >
-                  <span
-                    className={
-                      empresaAtiva?.id === emp.id
-                        ? 'font-bold text-primary'
-                        : ''
-                    }
+                  <Building2 className="w-3.5 h-3.5 text-primary" />
+                  <span className="truncate max-w-[120px]">{nomeEmpresa}</span>
+                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuLabel className="text-xs">
+                  Trocar Empresa
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {empresas.map((emp) => (
+                  <DropdownMenuItem
+                    key={emp.id}
+                    onClick={() => selecionarEmpresa(emp.id)}
+                    className="flex items-center justify-between text-xs"
                   >
-                    {emp.nome}
-                  </span>
-                  {empresaAtiva?.id === emp.id && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  )}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setModalEmpresasOpen(true)}
-                className="text-xs text-primary gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Gerenciar Empresas
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                    <span
+                      className={
+                        empresaAtiva?.id === emp.id
+                          ? 'font-bold text-primary'
+                          : ''
+                      }
+                    >
+                      {emp.nome}
+                    </span>
+                    {empresaAtiva?.id === emp.id && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+                {isAdministrador && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setModalEmpresasOpen(true)}
+                      className="text-xs text-primary gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Gerenciar Empresas
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <div className="h-8 gap-1.5 px-2.5 rounded-md border border-border/40 bg-card flex items-center font-bold text-xs">
+              <Building2 className="w-3.5 h-3.5 text-primary" />
+              <span className="truncate max-w-[120px]">{nomeEmpresa}</span>
+            </div>
+          )}
         </div>
 
         {/* Desktop Navigation */}
@@ -168,159 +195,171 @@ export function Header() {
           })}
         </nav>
 
-        {/* Seletor Desktop de Empresa, Perfil e Status */}
+        {/* Seletor Desktop de Empresa, Perfil e Usuário/Logout */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Seletor de Perfil (Administrador vs Balanceiro) */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className={`h-9 px-2.5 sm:px-3 text-xs gap-1.5 bg-card border-border/50 hover:border-primary/40 shadow-sm ${
-                  isBalanceiro ? 'border-amber-500/50 bg-amber-500/5' : ''
-                }`}
-                title={`Perfil ativo: ${nomePerfil}. Clique para alternar.`}
-              >
-                {isBalanceiro ? (
-                  <Scale className="w-3.5 h-3.5 text-amber-500" />
-                ) : (
-                  <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-                )}
-                <div className="text-left hidden sm:block">
-                  <span className="block font-bold leading-tight">
-                    {nomePerfil}
-                  </span>
-                  <span className="block text-[9px] text-muted-foreground leading-none">
-                    {isBalanceiro ? 'Expedição Direta' : 'Acesso Geral'}
-                  </span>
-                </div>
-                <span className="sm:hidden font-semibold text-[11px]">
-                  {isBalanceiro ? 'Balanceiro' : 'Admin'}
-                </span>
-                <ChevronDown className="w-3 h-3 text-muted-foreground ml-0.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="text-xs">
-                Perfil do Operador
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleTrocarPerfil('administrador')}
-                className="flex items-center justify-between cursor-pointer py-2 text-xs"
-              >
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-primary" />
-                  <div>
-                    <span
-                      className={`block ${perfil === 'administrador' ? 'font-bold text-primary' : ''}`}
-                    >
-                      Administrador
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      Visão geral, dashboards, relatórios e pré-preenchimento
-                    </span>
-                  </div>
-                </div>
-                {perfil === 'administrador' && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                )}
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                onClick={() => handleTrocarPerfil('balanceiro')}
-                className="flex items-center justify-between cursor-pointer py-2 text-xs"
-              >
-                <div className="flex items-center gap-2">
-                  <Scale className="w-4 h-4 text-amber-500" />
-                  <div>
-                    <span
-                      className={`block ${perfil === 'balanceiro' ? 'font-bold text-amber-600 dark:text-amber-400' : ''}`}
-                    >
-                      Balanceiro
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      Cai direto na expedição e campos liberados vazios
-                    </span>
-                  </div>
-                </div>
-                {perfil === 'balanceiro' && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                )}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Badge de Perfil (Vinculado ao cadastro do usuário) */}
+          <div
+            className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs bg-card ${
+              isBalanceiro
+                ? 'border-amber-500/40 bg-amber-500/5 text-amber-600 dark:text-amber-400'
+                : 'border-primary/40 bg-primary/5 text-primary'
+            }`}
+          >
+            {isBalanceiro ? (
+              <Scale className="w-3.5 h-3.5" />
+            ) : (
+              <ShieldCheck className="w-3.5 h-3.5" />
+            )}
+            <div className="text-left">
+              <span className="block font-bold leading-tight">
+                {nomePerfil}
+              </span>
+              <span className="block text-[9px] text-muted-foreground leading-none">
+                {isBalanceiro ? 'Expedição & OS' : 'Controle Total'}
+              </span>
+            </div>
+          </div>
 
           {/* Seletor Desktop de Empresa e Status */}
+          {podeTrocarEmpresa ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden sm:flex items-center gap-2 h-9 px-3 bg-card border-border/50 hover:border-primary/40 transition-colors shadow-sm"
+                >
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <Building2 className="w-4 h-4 text-primary" />
+                  <div className="text-left">
+                    <span className="block text-xs font-bold leading-tight">
+                      {nomeEmpresa}
+                    </span>
+                    <span className="block text-[10px] text-muted-foreground leading-none">
+                      Unidade Ativa
+                    </span>
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="text-xs">
+                  Unidades Operacionais
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {empresas.map((emp) => {
+                  const isAtiva = empresaAtiva?.id === emp.id
+                  return (
+                    <DropdownMenuItem
+                      key={emp.id}
+                      onClick={() => selecionarEmpresa(emp.id)}
+                      className="flex items-center justify-between cursor-pointer py-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-6 h-6 rounded flex items-center justify-center font-bold text-xs ${
+                            isAtiva
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {emp.nome.slice(0, 1).toUpperCase()}
+                        </div>
+                        <div>
+                          <span
+                            className={`text-xs block ${isAtiva ? 'font-bold text-primary' : ''}`}
+                          >
+                            {emp.nome}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            slug: {emp.slug}
+                          </span>
+                        </div>
+                      </div>
+                      {isAtiva && (
+                        <span className="text-[10px] font-semibold text-primary px-1.5 py-0.5 bg-primary/10 rounded">
+                          Ativa
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+                  )
+                })}
+                {isAdministrador && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setModalEmpresasOpen(true)}
+                      className="text-xs text-primary gap-1.5 cursor-pointer font-medium"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Gerenciar / Cadastrar Unidade
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <div className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-md border border-border/50 bg-card shadow-sm">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <Building2 className="w-4 h-4 text-primary" />
+              <div className="text-left">
+                <span className="block text-xs font-bold leading-tight">
+                  {nomeEmpresa}
+                </span>
+                <span className="block text-[10px] text-muted-foreground leading-none">
+                  Unidade Fixa
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Menu do Usuário Logado & Logout */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
                 size="sm"
-                className="hidden sm:flex items-center gap-2 h-9 px-3 bg-card border-border/50 hover:border-primary/40 transition-colors shadow-sm"
+                className="h-9 px-2.5 sm:px-3 text-xs gap-2 bg-card border-border/50 hover:border-primary/40 shadow-sm"
               >
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <Building2 className="w-4 h-4 text-primary" />
-                <div className="text-left">
-                  <span className="block text-xs font-bold leading-tight">
-                    {nomeEmpresa}
+                <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">
+                  {nomeUsuario.slice(0, 1).toUpperCase()}
+                </div>
+                <div className="text-left hidden md:block max-w-[120px]">
+                  <span className="block font-bold leading-tight truncate">
+                    {nomeUsuario}
                   </span>
-                  <span className="block text-[10px] text-muted-foreground leading-none">
-                    Unidade Ativa
+                  <span className="block text-[9px] text-muted-foreground leading-none truncate">
+                    {emailUsuario}
                   </span>
                 </div>
-                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-1" />
+                <ChevronDown className="w-3 h-3 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="text-xs">
-                Unidades Operacionais
+                Conta Conectada
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {empresas.map((emp) => {
-                const isAtiva = empresaAtiva?.id === emp.id
-                return (
-                  <DropdownMenuItem
-                    key={emp.id}
-                    onClick={() => selecionarEmpresa(emp.id)}
-                    className="flex items-center justify-between cursor-pointer py-2"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-6 h-6 rounded flex items-center justify-center font-bold text-xs ${
-                          isAtiva
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {emp.nome.slice(0, 1).toUpperCase()}
-                      </div>
-                      <div>
-                        <span
-                          className={`text-xs block ${isAtiva ? 'font-bold text-primary' : ''}`}
-                        >
-                          {emp.nome}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          slug: {emp.slug}
-                        </span>
-                      </div>
-                    </div>
-                    {isAtiva && (
-                      <span className="text-[10px] font-semibold text-primary px-1.5 py-0.5 bg-primary/10 rounded">
-                        Ativa
-                      </span>
-                    )}
-                  </DropdownMenuItem>
-                )
-              })}
+              <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                <p className="font-semibold text-foreground truncate">
+                  {nomeUsuario}
+                </p>
+                <p className="text-[11px] truncate">{emailUsuario}</p>
+                <div className="mt-1 flex items-center gap-1 text-[10px]">
+                  <span className="font-semibold text-primary capitalize">
+                    {perfil}
+                  </span>
+                  {empresaVinculadaNome && (
+                    <span>• {empresaVinculadaNome}</span>
+                  )}
+                </div>
+              </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => setModalEmpresasOpen(true)}
-                className="text-xs text-primary gap-1.5 cursor-pointer font-medium"
+                onClick={handleLogout}
+                className="text-xs text-destructive focus:text-destructive cursor-pointer gap-2 py-2"
               >
-                <Plus className="w-3.5 h-3.5" />
-                Gerenciar / Cadastrar Unidade
+                <LogOut className="w-4 h-4" />
+                <span>Sair do Sistema</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

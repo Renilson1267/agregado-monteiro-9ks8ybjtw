@@ -17,26 +17,41 @@ import {
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/use-auth'
 import { useEmpresa } from '@/hooks/use-empresa'
 import { useUsuario } from '@/hooks/use-usuario'
 import { ModalGerenciarEmpresas } from '@/components/ModalGerenciarEmpresas'
-
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-  { icon: Truck, label: 'Lançar Cargas', path: '/lancamentos' },
-  { icon: Boxes, label: 'Estoque', path: '/estoque' },
-  { icon: FlaskConical, label: 'Traços / Dosagens', path: '/tracos' },
-  { icon: Users, label: 'Cadastros', path: '/cadastros' },
-  { icon: FileText, label: 'Ordens & Recibos', path: '/ordens' },
-  { icon: FileSpreadsheet, label: 'Relatórios', path: '/relatorios' },
-]
+import { LogOut } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 export function Sidebar() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { signOut } = useAuth()
   const { theme, setTheme } = useTheme()
   const { empresaAtiva } = useEmpresa()
-  const { isBalanceiro } = useUsuario()
+  const { isBalanceiro, isAdministrador, podeTrocarEmpresa } = useUsuario()
   const [modalEmpresasOpen, setModalEmpresasOpen] = useState(false)
+
+  const navItems = isBalanceiro
+    ? [
+        { icon: Truck, label: 'Lançar Cargas', path: '/lancamentos' },
+        { icon: FileText, label: 'Ordens & Recibos', path: '/ordens' },
+      ]
+    : [
+        { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+        { icon: Truck, label: 'Lançar Cargas', path: '/lancamentos' },
+        { icon: Boxes, label: 'Estoque', path: '/estoque' },
+        { icon: FlaskConical, label: 'Traços / Dosagens', path: '/tracos' },
+        { icon: Users, label: 'Cadastros', path: '/cadastros' },
+        { icon: FileText, label: 'Ordens & Recibos', path: '/ordens' },
+        { icon: FileSpreadsheet, label: 'Relatórios', path: '/relatorios' },
+      ]
+
+  const handleLogout = async () => {
+    await signOut()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <>
@@ -58,9 +73,18 @@ export function Sidebar() {
         <div className="mb-6 flex flex-col items-center">
           <button
             type="button"
-            onClick={() => setModalEmpresasOpen(true)}
-            className="w-12 py-1.5 px-1 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 flex flex-col items-center gap-0.5 transition-all text-center group"
-            title={`Unidade: ${empresaAtiva?.nome || 'Trocar'}. Clique para gerenciar.`}
+            onClick={() => {
+              if (podeTrocarEmpresa && isAdministrador) {
+                setModalEmpresasOpen(true)
+              }
+            }}
+            disabled={!podeTrocarEmpresa || !isAdministrador}
+            className={`w-12 py-1.5 px-1 rounded-xl bg-primary/10 text-primary border border-primary/20 flex flex-col items-center gap-0.5 transition-all text-center group ${
+              podeTrocarEmpresa && isAdministrador
+                ? 'hover:bg-primary/20 cursor-pointer'
+                : 'cursor-default opacity-80'
+            }`}
+            title={`Unidade: ${empresaAtiva?.nome || 'Trocar'}`}
           >
             <Building2 className="w-3.5 h-3.5" />
             <span className="text-[10px] font-bold tracking-tight uppercase truncate max-w-[42px] leading-none">
@@ -94,16 +118,18 @@ export function Sidebar() {
         </nav>
 
         <div className="mt-auto flex flex-col items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setModalEmpresasOpen(true)}
-            className="w-12 h-12 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            title="Gerenciar Empresas / Unidades"
-          >
-            <Settings className="h-5 w-5" />
-            <span className="sr-only">Configurações de Empresas</span>
-          </Button>
+          {isAdministrador && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setModalEmpresasOpen(true)}
+              className="w-12 h-12 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              title="Gerenciar Empresas / Unidades"
+            >
+              <Settings className="h-5 w-5" />
+              <span className="sr-only">Configurações de Empresas</span>
+            </Button>
+          )}
 
           <Button
             id="theme-toggle"
@@ -116,6 +142,17 @@ export function Sidebar() {
             <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
             <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             <span className="sr-only">Alternar tema</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            className="w-12 h-12 rounded-xl text-destructive hover:bg-destructive/10 transition-colors"
+            title="Sair do Sistema"
+          >
+            <LogOut className="h-5 w-5" />
+            <span className="sr-only">Sair</span>
           </Button>
         </div>
       </aside>

@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select'
 import { ConcreteiraService } from '@/services/concreteira'
 import { useEmpresa } from '@/hooks/use-empresa'
+import { useUsuario } from '@/hooks/use-usuario'
 import type {
   OrdemServico,
   Cliente,
@@ -55,6 +56,7 @@ import { toast } from '@/hooks/use-toast'
 
 export default function Ordens() {
   const { empresaAtiva } = useEmpresa()
+  const { isBalanceiro } = useUsuario()
 
   const [ordens, setOrdens] = useState<OrdemServico[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -681,17 +683,19 @@ export default function Ordens() {
                               <Edit2 className="w-3.5 h-3.5" />
                             </Button>
 
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                              onClick={() =>
-                                handleExcluirOS(os.id, os.numero_os)
-                              }
-                              title="Excluir Ordem"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
+                            {!isBalanceiro && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                onClick={() =>
+                                  handleExcluirOS(os.id, os.numero_os)
+                                }
+                                title="Excluir Ordem"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
                           </div>
                         </td>
                       </tr>

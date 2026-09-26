@@ -1393,4 +1393,117 @@ export const ConcreteiraService = {
       .eq('id', id)
     if (error) throw error
   },
+
+  // ==========================================
+  // GESTÃO DE USUÁRIOS DO SISTEMA
+  // ==========================================
+  async listarUsuariosApp(): Promise<any[]> {
+    const { data, error } = await (supabase as any)
+      .from('usuarios_app')
+      .select('*, empresas(id, nome, slug)')
+      .order('nome', { ascending: true })
+
+    if (error) throw error
+    return (data || []).map((u: any) => ({
+      ...u,
+      empresa_nome: u.empresas?.nome || null,
+    }))
+  },
+
+  async buscarUsuarioAppPorAuth(
+    userId: string,
+    email?: string,
+  ): Promise<any | null> {
+    let query = (supabase as any)
+      .from('usuarios_app')
+      .select('*, empresas(id, nome, slug)')
+    if (userId) {
+      const { data, error } = await query.eq('user_id', userId).maybeSingle()
+      if (!error && data) {
+        return {
+          ...data,
+          empresa_nome: data.empresas?.nome || null,
+        }
+      }
+    }
+    if (email) {
+      const { data, error } = await (supabase as any)
+        .from('usuarios_app')
+        .select('*, empresas(id, nome, slug)')
+        .eq('email', email.trim().toLowerCase())
+        .maybeSingle()
+      if (!error && data) {
+        return {
+          ...data,
+          empresa_nome: data.empresas?.nome || null,
+        }
+      }
+    }
+    return null
+  },
+
+  async contarUsuariosApp(): Promise<number> {
+    const { count, error } = await (supabase as any)
+      .from('usuarios_app')
+      .select('*', { count: 'exact', head: true })
+    if (error) return 0
+    return count || 0
+  },
+
+  async salvarUsuarioApp(dados: {
+    id?: string
+    user_id?: string | null
+    nome: string
+    email: string
+    perfil: 'administrador' | 'balanceiro'
+    empresa_id?: string | null
+    ativo?: boolean
+  }): Promise<any> {
+    const payload = {
+      nome: dados.nome.trim(),
+      email: dados.email.trim().toLowerCase(),
+      perfil: dados.perfil,
+      empresa_id: dados.empresa_id || null,
+      ativo: dados.ativo ?? true,
+      updated_at: new Date().toISOString(),
+    }
+
+    if (dados.id) {
+      const { data, error } = await (supabase as any)
+        .from('usuarios_app')
+        .update(payload)
+        .eq('id', dados.id)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    } else {
+      const { data, error } = await (supabase as any)
+        .from('usuarios_app')
+        .insert({
+          ...payload,
+          user_id: dados.user_id || null,
+        })
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    }
+  },
+
+  async alternarStatusUsuarioApp(id: string, ativo: boolean): Promise<void> {
+    const { error } = await (supabase as any)
+      .from('usuarios_app')
+      .update({ ativo, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) throw error
+  },
+
+  async vincularAuthAUsuarioApp(userId: string, email: string): Promise<void> {
+    await (supabase as any)
+      .from('usuarios_app')
+      .update({ user_id: userId, updated_at: new Date().toISOString() })
+      .eq('email', email.trim().toLowerCase())
+      .is('user_id', null)
+  },
 }

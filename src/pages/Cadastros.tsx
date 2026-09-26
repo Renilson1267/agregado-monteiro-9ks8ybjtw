@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PainelUsuarios } from '@/components/PainelUsuarios'
+import { UserCog } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -673,8 +675,12 @@ export default function Cadastros() {
         </Button>
       </div>
 
-      <Tabs defaultValue="clientes" className="w-full">
-        <TabsList className="grid grid-cols-5 w-full max-w-2xl">
+      <Tabs defaultValue="usuarios" className="w-full">
+        <TabsList className="grid grid-cols-6 w-full max-w-3xl">
+          <TabsTrigger value="usuarios" className="gap-2">
+            <UserCog className="w-4 h-4" />
+            Usuários
+          </TabsTrigger>
           <TabsTrigger value="clientes" className="gap-2">
             <UserCheck className="w-4 h-4" />
             Clientes ({clientes.length})
@@ -696,6 +702,11 @@ export default function Cadastros() {
             Cidades ({cidades.length})
           </TabsTrigger>
         </TabsList>
+
+        {/* TAB USUÁRIOS */}
+        <TabsContent value="usuarios" className="mt-6 space-y-4">
+          <PainelUsuarios />
+        </TabsContent>
 
         {/* TAB CLIENTES */}
         <TabsContent value="clientes" className="mt-6 space-y-4">

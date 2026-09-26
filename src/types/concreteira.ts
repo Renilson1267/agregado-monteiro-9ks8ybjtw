@@ -261,6 +261,19 @@ export interface DashboardKPIs {
   estoqueAbaixoMinimo: number
 }
 
+export interface UsuarioApp {
+  id: string
+  user_id?: string | null
+  nome: string
+  email: string
+  perfil: 'administrador' | 'balanceiro'
+  empresa_id?: string | null
+  empresa_nome?: string | null
+  ativo: boolean
+  created_at?: string
+  updated_at?: string
+}
+
 export interface ComparativoUnidade {
   empresaId: string
   empresaNome: string

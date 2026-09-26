@@ -1108,39 +1108,41 @@ export default function LancamentoCargas() {
               </div>
             </div>
 
-            {/* Box de Custo Estimado da Carga */}
-            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-emerald-500 shrink-0" />
-                <div>
-                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 block">
-                    Custo Calculado dos Insumos da Carga
+            {/* Box de Custo Estimado da Carga (Apenas para Administrador) */}
+            {!isBalanceiro && (
+              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-emerald-500 shrink-0" />
+                  <div>
+                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 block">
+                      Custo Calculado dos Insumos da Carga
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {modoDosagem === 'manual'
+                        ? `Calculado sobre o consumo real da carga (${volume} m³ × dosagem)`
+                        : 'Calculado com base na tabela de preços unitários vigente na data'}
+                      {custoEstimado.aditivo > 0 && (
+                        <span className="ml-1 text-emerald-700 dark:text-emerald-300 font-mono">
+                          • Aditivo: R$ {custoEstimado.aditivo.toFixed(2)}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl font-bold font-mono text-foreground">
+                    R${' '}
+                    {custoEstimado.total.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
-                  <span className="text-[11px] text-muted-foreground">
-                    {modoDosagem === 'manual'
-                      ? `Calculado sobre o consumo real da carga (${volume} m³ × dosagem)`
-                      : 'Calculado com base na tabela de preços unitários vigente na data'}
-                    {custoEstimado.aditivo > 0 && (
-                      <span className="ml-1 text-emerald-700 dark:text-emerald-300 font-mono">
-                        • Aditivo: R$ {custoEstimado.aditivo.toFixed(2)}
-                      </span>
-                    )}
+                  <span className="text-xs text-muted-foreground font-mono">
+                    (R$ {custoEstimado.custoPorM3.toFixed(2)}/m³)
                   </span>
                 </div>
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-xl font-bold font-mono text-foreground">
-                  R${' '}
-                  {custoEstimado.total.toLocaleString('pt-BR', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </span>
-                <span className="text-xs text-muted-foreground font-mono">
-                  (R$ {custoEstimado.custoPorM3.toFixed(2)}/m³)
-                </span>
-              </div>
-            </div>
+            )}
             {/* Grid dos Insumos (Cimento, Aditivo, ÁGUA, Areia, Brita 12, Brita 19, Pó de Pedra) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Cimento */}

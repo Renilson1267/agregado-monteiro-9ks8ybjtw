@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import type { Empresa } from '@/types/concreteira'
+import { useUsuario } from '@/hooks/use-usuario'
 
 interface EmpresaContextType {
   empresas: Empresa[]
@@ -28,6 +29,7 @@ const EmpresaContext = createContext<EmpresaContextType | undefined>(undefined)
 const STORAGE_KEY = 'concreteira_empresa_ativa_id'
 
 export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
+  const { empresaVinculadaId, isBalanceiro } = useUsuario()
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [empresaAtiva, setEmpresaAtiva] = useState<Empresa | null>(null)
   const [loading, setLoading] = useState(true)
@@ -45,11 +47,21 @@ export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
       setEmpresas(lista)
 
       if (lista.length > 0) {
+        // Se o usuário estiver vinculado a uma empresa específica (ex: balanceiro)
+        if (empresaVinculadaId) {
+          const vinculada = lista.find((e) => e.id === empresaVinculadaId)
+          if (vinculada) {
+            setEmpresaAtiva(vinculada)
+            localStorage.setItem(STORAGE_KEY, vinculada.id)
+            return
+          }
+        }
+
         const savedId = localStorage.getItem(STORAGE_KEY)
         const encontrada = lista.find(
           (e) => e.id === savedId || e.slug === savedId,
         )
-        // Preferir salvar a empresa Monteiro ou a primeira ativa
+        // Preferir salva ou primeira ativa
         const padrao = encontrada || lista[0]
         setEmpresaAtiva(padrao)
         if (padrao) {
@@ -61,13 +73,28 @@ export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [empresaVinculadaId])
 
   useEffect(() => {
     carregarEmpresas()
   }, [carregarEmpresas])
 
+  // Se o usuário tiver empresa vinculada e for balanceiro, fixar
+  useEffect(() => {
+    if (empresaVinculadaId && empresas.length > 0) {
+      const vinculada = empresas.find((e) => e.id === empresaVinculadaId)
+      if (vinculada && empresaAtiva?.id !== vinculada.id) {
+        setEmpresaAtiva(vinculada)
+        localStorage.setItem(STORAGE_KEY, vinculada.id)
+      }
+    }
+  }, [empresaVinculadaId, empresas, empresaAtiva?.id])
+
   const selecionarEmpresa = (idOrSlug: string) => {
+    // Balanceiro com empresa vinculada não pode trocar para outra empresa
+    if (isBalanceiro && empresaVinculadaId) {
+      return
+    }
     const emp = empresas.find((e) => e.id === idOrSlug || e.slug === idOrSlug)
     if (emp) {
       setEmpresaAtiva(emp)

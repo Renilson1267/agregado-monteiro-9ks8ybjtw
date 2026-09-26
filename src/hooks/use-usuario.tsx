@@ -3,58 +3,131 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
   ReactNode,
 } from 'react'
+import { useAuth } from '@/hooks/use-auth'
+import { ConcreteiraService } from '@/services/concreteira'
+import type { UsuarioApp } from '@/types/concreteira'
 
 export type PerfilUsuario = 'administrador' | 'balanceiro'
 
 interface UsuarioContextType {
+  usuarioApp: UsuarioApp | null
   perfil: PerfilUsuario
   isBalanceiro: boolean
   isAdministrador: boolean
-  alternarPerfil: (novoPerfil: PerfilUsuario) => void
   nomePerfil: string
+  nomeUsuario: string
+  emailUsuario: string
+  empresaVinculadaId: string | null
+  empresaVinculadaNome: string | null
+  podeTrocarEmpresa: boolean
+  loadingUsuario: boolean
+  recarregarUsuarioApp: () => Promise<void>
+  // Para compatibilidade e testes locais de admin (apenas administrador pode alternar temporariamente visualização se quiser)
+  alternarPerfil: (novoPerfil: PerfilUsuario) => void
 }
 
 const UsuarioContext = createContext<UsuarioContextType | undefined>(undefined)
 
-const STORAGE_KEY_PERFIL = 'concreteira_usuario_perfil'
-
 export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
-  const [perfil, setPerfil] = useState<PerfilUsuario>(() => {
-    try {
-      const salvo = localStorage.getItem(STORAGE_KEY_PERFIL)
-      if (salvo === 'balanceiro' || salvo === 'administrador') {
-        return salvo
-      }
-    } catch {
-      // fallback
+  const { user, loading: loadingAuth } = useAuth()
+  const [usuarioApp, setUsuarioApp] = useState<UsuarioApp | null>(null)
+  const [perfilAtivo, setPerfilAtivo] = useState<PerfilUsuario>('administrador')
+  const [loadingUsuario, setLoadingUsuario] = useState(true)
+
+  const carregarDadosUsuario = useCallback(async () => {
+    if (!user) {
+      setUsuarioApp(null)
+      setPerfilAtivo('administrador')
+      setLoadingUsuario(false)
+      return
     }
-    return 'administrador'
-  })
+
+    try {
+      setLoadingUsuario(true)
+      const email = user.email || ''
+      let appUser = await ConcreteiraService.buscarUsuarioAppPorAuth(
+        user.id,
+        email,
+      )
+
+      // Se encontrou por email mas user_id estava vazio, vincula
+      if (appUser && !appUser.user_id) {
+        await ConcreteiraService.vincularAuthAUsuarioApp(user.id, email)
+        appUser.user_id = user.id
+      }
+
+      if (appUser) {
+        setUsuarioApp(appUser)
+        setPerfilAtivo(appUser.perfil)
+      } else {
+        // Fallback: se estiver logado via auth mas não tiver linha em usuarios_app
+        // Tratar como administrador básico para não bloquear emergências
+        const fallbackUser: UsuarioApp = {
+          id: user.id,
+          user_id: user.id,
+          nome: user.user_metadata?.name || email.split('@')[0] || 'Usuário',
+          email,
+          perfil: 'administrador',
+          ativo: true,
+        }
+        setUsuarioApp(fallbackUser)
+        setPerfilAtivo('administrador')
+      }
+    } catch (err) {
+      console.error('Erro ao buscar dados do usuário na base:', err)
+    } finally {
+      setLoadingUsuario(false)
+    }
+  }, [user])
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_PERFIL, perfil)
-    } catch {
-      // ignore
+    if (!loadingAuth) {
+      carregarDadosUsuario()
     }
-  }, [perfil])
+  }, [user, loadingAuth, carregarDadosUsuario])
 
+  // Se o usuário logado for balanceiro, ele nunca pode forçar admin
   const alternarPerfil = (novoPerfil: PerfilUsuario) => {
-    setPerfil(novoPerfil)
+    // Se no cadastro o usuário for balanceiro, ele não pode mudar para admin
+    if (usuarioApp?.perfil === 'balanceiro' && novoPerfil === 'administrador') {
+      return
+    }
+    setPerfilAtivo(novoPerfil)
   }
 
-  const nomePerfil = perfil === 'balanceiro' ? 'Balanceiro' : 'Administrador'
+  const isBalanceiro = perfilAtivo === 'balanceiro'
+  const isAdministrador = perfilAtivo === 'administrador'
+  const nomePerfil = isBalanceiro ? 'Balanceiro' : 'Administrador'
+  const nomeUsuario =
+    usuarioApp?.nome ||
+    user?.user_metadata?.name ||
+    user?.email?.split('@')[0] ||
+    'Usuário'
+  const emailUsuario = usuarioApp?.email || user?.email || ''
+  const empresaVinculadaId = usuarioApp?.empresa_id || null
+  const empresaVinculadaNome = usuarioApp?.empresa_nome || null
+  const podeTrocarEmpresa =
+    isAdministrador && !usuarioApp?.empresa_id ? true : isAdministrador
 
   return (
     <UsuarioContext.Provider
       value={{
-        perfil,
-        isBalanceiro: perfil === 'balanceiro',
-        isAdministrador: perfil === 'administrador',
-        alternarPerfil,
+        usuarioApp,
+        perfil: perfilAtivo,
+        isBalanceiro,
+        isAdministrador,
         nomePerfil,
+        nomeUsuario,
+        emailUsuario,
+        empresaVinculadaId,
+        empresaVinculadaNome,
+        podeTrocarEmpresa,
+        loadingUsuario: loadingAuth || loadingUsuario,
+        recarregarUsuarioApp: carregarDadosUsuario,
+        alternarPerfil,
       }}
     >
       {children}
