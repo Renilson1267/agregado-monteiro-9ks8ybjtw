@@ -123,6 +123,7 @@ export default function Index() {
       (a, c) => a + Number(c.consumo_po_pedra),
       0,
     ),
+    agua: cargasMesValidas.reduce((a, c) => a + Number(c.consumo_agua || 0), 0),
   }
 
   // Alertas de estoque: apenas para materiais com controle de estoque ativo (cimento e aditivo)
@@ -225,6 +226,11 @@ export default function Index() {
       material: 'Aditivo (×10 L)',
       valor: Number((consumoMes.aditivo / 10).toFixed(1)),
       fill: '#06b6d4',
+    },
+    {
+      material: 'Água (m³)',
+      valor: Number((consumoMes.agua / 1000).toFixed(1)),
+      fill: '#0284c7',
     },
   ]
 

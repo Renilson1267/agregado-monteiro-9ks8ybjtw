@@ -250,13 +250,14 @@ export default function Relatorios() {
       'Volume (m3)',
       'Traço',
       'Custo Total (R$)',
-      'Custo/m3 (R$)',
+      'Custo por m3 (R$)',
       'Cimento (kg)',
       'Aditivo (L)',
+      'Agua (L)',
       'Areia (kg)',
       'Brita 12 (kg)',
       'Brita 19 (kg)',
-      'Pó de Pedra (kg)',
+      'Po de Pedra (kg)',
       'Motorista',
       'Placa',
       'Cidade',
@@ -273,6 +274,7 @@ export default function Relatorios() {
       c.custo?.custoPorM3 || 0,
       c.consumo_cimento,
       c.consumo_aditivo,
+      c.consumo_agua || 0,
       c.consumo_areia,
       c.consumo_brita12,
       c.consumo_brita19,
@@ -310,6 +312,7 @@ export default function Relatorios() {
 
   const totalCimento = cargas.reduce((a, b) => a + Number(b.consumo_cimento), 0)
   const totalAditivo = cargas.reduce((a, b) => a + Number(b.consumo_aditivo), 0)
+  const totalAgua = cargas.reduce((a, b) => a + Number(b.consumo_agua || 0), 0)
   const totalAreia = cargas.reduce((a, b) => a + Number(b.consumo_areia), 0)
   const totalBrita12 = cargas.reduce((a, b) => a + Number(b.consumo_brita12), 0)
   const totalBrita19 = cargas.reduce((a, b) => a + Number(b.consumo_brita19), 0)
@@ -321,6 +324,7 @@ export default function Relatorios() {
   // Totais de custos por material filtrados
   const custoCimento = cargas.reduce((a, b) => a + (b.custo?.cimento || 0), 0)
   const custoAditivo = cargas.reduce((a, b) => a + (b.custo?.aditivo || 0), 0)
+  const custoAgua = cargas.reduce((a, b) => a + (b.custo?.agua || 0), 0)
   const custoAreia = cargas.reduce((a, b) => a + (b.custo?.areia || 0), 0)
   const custoBrita12 = cargas.reduce((a, b) => a + (b.custo?.brita12 || 0), 0)
   const custoBrita19 = cargas.reduce((a, b) => a + (b.custo?.brita19 || 0), 0)
@@ -492,6 +496,7 @@ export default function Relatorios() {
                         <SelectItem value="ALL">Todos os Materiais</SelectItem>
                         <SelectItem value="cimento">Cimento</SelectItem>
                         <SelectItem value="aditivo">Aditivo</SelectItem>
+                        <SelectItem value="agua">Água</SelectItem>
                         <SelectItem value="areia">Areia</SelectItem>
                         <SelectItem value="brita12">Brita 12</SelectItem>
                         <SelectItem value="brita19">Brita 19</SelectItem>
@@ -679,7 +684,7 @@ export default function Relatorios() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
                 <div className="p-2.5 rounded bg-background/60 border border-border/30">
                   <span className="text-muted-foreground block text-[11px]">
                     Cimento
@@ -701,6 +706,18 @@ export default function Relatorios() {
                   </span>
                   <span className="text-muted-foreground text-[10px]">
                     {totalAditivo.toLocaleString('pt-BR')} L
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded bg-cyan-500/10 border border-cyan-500/20">
+                  <span className="text-cyan-700 dark:text-cyan-300 block text-[11px] font-medium">
+                    Água (L)
+                  </span>
+                  <span className="font-mono font-bold text-foreground block text-sm">
+                    R$ {custoAgua.toFixed(2)}
+                  </span>
+                  <span className="text-muted-foreground text-[10px]">
+                    {totalAgua.toLocaleString('pt-BR')} L
                   </span>
                 </div>
 
@@ -875,6 +892,7 @@ export default function Relatorios() {
                       <th className="py-2.5 px-3">Custo/m³</th>
                       <th className="py-2.5 px-3">Cimento (kg)</th>
                       <th className="py-2.5 px-3">Aditivo (L)</th>
+                      <th className="py-2.5 px-3">Água (L)</th>
                       <th className="py-2.5 px-3">Areia (kg)</th>
                       <th className="py-2.5 px-3">Britas 12/19</th>
                       <th className="py-2.5 px-3">Motorista</th>
@@ -919,6 +937,9 @@ export default function Relatorios() {
                         </td>
                         <td className="py-2 px-3 font-mono">
                           {Number(c.consumo_aditivo).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="py-2 px-3 font-mono text-cyan-600 dark:text-cyan-400">
+                          {Number(c.consumo_agua || 0).toLocaleString('pt-BR')}
                         </td>
                         <td className="py-2 px-3 font-mono">
                           {Number(c.consumo_areia).toLocaleString('pt-BR')}

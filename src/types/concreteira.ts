@@ -16,6 +16,9 @@ export interface Material {
   ordem: number
   saldo?: number
   controla_estoque?: boolean
+  densidade?: number
+  unidade_compra?: string
+  preco_compra?: number
   created_at?: string
 }
 
@@ -31,6 +34,7 @@ export interface Traco {
   consumo_po_pedra: number
   consumo_cimento: number
   consumo_aditivo: number
+  consumo_agua?: number
   ativo: boolean
   created_at?: string
 }
@@ -67,6 +71,7 @@ export interface CustoBreakdown {
   brita12: number
   brita19: number
   po_pedra: number
+  agua: number
   total: number
   custoPorM3: number
 }
@@ -91,6 +96,7 @@ export interface Carga {
   consumo_po_pedra: number
   consumo_cimento: number
   consumo_aditivo: number
+  consumo_agua?: number
   observacao: string | null
   carga_zerada: boolean
   custo?: CustoBreakdown
@@ -135,6 +141,7 @@ export interface DashboardKPIs {
     brita12: number
     brita19: number
     po_pedra: number
+    agua: number
   }
   estoqueAbaixoMinimo: number
 }
@@ -155,6 +162,7 @@ export interface ComparativoUnidade {
     brita12: number
     brita19: number
     po_pedra: number
+    agua: number
   }
   custosPorMaterial: {
     cimento: number
@@ -163,6 +171,7 @@ export interface ComparativoUnidade {
     brita12: number
     brita19: number
     po_pedra: number
+    agua: number
   }
   porTraco: Array<{
     tracoNome: string

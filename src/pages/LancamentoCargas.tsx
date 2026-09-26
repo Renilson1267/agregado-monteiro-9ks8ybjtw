@@ -76,8 +76,20 @@ export default function LancamentoCargas() {
   const [poPedra, setPoPedra] = useState<number>(0)
   const [cimento, setCimento] = useState<number>(0)
   const [aditivo, setAditivo] = useState<number>(0)
-  // Fator de dosagem para cálculo do aditivo no modo manual: aditivo (L) = cimento (kg/m³) × volume (m³) × fator
-  const [fatorAditivoManual, setFatorAditivoManual] = useState<number>(0.001)
+  // Fator de dosagem para cálculo do aditivo no modo manual:
+  // aditivo (L) = cimento TOTAL da carga (kg) × volume (m³) × fator
+  // onde cimento_total_kg = dosagem_cimento_kg_m3 × volume_m3
+  // Faixa de fatores do aditivo: 0,005 a 0,010
+  const [fatorAditivoManual, setFatorAditivoManual] = useState<number>(0.006)
+  const [aditivoBruto, setAditivoBruto] = useState<number>(0)
+
+  // NOVO INSUMO: ÁGUA (calculada, não digitada)
+  // água (L) = cimento TOTAL da carga (kg) × volume (m³) × fator_de_água
+  // com fator na faixa 0,45 a 0,8 (opções rápidas: 0,45, 0,5, 0,55, 0,6, 0,65, 0,7, 0,75, 0,8)
+  // Arredondamento inteiro clássico (Math.round)
+  const [agua, setAgua] = useState<number>(0)
+  const [fatorAguaManual, setFatorAguaManual] = useState<number>(0.55)
+  const [aguaBruta, setAguaBruta] = useState<number>(0)
 
   useEffect(() => {
     async function init() {
@@ -121,13 +133,23 @@ export default function LancamentoCargas() {
       setCimento(cimentoDosagem)
 
       if (modoDosagem === 'manual') {
-        // No modo manual: aditivo (L) = cimento (kg/m³) × volume (m³) × fator
-        const adtCalc = Number(
-          (cimentoDosagem * vol * (fatorAditivoManual || 0.001)).toFixed(2),
-        )
-        setAditivo(adtCalc)
+        // No modo manual:
+        // cimento total = dosagem × volume
+        const cimentoTotal = cimentoDosagem * vol
+        const adtBruto = cimentoTotal * vol * (fatorAditivoManual || 0.006)
+        setAditivoBruto(adtBruto)
+        setAditivo(Math.round(adtBruto))
+
+        const agBruta = cimentoTotal * vol * (fatorAguaManual || 0.55)
+        setAguaBruta(agBruta)
+        setAgua(Math.round(agBruta))
       } else {
         setAditivo(Number(traco.consumo_aditivo) || 0)
+        setAditivoBruto(Number(traco.consumo_aditivo) || 0)
+        const cimentoTotal = cimentoDosagem * vol
+        const agBruta = cimentoTotal * vol * (fatorAguaManual || 0.55)
+        setAguaBruta(agBruta)
+        setAgua(Math.round(agBruta))
       }
     }
   }
@@ -141,20 +163,35 @@ export default function LancamentoCargas() {
     if (modoDosagem === 'automatico') {
       const traco = tracos.find((t) => t.id === tracoSelecionadoId)
       if (traco) {
+        const cimentoDosagem = Number(traco.consumo_cimento) || 0
         setBrita12(Number(traco.consumo_brita12) || 0)
         setBrita19(Number(traco.consumo_brita19) || 0)
         setAreia(Number(traco.consumo_areia) || 0)
         setPoPedra(Number(traco.consumo_po_pedra) || 0)
-        setCimento(Number(traco.consumo_cimento) || 0)
+        setCimento(cimentoDosagem)
         setAditivo(Number(traco.consumo_aditivo) || 0)
+        setAditivoBruto(Number(traco.consumo_aditivo) || 0)
+
+        // Água do traço automático (se houver no traço ou calculada via fator água)
+        const cimentoTotal = cimentoDosagem * volume
+        const agBruta = cimentoTotal * volume * (fatorAguaManual || 0.55)
+        setAguaBruta(agBruta)
+        setAgua(Math.round(agBruta))
       }
     } else {
-      // Modo manual: aditivo é estritamente calculado pela fórmula
-      // aditivo (L) = cimento digitado (kg/m³) × volume (m³) × fatorAditivoManual
-      const adtCalc = Number(
-        (cimento * volume * (fatorAditivoManual || 0)).toFixed(2),
-      )
-      setAditivo(adtCalc)
+      // Modo manual:
+      // cimento_total_kg = dosagem_cimento_kg_m3 × volume_m3
+      // aditivo (L) = cimento_total_kg × volume_m3 × fatorAditivoManual
+      const cimentoTotal = cimento * volume
+      const adtBruto = cimentoTotal * volume * (fatorAditivoManual || 0)
+      setAditivoBruto(adtBruto)
+      // Arredondamento INTEIRO clássico: Math.round (>= 0.5 sobe, < 0.5 desce)
+      setAditivo(Math.round(adtBruto))
+
+      // Água (L) = cimento_total_kg × volume_m3 × fatorAguaManual
+      const agBruta = cimentoTotal * volume * (fatorAguaManual || 0)
+      setAguaBruta(agBruta)
+      setAgua(Math.round(agBruta))
     }
   }, [
     tracoSelecionadoId,
@@ -164,6 +201,7 @@ export default function LancamentoCargas() {
     modoDosagem,
     cimento,
     fatorAditivoManual,
+    fatorAguaManual,
   ])
 
   // Tratar alternância de modo
@@ -201,32 +239,19 @@ export default function LancamentoCargas() {
   // Consumos REAIS da carga (multiplicados pelo volume):
   // No modo manual: o operador digita dosagem em kg/m³ e o aditivo já foi calculado como total (L).
   // Portanto: consumo real = dosagem (kg/m³) × volume (m³).
+  // Aditivo e Água são gravados como valor INTEIRO (Math.round).
   // No modo automático: os campos do traço são dosagens por m³, multiplicados pelo volume.
   const consumoReal = {
-    cimento:
-      modoDosagem === 'manual'
-        ? Math.round(cimento * volume)
-        : Math.round(cimento * volume),
-    areia:
-      modoDosagem === 'manual'
-        ? Math.round(areia * volume)
-        : Math.round(areia * volume),
-    brita12:
-      modoDosagem === 'manual'
-        ? Math.round(brita12 * volume)
-        : Math.round(brita12 * volume),
-    brita19:
-      modoDosagem === 'manual'
-        ? Math.round(brita19 * volume)
-        : Math.round(brita19 * volume),
-    poPedra:
-      modoDosagem === 'manual'
-        ? Math.round(poPedra * volume)
-        : Math.round(poPedra * volume),
+    cimento: Math.round(cimento * volume),
+    areia: Math.round(areia * volume),
+    brita12: Math.round(brita12 * volume),
+    brita19: Math.round(brita19 * volume),
+    poPedra: Math.round(poPedra * volume),
     aditivo:
       modoDosagem === 'manual'
-        ? Number(aditivo.toFixed(2))
-        : Number((aditivo * volume).toFixed(2)),
+        ? Math.round(aditivo)
+        : Math.round(aditivo * volume),
+    agua: modoDosagem === 'manual' ? Math.round(agua) : Math.round(agua),
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -289,12 +314,13 @@ export default function LancamentoCargas() {
         consumo_po_pedra: consumoReal.poPedra,
         consumo_cimento: consumoReal.cimento,
         consumo_aditivo: consumoReal.aditivo,
+        consumo_agua: consumoReal.agua,
         observacao: observacao
           ? modoDosagem === 'manual'
-            ? `[Modo Manual] ${observacao}`
+            ? `[Modo Manual | Fator Aditivo: ${fatorAditivoManual} | Fator Água: ${fatorAguaManual}] ${observacao}`
             : observacao
           : modoDosagem === 'manual'
-            ? '[Lançamento com dosagem manual de insumos]'
+            ? `[Lançamento manual | Fator Aditivo: ${fatorAditivoManual} | Fator Água: ${fatorAguaManual}]`
             : undefined,
         carga_zerada: cargaZerada,
       })
@@ -344,22 +370,33 @@ export default function LancamentoCargas() {
           consumo_po_pedra: consumoReal.poPedra,
           consumo_cimento: consumoReal.cimento,
           consumo_aditivo: consumoReal.aditivo,
+          consumo_agua: consumoReal.agua,
           observacao: null,
           carga_zerada: false,
         },
         precos,
       )
 
-  // Opções pré-definidas para o fator de dosagem do aditivo
+  // Faixa de fatores do aditivo pedida pelo usuário: 0,005 a 0,010
   const OPCOES_FATOR_ADITIVO = [
-    { valor: 0.0005, rotulo: '0,0005' },
-    { valor: 0.0006, rotulo: '0,0006' },
-    { valor: 0.0007, rotulo: '0,0007' },
-    { valor: 0.0008, rotulo: '0,0008' },
-    { valor: 0.0009, rotulo: '0,0009' },
-    { valor: 0.001, rotulo: '0,0010' },
-    { valor: 0.0011, rotulo: '0,0011' },
-    { valor: 0.0012, rotulo: '0,0012' },
+    { valor: 0.005, rotulo: '0,005' },
+    { valor: 0.006, rotulo: '0,006' },
+    { valor: 0.007, rotulo: '0,007' },
+    { valor: 0.008, rotulo: '0,008' },
+    { valor: 0.009, rotulo: '0,009' },
+    { valor: 0.01, rotulo: '0,010' },
+  ]
+
+  // Faixa de fatores de água pedida pelo usuário: 0,45 a 0,8
+  const OPCOES_FATOR_AGUA = [
+    { valor: 0.45, rotulo: '0,45' },
+    { valor: 0.5, rotulo: '0,50' },
+    { valor: 0.55, rotulo: '0,55' },
+    { valor: 0.6, rotulo: '0,60' },
+    { valor: 0.65, rotulo: '0,65' },
+    { valor: 0.7, rotulo: '0,70' },
+    { valor: 0.75, rotulo: '0,75' },
+    { valor: 0.8, rotulo: '0,80' },
   ]
 
   return (
@@ -538,15 +575,19 @@ export default function LancamentoCargas() {
                   <Edit3 className="w-4 h-4 shrink-0 mt-0.5 sm:mt-0" />
                   <span>
                     <strong>Dosagem por m³:</strong> Digite a dosagem de cada
-                    insumo em <strong>kg/m³</strong>. O consumo real da carga é
-                    calculado como{' '}
+                    insumo em <strong>kg/m³</strong>. O cimento total da carga é{' '}
                     <code className="px-1 py-0.5 rounded bg-blue-500/20 font-mono font-semibold">
-                      dosagem (kg/m³) × {volume} m³
+                      {cimento} kg/m³ × {volume} m³ = {consumoReal.cimento} kg
                     </code>
                     . O <strong>Aditivo</strong> é calculado como{' '}
                     <code className="px-1 py-0.5 rounded bg-blue-500/20 font-mono font-semibold">
-                      cimento ({cimento} kg/m³) × volume ({volume} m³) × fator (
-                      {fatorAditivoManual}) = {aditivo} L
+                      cimento total ({consumoReal.cimento} kg) × {volume} m³ ×
+                      fator ({fatorAditivoManual}) = {aditivo} L
+                    </code>
+                    . A <strong>Água</strong> é calculada como{' '}
+                    <code className="px-1 py-0.5 rounded bg-blue-500/20 font-mono font-semibold">
+                      cimento total ({consumoReal.cimento} kg) × {volume} m³ ×
+                      fator ({fatorAguaManual}) = {agua} L
                     </code>
                     .
                   </span>
@@ -641,7 +682,7 @@ export default function LancamentoCargas() {
               </div>
             </div>
 
-            {/* Grid dos 6 Insumos */}
+            {/* Grid dos Insumos (Cimento, Aditivo, ÁGUA, Areia, Brita 12, Brita 19, Pó de Pedra) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Cimento */}
               <div
@@ -749,7 +790,7 @@ export default function LancamentoCargas() {
 
                 {modoDosagem === 'manual' ? (
                   <div className="space-y-2">
-                    {/* Campo Aditivo Resultante (somente-leitura) */}
+                    {/* Campo Aditivo Resultante (somente-leitura) com arredondamento inteiro */}
                     <div className="relative">
                       <Input
                         id="aditivo"
@@ -758,14 +799,14 @@ export default function LancamentoCargas() {
                         value={aditivo}
                         disabled={cargaZerada}
                         className="font-mono font-bold text-base bg-muted/60 text-foreground cursor-not-allowed pr-8 border-primary/30"
-                        placeholder="0.0"
+                        placeholder="0"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
                         L
                       </span>
                     </div>
 
-                    {/* Fator de dosagem selecionável/editável */}
+                    {/* Fator de dosagem selecionável/editável (faixa 0,005 a 0,010) */}
                     <div className="pt-1 border-t border-border/30 flex items-center gap-1.5">
                       <Label
                         htmlFor="fator-aditivo"
@@ -774,7 +815,7 @@ export default function LancamentoCargas() {
                         Fator:
                       </Label>
 
-                      {/* Select com opções rápidas (0,0005 a 0,0012) */}
+                      {/* Select com opções rápidas (0,005 a 0,010) */}
                       <Select
                         value={String(fatorAditivoManual)}
                         onValueChange={(val) =>
@@ -813,13 +854,13 @@ export default function LancamentoCargas() {
                         </SelectContent>
                       </Select>
 
-                      {/* Input numérico fino para digitação livre do fator */}
+                      {/* Input numérico para digitação livre do fator (faixa 0,005 a 0,01) */}
                       <Input
                         id="fator-aditivo"
                         type="number"
-                        step="0.0001"
-                        min="0"
-                        max="0.01"
+                        step="0.0005"
+                        min="0.001"
+                        max="0.05"
                         value={fatorAditivoManual}
                         onChange={(e) => {
                           const val =
@@ -831,12 +872,21 @@ export default function LancamentoCargas() {
                         title="Ou digite manualmente o fator"
                       />
                     </div>
-                    <div className="text-[10px] text-muted-foreground leading-tight">
-                      Fórmula: {cimento} kg/m³ × {volume} m³ ×{' '}
-                      {fatorAditivoManual} ={' '}
-                      <span className="font-semibold text-foreground">
-                        {aditivo} L
-                      </span>
+                    {/* Legenda com o valor bruto e arredondamento */}
+                    <div className="text-[10px] text-muted-foreground leading-tight space-y-0.5">
+                      <div>
+                        {consumoReal.cimento} kg × {volume} m³ ×{' '}
+                        {fatorAditivoManual} ={' '}
+                        <span className="font-mono font-medium">
+                          {aditivoBruto.toFixed(2)} →{' '}
+                        </span>
+                        <span className="font-semibold text-foreground font-mono">
+                          {aditivo} L
+                        </span>
+                      </div>
+                      <div className="text-[9px] text-muted-foreground/80">
+                        (Arredondamento inteiro: ≥ 5 sobe)
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -845,17 +895,145 @@ export default function LancamentoCargas() {
                       id="aditivo"
                       type="number"
                       min="0"
-                      step="0.05"
+                      step="1"
                       value={consumoReal.aditivo}
                       disabled
                       className="font-mono font-semibold pr-8 bg-muted/40 cursor-not-allowed"
-                      placeholder="0.0"
+                      placeholder="0"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
                       L
                     </span>
                   </div>
                 )}
+              </div>
+
+              {/* NOVO: ÁGUA (Calculada, não digitada) */}
+              <div
+                className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
+                  modoDosagem === 'manual'
+                    ? 'border-cyan-500/50 bg-cyan-500/10 ring-1 ring-cyan-500/30'
+                    : 'border-border/40 bg-background/50'
+                }`}
+              >
+                <Label
+                  htmlFor="agua"
+                  className="text-xs text-muted-foreground flex justify-between items-center"
+                >
+                  <span className="font-semibold text-foreground flex items-center gap-1">
+                    Água (L)
+                    <span className="text-[10px] px-1 py-0.2 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 rounded font-normal">
+                      Sem baixa
+                    </span>
+                    <span className="text-[10px] px-1 py-0.2 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded font-medium">
+                      Calculada
+                    </span>
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    Faixa: 0,45 a 0,8
+                  </span>
+                </Label>
+
+                <div className="space-y-2">
+                  {/* Campo Água Resultante (somente-leitura) com arredondamento inteiro */}
+                  <div className="relative">
+                    <Input
+                      id="agua"
+                      type="number"
+                      readOnly
+                      value={agua}
+                      disabled={cargaZerada}
+                      className="font-mono font-bold text-base bg-muted/60 text-foreground cursor-not-allowed pr-8 border-cyan-500/30"
+                      placeholder="0"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
+                      L
+                    </span>
+                  </div>
+
+                  {/* Fator de água selecionável/editável (faixa 0,45 a 0,8) */}
+                  <div className="pt-1 border-t border-border/30 flex items-center gap-1.5">
+                    <Label
+                      htmlFor="fator-agua"
+                      className="text-[11px] font-medium text-muted-foreground shrink-0"
+                    >
+                      Fator:
+                    </Label>
+
+                    {/* Select com opções rápidas (0,45 a 0,80) */}
+                    <Select
+                      value={String(fatorAguaManual)}
+                      onValueChange={(val) => setFatorAguaManual(Number(val))}
+                      disabled={cargaZerada}
+                    >
+                      <SelectTrigger
+                        id="fator-agua-select"
+                        className="h-7 text-xs font-mono font-medium flex-1 px-2 bg-background border-border/60"
+                      >
+                        <SelectValue placeholder="Selecione o fator" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {OPCOES_FATOR_AGUA.map((op) => (
+                          <SelectItem
+                            key={op.valor}
+                            value={String(op.valor)}
+                            className="font-mono text-xs"
+                          >
+                            {op.rotulo}
+                          </SelectItem>
+                        ))}
+                        {/* Se o valor atual for personalizado e não estiver na lista */}
+                        {!OPCOES_FATOR_AGUA.some(
+                          (o) => o.valor === fatorAguaManual,
+                        ) && (
+                          <SelectItem
+                            value={String(fatorAguaManual)}
+                            className="font-mono text-xs"
+                          >
+                            {String(fatorAguaManual).replace('.', ',')}{' '}
+                            (Personalizado)
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+
+                    {/* Input numérico para digitação livre do fator (faixa 0,45 a 0,8) */}
+                    <Input
+                      id="fator-agua"
+                      type="number"
+                      step="0.01"
+                      min="0.30"
+                      max="1.20"
+                      value={fatorAguaManual}
+                      onChange={(e) => {
+                        const val =
+                          e.target.value === '' ? 0 : Number(e.target.value)
+                        setFatorAguaManual(isNaN(val) ? 0 : val)
+                      }}
+                      disabled={cargaZerada}
+                      className="h-7 w-20 text-xs font-mono text-center px-1 bg-background"
+                      title="Ou digite manualmente o fator de água"
+                    />
+                  </div>
+
+                  {/* Legenda com o valor bruto e arredondamento */}
+                  <div className="text-[10px] text-muted-foreground leading-tight space-y-0.5">
+                    <div>
+                      {consumoReal.cimento} kg × {volume} m³ × {fatorAguaManual}{' '}
+                      ={' '}
+                      <span className="font-mono font-medium">
+                        {aguaBruta.toFixed(2)} →{' '}
+                      </span>
+                      <span className="font-semibold text-foreground font-mono">
+                        {agua} L
+                      </span>
+                    </div>
+                    <div className="text-[9px] text-muted-foreground/80">
+                      (Arredondamento inteiro: ≥ 5 sobe | Sem controle de
+                      estoque)
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Areia */}

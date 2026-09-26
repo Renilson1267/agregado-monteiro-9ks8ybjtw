@@ -56,6 +56,10 @@ export const ConcreteiraService = {
         mat.controla_estoque ??
         (mat.codigo === 'cimento' || mat.codigo === 'aditivo'),
       estoque_minimo: Number(mat.estoque_minimo) || 0,
+      densidade: mat.densidade != null ? Number(mat.densidade) : undefined,
+      unidade_compra: mat.unidade_compra ?? 'kg',
+      preco_compra:
+        mat.preco_compra != null ? Number(mat.preco_compra) : undefined,
       saldo: Number((saldos[mat.id] || 0).toFixed(2)),
     }))
   },
@@ -69,6 +73,71 @@ export const ConcreteiraService = {
       .single()
     if (error) throw error
     return data
+  },
+
+  // Atualiza densidade, unidade de compra e preço de compra do material
+  async updateMaterialCompra(
+    id: string,
+    dados: {
+      densidade?: number
+      unidade_compra?: string
+      preco_compra?: number
+    },
+  ) {
+    const update: Record<string, any> = {}
+    if (dados.densidade !== undefined) update.densidade = dados.densidade
+    if (dados.unidade_compra !== undefined)
+      update.unidade_compra = dados.unidade_compra
+    if (dados.preco_compra !== undefined)
+      update.preco_compra = dados.preco_compra
+
+    if (Object.keys(update).length === 0) return null
+
+    const { data, error } = await (supabase as any)
+      .from('materiais')
+      .update(update)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  // =========================================================
+  // Conversão de unidades de compra → custo por kg
+  // compra em kg       → custo/kg = preço
+  // compra em tonelada → custo/kg = preço / 1.000
+  // compra em m³       → custo/kg = preço / (densidade × 1.000)
+  // 1 m³ = densidade t = densidade × 1.000 kg
+  // =========================================================
+  converterCustoPorKg(
+    precoCompra: number,
+    unidadeCompra: string,
+    densidade?: number,
+  ): number {
+    const preco = Number(precoCompra) || 0
+    const unidade = (unidadeCompra || 'kg').toLowerCase()
+
+    if (unidade === 'kg') return preco
+    if (unidade === 'tonelada' || unidade === 'toneladas' || unidade === 't')
+      return preco / 1000
+    if (unidade === 'm3' || unidade === 'm³') {
+      const d = Number(densidade) || 0
+      if (d <= 0) return 0
+      return preco / (d * 1000)
+    }
+    return preco
+  },
+
+  // Quantidade de kg equivalente a 1 unidade de compra (ex.: 1 m³ de brita 12 = 1.380 kg)
+  kgPorUnidadeCompra(unidadeCompra: string, densidade?: number): number {
+    const unidade = (unidadeCompra || 'kg').toLowerCase()
+    if (unidade === 'kg') return 1
+    if (unidade === 'tonelada' || unidade === 'toneladas' || unidade === 't')
+      return 1000
+    if (unidade === 'm3' || unidade === 'm³')
+      return (Number(densidade) || 0) * 1000
+    return 1
   },
 
   async getMovimentacoes(
@@ -425,6 +494,7 @@ export const ConcreteiraService = {
         brita12: 0,
         brita19: 0,
         po_pedra: 0,
+        agua: 0,
         total: 0,
         custoPorM3: 0,
       }
@@ -456,6 +526,7 @@ export const ConcreteiraService = {
       carga.data,
       precos,
     )
+    const pAgua = this.getPrecoUnitarioParaData('agua', carga.data, precos)
 
     const cCimento = Number(carga.consumo_cimento || 0) * pCimento
     const cAditivo = Number(carga.consumo_aditivo || 0) * pAditivo
@@ -463,8 +534,10 @@ export const ConcreteiraService = {
     const cBrita12 = Number(carga.consumo_brita12 || 0) * pBrita12
     const cBrita19 = Number(carga.consumo_brita19 || 0) * pBrita19
     const cPoPedra = Number(carga.consumo_po_pedra || 0) * pPoPedra
+    const cAgua = Number(carga.consumo_agua || 0) * pAgua
 
-    const total = cCimento + cAditivo + cAreia + cBrita12 + cBrita19 + cPoPedra
+    const total =
+      cCimento + cAditivo + cAreia + cBrita12 + cBrita19 + cPoPedra + cAgua
     const vol = Number(carga.volume_m3) || 0
     const custoPorM3 = vol > 0 ? total / vol : 0
 
@@ -475,6 +548,7 @@ export const ConcreteiraService = {
       brita12: Number(cBrita12.toFixed(2)),
       brita19: Number(cBrita19.toFixed(2)),
       po_pedra: Number(cPoPedra.toFixed(2)),
+      agua: Number(cAgua.toFixed(2)),
       total: Number(total.toFixed(2)),
       custoPorM3: Number(custoPorM3.toFixed(2)),
     }
@@ -495,6 +569,7 @@ export const ConcreteiraService = {
     const pBrita12 = this.getPrecoUnitarioParaData('brita12', hoje, precos)
     const pBrita19 = this.getPrecoUnitarioParaData('brita19', hoje, precos)
     const pPoPedra = this.getPrecoUnitarioParaData('po_pedra', hoje, precos)
+    const pAgua = this.getPrecoUnitarioParaData('agua', hoje, precos)
 
     const cCimento = Number(traco.consumo_cimento || 0) * pCimento
     const cAditivo = Number(traco.consumo_aditivo || 0) * pAditivo
@@ -502,8 +577,10 @@ export const ConcreteiraService = {
     const cBrita12 = Number(traco.consumo_brita12 || 0) * pBrita12
     const cBrita19 = Number(traco.consumo_brita19 || 0) * pBrita19
     const cPoPedra = Number(traco.consumo_po_pedra || 0) * pPoPedra
+    const cAgua = Number(traco.consumo_agua || 0) * pAgua
 
-    const total = cCimento + cAditivo + cAreia + cBrita12 + cBrita19 + cPoPedra
+    const total =
+      cCimento + cAditivo + cAreia + cBrita12 + cBrita19 + cPoPedra + cAgua
 
     return {
       totalPorM3: Number(total.toFixed(2)),
@@ -514,6 +591,7 @@ export const ConcreteiraService = {
         brita12: Number(cBrita12.toFixed(2)),
         brita19: Number(cBrita19.toFixed(2)),
         po_pedra: Number(cPoPedra.toFixed(2)),
+        agua: Number(cAgua.toFixed(2)),
       },
     }
   },
@@ -555,6 +633,7 @@ export const ConcreteiraService = {
     consumo_po_pedra: number
     consumo_cimento: number
     consumo_aditivo: number
+    consumo_agua?: number
     observacao?: string
     carga_zerada?: boolean
   }) {
@@ -580,6 +659,7 @@ export const ConcreteiraService = {
         consumo_po_pedra: payload.consumo_po_pedra,
         consumo_cimento: payload.consumo_cimento,
         consumo_aditivo: payload.consumo_aditivo,
+        consumo_agua: payload.consumo_agua || 0,
         observacao: payload.observacao || null,
         carga_zerada: payload.carga_zerada || false,
       })
@@ -653,6 +733,32 @@ export const ConcreteiraService = {
     return data || []
   },
 
+  // Salvar ou atualizar preço unitário
+  async salvarPrecoMaterial(payload: {
+    empresa_id?: string
+    material_codigo: string
+    mes_ano: string
+    preco_unitario: number
+    unidade?: string
+  }) {
+    const { data, error } = await (supabase as any)
+      .from('precos_material')
+      .upsert(
+        {
+          empresa_id: payload.empresa_id || null,
+          material_codigo: payload.material_codigo,
+          mes_ano: payload.mes_ano,
+          preco_unitario: payload.preco_unitario,
+          unidade: payload.unidade || 'kg',
+        },
+        { onConflict: 'empresa_id, material_codigo, mes_ano' },
+      )
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
   // Relatório Comparativo Monteiro × SJE
   async getComparativoUnidades(filtros?: {
     dataInicio?: string
@@ -709,6 +815,7 @@ export const ConcreteiraService = {
         brita12: 0,
         brita19: 0,
         po_pedra: 0,
+        agua: 0,
       }
 
       const custosPorMaterial = {
@@ -718,8 +825,8 @@ export const ConcreteiraService = {
         brita12: 0,
         brita19: 0,
         po_pedra: 0,
+        agua: 0,
       }
-
       const tracosMap: Record<
         string,
         {
@@ -745,6 +852,7 @@ export const ConcreteiraService = {
         const cBrita12 = Number(c.consumo_brita12) || 0
         const cBrita19 = Number(c.consumo_brita19) || 0
         const cPoPedra = Number(c.consumo_po_pedra) || 0
+        const cAgua = Number(c.consumo_agua) || 0
 
         consumos.cimento += cCimento
         consumos.aditivo += cAditivo
@@ -752,6 +860,7 @@ export const ConcreteiraService = {
         consumos.brita12 += cBrita12
         consumos.brita19 += cBrita19
         consumos.po_pedra += cPoPedra
+        consumos.agua += cAgua
 
         const custoBreakdown = this.calcularCustoCarga(c, precosEmpresa)
         custoTotal += custoBreakdown.total
@@ -761,7 +870,7 @@ export const ConcreteiraService = {
         custosPorMaterial.brita12 += custoBreakdown.brita12
         custosPorMaterial.brita19 += custoBreakdown.brita19
         custosPorMaterial.po_pedra += custoBreakdown.po_pedra
-
+        custosPorMaterial.agua += custoBreakdown.agua
         const tNome = c.traco_nome || 'Não identificado'
         if (!tracosMap[tNome]) {
           tracosMap[tNome] = {
@@ -804,6 +913,7 @@ export const ConcreteiraService = {
           brita12: Number(custosPorMaterial.brita12.toFixed(2)),
           brita19: Number(custosPorMaterial.brita19.toFixed(2)),
           po_pedra: Number(custosPorMaterial.po_pedra.toFixed(2)),
+          agua: Number(custosPorMaterial.agua.toFixed(2)),
         },
         porTraco,
       }
