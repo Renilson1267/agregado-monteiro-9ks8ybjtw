@@ -1,45 +1,53 @@
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Menu } from 'lucide-react'
+import { Menu, Layers, ShieldCheck } from 'lucide-react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 
 const navLinks = [
   { label: 'Dashboard', path: '/' },
-  { label: 'Reports', path: '/reports' },
-  { label: 'Cryptocurrency', path: '/cryptocurrency' },
-  { label: 'Exchange', path: '/exchange' },
-  { label: 'Community', path: '/community' },
+  { label: 'Lançar Cargas', path: '/lancamentos' },
+  { label: 'Estoque', path: '/estoque' },
+  { label: 'Traços / Dosagens', path: '/tracos' },
+  { label: 'Cadastros', path: '/cadastros' },
+  { label: 'Relatórios', path: '/relatorios' },
 ]
 
 export function Header() {
   const location = useLocation()
 
   return (
-    <header className="flex items-center justify-between px-6 py-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 w-full border-b border-border/10 md:pl-24">
+    <header className="flex items-center justify-between px-6 py-3.5 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 w-full border-b border-border/20 md:pl-24">
       {/* Mobile Menu */}
-      <div className="md:hidden">
+      <div className="md:hidden flex items-center gap-3">
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Menu className="h-6 w-6" />
+            <Button variant="ghost" size="icon" className="h-9 w-9">
+              <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
           <SheetContent
             side="left"
-            className="w-[240px] bg-card border-r-border"
+            className="w-[260px] bg-card border-r-border/30"
           >
-            <nav className="flex flex-col gap-4 mt-8">
+            <div className="flex items-center gap-2 mb-6 mt-2">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
+                <Layers className="w-4 h-4" />
+              </div>
+              <span className="font-bold text-foreground">
+                Concreteira Monteiro
+              </span>
+            </div>
+            <nav className="flex flex-col gap-2">
               {navLinks.map((link) => (
                 <Link
                   key={link.path}
                   to={link.path}
                   className={cn(
-                    'text-lg font-medium transition-colors',
+                    'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     location.pathname === link.path
-                      ? 'text-primary'
-                      : 'text-muted-foreground hover:text-foreground',
+                      ? 'text-primary bg-primary/10'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/40',
                   )}
                 >
                   {link.label}
@@ -48,10 +56,11 @@ export function Header() {
             </nav>
           </SheetContent>
         </Sheet>
+        <span className="font-bold text-sm">Concreteira Monteiro</span>
       </div>
 
       {/* Desktop Navigation */}
-      <nav className="hidden md:flex items-center gap-8">
+      <nav className="hidden md:flex items-center gap-6">
         {navLinks.map((link) => {
           const isActive = location.pathname === link.path
           return (
@@ -59,36 +68,35 @@ export function Header() {
               key={link.path}
               to={link.path}
               className={cn(
-                'relative text-sm font-medium transition-colors hover:text-foreground py-2',
-                isActive ? 'text-foreground' : 'text-muted-foreground',
+                'relative text-sm font-medium transition-colors hover:text-foreground py-1.5',
+                isActive
+                  ? 'text-primary font-semibold'
+                  : 'text-muted-foreground',
               )}
             >
               {link.label}
               {isActive && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary" />
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-primary" />
               )}
             </Link>
           )
         })}
       </nav>
 
-      {/* User Profile */}
-      <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
+      {/* Status da Usina / Operação Interna */}
+      <div className="flex items-center gap-3">
         <div className="text-right hidden sm:block">
-          <p className="text-sm font-semibold text-foreground leading-none">
-            Ilona Smliduet
+          <p className="text-xs font-semibold text-foreground leading-none flex items-center justify-end gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Usina Monteiro - Operação Ativa
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            ilondut46@gmail.com
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Controle Diário de Agregados
           </p>
         </div>
-        <Avatar className="h-10 w-10 border border-border">
-          <AvatarImage
-            src="https://img.usecurling.com/ppl/medium?gender=female"
-            alt="Ilona Smliduet"
-          />
-          <AvatarFallback>IS</AvatarFallback>
-        </Avatar>
+        <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+          <ShieldCheck className="w-4 h-4" />
+        </div>
       </div>
     </header>
   )
