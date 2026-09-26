@@ -264,12 +264,18 @@ export function parseControleDiarioCSV(
           !col.includes('total')
         )
           mapaColunas['po_pedra'] = idx
-        else if (col.includes('cimento') && !col.includes('total'))
+        else if (
+          col.includes('cimento') &&
+          !col.includes('total') &&
+          !col.includes('acumulado') &&
+          !col.includes('saldo')
+        )
           mapaColunas['cimento'] = idx
         else if (
           col.includes('aditivo') &&
           !col.includes('total') &&
-          !col.includes('acumulado')
+          !col.includes('acumulado') &&
+          !col.includes('saldo')
         )
           mapaColunas['aditivo'] = idx
         else if (col.includes('motorista')) mapaColunas['motorista'] = idx
@@ -292,6 +298,14 @@ export function parseControleDiarioCSV(
     }
   }
 
+  // Garante que, se a coluna de cimento não tiver sido mapeada ou tiver sido associada a coluna de saldo acumulado (>= 12),
+  // usa a coluna 6 que é a posição padrão do Cimento nas planilhas do sistema.
+  if (mapaColunas['cimento'] === undefined || mapaColunas['cimento'] >= 12) {
+    mapaColunas['cimento'] = 6
+  }
+  if (mapaColunas['aditivo'] === undefined || mapaColunas['aditivo'] >= 12) {
+    mapaColunas['aditivo'] = 7
+  }
   const getCol = (
     cols: string[],
     chave: string,
@@ -410,19 +424,20 @@ export function parseControleDiarioCSV(
     let consumoCargaPo = consumo_po_pedra
     let consumoCargaAditivo = consumo_aditivo
 
-    if (!carga_zerada && consumo_cimento <= 600) {
+    if (!carga_zerada && cimentoM3 > 0 && consumo_cimento <= 600) {
       // Veio como unitário por m³, multiplicar pelo volume para ter o consumo real da carga
-      consumoCargaCimento = Math.round(consumo_cimento * volume_m3 * 10) / 10
-      consumoCargaB12 = Math.round(consumo_brita12 * volume_m3 * 10) / 10
-      consumoCargaB19 = Math.round(consumo_brita19 * volume_m3 * 10) / 10
-      consumoCargaAreia = Math.round(consumo_areia * volume_m3 * 10) / 10
-      consumoCargaPo = Math.round(consumo_po_pedra * volume_m3 * 10) / 10
-      // Aditivo: se for <= 10 por m³, multiplica por volume_m3 se ainda não estiver por carga
-      // Mas na planilha "Aditivo (L)" já é por carga quando valor ex: 18, 23
-      // Se fosse por m³ seria ~2.5L. Na planilha veio 18, 23 (por carga)
+      consumoCargaCimento = Math.round(cimentoM3 * volume_m3 * 10) / 10
+      consumoCargaB12 = Math.round(brita12M3 * volume_m3 * 10) / 10
+      consumoCargaB19 = Math.round(brita19M3 * volume_m3 * 10) / 10
+      consumoCargaAreia = Math.round(areiaM3 * volume_m3 * 10) / 10
+      consumoCargaPo = Math.round(poPedraM3 * volume_m3 * 10) / 10
+      // Se o aditivo na planilha já veio por carga (ex: 18, 23), mantém o valor da carga original (consumo_aditivo).
+      // Se era <= 5 por m³, multiplica pelo volume
       if (consumo_aditivo <= 5) {
         consumoCargaAditivo =
           Math.round(consumo_aditivo * volume_m3 * 100) / 100
+      } else {
+        consumoCargaAditivo = consumo_aditivo
       }
     }
 
