@@ -194,7 +194,9 @@ export function ModalImportarCargasCSV({
               </DialogTitle>
               <DialogDescription className="text-xs">
                 Importe a produção diária a partir do arquivo CSV de controle da
-                concreteira (mesmo padrão das unidades Monteiro e SJE).
+                concreteira (mesmo padrão das unidades Monteiro e SJE). O
+                processamento ocorre exclusivamente a partir do arquivo
+                selecionado em seu computador.
               </DialogDescription>
             </div>
           </div>
