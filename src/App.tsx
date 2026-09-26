@@ -4,6 +4,7 @@ import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider } from '@/components/theme-provider'
 import { EmpresaProvider } from '@/hooks/use-empresa'
+import { UsuarioProvider } from '@/hooks/use-usuario'
 import Layout from './components/Layout'
 import Index from './pages/Index'
 import LancamentoCargas from './pages/LancamentoCargas'
@@ -18,24 +19,26 @@ const App = () => (
     future={{ v7_startTransition: false, v7_relativeSplatPath: false }}
   >
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <EmpresaProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <Routes>
-            <Route element={<Layout />}>
-              <Route path="/" element={<Index />} />
-              <Route path="/lancamentos" element={<LancamentoCargas />} />
-              <Route path="/estoque" element={<Estoque />} />
-              <Route path="/tracos" element={<Tracos />} />
-              <Route path="/cadastros" element={<Cadastros />} />
-              <Route path="/ordens" element={<Ordens />} />
-              <Route path="/relatorios" element={<Relatorios />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </TooltipProvider>
-      </EmpresaProvider>
+      <UsuarioProvider>
+        <EmpresaProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/" element={<Index />} />
+                <Route path="/lancamentos" element={<LancamentoCargas />} />
+                <Route path="/estoque" element={<Estoque />} />
+                <Route path="/tracos" element={<Tracos />} />
+                <Route path="/cadastros" element={<Cadastros />} />
+                <Route path="/ordens" element={<Ordens />} />
+                <Route path="/relatorios" element={<Relatorios />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </TooltipProvider>
+        </EmpresaProvider>
+      </UsuarioProvider>
     </ThemeProvider>
   </BrowserRouter>
 )

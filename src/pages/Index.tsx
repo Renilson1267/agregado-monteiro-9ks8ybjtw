@@ -45,6 +45,9 @@ import {
   CartesianGrid,
   AreaChart,
   Area,
+  Line,
+  ComposedChart,
+  Legend,
 } from 'recharts'
 import { Link } from 'react-router-dom'
 import {
@@ -65,8 +68,20 @@ type PeriodoTipo =
   | 'mes_anterior'
   | 'personalizado'
 
+import { useNavigate } from 'react-router-dom'
+import { useUsuario } from '@/hooks/use-usuario'
+
 export default function Index() {
+  const navigate = useNavigate()
+  const { isBalanceiro } = useUsuario()
   const { empresaAtiva } = useEmpresa()
+
+  // Se o perfil for Balanceiro, cai direto na expedição (/lancamentos)
+  useEffect(() => {
+    if (isBalanceiro) {
+      navigate('/lancamentos', { replace: true })
+    }
+  }, [isBalanceiro, navigate])
   const [materiais, setMateriais] = useState<Material[]>([])
   const [cargas, setCargas] = useState<Carga[]>([])
   const [loading, setLoading] = useState(true)
@@ -279,6 +294,63 @@ export default function Index() {
       }))
   }, [cargasFiltradas, cargas])
 
+  // Gráfico 3: Consumo Mensal Integrado (Volume m³, Aditivo L e Custo R$)
+  // Respeita o filtro de período ativo do Dashboard (cargasFiltradas)
+  const dadosGraficoMensal = useMemo(() => {
+    const mesesAgrupados: Record<
+      string,
+      {
+        mesChave: string
+        rotulo: string
+        volume_m3: number
+        aditivo_l: number
+        custo_total: number
+        cargas: number
+      }
+    > = {}
+
+    const baseCargas = cargasFiltradas.length > 0 ? cargasFiltradas : cargas
+
+    baseCargas.forEach((c) => {
+      if (!c.data) return
+      const chave = c.data.slice(0, 7) // 'YYYY-MM'
+      if (!mesesAgrupados[chave]) {
+        const [ano, mes] = chave.split('-')
+        const dataObj = new Date(Number(ano), Number(mes) - 1, 1)
+        const rotulo = dataObj
+          .toLocaleDateString('pt-BR', {
+            month: 'short',
+            year: '2-digit',
+          })
+          .replace('.', '')
+        mesesAgrupados[chave] = {
+          mesChave: chave,
+          rotulo: rotulo.charAt(0).toUpperCase() + rotulo.slice(1),
+          volume_m3: 0,
+          aditivo_l: 0,
+          custo_total: 0,
+          cargas: 0,
+        }
+      }
+
+      if (!c.carga_zerada) {
+        mesesAgrupados[chave].volume_m3 += Number(c.volume_m3 || 0)
+        mesesAgrupados[chave].aditivo_l += Number(c.consumo_aditivo || 0)
+        mesesAgrupados[chave].custo_total += Number(c.custo?.total || 0)
+      }
+      mesesAgrupados[chave].cargas += 1
+    })
+
+    return Object.values(mesesAgrupados)
+      .sort((a, b) => a.mesChave.localeCompare(b.mesChave))
+      .map((m) => ({
+        ...m,
+        volume_m3: Number(m.volume_m3.toFixed(1)),
+        aditivo_l: Number(m.aditivo_l.toFixed(1)),
+        custo_total: Number(m.custo_total.toFixed(2)),
+      }))
+  }, [cargasFiltradas, cargas])
+
   // Gráfico 2: Consumo por material no período
   const nomeCimento =
     materiais.find((m) => m.codigo === 'cimento')?.nome ||
@@ -331,35 +403,236 @@ export default function Index() {
   return (
     <div className="space-y-6">
       {/* CABEÇALHO EXCLUSIVO PARA IMPRESSÃO A4 (visível apenas em window.print) */}
-      <div className="print-only border-b border-gray-400 pb-3 mb-4">
+      <div className="print-only border-b-2 border-black pb-3 mb-4 text-black">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-xl font-bold uppercase tracking-wider text-black">
+            <h1 className="text-xl font-extrabold uppercase tracking-wider text-black">
               {empresaAtiva?.razao_social ||
                 `CONCRETEIRA ${empresaAtiva?.nome?.toUpperCase() || ''}`}
             </h1>
-            <p className="text-sm font-semibold text-gray-800">
-              Dashboard Gerencial e Operacional — Unidade{' '}
-              {empresaAtiva?.nome || ''}
+            <p className="text-sm font-bold text-black">
+              Dashboard Gerencial — Relatório de Consumo Mensal e Custos
             </p>
             {empresaAtiva?.cnpj && (
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-black">
                 CNPJ: {empresaAtiva.cnpj}{' '}
                 {empresaAtiva.telefone ? `• Tel: ${empresaAtiva.telefone}` : ''}
               </p>
             )}
           </div>
-          <div className="text-right text-xs text-gray-600">
-            <p>Data de Emissão: {new Date().toLocaleString('pt-BR')}</p>
-            <p>Relatório A4 Executivo</p>
+          <div className="text-right text-xs text-black">
+            <p className="font-semibold">
+              Emissão: {new Date().toLocaleString('pt-BR')}
+            </p>
+            <p>Unidade: {empresaAtiva?.nome || 'Principal'}</p>
           </div>
         </div>
-        <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-700">
-          <strong>Período Analisado:</strong> {labelPeriodo} |{' '}
-          <strong>Cargas no Recorte:</strong> {cargasFiltradas.length} (
-          {cargasZeradasPeriodo.length} zeradas) |{' '}
-          <strong>Volume Expedido:</strong> {volumePeriodo.toFixed(1)} m³
+        <div className="mt-2 p-2 bg-gray-100 border border-gray-300 rounded text-xs text-black flex justify-between items-center">
+          <div>
+            <strong>Filtro de Período:</strong> {labelPeriodo}
+          </div>
+          <div className="text-right">
+            <strong>Volume:</strong> {volumePeriodo.toFixed(1)} m³ |{' '}
+            <strong>Aditivo:</strong>{' '}
+            {consumoPeriodo.aditivo.toLocaleString('pt-BR')} L |{' '}
+            <strong>Custos:</strong> R${' '}
+            {custoTotalPeriodo.toLocaleString('pt-BR', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </div>
         </div>
+      </div>
+
+      {/* BLOCO EXCLUSIVO DE IMPRESSÃO A4: GRÁFICO E TABELA DE CONSUMO MENSAL (m³, aditivo L, custos R$) */}
+      <div className="print-only mb-6 border border-black rounded-lg p-3 bg-white text-black page-break-inside-avoid">
+        <div className="flex justify-between items-center border-b border-black pb-2 mb-3">
+          <div>
+            <h2 className="text-base font-bold text-black uppercase">
+              Gráfico de Consumo Mensal e Valores dos Custos (Filtro A4)
+            </h2>
+            <p className="text-xs text-black">
+              Volume expedido (m³), consumo de aditivo (L) e custos dos insumos
+              (R$) agrupados por mês
+            </p>
+          </div>
+          <div className="text-xs font-mono font-bold text-black">
+            {labelPeriodo}
+          </div>
+        </div>
+
+        {/* Gráfico Recharts formatado para impressão preto/cinza/legível */}
+        <div className="h-[240px] w-full mb-3">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart
+              data={dadosGraficoMensal}
+              margin={{ top: 15, right: 35, left: 10, bottom: 5 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#999999"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="rotulo"
+                stroke="#000000"
+                fontSize={11}
+                tickLine={true}
+                tick={{ fill: '#000000', fontWeight: 'bold' }}
+              />
+              {/* Eixo Esquerdo: Volume m³ e Aditivo L */}
+              <YAxis
+                yAxisId="left"
+                stroke="#000000"
+                fontSize={10}
+                tickLine={true}
+                tick={{ fill: '#000000' }}
+                label={{
+                  value: 'Volume (m³) / Aditivo (L)',
+                  angle: -90,
+                  position: 'insideLeft',
+                  fill: '#000000',
+                  fontSize: 10,
+                  style: { textAnchor: 'middle' },
+                }}
+              />
+              {/* Eixo Direito: Custo Total R$ */}
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                stroke="#000000"
+                fontSize={10}
+                tickLine={true}
+                tick={{ fill: '#000000' }}
+                label={{
+                  value: 'Custo Total (R$)',
+                  angle: 90,
+                  position: 'insideRight',
+                  fill: '#000000',
+                  fontSize: 10,
+                  style: { textAnchor: 'middle' },
+                }}
+              />
+              <Legend
+                wrapperStyle={{
+                  fontSize: '11px',
+                  color: '#000000',
+                  paddingTop: '6px',
+                }}
+              />
+              {/* Barras e Linhas com tons sólidos e contornos visíveis em impressão PB */}
+              <Bar
+                yAxisId="left"
+                dataKey="volume_m3"
+                name="Volume (m³)"
+                fill="#333333"
+                radius={[2, 2, 0, 0]}
+              />
+              <Bar
+                yAxisId="left"
+                dataKey="aditivo_l"
+                name="Aditivo (L)"
+                fill="#777777"
+                radius={[2, 2, 0, 0]}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="custo_total"
+                name="Custo Total (R$)"
+                stroke="#000000"
+                strokeWidth={2.5}
+                dot={{ r: 4, fill: '#000000' }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Tabela de Apoio dos Valores Mensais na Impressão */}
+        <table className="w-full text-xs text-left border-collapse border border-black mt-2">
+          <thead>
+            <tr className="bg-gray-200 text-black border-b border-black font-bold">
+              <th className="py-1 px-2 border-r border-black">Mês</th>
+              <th className="py-1 px-2 border-r border-black text-right">
+                Cargas
+              </th>
+              <th className="py-1 px-2 border-r border-black text-right">
+                Volume (m³)
+              </th>
+              <th className="py-1 px-2 border-r border-black text-right">
+                Aditivo (L)
+              </th>
+              <th className="py-1 px-2 border-r border-black text-right">
+                Custo Total (R$)
+              </th>
+              <th className="py-1 px-2 text-right">Custo Médio / m³</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dadosGraficoMensal.map((m) => {
+              const custoMedioM3 =
+                m.volume_m3 > 0 ? m.custo_total / m.volume_m3 : 0
+              return (
+                <tr key={m.mesChave} className="border-b border-gray-300">
+                  <td className="py-1 px-2 border-r border-black font-bold">
+                    {m.rotulo}
+                  </td>
+                  <td className="py-1 px-2 border-r border-black text-right font-mono">
+                    {m.cargas}
+                  </td>
+                  <td className="py-1 px-2 border-r border-black text-right font-mono font-semibold">
+                    {m.volume_m3.toFixed(1)} m³
+                  </td>
+                  <td className="py-1 px-2 border-r border-black text-right font-mono font-semibold">
+                    {m.aditivo_l.toLocaleString('pt-BR')} L
+                  </td>
+                  <td className="py-1 px-2 border-r border-black text-right font-mono font-semibold">
+                    R${' '}
+                    {m.custo_total.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                  <td className="py-1 px-2 text-right font-mono">
+                    R${' '}
+                    {custoMedioM3.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                </tr>
+              )
+            })}
+            <tr className="bg-gray-100 font-bold border-t-2 border-black">
+              <td className="py-1.5 px-2 border-r border-black">
+                TOTAL DO PERÍODO
+              </td>
+              <td className="py-1.5 px-2 border-r border-black text-right font-mono">
+                {cargasValidasPeriodo.length}
+              </td>
+              <td className="py-1.5 px-2 border-r border-black text-right font-mono">
+                {volumePeriodo.toFixed(1)} m³
+              </td>
+              <td className="py-1.5 px-2 border-r border-black text-right font-mono">
+                {consumoPeriodo.aditivo.toLocaleString('pt-BR')} L
+              </td>
+              <td className="py-1.5 px-2 border-r border-black text-right font-mono">
+                R${' '}
+                {custoTotalPeriodo.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </td>
+              <td className="py-1.5 px-2 text-right font-mono">
+                R${' '}
+                {custoMedioPorM3Periodo.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       {/* Top Banner & Ações */}
@@ -810,6 +1083,136 @@ export default function Index() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Gráfico 3 (TELA NORMAL): Consumo Mensal com Volume (m³), Aditivo (L) e Valores dos Custos (R$) */}
+      <Card className="border-border/40 bg-card/60">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-primary" />
+              <span>
+                Consumo Mensal: Volume (m³), Aditivo (L) e Valores dos Custos
+                (R$)
+              </span>
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Séries consolidadas por mês respeitando o filtro de período (
+              {labelPeriodo})
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <Badge
+              variant="outline"
+              className="font-mono bg-primary/10 text-primary border-primary/30"
+            >
+              {dadosGraficoMensal.length}{' '}
+              {dadosGraficoMensal.length === 1 ? 'mês' : 'meses'} no recorte
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart
+                data={dadosGraficoMensal}
+                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.08)"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="rotulo"
+                  stroke="#888"
+                  fontSize={11}
+                  tickLine={false}
+                />
+                {/* Eixo Esquerdo: Volume (m³) e Aditivo (L) */}
+                <YAxis
+                  yAxisId="left"
+                  stroke="#888"
+                  fontSize={11}
+                  tickLine={false}
+                  label={{
+                    value: 'Volume (m³) / Aditivo (L)',
+                    angle: -90,
+                    position: 'insideLeft',
+                    fill: '#888',
+                    fontSize: 10,
+                    style: { textAnchor: 'middle' },
+                  }}
+                />
+                {/* Eixo Direito: Custos Totais (R$) */}
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="#10b981"
+                  fontSize={11}
+                  tickLine={false}
+                  label={{
+                    value: 'Custo Total (R$)',
+                    angle: 90,
+                    position: 'insideRight',
+                    fill: '#10b981',
+                    fontSize: 10,
+                    style: { textAnchor: 'middle' },
+                  }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    borderColor: 'hsl(var(--border))',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                  }}
+                  formatter={(val: any, name: any) => {
+                    if (name === 'Custo Total (R$)') {
+                      return [
+                        `R$ ${Number(val).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                        name,
+                      ]
+                    }
+                    if (name === 'Volume (m³)') {
+                      return [`${val} m³`, name]
+                    }
+                    if (name === 'Aditivo (L)') {
+                      return [`${Number(val).toLocaleString('pt-BR')} L`, name]
+                    }
+                    return [val, name]
+                  }}
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }}
+                />
+                <Bar
+                  yAxisId="left"
+                  dataKey="volume_m3"
+                  name="Volume (m³)"
+                  fill="hsl(var(--primary))"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  yAxisId="left"
+                  dataKey="aditivo_l"
+                  name="Aditivo (L)"
+                  fill="#06b6d4"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="custo_total"
+                  name="Custo Total (R$)"
+                  stroke="#10b981"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: '#10b981' }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Seção Estoque Atual de Materiais Controlados (Cimento e Aditivo) */}
       <Card className="border-border/40 bg-card/60">

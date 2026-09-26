@@ -18,6 +18,7 @@ import {
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { useEmpresa } from '@/hooks/use-empresa'
+import { useUsuario } from '@/hooks/use-usuario'
 import { ModalGerenciarEmpresas } from '@/components/ModalGerenciarEmpresas'
 
 const navItems = [
@@ -34,6 +35,7 @@ export function Sidebar() {
   const location = useLocation()
   const { theme, setTheme } = useTheme()
   const { empresaAtiva } = useEmpresa()
+  const { isBalanceiro } = useUsuario()
   const [modalEmpresasOpen, setModalEmpresasOpen] = useState(false)
 
   return (
@@ -44,7 +46,7 @@ export function Sidebar() {
       >
         <div className="mb-4">
           <Link
-            to="/"
+            to={isBalanceiro ? '/lancamentos' : '/'}
             className="flex items-center justify-center w-12 h-12 rounded-2xl bg-primary text-primary-foreground font-black text-xl shadow-md hover:scale-105 transition-transform"
             title={`Concreteira - ${empresaAtiva?.nome || 'Sistema'}`}
           >

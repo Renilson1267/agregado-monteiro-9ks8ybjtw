@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select'
 import { ConcreteiraService } from '@/services/concreteira'
 import { useEmpresa } from '@/hooks/use-empresa'
+import { useUsuario } from '@/hooks/use-usuario'
 import type {
   Traco,
   Motorista,
@@ -74,6 +75,7 @@ import {
 export default function LancamentoCargas() {
   const navigate = useNavigate()
   const { empresaAtiva } = useEmpresa()
+  const { isBalanceiro } = useUsuario()
   const [tracos, setTracos] = useState<Traco[]>([])
   const [precos, setPrecos] = useState<PrecoMaterial[]>([])
   const [motoristas, setMotoristas] = useState<Motorista[]>([])
@@ -83,9 +85,10 @@ export default function LancamentoCargas() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [salvando, setSalvando] = useState(false)
 
-  // Modo de dosagem: 'automatico' (por traço) ou 'manual' (digitação dos 6 insumos)
-  const [modoDosagem, setModoDosagem] = useState<'automatico' | 'manual'>(
-    'automatico',
+  // Modo de dosagem: 'automatico' (por traço) ou 'manual' (digitação dos insumos).
+  // Se o operador for Balanceiro, inicia diretamente em 'manual' com campos liberados para digitação.
+  const [modoDosagem, setModoDosagem] = useState<'automatico' | 'manual'>(() =>
+    isBalanceiro ? 'manual' : 'automatico',
   )
 
   // Formulário
@@ -236,6 +239,21 @@ export default function LancamentoCargas() {
 
         if (tr.length > 0) {
           setTracoSelecionadoId(tr[0].id)
+          // Se for balanceiro, garante modo manual e zera insumos
+          if (isBalanceiro) {
+            setModoDosagem('manual')
+            setCimento(0)
+            setBrita12(0)
+            setBrita19(0)
+            setAreia(0)
+            setPoPedra(0)
+            setAditivo(0)
+            setAditivoBruto(0)
+            setAgua(0)
+            setAguaBruta(0)
+            setAditivoEditadoManualmente(false)
+            setAguaEditadaManualmente(false)
+          }
         } else {
           setTracoSelecionadoId('')
         }
@@ -373,6 +391,13 @@ export default function LancamentoCargas() {
     }
   }
 
+  // Quando o perfil for Balanceiro, garante que o modo de operação é manual
+  useEffect(() => {
+    if (isBalanceiro) {
+      setModoDosagem('manual')
+    }
+  }, [isBalanceiro])
+
   // Sincronizar dosagens do traço quando no modo automático ou recalcular aditivo no modo manual
   useEffect(() => {
     if (cargaZerada) {
@@ -380,6 +405,7 @@ export default function LancamentoCargas() {
     }
 
     if (modoDosagem === 'automatico') {
+      // No modo automático (apenas administradores usam), preenche com traço
       const traco = tracos.find((t) => t.id === tracoSelecionadoId)
       if (traco) {
         const cimentoDosagem = Number(traco.consumo_cimento) || 0
@@ -399,8 +425,9 @@ export default function LancamentoCargas() {
       }
     } else {
       // Modo manual:
-      // cimento_total_kg = dosagem_cimento_kg_m3 × volume_m3
-      // aditivo (L) = cimento_total_kg × fatorAditivoManual
+      // Para o Balanceiro (ou modo manual em geral): o cimento digitado alimenta as fórmulas de aditivo e água.
+      // Se cimento > 0 e não editado manualmente, calcula aditivo e água.
+      // Se cimento === 0, aditivo e água calculados ficam 0.
       const cimentoTotal = cimento * volume
       const adtBruto = cimentoTotal * (fatorAditivoManual || 0)
       setAditivoBruto(adtBruto)
@@ -869,8 +896,35 @@ export default function LancamentoCargas() {
                   value={tracoSelecionadoId}
                   onValueChange={(val) => {
                     setTracoSelecionadoId(val)
-                    if (modoDosagem === 'manual') {
-                      aplicarDosagemTraco(val, volume)
+                    const traco = tracos.find((t) => t.id === val)
+                    if (traco) {
+                      // Atualiza a discriminação do produto na OS mesmo sem preencher os insumos
+                      setDiscriminacaoProduto(
+                        `CONCRETO USINADO ${traco.nome}${traco.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ''} - SLUMP 12+-2`,
+                      )
+                    }
+
+                    if (isBalanceiro) {
+                      // REGRA BALANCEIRO:
+                      // Seleciona o traço normalmente, PORÉM NÃO SOBE as quantidades dos insumos!
+                      // Deixa todos os campos liberados para digitação manual, zerados/em branco
+                      setModoDosagem('manual')
+                      setCimento(0)
+                      setBrita12(0)
+                      setBrita19(0)
+                      setAreia(0)
+                      setPoPedra(0)
+                      setAditivo(0)
+                      setAditivoBruto(0)
+                      setAgua(0)
+                      setAguaBruta(0)
+                      setAditivoEditadoManualmente(false)
+                      setAguaEditadaManualmente(false)
+                    } else {
+                      // Perfil Administrador ou padrão: pré-preenche com as dosagens do traço
+                      if (modoDosagem === 'manual') {
+                        aplicarDosagemTraco(val, volume)
+                      }
                     }
                   }}
                   disabled={cargaZerada}
@@ -930,30 +984,40 @@ export default function LancamentoCargas() {
 
               {/* Seletor de Modo: Traço automático vs Insumos manuais */}
               <div className="flex items-center gap-2">
-                <Tabs
-                  value={modoDosagem}
-                  onValueChange={(val) =>
-                    handleTrocaModo(val as 'automatico' | 'manual')
-                  }
-                  className="w-auto"
-                >
-                  <TabsList className="h-9 p-1 bg-muted/60">
-                    <TabsTrigger
-                      value="automatico"
-                      className="text-xs px-3 py-1 gap-1.5 data-[state=active]:bg-background data-[state=active]:text-primary"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Traço automático
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="manual"
-                      className="text-xs px-3 py-1 gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-medium"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      Insumos manuais
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                {isBalanceiro ? (
+                  <Badge
+                    variant="outline"
+                    className="h-8 px-2.5 text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 gap-1.5"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    Modo Balanceiro: Digitação Manual Liberada
+                  </Badge>
+                ) : (
+                  <Tabs
+                    value={modoDosagem}
+                    onValueChange={(val) =>
+                      handleTrocaModo(val as 'automatico' | 'manual')
+                    }
+                    className="w-auto"
+                  >
+                    <TabsList className="h-9 p-1 bg-muted/60">
+                      <TabsTrigger
+                        value="automatico"
+                        className="text-xs px-3 py-1 gap-1.5 data-[state=active]:bg-background data-[state=active]:text-primary"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Traço automático
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="manual"
+                        className="text-xs px-3 py-1 gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-medium"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        Insumos manuais
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                )}
               </div>
             </div>
           </CardHeader>

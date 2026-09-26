@@ -283,6 +283,22 @@
     display: block !important;
   }
 
+  /* Garantir que gráficos SVG do recharts fiquem visíveis e nítidos em impressão */
+  .recharts-responsive-container,
+  .recharts-wrapper,
+  .recharts-surface {
+    overflow: visible !important;
+    background: transparent !important;
+  }
+
+  .recharts-cartesian-grid-line {
+    stroke: #cccccc !important;
+  }
+
+  .recharts-text {
+    fill: #000000 !important;
+  }
+
   /* Forçar quebra de página limpa quando solicitado */
   .page-break-before {
     page-break-before: always !important;

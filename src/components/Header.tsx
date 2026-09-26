@@ -1,7 +1,16 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { Menu, Layers, Building2, ChevronDown, Plus } from 'lucide-react'
+import {
+  Menu,
+  Layers,
+  Building2,
+  ChevronDown,
+  Plus,
+  User,
+  Scale,
+  ShieldCheck,
+} from 'lucide-react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,7 +22,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useEmpresa } from '@/hooks/use-empresa'
+import { useUsuario, PerfilUsuario } from '@/hooks/use-usuario'
 import { ModalGerenciarEmpresas } from '@/components/ModalGerenciarEmpresas'
+import { useNavigate } from 'react-router-dom'
 
 const navLinks = [
   { label: 'Dashboard', path: '/' },
@@ -27,10 +38,19 @@ const navLinks = [
 
 export function Header() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { empresas, empresaAtiva, selecionarEmpresa } = useEmpresa()
+  const { perfil, isBalanceiro, alternarPerfil, nomePerfil } = useUsuario()
   const [modalEmpresasOpen, setModalEmpresasOpen] = useState(false)
 
   const nomeEmpresa = empresaAtiva?.nome || 'Selecione'
+
+  const handleTrocarPerfil = (novo: PerfilUsuario) => {
+    alternarPerfil(novo)
+    if (novo === 'balanceiro') {
+      navigate('/lancamentos')
+    }
+  }
 
   return (
     <>
@@ -148,8 +168,90 @@ export function Header() {
           })}
         </nav>
 
-        {/* Seletor Desktop de Empresa e Status */}
-        <div className="flex items-center gap-3">
+        {/* Seletor Desktop de Empresa, Perfil e Status */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Seletor de Perfil (Administrador vs Balanceiro) */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={`h-9 px-2.5 sm:px-3 text-xs gap-1.5 bg-card border-border/50 hover:border-primary/40 shadow-sm ${
+                  isBalanceiro ? 'border-amber-500/50 bg-amber-500/5' : ''
+                }`}
+                title={`Perfil ativo: ${nomePerfil}. Clique para alternar.`}
+              >
+                {isBalanceiro ? (
+                  <Scale className="w-3.5 h-3.5 text-amber-500" />
+                ) : (
+                  <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                )}
+                <div className="text-left hidden sm:block">
+                  <span className="block font-bold leading-tight">
+                    {nomePerfil}
+                  </span>
+                  <span className="block text-[9px] text-muted-foreground leading-none">
+                    {isBalanceiro ? 'Expedição Direta' : 'Acesso Geral'}
+                  </span>
+                </div>
+                <span className="sm:hidden font-semibold text-[11px]">
+                  {isBalanceiro ? 'Balanceiro' : 'Admin'}
+                </span>
+                <ChevronDown className="w-3 h-3 text-muted-foreground ml-0.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="text-xs">
+                Perfil do Operador
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => handleTrocarPerfil('administrador')}
+                className="flex items-center justify-between cursor-pointer py-2 text-xs"
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-primary" />
+                  <div>
+                    <span
+                      className={`block ${perfil === 'administrador' ? 'font-bold text-primary' : ''}`}
+                    >
+                      Administrador
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      Visão geral, dashboards, relatórios e pré-preenchimento
+                    </span>
+                  </div>
+                </div>
+                {perfil === 'administrador' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                )}
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => handleTrocarPerfil('balanceiro')}
+                className="flex items-center justify-between cursor-pointer py-2 text-xs"
+              >
+                <div className="flex items-center gap-2">
+                  <Scale className="w-4 h-4 text-amber-500" />
+                  <div>
+                    <span
+                      className={`block ${perfil === 'balanceiro' ? 'font-bold text-amber-600 dark:text-amber-400' : ''}`}
+                    >
+                      Balanceiro
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      Cai direto na expedição e campos liberados vazios
+                    </span>
+                  </div>
+                </div>
+                {perfil === 'balanceiro' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Seletor Desktop de Empresa e Status */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
