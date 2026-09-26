@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
   SelectContent,
@@ -34,6 +35,9 @@ import {
   AlertCircle,
   ArrowLeft,
   DollarSign,
+  Edit3,
+  Sparkles,
+  RotateCcw,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { Link, useNavigate } from 'react-router-dom'
@@ -47,6 +51,11 @@ export default function LancamentoCargas() {
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [cidades, setCidades] = useState<Cidade[]>([])
   const [salvando, setSalvando] = useState(false)
+
+  // Modo de dosagem: 'automatico' (por traço) ou 'manual' (digitação dos 6 insumos)
+  const [modoDosagem, setModoDosagem] = useState<'automatico' | 'manual'>(
+    'automatico',
+  )
 
   // Formulário
   const [dataCarga, setDataCarga] = useState(
@@ -98,7 +107,20 @@ export default function LancamentoCargas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaAtiva?.id])
 
-  // Recalcular insumos quando mudar traço, volume ou cargaZerada
+  // Função utilitária para aplicar cálculo do traço aos insumos
+  const aplicarCalculoTraco = (tracoId: string, vol: number) => {
+    const traco = tracos.find((t) => t.id === tracoId)
+    if (traco && vol > 0) {
+      setBrita12(Math.round(Number(traco.consumo_brita12) * vol))
+      setBrita19(Math.round(Number(traco.consumo_brita19) * vol))
+      setAreia(Math.round(Number(traco.consumo_areia) * vol))
+      setPoPedra(Math.round(Number(traco.consumo_po_pedra) * vol))
+      setCimento(Math.round(Number(traco.consumo_cimento) * vol))
+      setAditivo(Number((Number(traco.consumo_aditivo) * vol).toFixed(2)))
+    }
+  }
+
+  // Recalcular insumos automaticamente apenas se estiver no modo automático ou cargaZerada
   useEffect(() => {
     if (cargaZerada) {
       setBrita12(0)
@@ -110,16 +132,40 @@ export default function LancamentoCargas() {
       return
     }
 
-    const traco = tracos.find((t) => t.id === tracoSelecionadoId)
-    if (traco && volume > 0) {
-      setBrita12(Math.round(Number(traco.consumo_brita12) * volume))
-      setBrita19(Math.round(Number(traco.consumo_brita19) * volume))
-      setAreia(Math.round(Number(traco.consumo_areia) * volume))
-      setPoPedra(Math.round(Number(traco.consumo_po_pedra) * volume))
-      setCimento(Math.round(Number(traco.consumo_cimento) * volume))
-      setAditivo(Number((Number(traco.consumo_aditivo) * volume).toFixed(2)))
+    if (modoDosagem === 'automatico') {
+      const traco = tracos.find((t) => t.id === tracoSelecionadoId)
+      if (traco && volume > 0) {
+        setBrita12(Math.round(Number(traco.consumo_brita12) * volume))
+        setBrita19(Math.round(Number(traco.consumo_brita19) * volume))
+        setAreia(Math.round(Number(traco.consumo_areia) * volume))
+        setPoPedra(Math.round(Number(traco.consumo_po_pedra) * volume))
+        setCimento(Math.round(Number(traco.consumo_cimento) * volume))
+        setAditivo(Number((Number(traco.consumo_aditivo) * volume).toFixed(2)))
+      }
     }
-  }, [tracoSelecionadoId, volume, cargaZerada, tracos])
+  }, [tracoSelecionadoId, volume, cargaZerada, tracos, modoDosagem])
+
+  // Tratar alternância de modo
+  const handleTrocaModo = (novoModo: 'automatico' | 'manual') => {
+    setModoDosagem(novoModo)
+    if (novoModo === 'manual' && !cargaZerada) {
+      // Pré-preenche com o traço selecionado se os valores estiverem zerados ou se o usuário veio do automático
+      aplicarCalculoTraco(tracoSelecionadoId, volume)
+    } else if (novoModo === 'automatico' && !cargaZerada) {
+      aplicarCalculoTraco(tracoSelecionadoId, volume)
+    }
+  }
+
+  const handleResetarParaTraco = () => {
+    if (tracoSelecionadoId) {
+      aplicarCalculoTraco(tracoSelecionadoId, volume)
+      toast({
+        title: 'Valores redefinidos',
+        description:
+          'Os insumos foram recalculados com base no traço selecionado.',
+      })
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -141,7 +187,28 @@ export default function LancamentoCargas() {
       return
     }
 
+    // Validação no modo manual: se não for carga zerada, exigir pelo menos um insumo > 0
+    if (modoDosagem === 'manual' && !cargaZerada) {
+      const somaInsumos =
+        brita12 + brita19 + areia + poPedra + cimento + aditivo
+      if (somaInsumos <= 0) {
+        toast({
+          title: 'Insumos não informados',
+          description:
+            'No modo manual, informe a quantidade de pelo menos um dos insumos ou marque a carga como cancelada/zerada.',
+          variant: 'destructive',
+        })
+        return
+      }
+    }
+
     const traco = tracos.find((t) => t.id === tracoSelecionadoId)
+
+    // Nome descritivo do traço gravado na carga
+    let nomeTracoGravado = traco?.nome || 'Traço manual'
+    if (modoDosagem === 'manual') {
+      nomeTracoGravado = traco ? `${traco.nome} (Manual)` : 'Dosagem Manual'
+    }
 
     setSalvando(true)
     try {
@@ -150,7 +217,7 @@ export default function LancamentoCargas() {
         data: dataCarga,
         volume_m3: volume,
         traco_id: traco?.id,
-        traco_nome: traco?.nome || 'Traço personalizado',
+        traco_nome: nomeTracoGravado,
         motorista_nome: motoristaNome || undefined,
         veiculo_placa: veiculoPlaca || undefined,
         cidade_nome: cidadeNome || undefined,
@@ -160,7 +227,13 @@ export default function LancamentoCargas() {
         consumo_po_pedra: poPedra,
         consumo_cimento: cimento,
         consumo_aditivo: aditivo,
-        observacao,
+        observacao: observacao
+          ? modoDosagem === 'manual'
+            ? `[Modo Manual] ${observacao}`
+            : observacao
+          : modoDosagem === 'manual'
+            ? '[Lançamento com dosagem manual de insumos]'
+            : undefined,
         carga_zerada: cargaZerada,
       })
 
@@ -168,7 +241,7 @@ export default function LancamentoCargas() {
         title: 'Carga lançada com sucesso!',
         description: cargaZerada
           ? 'Carga cancelada registrada sem baixa de materiais.'
-          : 'Baixa de estoque nos agregados, cimento e aditivos realizada com sucesso.',
+          : 'Baixa de estoque nos materiais controlados (Cimento e Aditivo) realizada com sucesso.',
       })
 
       navigate('/')
@@ -281,10 +354,20 @@ export default function LancamentoCargas() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="traco">Traço / Dosagem *</Label>
+                <Label htmlFor="traco">
+                  {modoDosagem === 'manual'
+                    ? 'Traço de Referência (Opcional)'
+                    : 'Traço / Dosagem *'}
+                </Label>
                 <Select
                   value={tracoSelecionadoId}
-                  onValueChange={setTracoSelecionadoId}
+                  onValueChange={(val) => {
+                    setTracoSelecionadoId(val)
+                    if (modoDosagem === 'manual') {
+                      // Ao trocar o traço no modo manual, pergunta indiretamente ou atualiza
+                      aplicarCalculoTraco(val, volume)
+                    }
+                  }}
                   disabled={cargaZerada}
                 >
                   <SelectTrigger id="traco">
@@ -324,39 +407,93 @@ export default function LancamentoCargas() {
           </CardContent>
         </Card>
 
-        {/* Bloco 2: Consumo Calculado de Insumos */}
+        {/* Bloco 2: Consumo Calculado ou Manual de Insumos */}
         <Card className="border-border/40 bg-card/70">
-          <CardHeader>
-            <div className="flex items-center justify-between">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Calculator className="w-4 h-4 text-primary" />
-                  Insumos e Agregados por Carga
+                  Insumos e Agregados da Carga
                 </CardTitle>
-                <CardDescription className="text-xs">
-                  {tracoAtual
-                    ? `Baseado no consumo por m³ do traço selecionado (ajuste manual permitido se necessário). Baixa de estoque ocorre apenas para Cimento e Aditivo.`
-                    : 'Insumos calculados'}
+                <CardDescription className="text-xs mt-1">
+                  {modoDosagem === 'automatico'
+                    ? `Valores calculados automaticamente pelo traço (multiplicados por ${volume} m³). Baixa de estoque ocorre apenas para Cimento e Aditivo.`
+                    : `Modo manual ativo: digite diretamente os quilos/litros dos 6 insumos pesados na balança para esta carga. Baixa de estoque ocorre apenas para Cimento e Aditivo.`}
                 </CardDescription>
               </div>
+
+              {/* Seletor de Modo: Traço automático vs Insumos manuais */}
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono px-2.5 py-1 rounded-md bg-primary/10 text-primary">
-                  Multiplicador: {volume} m³
-                </span>
+                <Tabs
+                  value={modoDosagem}
+                  onValueChange={(val) =>
+                    handleTrocaModo(val as 'automatico' | 'manual')
+                  }
+                  className="w-auto"
+                >
+                  <TabsList className="h-9 p-1 bg-muted/60">
+                    <TabsTrigger
+                      value="automatico"
+                      className="text-xs px-3 py-1 gap-1.5 data-[state=active]:bg-background data-[state=active]:text-primary"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Traço automático
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="manual"
+                      className="text-xs px-3 py-1 gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-medium"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      Insumos manuais
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
             </div>
           </CardHeader>
+
           <CardContent className="space-y-4">
+            {/* Aviso explicativo no modo manual */}
+            {modoDosagem === 'manual' && !cargaZerada && (
+              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-start sm:items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+                  <Edit3 className="w-4 h-4 shrink-0 mt-0.5 sm:mt-0" />
+                  <span>
+                    <strong>Digitação Manual:</strong> Os valores digitados
+                    abaixo serão exatamente os gravados no consumo da carga e
+                    contabilizados no custo. A baixa de estoque continua
+                    restrita a <strong>Cimento</strong> e{' '}
+                    <strong>Aditivo</strong>.
+                  </span>
+                </div>
+                {tracoAtual && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleResetarParaTraco}
+                    className="h-7 text-xs text-blue-700 dark:text-blue-300 hover:bg-blue-500/20 shrink-0 self-start sm:self-auto gap-1"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Resetar p/ traço
+                  </Button>
+                )}
+              </div>
+            )}
+
             {/* Box de Custo Estimado da Carga */}
             <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-emerald-500 shrink-0" />
                 <div>
                   <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 block">
-                    Custo Estimado dos Insumos da Carga
+                    Custo Calculado dos Insumos da Carga
                   </span>
                   <span className="text-[11px] text-muted-foreground">
-                    Calculado com base na tabela de preços unitários vigente
+                    {modoDosagem === 'manual'
+                      ? 'Simulação em tempo real baseada nos insumos digitados manualmente'
+                      : 'Calculado com base na tabela de preços unitários vigente na data'}
                   </span>
                 </div>
               </div>
@@ -374,137 +511,314 @@ export default function LancamentoCargas() {
               </div>
             </div>
 
+            {/* Grid dos 6 Insumos */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <div className="space-y-1.5 p-3 rounded-lg border border-border/40 bg-background/50">
+              {/* Cimento */}
+              <div
+                className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
+                  modoDosagem === 'manual'
+                    ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
+                    : 'border-border/40 bg-background/50'
+                }`}
+              >
                 <Label
                   htmlFor="cimento"
-                  className="text-xs text-muted-foreground flex justify-between"
+                  className="text-xs text-muted-foreground flex justify-between items-center"
                 >
-                  <span>Cimento (kg)</span>
-                  {tracoAtual && (
+                  <span className="font-semibold text-foreground flex items-center gap-1">
+                    Cimento (kg)
+                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal">
+                      Estoque
+                    </span>
+                  </span>
+                  {tracoAtual && modoDosagem === 'automatico' && (
                     <span className="text-[10px]">
                       ({tracoAtual.consumo_cimento} kg/m³)
+                    </span>
+                  )}
+                  {tracoAtual && modoDosagem === 'manual' && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Traço:{' '}
+                      {Math.round(Number(tracoAtual.consumo_cimento) * volume)}{' '}
+                      kg
                     </span>
                   )}
                 </Label>
                 <Input
                   id="cimento"
                   type="number"
-                  value={cimento}
-                  onChange={(e) => setCimento(Number(e.target.value))}
+                  min="0"
+                  step="1"
+                  value={
+                    cimento === 0 && modoDosagem === 'manual' ? '' : cimento
+                  }
+                  onChange={(e) => {
+                    const val =
+                      e.target.value === '' ? 0 : Number(e.target.value)
+                    setCimento(isNaN(val) ? 0 : val)
+                  }}
                   disabled={cargaZerada}
-                  className="font-mono font-semibold"
+                  className={`font-mono font-semibold ${
+                    modoDosagem === 'manual'
+                      ? 'bg-background border-primary/40 focus-visible:ring-primary'
+                      : ''
+                  }`}
+                  placeholder="0"
                 />
               </div>
 
-              <div className="space-y-1.5 p-3 rounded-lg border border-border/40 bg-background/50">
+              {/* Aditivo */}
+              <div
+                className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
+                  modoDosagem === 'manual'
+                    ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
+                    : 'border-border/40 bg-background/50'
+                }`}
+              >
                 <Label
                   htmlFor="aditivo"
-                  className="text-xs text-muted-foreground flex justify-between"
+                  className="text-xs text-muted-foreground flex justify-between items-center"
                 >
-                  <span>Aditivo (Litros)</span>
-                  {tracoAtual && (
+                  <span className="font-semibold text-foreground flex items-center gap-1">
+                    Aditivo (Litros)
+                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal">
+                      Estoque
+                    </span>
+                  </span>
+                  {tracoAtual && modoDosagem === 'automatico' && (
                     <span className="text-[10px]">
                       ({tracoAtual.consumo_aditivo} L/m³)
+                    </span>
+                  )}
+                  {tracoAtual && modoDosagem === 'manual' && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Traço:{' '}
+                      {(Number(tracoAtual.consumo_aditivo) * volume).toFixed(1)}{' '}
+                      L
                     </span>
                   )}
                 </Label>
                 <Input
                   id="aditivo"
                   type="number"
-                  step="0.1"
-                  value={aditivo}
-                  onChange={(e) => setAditivo(Number(e.target.value))}
+                  min="0"
+                  step="0.05"
+                  value={
+                    aditivo === 0 && modoDosagem === 'manual' ? '' : aditivo
+                  }
+                  onChange={(e) => {
+                    const val =
+                      e.target.value === '' ? 0 : Number(e.target.value)
+                    setAditivo(isNaN(val) ? 0 : val)
+                  }}
                   disabled={cargaZerada}
-                  className="font-mono font-semibold"
+                  className={`font-mono font-semibold ${
+                    modoDosagem === 'manual'
+                      ? 'bg-background border-primary/40 focus-visible:ring-primary'
+                      : ''
+                  }`}
+                  placeholder="0.0"
                 />
               </div>
 
-              <div className="space-y-1.5 p-3 rounded-lg border border-border/40 bg-background/50">
+              {/* Areia */}
+              <div
+                className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
+                  modoDosagem === 'manual'
+                    ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
+                    : 'border-border/40 bg-background/50'
+                }`}
+              >
                 <Label
                   htmlFor="areia"
-                  className="text-xs text-muted-foreground flex justify-between"
+                  className="text-xs text-muted-foreground flex justify-between items-center"
                 >
-                  <span>Areia (kg)</span>
-                  {tracoAtual && (
+                  <span className="font-semibold text-foreground">
+                    Areia (kg)
+                  </span>
+                  {tracoAtual && modoDosagem === 'automatico' && (
                     <span className="text-[10px]">
                       ({tracoAtual.consumo_areia} kg/m³)
+                    </span>
+                  )}
+                  {tracoAtual && modoDosagem === 'manual' && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Traço:{' '}
+                      {Math.round(Number(tracoAtual.consumo_areia) * volume)} kg
                     </span>
                   )}
                 </Label>
                 <Input
                   id="areia"
                   type="number"
-                  value={areia}
-                  onChange={(e) => setAreia(Number(e.target.value))}
+                  min="0"
+                  step="1"
+                  value={areia === 0 && modoDosagem === 'manual' ? '' : areia}
+                  onChange={(e) => {
+                    const val =
+                      e.target.value === '' ? 0 : Number(e.target.value)
+                    setAreia(isNaN(val) ? 0 : val)
+                  }}
                   disabled={cargaZerada}
-                  className="font-mono font-semibold"
+                  className={`font-mono font-semibold ${
+                    modoDosagem === 'manual'
+                      ? 'bg-background border-primary/40 focus-visible:ring-primary'
+                      : ''
+                  }`}
+                  placeholder="0"
                 />
               </div>
 
-              <div className="space-y-1.5 p-3 rounded-lg border border-border/40 bg-background/50">
+              {/* Brita 12 */}
+              <div
+                className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
+                  modoDosagem === 'manual'
+                    ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
+                    : 'border-border/40 bg-background/50'
+                }`}
+              >
                 <Label
                   htmlFor="brita12"
-                  className="text-xs text-muted-foreground flex justify-between"
+                  className="text-xs text-muted-foreground flex justify-between items-center"
                 >
-                  <span>Brita 12 (kg)</span>
-                  {tracoAtual && (
+                  <span className="font-semibold text-foreground">
+                    Brita 12 (kg)
+                  </span>
+                  {tracoAtual && modoDosagem === 'automatico' && (
                     <span className="text-[10px]">
                       ({tracoAtual.consumo_brita12} kg/m³)
+                    </span>
+                  )}
+                  {tracoAtual && modoDosagem === 'manual' && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Traço:{' '}
+                      {Math.round(Number(tracoAtual.consumo_brita12) * volume)}{' '}
+                      kg
                     </span>
                   )}
                 </Label>
                 <Input
                   id="brita12"
                   type="number"
-                  value={brita12}
-                  onChange={(e) => setBrita12(Number(e.target.value))}
+                  min="0"
+                  step="1"
+                  value={
+                    brita12 === 0 && modoDosagem === 'manual' ? '' : brita12
+                  }
+                  onChange={(e) => {
+                    const val =
+                      e.target.value === '' ? 0 : Number(e.target.value)
+                    setBrita12(isNaN(val) ? 0 : val)
+                  }}
                   disabled={cargaZerada}
-                  className="font-mono font-semibold"
+                  className={`font-mono font-semibold ${
+                    modoDosagem === 'manual'
+                      ? 'bg-background border-primary/40 focus-visible:ring-primary'
+                      : ''
+                  }`}
+                  placeholder="0"
                 />
               </div>
 
-              <div className="space-y-1.5 p-3 rounded-lg border border-border/40 bg-background/50">
+              {/* Brita 19 */}
+              <div
+                className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
+                  modoDosagem === 'manual'
+                    ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
+                    : 'border-border/40 bg-background/50'
+                }`}
+              >
                 <Label
                   htmlFor="brita19"
-                  className="text-xs text-muted-foreground flex justify-between"
+                  className="text-xs text-muted-foreground flex justify-between items-center"
                 >
-                  <span>Brita 19 (kg)</span>
-                  {tracoAtual && (
+                  <span className="font-semibold text-foreground">
+                    Brita 19 (kg)
+                  </span>
+                  {tracoAtual && modoDosagem === 'automatico' && (
                     <span className="text-[10px]">
                       ({tracoAtual.consumo_brita19} kg/m³)
+                    </span>
+                  )}
+                  {tracoAtual && modoDosagem === 'manual' && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Traço:{' '}
+                      {Math.round(Number(tracoAtual.consumo_brita19) * volume)}{' '}
+                      kg
                     </span>
                   )}
                 </Label>
                 <Input
                   id="brita19"
                   type="number"
-                  value={brita19}
-                  onChange={(e) => setBrita19(Number(e.target.value))}
+                  min="0"
+                  step="1"
+                  value={
+                    brita19 === 0 && modoDosagem === 'manual' ? '' : brita19
+                  }
+                  onChange={(e) => {
+                    const val =
+                      e.target.value === '' ? 0 : Number(e.target.value)
+                    setBrita19(isNaN(val) ? 0 : val)
+                  }}
                   disabled={cargaZerada}
-                  className="font-mono font-semibold"
+                  className={`font-mono font-semibold ${
+                    modoDosagem === 'manual'
+                      ? 'bg-background border-primary/40 focus-visible:ring-primary'
+                      : ''
+                  }`}
+                  placeholder="0"
                 />
               </div>
 
-              <div className="space-y-1.5 p-3 rounded-lg border border-border/40 bg-background/50">
+              {/* Pó de Pedra */}
+              <div
+                className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
+                  modoDosagem === 'manual'
+                    ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
+                    : 'border-border/40 bg-background/50'
+                }`}
+              >
                 <Label
                   htmlFor="poPedra"
-                  className="text-xs text-muted-foreground flex justify-between"
+                  className="text-xs text-muted-foreground flex justify-between items-center"
                 >
-                  <span>Pó de Pedra (kg)</span>
-                  {tracoAtual && (
+                  <span className="font-semibold text-foreground">
+                    Pó de Pedra (kg)
+                  </span>
+                  {tracoAtual && modoDosagem === 'automatico' && (
                     <span className="text-[10px]">
                       ({tracoAtual.consumo_po_pedra} kg/m³)
+                    </span>
+                  )}
+                  {tracoAtual && modoDosagem === 'manual' && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Traço:{' '}
+                      {Math.round(Number(tracoAtual.consumo_po_pedra) * volume)}{' '}
+                      kg
                     </span>
                   )}
                 </Label>
                 <Input
                   id="poPedra"
                   type="number"
-                  value={poPedra}
-                  onChange={(e) => setPoPedra(Number(e.target.value))}
+                  min="0"
+                  step="1"
+                  value={
+                    poPedra === 0 && modoDosagem === 'manual' ? '' : poPedra
+                  }
+                  onChange={(e) => {
+                    const val =
+                      e.target.value === '' ? 0 : Number(e.target.value)
+                    setPoPedra(isNaN(val) ? 0 : val)
+                  }}
                   disabled={cargaZerada}
-                  className="font-mono font-semibold"
+                  className={`font-mono font-semibold ${
+                    modoDosagem === 'manual'
+                      ? 'bg-background border-primary/40 focus-visible:ring-primary'
+                      : ''
+                  }`}
+                  placeholder="0"
                 />
               </div>
             </div>

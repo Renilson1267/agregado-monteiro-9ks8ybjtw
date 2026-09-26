@@ -185,6 +185,7 @@ export type Database = {
       materiais: {
         Row: {
           codigo: string
+          controla_estoque: boolean
           created_at: string
           empresa_id: string | null
           estoque_minimo: number
@@ -195,6 +196,7 @@ export type Database = {
         }
         Insert: {
           codigo: string
+          controla_estoque?: boolean
           created_at?: string
           empresa_id?: string | null
           estoque_minimo?: number
@@ -205,6 +207,7 @@ export type Database = {
         }
         Update: {
           codigo?: string
+          controla_estoque?: boolean
           created_at?: string
           empresa_id?: string | null
           estoque_minimo?: number
