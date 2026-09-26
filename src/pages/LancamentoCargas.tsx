@@ -77,14 +77,15 @@ export default function LancamentoCargas() {
   const [cimento, setCimento] = useState<number>(0)
   const [aditivo, setAditivo] = useState<number>(0)
   // Fator de dosagem para cálculo do aditivo no modo manual:
-  // aditivo (L) = cimento TOTAL da carga (kg) × volume (m³) × fator
+  // aditivo (L) = cimento TOTAL da carga (kg) × fator
   // onde cimento_total_kg = dosagem_cimento_kg_m3 × volume_m3
   // Faixa de fatores do aditivo: 0,005 a 0,010
   const [fatorAditivoManual, setFatorAditivoManual] = useState<number>(0.006)
   const [aditivoBruto, setAditivoBruto] = useState<number>(0)
 
-  // NOVO INSUMO: ÁGUA (calculada, com opção de digitação manual)
-  // água (L) = cimento TOTAL da carga (kg) × volume (m³) × fator_de_água
+  // INSUMO: ÁGUA (calculada, com opção de digitação manual)
+  // água (L) = cimento TOTAL da carga (kg) × fator_de_água
+  // onde cimento_total_kg = dosagem_cimento_kg_m3 × volume_m3
   // com fator na faixa 0,45 a 0,8 (opções rápidas: 0,45, 0,5, 0,55, 0,6, 0,65, 0,7, 0,75, 0,8)
   // Arredondamento inteiro clássico (Math.round)
   const [agua, setAgua] = useState<number>(0)
@@ -144,20 +145,22 @@ export default function LancamentoCargas() {
 
       if (modoDosagem === 'manual') {
         // No modo manual:
-        // cimento total = dosagem × volume
+        // cimento total da carga (kg) = dosagem (kg/m³) × volume (m³)
         const cimentoTotal = cimentoDosagem * vol
-        const adtBruto = cimentoTotal * vol * (fatorAditivoManual || 0.006)
+        // aditivo (L) = cimento total (kg) × fator
+        const adtBruto = cimentoTotal * (fatorAditivoManual || 0.006)
         setAditivoBruto(adtBruto)
         setAditivo(Math.round(adtBruto))
 
-        const agBruta = cimentoTotal * vol * (fatorAguaManual || 0.55)
+        // água (L) = cimento total (kg) × fator
+        const agBruta = cimentoTotal * (fatorAguaManual || 0.55)
         setAguaBruta(agBruta)
         setAgua(Math.round(agBruta))
       } else {
         setAditivo(Number(traco.consumo_aditivo) || 0)
         setAditivoBruto(Number(traco.consumo_aditivo) || 0)
         const cimentoTotal = cimentoDosagem * vol
-        const agBruta = cimentoTotal * vol * (fatorAguaManual || 0.55)
+        const agBruta = cimentoTotal * (fatorAguaManual || 0.55)
         setAguaBruta(agBruta)
         setAgua(Math.round(agBruta))
       }
@@ -184,24 +187,24 @@ export default function LancamentoCargas() {
 
         // Água do traço automático (se houver no traço ou calculada via fator água)
         const cimentoTotal = cimentoDosagem * volume
-        const agBruta = cimentoTotal * volume * (fatorAguaManual || 0.55)
+        const agBruta = cimentoTotal * (fatorAguaManual || 0.55)
         setAguaBruta(agBruta)
         setAgua(Math.round(agBruta))
       }
     } else {
       // Modo manual:
       // cimento_total_kg = dosagem_cimento_kg_m3 × volume_m3
-      // aditivo (L) = cimento_total_kg × volume_m3 × fatorAditivoManual
+      // aditivo (L) = cimento_total_kg × fatorAditivoManual
       const cimentoTotal = cimento * volume
-      const adtBruto = cimentoTotal * volume * (fatorAditivoManual || 0)
+      const adtBruto = cimentoTotal * (fatorAditivoManual || 0)
       setAditivoBruto(adtBruto)
       // Arredondamento INTEIRO clássico: Math.round (>= 0.5 sobe, < 0.5 desce)
       if (!aditivoEditadoManualmente) {
         setAditivo(Math.round(adtBruto))
       }
 
-      // Água (L) = cimento_total_kg × volume_m3 × fatorAguaManual
-      const agBruta = cimentoTotal * volume * (fatorAguaManual || 0)
+      // Água (L) = cimento_total_kg × fatorAguaManual
+      const agBruta = cimentoTotal * (fatorAguaManual || 0)
       setAguaBruta(agBruta)
       if (!aguaEditadaManualmente) {
         setAgua(Math.round(agBruta))
@@ -220,11 +223,11 @@ export default function LancamentoCargas() {
     aguaEditadaManualmente,
   ])
 
-  // Recalcular valor de aditivo conforme fórmula teórica
+  // Recalcular valor de aditivo conforme fórmula teórica: cimento_total_kg × fator
   const handleRecalcularAditivo = () => {
     setAditivoEditadoManualmente(false)
     const cimentoTotal = cimento * volume
-    const adtBruto = cimentoTotal * volume * (fatorAditivoManual || 0)
+    const adtBruto = cimentoTotal * (fatorAditivoManual || 0)
     setAditivoBruto(adtBruto)
     setAditivo(Math.round(adtBruto))
     toast({
@@ -233,11 +236,11 @@ export default function LancamentoCargas() {
     })
   }
 
-  // Recalcular valor de água conforme fórmula teórica
+  // Recalcular valor de água conforme fórmula teórica: cimento_total_kg × fator
   const handleRecalcularAgua = () => {
     setAguaEditadaManualmente(false)
     const cimentoTotal = cimento * volume
-    const agBruta = cimentoTotal * volume * (fatorAguaManual || 0)
+    const agBruta = cimentoTotal * (fatorAguaManual || 0)
     setAguaBruta(agBruta)
     setAgua(Math.round(agBruta))
     toast({
@@ -627,13 +630,13 @@ export default function LancamentoCargas() {
                     </code>
                     . O <strong>Aditivo</strong> é calculado como{' '}
                     <code className="px-1 py-0.5 rounded bg-blue-500/20 font-mono font-semibold">
-                      cimento total ({consumoReal.cimento} kg) × {volume} m³ ×
-                      fator ({fatorAditivoManual}) = {aditivo} L
+                      cimento total ({consumoReal.cimento} kg) × fator (
+                      {fatorAditivoManual}) = {aditivo} L
                     </code>
                     . A <strong>Água</strong> é calculada como{' '}
                     <code className="px-1 py-0.5 rounded bg-blue-500/20 font-mono font-semibold">
-                      cimento total ({consumoReal.cimento} kg) × {volume} m³ ×
-                      fator ({fatorAguaManual}) = {agua} L
+                      cimento total ({consumoReal.cimento} kg) × fator (
+                      {fatorAguaManual}) = {agua} L
                     </code>
                     .
                   </span>
@@ -878,7 +881,7 @@ export default function LancamentoCargas() {
                         onClick={handleRecalcularAditivo}
                         disabled={cargaZerada}
                         className="h-9 w-9 shrink-0"
-                        title="Recalcular aditivo pela fórmula (cimento × volume × fator)"
+                        title="Recalcular aditivo pela fórmula (cimento total × fator)"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                       </Button>
@@ -955,8 +958,7 @@ export default function LancamentoCargas() {
                     {/* Legenda com o valor bruto e arredondamento */}
                     <div className="text-[10px] text-muted-foreground leading-tight space-y-0.5">
                       <div>
-                        {consumoReal.cimento} kg × {volume} m³ ×{' '}
-                        {fatorAditivoManual} ={' '}
+                        {consumoReal.cimento} kg × {fatorAditivoManual} ={' '}
                         <span className="font-mono font-medium">
                           {aditivoBruto.toFixed(2)} →{' '}
                         </span>
@@ -1060,7 +1062,7 @@ export default function LancamentoCargas() {
                       onClick={handleRecalcularAgua}
                       disabled={cargaZerada}
                       className="h-9 w-9 shrink-0"
-                      title="Recalcular água pela fórmula (cimento × volume × fator)"
+                      title="Recalcular água pela fórmula (cimento total × fator)"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                     </Button>
@@ -1138,8 +1140,7 @@ export default function LancamentoCargas() {
                   {/* Legenda com o valor bruto e arredondamento */}
                   <div className="text-[10px] text-muted-foreground leading-tight space-y-0.5">
                     <div>
-                      {consumoReal.cimento} kg × {volume} m³ × {fatorAguaManual}{' '}
-                      ={' '}
+                      {consumoReal.cimento} kg × {fatorAguaManual} ={' '}
                       <span className="font-mono font-medium">
                         {aguaBruta.toFixed(2)} →{' '}
                       </span>
@@ -1155,7 +1156,7 @@ export default function LancamentoCargas() {
                     <div className="text-[9px] text-muted-foreground/80">
                       {aguaEditadaManualmente
                         ? 'Valor manual digitado pelo operador (clique em ↺ para restaurar a fórmula | Sem controle de estoque)'
-                        : '(Arredondamento inteiro: ≥ 5 sobe | Sem controle de estoque | Aberto para digitação)'}
+                        : '(Arredondamento inteiro: ≥ 0,5 sobe | Sem controle de estoque | Aberto para digitação)'}
                     </div>
                   </div>
                 </div>
