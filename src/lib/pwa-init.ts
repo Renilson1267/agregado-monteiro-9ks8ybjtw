@@ -101,13 +101,16 @@ export function registerPwaServiceWorker() {
         console.warn('Falha no registro do Service Worker:', error)
       })
 
-    // Ao mudar o controller (SW assumiu), podemos recarregar se o usuário confirmar
+    // Ao mudar o controller (SW assumiu uma nova versão)
     let refreshing = false
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!refreshing) {
         refreshing = true
         // Não força recarregamento abrupto enquanto o usuário está preenchendo um formulário,
-        // mas garante que a nova versão assuma o controle na próxima navegação
+        // mas avisa nos logs e na próxima navegação ou recarregamento a nova versão estará ativa
+        console.log(
+          'GC MIX PWA atualizado com sucesso para a versão mais recente.',
+        )
       }
     })
   })

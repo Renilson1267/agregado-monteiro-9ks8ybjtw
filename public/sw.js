@@ -56,11 +56,13 @@ self.addEventListener('fetch', (event) => {
   // Ignorar chamadas Supabase, REST/PostgREST, Auth e outros backends externos
   if (
     url.hostname.includes('supabase.co') ||
+    url.hostname.includes('supabase.in') ||
     url.hostname.includes('goskip.dev') ||
     url.pathname.startsWith('/rest/v1') ||
     url.pathname.startsWith('/auth/v1') ||
     url.pathname.startsWith('/storage/v1') ||
-    url.pathname.startsWith('/functions/v1')
+    url.pathname.startsWith('/functions/v1') ||
+    url.pathname.startsWith('/realtime/v1')
   ) {
     // Network only para banco de dados e APIs em tempo real
     return

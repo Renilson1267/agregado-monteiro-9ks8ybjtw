@@ -163,6 +163,120 @@ export function buildPngDataUri(
 }
 
 /**
+ * Retorna os bytes puros do PNG gerado para salvar em disco
+ */
+export function buildPngBytes(
+  width: number,
+  height: number,
+  pixelFn: (x: number, y: number) => [number, number, number, number],
+): Uint8Array {
+  const rowBytes = width * 4 + 1
+  const rawData = new Uint8Array(height * rowBytes)
+
+  for (let y = 0; y < height; y++) {
+    const rowOffset = y * rowBytes
+    rawData[rowOffset] = 0 // Filter type 0
+    for (let x = 0; x < width; x++) {
+      const [r, g, b, a] = pixelFn(x, y)
+      const pxOffset = rowOffset + 1 + x * 4
+      rawData[pxOffset] = r
+      rawData[pxOffset + 1] = g
+      rawData[pxOffset + 2] = b
+      rawData[pxOffset + 3] = a
+    }
+  }
+
+  const MAX_BLOCK = 65535
+  const numBlocks = Math.ceil(rawData.length / MAX_BLOCK)
+  const zlibHeaderLen = 2
+  const zlibFooterLen = 4
+  const deflateDataLen =
+    zlibHeaderLen + numBlocks * 5 + rawData.length + zlibFooterLen
+
+  const idatData = new Uint8Array(deflateDataLen)
+  idatData[0] = 0x78
+  idatData[1] = 0x01
+
+  let inOffset = 0
+  let outOffset = 2
+
+  for (let b = 0; b < numBlocks; b++) {
+    const isLast = b === numBlocks - 1
+    const blockLen = Math.min(MAX_BLOCK, rawData.length - inOffset)
+
+    idatData[outOffset++] = isLast ? 0x01 : 0x00
+    idatData[outOffset++] = blockLen & 0xff
+    idatData[outOffset++] = (blockLen >> 8) & 0xff
+    const nlen = ~blockLen & 0xffff
+    idatData[outOffset++] = nlen & 0xff
+    idatData[outOffset++] = (nlen >> 8) & 0xff
+
+    idatData.set(rawData.subarray(inOffset, inOffset + blockLen), outOffset)
+    inOffset += blockLen
+    outOffset += blockLen
+  }
+
+  const adler = calcAdler32(rawData, 0, rawData.length)
+  idatData[outOffset++] = (adler >> 24) & 0xff
+  idatData[outOffset++] = (adler >> 16) & 0xff
+  idatData[outOffset++] = (adler >> 8) & 0xff
+  idatData[outOffset++] = adler & 0xff
+
+  const totalLen = 8 + 25 + (12 + idatData.length) + 12
+  const png = new Uint8Array(totalLen)
+  let p = 0
+
+  const sig = [137, 80, 78, 71, 13, 10, 26, 10]
+  png.set(sig, p)
+  p += 8
+
+  function writeChunk(typeStr: string, data: Uint8Array) {
+    const len = data.length
+    png[p++] = (len >> 24) & 0xff
+    png[p++] = (len >> 16) & 0xff
+    png[p++] = (len >> 8) & 0xff
+    png[p++] = len & 0xff
+
+    const typeStart = p
+    for (let i = 0; i < 4; i++) {
+      png[p++] = typeStr.charCodeAt(i)
+    }
+
+    png.set(data, p)
+    p += len
+
+    const crc = calcCrc(png, typeStart, 4 + len)
+    png[p++] = (crc >> 24) & 0xff
+    png[p++] = (crc >> 16) & 0xff
+    png[p++] = (crc >> 8) & 0xff
+    png[p++] = crc & 0xff
+  }
+
+  const ihdr = new Uint8Array(13)
+  ihdr[0] = (width >> 24) & 0xff
+  ihdr[1] = (width >> 16) & 0xff
+  ihdr[2] = (width >> 8) & 0xff
+  ihdr[3] = width & 0xff
+
+  ihdr[4] = (height >> 24) & 0xff
+  ihdr[5] = (height >> 16) & 0xff
+  ihdr[6] = (height >> 8) & 0xff
+  ihdr[7] = height & 0xff
+
+  ihdr[8] = 8
+  ihdr[9] = 6
+  ihdr[10] = 0
+  ihdr[11] = 0
+  ihdr[12] = 0
+
+  writeChunk('IHDR', ihdr)
+  writeChunk('IDAT', idatData)
+  writeChunk('IEND', new Uint8Array(0))
+
+  return png
+}
+
+/**
  * Função gráfica oficial para desenhar o ícone GC MIX
  */
 export function getGcMixPixelColor(
