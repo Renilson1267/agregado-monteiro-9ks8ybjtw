@@ -293,6 +293,13 @@ export function sugerirItemParaMaterial(
         'plastificante',
         'polifuncional',
         'superplastificante',
+        'retardador',
+        'acelerador',
+        'incorporador',
+        'hidrofugo',
+        'densificador',
+        'adit.',
+        'adt',
       ]),
     )
     if (match) return match

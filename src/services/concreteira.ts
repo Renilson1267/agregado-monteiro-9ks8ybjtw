@@ -129,6 +129,46 @@ export const ConcreteiraService = {
     return preco
   },
 
+  // =========================================================
+  // Conversão de unidades de compra para aditivo → custo por LITRO
+  // compra em litros   → custo/L = preço
+  // compra em kg       → custo/L = preço × densidade (se densidade > 0; senão densidade 1.0 = preço)
+  // compra em tonelada → custo/L = (preço / 1.000) × (densidade × 1.000) = preço × densidade
+  // compra em m³       → custo/L = preço / 1.000
+  // =========================================================
+  converterCustoAditivoPorLitro(
+    precoCompra: number,
+    unidadeCompra: string,
+    densidade?: number,
+  ): number {
+    const preco = Number(precoCompra) || 0
+    const unidade = (unidadeCompra || 'litros').toLowerCase()
+    const d = Number(densidade) > 0 ? Number(densidade) : 1.0
+
+    if (
+      unidade === 'litros' ||
+      unidade === 'l' ||
+      unidade === 'lt' ||
+      unidade === 'lts'
+    ) {
+      return preco
+    }
+    if (unidade === 'kg') {
+      // 1 L tem peso de 'd' kg (ex: d = 1,05 kg/L => 1L = 1,05kg => custo/L = preco/kg * 1,05)
+      // Se d = 1.0, 1kg = 1L => custo/L = preco
+      return preco * d
+    }
+    if (unidade === 'tonelada' || unidade === 'toneladas' || unidade === 't') {
+      // preco por tonelada (1000kg) => preco/kg = preco / 1000 => custo/L = (preco / 1000) * d
+      return (preco / 1000) * d
+    }
+    if (unidade === 'm3' || unidade === 'm³') {
+      // 1 m³ = 1.000 litros
+      return preco / 1000
+    }
+    return preco
+  },
+
   // Quantidade de kg equivalente a 1 unidade de compra (ex.: 1 m³ de brita 12 = 1.380 kg)
   kgPorUnidadeCompra(unidadeCompra: string, densidade?: number): number {
     const unidade = (unidadeCompra || 'kg').toLowerCase()

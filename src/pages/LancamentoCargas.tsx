@@ -402,7 +402,17 @@ export default function LancamentoCargas() {
 
   // Estimativa de custo da carga a ser lançada (usando o consumo REAL multiplicado)
   const custoEstimado = cargaZerada
-    ? { total: 0, custoPorM3: 0 }
+    ? {
+        total: 0,
+        custoPorM3: 0,
+        cimento: 0,
+        aditivo: 0,
+        areia: 0,
+        brita12: 0,
+        brita19: 0,
+        po_pedra: 0,
+        agua: 0,
+      }
     : ConcreteiraService.calcularCustoCarga(
         {
           id: '',
@@ -718,6 +728,11 @@ export default function LancamentoCargas() {
                     {modoDosagem === 'manual'
                       ? `Calculado sobre o consumo real da carga (${volume} m³ × dosagem)`
                       : 'Calculado com base na tabela de preços unitários vigente na data'}
+                    {custoEstimado.aditivo > 0 && (
+                      <span className="ml-1 text-emerald-700 dark:text-emerald-300 font-mono">
+                        • Aditivo: R$ {custoEstimado.aditivo.toFixed(2)}
+                      </span>
+                    )}
                   </span>
                 </div>
               </div>
@@ -734,7 +749,6 @@ export default function LancamentoCargas() {
                 </span>
               </div>
             </div>
-
             {/* Grid dos Insumos (Cimento, Aditivo, ÁGUA, Areia, Brita 12, Brita 19, Pó de Pedra) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Cimento */}

@@ -155,10 +155,12 @@ export default function Cadastros() {
     const precoUnitarioCompra =
       qtdComprada > 0 ? valorNota / qtdComprada : valorNota
 
+    const isAditivo = materialXml.codigo === 'aditivo'
+
     // Normalização de unidade se disponível
     const unidadeDetectada = item
       ? normalizarUnidadeXml(item.uCom).unidade
-      : ((materialXml.unidade_compra || 'kg') as
+      : ((materialXml.unidade_compra || (isAditivo ? 'litros' : 'kg')) as
           | 'kg'
           | 'tonelada'
           | 'm3'
@@ -168,12 +170,23 @@ export default function Cadastros() {
     const densidadeUsada =
       materialXml.densidade != null ? Number(materialXml.densidade) : 1.0
 
-    // Conversão para custo por kg
-    const custoPorKg = ConcreteiraService.converterCustoPorKg(
-      precoUnitarioCompra,
-      unidadeDetectada,
-      densidadeUsada,
-    )
+    // Conversão para a unidade de consumo da concreteira:
+    // Para aditivo -> custo por LITRO (R$/L)
+    // Para outros materiais -> custo por KG (R$/kg)
+    const custoConvertido = isAditivo
+      ? ConcreteiraService.converterCustoAditivoPorLitro(
+          precoUnitarioCompra,
+          unidadeDetectada,
+          densidadeUsada,
+        )
+      : ConcreteiraService.converterCustoPorKg(
+          precoUnitarioCompra,
+          unidadeDetectada,
+          densidadeUsada,
+        )
+
+    const unidadeFinal = isAditivo ? 'litros' : materialXml.unidade || 'kg'
+    const unidadeFinalRotulo = isAditivo ? 'L' : 'kg'
 
     // Data da nota para o histórico de preços
     const mesAnoPreco =
@@ -189,18 +202,18 @@ export default function Cadastros() {
         densidade: densidadeUsada,
       })
 
-      // 2. Persiste o preço unitário convertido por kg no histórico precos_material
+      // 2. Persiste o preço unitário convertido no histórico precos_material
       await ConcreteiraService.salvarPrecoMaterial({
         empresa_id: empresaAtiva?.id,
         material_codigo: materialXml.codigo,
         mes_ano: mesAnoPreco,
-        preco_unitario: Number(custoPorKg.toFixed(6)),
-        unidade: materialXml.unidade || 'kg',
+        preco_unitario: Number(custoConvertido.toFixed(6)),
+        unidade: unidadeFinal,
       })
 
       toast({
         title: 'Preço atualizado com sucesso via NF-e!',
-        description: `${materialXml.nome}: R$ ${precoUnitarioCompra.toFixed(2)}/${unidadeDetectada} → R$ ${custoPorKg.toFixed(4)}/kg (Vigência: ${mesAnoPreco}).`,
+        description: `${materialXml.nome}: R$ ${precoUnitarioCompra.toFixed(2)}/${unidadeDetectada} → R$ ${custoConvertido.toFixed(4)}/${unidadeFinalRotulo} (Vigência: ${mesAnoPreco}).`,
       })
 
       setOpenXmlModal(false)
@@ -418,22 +431,28 @@ export default function Cadastros() {
               <div className="mb-4 p-3.5 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground space-y-1">
                 <div className="font-semibold flex items-center gap-1.5 text-primary">
                   <Calculator className="w-4 h-4" />
-                  Regras de Conversão para Custo por kg (Consumo das Cargas):
+                  Regras de Conversão de Custos para as Dosagens das Cargas:
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-muted-foreground font-mono text-[11px]">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-1 text-muted-foreground font-mono text-[11px]">
                   <div className="p-2 rounded bg-background/60 border border-border/40">
-                    <strong className="text-foreground">Compra em kg:</strong>{' '}
+                    <strong className="text-foreground">Sólidos em kg:</strong>{' '}
                     custo/kg = Preço Unitário
                   </div>
                   <div className="p-2 rounded bg-background/60 border border-border/40">
                     <strong className="text-foreground">
-                      Compra em Tonelada:
+                      Sólidos em Tonelada:
                     </strong>{' '}
                     custo/kg = Preço / 1.000
                   </div>
                   <div className="p-2 rounded bg-background/60 border border-border/40">
-                    <strong className="text-foreground">Compra em m³:</strong>{' '}
+                    <strong className="text-foreground">Sólidos em m³:</strong>{' '}
                     custo/kg = Preço / (Densidade × 1.000)
+                  </div>
+                  <div className="p-2 rounded bg-background/60 border border-primary/30 bg-primary/5">
+                    <strong className="text-primary font-bold">
+                      Aditivo Químico:
+                    </strong>{' '}
+                    custo/L = direto em Litros (ou R$/kg × densidade)
                   </div>
                 </div>
               </div>
@@ -442,16 +461,25 @@ export default function Cadastros() {
                 {materiais.map((mat) => {
                   const dens =
                     mat.densidade != null ? Number(mat.densidade) : 1.0
-                  const unCompra = mat.unidade_compra || 'kg'
+                  const isAditivo = mat.codigo === 'aditivo'
+                  const unCompra =
+                    mat.unidade_compra || (isAditivo ? 'litros' : 'kg')
                   const precoCompra =
                     mat.preco_compra != null ? Number(mat.preco_compra) : 0
 
-                  // Custo por kg calculado
-                  const custoPorKg = ConcreteiraService.converterCustoPorKg(
-                    precoCompra,
-                    unCompra,
-                    dens,
-                  )
+                  // Custo unitário convertido conforme a unidade de consumo (L para aditivo, kg para os demais)
+                  const custoConvertido = isAditivo
+                    ? ConcreteiraService.converterCustoAditivoPorLitro(
+                        precoCompra,
+                        unCompra,
+                        dens,
+                      )
+                    : ConcreteiraService.converterCustoPorKg(
+                        precoCompra,
+                        unCompra,
+                        dens,
+                      )
+
                   // Equivalência em kg de 1 unidade de compra
                   const kgEquiv = ConcreteiraService.kgPorUnidadeCompra(
                     unCompra,
@@ -518,20 +546,24 @@ export default function Cadastros() {
                           <div className="flex justify-between border-t border-border/30 pt-1 text-primary">
                             <span>Equivalência:</span>
                             <span className="font-bold">
-                              1 {unCompra} = {kgEquiv.toLocaleString('pt-BR')}{' '}
-                              kg
+                              {isAditivo
+                                ? unCompra === 'litros'
+                                  ? '1 L = 1 Litro consumido'
+                                  : `1 ${unCompra} = ${dens.toFixed(2)} kg/L`
+                                : `1 ${unCompra} = ${kgEquiv.toLocaleString('pt-BR')} kg`}
                             </span>
                           </div>
                         </div>
 
-                        {/* Destaque Custo por kg */}
+                        {/* Destaque Custo Convertido (por L para aditivo, por kg para os demais) */}
                         <div className="mt-2.5 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/20 flex justify-between items-center text-xs">
                           <span className="text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1">
                             <DollarSign className="w-3.5 h-3.5" />
-                            Custo por kg:
+                            {isAditivo ? 'Custo por Litro:' : 'Custo por kg:'}
                           </span>
                           <span className="text-sm font-bold font-mono text-foreground">
-                            R$ {custoPorKg.toFixed(4)} / kg
+                            R$ {custoConvertido.toFixed(4)} /{' '}
+                            {isAditivo ? 'L' : 'kg'}
                           </span>
                         </div>
                       </div>
@@ -758,24 +790,37 @@ export default function Cadastros() {
                     },
                   )
 
-                  // 2. Atualizar ou refletir o custo por kg convertido na tabela precos_material do mês atual
-                  const custoPorKg = ConcreteiraService.converterCustoPorKg(
-                    Number(precoCompraMat),
-                    unidadeCompraMat,
-                    Number(densidadeMat),
-                  )
+                  // 2. Atualizar ou refletir o custo unitário convertido na tabela precos_material do mês atual
+                  const isAdt = materialEditando.codigo === 'aditivo'
+                  const custoCalculado = isAdt
+                    ? ConcreteiraService.converterCustoAditivoPorLitro(
+                        Number(precoCompraMat),
+                        unidadeCompraMat,
+                        Number(densidadeMat),
+                      )
+                    : ConcreteiraService.converterCustoPorKg(
+                        Number(precoCompraMat),
+                        unidadeCompraMat,
+                        Number(densidadeMat),
+                      )
+
+                  const unAlvo = isAdt
+                    ? 'litros'
+                    : materialEditando.unidade || 'kg'
+                  const unAlvoRotulo = isAdt ? 'L' : 'kg'
+
                   const mesAnoAtual = `${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()}`
                   await ConcreteiraService.salvarPrecoMaterial({
                     empresa_id: empresaAtiva?.id,
                     material_codigo: materialEditando.codigo,
                     mes_ano: mesAnoAtual,
-                    preco_unitario: Number(custoPorKg.toFixed(6)),
-                    unidade: materialEditando.unidade || 'kg',
+                    preco_unitario: Number(custoCalculado.toFixed(6)),
+                    unidade: unAlvo,
                   })
 
                   toast({
                     title: 'Insumo atualizado!',
-                    description: `Densidade ${densidadeMat} t/m³ e custo R$ ${custoPorKg.toFixed(4)}/kg salvos.`,
+                    description: `Densidade ${densidadeMat} e custo R$ ${custoCalculado.toFixed(4)}/${unAlvoRotulo} salvos.`,
                   })
                   setOpenMaterial(false)
                   setMaterialEditando(null)
@@ -806,8 +851,9 @@ export default function Cadastros() {
                   required
                 />
                 <span className="text-[11px] text-muted-foreground block">
-                  Padrões sugeridos: Brita 12 = 1,38 | Brita 19 = 1,44 | Areia =
-                  1,50
+                  {materialEditando?.codigo === 'aditivo'
+                    ? 'Aditivo químico padrão: 1,00 a 1,15 kg/L (usado quando a compra vier faturada em kg).'
+                    : 'Padrões sugeridos: Brita 12 = 1,38 | Brita 19 = 1,44 | Areia = 1,50 | Pó de Pedra = 1,40'}
                 </span>
               </div>
 
@@ -845,31 +891,43 @@ export default function Cadastros() {
                 />
               </div>
 
-              {/* Pré-visualização do Custo por kg */}
+              {/* Pré-visualização do Custo Convertido */}
               <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs space-y-1">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">
                     Equivalência calculada:
                   </span>
                   <span className="font-mono font-semibold">
-                    1 {unidadeCompraMat} ={' '}
-                    {ConcreteiraService.kgPorUnidadeCompra(
-                      unidadeCompraMat,
-                      densidadeMat,
-                    ).toLocaleString('pt-BR')}{' '}
-                    kg
+                    {materialEditando?.codigo === 'aditivo'
+                      ? unidadeCompraMat === 'litros'
+                        ? '1 L = 1 Litro consumido'
+                        : `1 ${unidadeCompraMat} = ${Number(densidadeMat).toFixed(2)} kg/L`
+                      : `1 ${unidadeCompraMat} = ${ConcreteiraService.kgPorUnidadeCompra(
+                          unidadeCompraMat,
+                          densidadeMat,
+                        ).toLocaleString('pt-BR')} kg`}
                   </span>
                 </div>
                 <div className="flex justify-between font-bold text-emerald-600 dark:text-emerald-400">
-                  <span>Custo convertido por kg:</span>
+                  <span>
+                    {materialEditando?.codigo === 'aditivo'
+                      ? 'Custo convertido por Litro:'
+                      : 'Custo convertido por kg:'}
+                  </span>
                   <span className="font-mono text-sm">
                     R${' '}
-                    {ConcreteiraService.converterCustoPorKg(
-                      precoCompraMat,
-                      unidadeCompraMat,
-                      densidadeMat,
-                    ).toFixed(4)}{' '}
-                    / kg
+                    {materialEditando?.codigo === 'aditivo'
+                      ? ConcreteiraService.converterCustoAditivoPorLitro(
+                          precoCompraMat,
+                          unidadeCompraMat,
+                          densidadeMat,
+                        ).toFixed(4)
+                      : ConcreteiraService.converterCustoPorKg(
+                          precoCompraMat,
+                          unidadeCompraMat,
+                          densidadeMat,
+                        ).toFixed(4)}{' '}
+                    / {materialEditando?.codigo === 'aditivo' ? 'L' : 'kg'}
                   </span>
                 </div>
               </div>
@@ -1040,7 +1098,9 @@ export default function Cadastros() {
             </DialogTitle>
             <CardDescription className="text-xs">
               Carregue ou cole o XML da NF-e para calcular automaticamente o
-              preço unitário e o custo por kg com base no volume e densidade.
+              preço unitário e o custo{' '}
+              {materialXml?.codigo === 'aditivo' ? 'por Litro' : 'por kg'} com
+              base no volume e densidade.
             </CardDescription>
           </DialogHeader>
 
@@ -1233,18 +1293,25 @@ export default function Cadastros() {
                       ? Number(materialXml.densidade)
                       : 1.0
 
-                  const custoKgCalculado =
-                    ConcreteiraService.converterCustoPorKg(
-                      precoUnitario,
-                      unDetectada,
-                      dens,
-                    )
+                  const isAdt = materialXml?.codigo === 'aditivo'
+                  const custoCalculado = isAdt
+                    ? ConcreteiraService.converterCustoAditivoPorLitro(
+                        precoUnitario,
+                        unDetectada,
+                        dens,
+                      )
+                    : ConcreteiraService.converterCustoPorKg(
+                        precoUnitario,
+                        unDetectada,
+                        dens,
+                      )
 
                   return (
                     <div className="p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 space-y-2">
                       <div className="font-semibold text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
                         <Calculator className="w-4 h-4" />
-                        Cálculo Automático de Preço e Custo por kg:
+                        Cálculo Automático de Preço e Custo{' '}
+                        {isAdt ? 'por Litro (L)' : 'por kg'}:
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
@@ -1284,17 +1351,32 @@ export default function Cadastros() {
                       {/* Destaque Conversão por Densidade */}
                       <div className="pt-2 border-t border-emerald-500/20 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 text-xs">
                         <div className="text-muted-foreground">
-                          Densidade cadastrada:{' '}
-                          <strong className="text-foreground">
-                            {dens.toFixed(2)} t/m³
-                          </strong>{' '}
-                          | Vigência:{' '}
-                          <strong className="text-foreground">
-                            {xmlParseado.mesAno}
-                          </strong>
+                          {isAdt ? (
+                            <span>
+                              {unDetectada === 'litros'
+                                ? 'Compra faturada diretamente em Litros'
+                                : `Densidade do aditivo: ${dens.toFixed(2)} kg/L`}{' '}
+                              | Vigência:{' '}
+                              <strong className="text-foreground">
+                                {xmlParseado.mesAno}
+                              </strong>
+                            </span>
+                          ) : (
+                            <span>
+                              Densidade cadastrada:{' '}
+                              <strong className="text-foreground">
+                                {dens.toFixed(2)} t/m³
+                              </strong>{' '}
+                              | Vigência:{' '}
+                              <strong className="text-foreground">
+                                {xmlParseado.mesAno}
+                              </strong>
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm font-bold font-mono text-emerald-700 dark:text-emerald-300">
-                          Custo Final: R$ {custoKgCalculado.toFixed(4)} / kg
+                          Custo Final: R$ {custoCalculado.toFixed(4)} /{' '}
+                          {isAdt ? 'L' : 'kg'}
                         </div>
                       </div>
                     </div>
