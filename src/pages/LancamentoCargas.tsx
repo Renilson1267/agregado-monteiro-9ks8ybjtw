@@ -2696,7 +2696,7 @@ export default function LancamentoCargas() {
           </DialogHeader>
 
           {osGeradaParaImpressao && empresaAtiva && (
-            <div className="mt-2 border rounded-lg p-2 bg-white text-black shadow-inner">
+            <div className="mt-2 border rounded-lg p-2 bg-white text-black shadow-inner print:border-none print:p-0 print:m-0 print:shadow-none">
               <ReciboImpressao
                 ordem={osGeradaParaImpressao}
                 empresa={empresaAtiva}

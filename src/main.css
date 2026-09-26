@@ -171,22 +171,37 @@
   opacity: 0.6 !important;
 }
 
-/* Print Styles for A4 Clean Reports */
+/* Print Styles for A4 Clean Reports and Two-Copy Work Orders */
 @media print {
   @page {
     size: A4 portrait;
-    margin: 12mm 10mm 15mm 10mm;
+    margin: 6mm 8mm 6mm 8mm;
   }
 
+  html,
   body {
     background: #ffffff !important;
-    color: #111827 !important;
-    font-size: 11pt !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-size: 10pt !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
-  /* Ocultar elementos de navegação e filtros */
+  /* Neutraliza temas dark em modo de impressão */
+  .dark {
+    --background: 0 0% 100% !important;
+    --foreground: 0 0% 0% !important;
+    --card: 0 0% 100% !important;
+    --card-foreground: 0 0% 0% !important;
+    --popover: 0 0% 100% !important;
+    --popover-foreground: 0 0% 0% !important;
+    --border: 0 0% 80% !important;
+  }
+
+  /* Ocultar elementos de navegação, botões, modais e overlays do app */
   header,
   aside,
   nav,
@@ -194,7 +209,41 @@
   button,
   [role='tablist'],
   .introjs-overlay,
-  .introjs-helperLayer {
+  .introjs-helperLayer,
+  [data-radix-portal] > [data-state]:not([role='dialog']),
+  div[data-state='open'][class*='fixed'][class*='bg-black'],
+  div[data-radix-focus-guard] {
+    display: none !important;
+  }
+
+  /* Esconde overlay escuro do dialog do Radix (shadcn DialogOverlay) */
+  [data-radix-portal] [class*='fixed'][class*='bg-black'] {
+    display: none !important;
+    background: transparent !important;
+  }
+
+  /* Quando o diálogo está aberto para impressão, resetar estilo modal para documento contínuo em folha branca */
+  [role='dialog'][data-state='open'] {
+    position: static !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Ocultar o header e footer do Dialog na impressão (manter só o recibo) */
+  [role='dialog'] > [class*='DialogHeader'],
+  [role='dialog'] > [class*='DialogFooter'],
+  [role='dialog'] > button,
+  [role='dialog'] .dialog-header-actions {
     display: none !important;
   }
 
@@ -207,23 +256,52 @@
     margin: 0 !important;
     padding: 0 !important;
     box-shadow: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
   }
 
-  /* Cabeçalho impresso visível apenas na impressão */
+  /* Seletor específico quando houver documento de recibo sendo impresso */
+  body:has(.recibo-container-impressao) {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  body:has(.recibo-container-impressao) header,
+  body:has(.recibo-container-impressao) aside,
+  body:has(.recibo-container-impressao) nav,
+  body:has(.recibo-container-impressao)
+    main
+    > *:not([role='dialog']):not(.print-only),
+  body:has(.recibo-container-impressao)
+    [role='dialog']
+    > *:not(:has(.recibo-container-impressao)) {
+    display: none !important;
+  }
+
+  /* Exibe áreas exclusivas de impressão */
   .print-only {
     display: block !important;
   }
 
-  /* Ajuste de tabelas e quebras de página */
+  /* Forçar quebra de página limpa quando solicitado */
+  .page-break-before {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  .page-break-inside-avoid {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Ajuste de tabelas genéricas */
   table {
     width: 100% !important;
     border-collapse: collapse !important;
-    page-break-inside: auto;
   }
 
   tr {
     page-break-inside: avoid;
-    page-break-after: auto;
   }
 
   thead {
@@ -234,33 +312,11 @@
     display: table-footer-group;
   }
 
-  th,
-  td {
-    padding: 4px 6px !important;
-    font-size: 9pt !important;
-    border: 1px solid #d1d5db !important;
-    color: #111827 !important;
-  }
-
-  th {
-    background-color: #f3f4f6 !important;
-    font-weight: 700 !important;
-  }
-
-  .card,
-  [class*='bg-card'],
-  [class*='bg-background'] {
-    background: transparent !important;
-    border: 1px solid #e5e7eb !important;
-    box-shadow: none !important;
-    page-break-inside: avoid;
-  }
-
-  .badge,
-  [class*='Badge'] {
-    border: 1px solid #9ca3af !important;
-    color: #111827 !important;
-    background: transparent !important;
+  /* Garantir que containers do recibo fiquem sem fundo escuro */
+  .recibo-container-impressao,
+  .recibo-container-impressao * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
 
