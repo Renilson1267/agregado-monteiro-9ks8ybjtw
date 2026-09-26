@@ -69,14 +69,14 @@ export default function LancamentoCargas() {
   const [observacao, setObservacao] = useState<string>('')
   const [cargaZerada, setCargaZerada] = useState<boolean>(false)
 
-  // Insumos calculados ou ajustados
+  // Insumos no formulário (no modo manual são DOSAGEM por m³: kg/m³ para sólidos; no automático guardam a dosagem base)
   const [brita12, setBrita12] = useState<number>(0)
   const [brita19, setBrita19] = useState<number>(0)
   const [areia, setAreia] = useState<number>(0)
   const [poPedra, setPoPedra] = useState<number>(0)
   const [cimento, setCimento] = useState<number>(0)
   const [aditivo, setAditivo] = useState<number>(0)
-  // Fator de dosagem para cálculo do aditivo no modo manual: aditivo = cimento (kg) × volume (m³) × fator
+  // Fator de dosagem para cálculo do aditivo no modo manual: aditivo (L) = cimento (kg/m³) × volume (m³) × fator
   const [fatorAditivoManual, setFatorAditivoManual] = useState<number>(0.001)
 
   useEffect(() => {
@@ -109,54 +109,48 @@ export default function LancamentoCargas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaAtiva?.id])
 
-  // Função utilitária para aplicar cálculo do traço aos insumos
-  const aplicarCalculoTraco = (tracoId: string, vol: number) => {
+  // Função utilitária para aplicar dosagem base do traço aos campos
+  const aplicarDosagemTraco = (tracoId: string, vol: number) => {
     const traco = tracos.find((t) => t.id === tracoId)
-    if (traco && vol > 0) {
-      const cimentoTotal = Math.round(Number(traco.consumo_cimento) * vol)
-      setBrita12(Math.round(Number(traco.consumo_brita12) * vol))
-      setBrita19(Math.round(Number(traco.consumo_brita19) * vol))
-      setAreia(Math.round(Number(traco.consumo_areia) * vol))
-      setPoPedra(Math.round(Number(traco.consumo_po_pedra) * vol))
-      setCimento(cimentoTotal)
+    if (traco) {
+      const cimentoDosagem = Number(traco.consumo_cimento) || 0
+      setBrita12(Number(traco.consumo_brita12) || 0)
+      setBrita19(Number(traco.consumo_brita19) || 0)
+      setAreia(Number(traco.consumo_areia) || 0)
+      setPoPedra(Number(traco.consumo_po_pedra) || 0)
+      setCimento(cimentoDosagem)
 
-      // Se for modo manual, calcula o aditivo pela fórmula: cimento (kg) * volume (m³) * fator
       if (modoDosagem === 'manual') {
+        // No modo manual: aditivo (L) = cimento (kg/m³) × volume (m³) × fator
         const adtCalc = Number(
-          (cimentoTotal * vol * (fatorAditivoManual || 0.001)).toFixed(2),
+          (cimentoDosagem * vol * (fatorAditivoManual || 0.001)).toFixed(2),
         )
         setAditivo(adtCalc)
       } else {
-        setAditivo(Number((Number(traco.consumo_aditivo) * vol).toFixed(2)))
+        setAditivo(Number(traco.consumo_aditivo) || 0)
       }
     }
   }
 
-  // Recalcular insumos automaticamente no modo automático, ou o aditivo no modo manual
+  // Sincronizar dosagens do traço quando no modo automático ou recalcular aditivo no modo manual
   useEffect(() => {
     if (cargaZerada) {
-      setBrita12(0)
-      setBrita19(0)
-      setAreia(0)
-      setPoPedra(0)
-      setCimento(0)
-      setAditivo(0)
       return
     }
 
     if (modoDosagem === 'automatico') {
       const traco = tracos.find((t) => t.id === tracoSelecionadoId)
-      if (traco && volume > 0) {
-        setBrita12(Math.round(Number(traco.consumo_brita12) * volume))
-        setBrita19(Math.round(Number(traco.consumo_brita19) * volume))
-        setAreia(Math.round(Number(traco.consumo_areia) * volume))
-        setPoPedra(Math.round(Number(traco.consumo_po_pedra) * volume))
-        setCimento(Math.round(Number(traco.consumo_cimento) * volume))
-        setAditivo(Number((Number(traco.consumo_aditivo) * volume).toFixed(2)))
+      if (traco) {
+        setBrita12(Number(traco.consumo_brita12) || 0)
+        setBrita19(Number(traco.consumo_brita19) || 0)
+        setAreia(Number(traco.consumo_areia) || 0)
+        setPoPedra(Number(traco.consumo_po_pedra) || 0)
+        setCimento(Number(traco.consumo_cimento) || 0)
+        setAditivo(Number(traco.consumo_aditivo) || 0)
       }
     } else {
       // Modo manual: aditivo é estritamente calculado pela fórmula
-      // aditivo = cimento (kg) * volume (m³) * fatorAditivoManual
+      // aditivo (L) = cimento digitado (kg/m³) × volume (m³) × fatorAditivoManual
       const adtCalc = Number(
         (cimento * volume * (fatorAditivoManual || 0)).toFixed(2),
       )
@@ -176,32 +170,63 @@ export default function LancamentoCargas() {
   const handleTrocaModo = (novoModo: 'automatico' | 'manual') => {
     setModoDosagem(novoModo)
     if (novoModo === 'manual' && !cargaZerada) {
-      // Determinar um fator sugerido coerente com o traço atual se existir
+      // Determinar um fator sugerido coerente com o traço atual se existir:
+      // aditivo_por_m3 = consumo_cimento * fator  =>  fator = aditivo_por_m3 / consumo_cimento
       const traco = tracos.find((t) => t.id === tracoSelecionadoId)
-      if (traco && Number(traco.consumo_cimento) > 0 && volume > 0) {
+      if (traco && Number(traco.consumo_cimento) > 0) {
         const fatorSugerido =
-          Number(traco.consumo_aditivo) /
-          (Number(traco.consumo_cimento) * volume)
-        // Se bater próximo de opções conhecidas, adota ou mantém o selecionado
-        if (fatorSugerido > 0.0003 && fatorSugerido < 0.005) {
+          Number(traco.consumo_aditivo) / Number(traco.consumo_cimento)
+        // Se bater próximo de opções conhecidas, adota
+        if (fatorSugerido >= 0.0003 && fatorSugerido <= 0.005) {
           setFatorAditivoManual(Number(fatorSugerido.toFixed(4)))
         }
       }
-      aplicarCalculoTraco(tracoSelecionadoId, volume)
+      aplicarDosagemTraco(tracoSelecionadoId, volume)
     } else if (novoModo === 'automatico' && !cargaZerada) {
-      aplicarCalculoTraco(tracoSelecionadoId, volume)
+      aplicarDosagemTraco(tracoSelecionadoId, volume)
     }
   }
 
   const handleResetarParaTraco = () => {
     if (tracoSelecionadoId) {
-      aplicarCalculoTraco(tracoSelecionadoId, volume)
+      aplicarDosagemTraco(tracoSelecionadoId, volume)
       toast({
-        title: 'Valores redefinidos',
+        title: 'Dosagem restaurada',
         description:
-          'Os insumos foram recalculados com base no traço selecionado.',
+          'Os valores de dosagem (kg/m³) foram restaurados com base no traço selecionado.',
       })
     }
+  }
+
+  // Consumos REAIS da carga (multiplicados pelo volume):
+  // No modo manual: o operador digita dosagem em kg/m³ e o aditivo já foi calculado como total (L).
+  // Portanto: consumo real = dosagem (kg/m³) × volume (m³).
+  // No modo automático: os campos do traço são dosagens por m³, multiplicados pelo volume.
+  const consumoReal = {
+    cimento:
+      modoDosagem === 'manual'
+        ? Math.round(cimento * volume)
+        : Math.round(cimento * volume),
+    areia:
+      modoDosagem === 'manual'
+        ? Math.round(areia * volume)
+        : Math.round(areia * volume),
+    brita12:
+      modoDosagem === 'manual'
+        ? Math.round(brita12 * volume)
+        : Math.round(brita12 * volume),
+    brita19:
+      modoDosagem === 'manual'
+        ? Math.round(brita19 * volume)
+        : Math.round(brita19 * volume),
+    poPedra:
+      modoDosagem === 'manual'
+        ? Math.round(poPedra * volume)
+        : Math.round(poPedra * volume),
+    aditivo:
+      modoDosagem === 'manual'
+        ? Number(aditivo.toFixed(2))
+        : Number((aditivo * volume).toFixed(2)),
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -224,15 +249,15 @@ export default function LancamentoCargas() {
       return
     }
 
-    // Validação no modo manual: se não for carga zerada, exigir pelo menos um insumo > 0
+    // Validação no modo manual: se não for carga zerada, exigir pelo menos um insumo com dosagem > 0
     if (modoDosagem === 'manual' && !cargaZerada) {
-      const somaInsumos =
+      const somaDosagens =
         brita12 + brita19 + areia + poPedra + cimento + aditivo
-      if (somaInsumos <= 0) {
+      if (somaDosagens <= 0) {
         toast({
           title: 'Insumos não informados',
           description:
-            'No modo manual, informe a quantidade de pelo menos um dos insumos ou marque a carga como cancelada/zerada.',
+            'No modo manual, informe a dosagem (kg/m³) de pelo menos um dos insumos ou marque a carga como cancelada/zerada.',
           variant: 'destructive',
         })
         return
@@ -258,12 +283,12 @@ export default function LancamentoCargas() {
         motorista_nome: motoristaNome || undefined,
         veiculo_placa: veiculoPlaca || undefined,
         cidade_nome: cidadeNome || undefined,
-        consumo_brita12: brita12,
-        consumo_brita19: brita19,
-        consumo_areia: areia,
-        consumo_po_pedra: poPedra,
-        consumo_cimento: cimento,
-        consumo_aditivo: aditivo,
+        consumo_brita12: consumoReal.brita12,
+        consumo_brita19: consumoReal.brita19,
+        consumo_areia: consumoReal.areia,
+        consumo_po_pedra: consumoReal.poPedra,
+        consumo_cimento: consumoReal.cimento,
+        consumo_aditivo: consumoReal.aditivo,
         observacao: observacao
           ? modoDosagem === 'manual'
             ? `[Modo Manual] ${observacao}`
@@ -296,7 +321,7 @@ export default function LancamentoCargas() {
 
   const tracoAtual = tracos.find((t) => t.id === tracoSelecionadoId)
 
-  // Estimativa de custo da carga a ser lançada
+  // Estimativa de custo da carga a ser lançada (usando o consumo REAL multiplicado)
   const custoEstimado = cargaZerada
     ? { total: 0, custoPorM3: 0 }
     : ConcreteiraService.calcularCustoCarga(
@@ -313,12 +338,12 @@ export default function LancamentoCargas() {
           veiculo_placa: null,
           cidade_id: null,
           cidade_nome: null,
-          consumo_brita12: brita12,
-          consumo_brita19: brita19,
-          consumo_areia: areia,
-          consumo_po_pedra: poPedra,
-          consumo_cimento: cimento,
-          consumo_aditivo: aditivo,
+          consumo_brita12: consumoReal.brita12,
+          consumo_brita19: consumoReal.brita19,
+          consumo_areia: consumoReal.areia,
+          consumo_po_pedra: consumoReal.poPedra,
+          consumo_cimento: consumoReal.cimento,
+          consumo_aditivo: consumoReal.aditivo,
           observacao: null,
           carga_zerada: false,
         },
@@ -417,7 +442,7 @@ export default function LancamentoCargas() {
                   onValueChange={(val) => {
                     setTracoSelecionadoId(val)
                     if (modoDosagem === 'manual') {
-                      aplicarCalculoTraco(val, volume)
+                      aplicarDosagemTraco(val, volume)
                     }
                   }}
                   disabled={cargaZerada}
@@ -470,8 +495,8 @@ export default function LancamentoCargas() {
                 </CardTitle>
                 <CardDescription className="text-xs mt-1">
                   {modoDosagem === 'automatico'
-                    ? `Valores calculados automaticamente pelo traço (multiplicados por ${volume} m³). Baixa de estoque ocorre apenas para Cimento e Aditivo.`
-                    : `Modo manual ativo: lance o volume em m³ e os insumos em kg. O aditivo é calculado pela fórmula [cimento × m³ × fator].`}
+                    ? `Dosagem base do traço por m³ multiplicada pelo volume (${volume} m³). Baixa de estoque apenas para Cimento e Aditivo.`
+                    : `Modo manual ativo: informe a dosagem de cada insumo em kg/m³. O consumo gravado e os custos são multiplicados automaticamente pelo volume (${volume} m³).`}
                 </CardDescription>
               </div>
 
@@ -512,13 +537,16 @@ export default function LancamentoCargas() {
                 <div className="flex items-start sm:items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
                   <Edit3 className="w-4 h-4 shrink-0 mt-0.5 sm:mt-0" />
                   <span>
-                    <strong>Ambiente Integrado:</strong> Lance o{' '}
-                    <strong>Volume (m³)</strong> e os insumos pesados em{' '}
-                    <strong>kg</strong> diretamente aqui. O{' '}
-                    <strong>Aditivo</strong> é calculado automaticamente pela
-                    fórmula:{' '}
+                    <strong>Dosagem por m³:</strong> Digite a dosagem de cada
+                    insumo em <strong>kg/m³</strong>. O consumo real da carga é
+                    calculado como{' '}
                     <code className="px-1 py-0.5 rounded bg-blue-500/20 font-mono font-semibold">
-                      cimento (kg) × volume (m³) × fator
+                      dosagem (kg/m³) × {volume} m³
+                    </code>
+                    . O <strong>Aditivo</strong> é calculado como{' '}
+                    <code className="px-1 py-0.5 rounded bg-blue-500/20 font-mono font-semibold">
+                      cimento ({cimento} kg/m³) × volume ({volume} m³) × fator (
+                      {fatorAditivoManual}) = {aditivo} L
                     </code>
                     .
                   </span>
@@ -553,7 +581,7 @@ export default function LancamentoCargas() {
                   </Label>
                   <span className="text-[11px] text-muted-foreground">
                     {modoDosagem === 'manual'
-                      ? 'Multiplicador direto usado no cálculo do aditivo e nos custos'
+                      ? 'Multiplicador aplicado às dosagens (kg/m³) para obter o consumo total real, aditivo e custos'
                       : 'Volume em metros cúbicos multiplicado pelos insumos do traço'}
                   </span>
                 </div>
@@ -594,7 +622,7 @@ export default function LancamentoCargas() {
                   </span>
                   <span className="text-[11px] text-muted-foreground">
                     {modoDosagem === 'manual'
-                      ? 'Simulação em tempo real baseada nos insumos manuais e aditivo calculado'
+                      ? `Calculado sobre o consumo real da carga (${volume} m³ × dosagem)`
                       : 'Calculado com base na tabela de preços unitários vigente na data'}
                   </span>
                 </div>
@@ -628,7 +656,9 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground flex items-center gap-1">
-                    Cimento (kg)
+                    {modoDosagem === 'manual'
+                      ? 'Cimento (kg/m³)'
+                      : 'Cimento (kg)'}
                     <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal">
                       Estoque
                     </span>
@@ -640,9 +670,7 @@ export default function LancamentoCargas() {
                   )}
                   {tracoAtual && modoDosagem === 'manual' && (
                     <span className="text-[10px] text-muted-foreground">
-                      Traço:{' '}
-                      {Math.round(Number(tracoAtual.consumo_cimento) * volume)}{' '}
-                      kg
+                      Traço: {tracoAtual.consumo_cimento} kg/m³
                     </span>
                   )}
                 </Label>
@@ -661,17 +689,25 @@ export default function LancamentoCargas() {
                       setCimento(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
-                    className={`font-mono font-semibold pr-9 ${
+                    className={`font-mono font-semibold ${
                       modoDosagem === 'manual'
-                        ? 'bg-background border-primary/40 focus-visible:ring-primary'
-                        : ''
+                        ? 'bg-background border-primary/40 focus-visible:ring-primary pr-14'
+                        : 'pr-9'
                     }`}
                     placeholder="0"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                    kg
+                    {modoDosagem === 'manual' ? 'kg/m³' : 'kg'}
                   </span>
                 </div>
+                {modoDosagem === 'manual' && (
+                  <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
+                    <span>Total da carga:</span>
+                    <span className="font-semibold text-foreground">
+                      {consumoReal.cimento.toLocaleString('pt-BR')} kg
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Aditivo: CALCULADO NO MODO MANUAL */}
@@ -705,7 +741,7 @@ export default function LancamentoCargas() {
                   {tracoAtual && modoDosagem === 'manual' && (
                     <span className="text-[10px] text-muted-foreground">
                       Traço:{' '}
-                      {(Number(tracoAtual.consumo_aditivo) * volume).toFixed(1)}{' '}
+                      {(Number(tracoAtual.consumo_aditivo) * volume).toFixed(2)}{' '}
                       L
                     </span>
                   )}
@@ -796,8 +832,8 @@ export default function LancamentoCargas() {
                       />
                     </div>
                     <div className="text-[10px] text-muted-foreground leading-tight">
-                      Fórmula: {cimento} kg × {volume} m³ × {fatorAditivoManual}{' '}
-                      ={' '}
+                      Fórmula: {cimento} kg/m³ × {volume} m³ ×{' '}
+                      {fatorAditivoManual} ={' '}
                       <span className="font-semibold text-foreground">
                         {aditivo} L
                       </span>
@@ -810,7 +846,7 @@ export default function LancamentoCargas() {
                       type="number"
                       min="0"
                       step="0.05"
-                      value={aditivo}
+                      value={consumoReal.aditivo}
                       disabled
                       className="font-mono font-semibold pr-8 bg-muted/40 cursor-not-allowed"
                       placeholder="0.0"
@@ -835,7 +871,7 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground">
-                    Areia (kg)
+                    {modoDosagem === 'manual' ? 'Areia (kg/m³)' : 'Areia (kg)'}
                   </span>
                   {tracoAtual && modoDosagem === 'automatico' && (
                     <span className="text-[10px]">
@@ -844,8 +880,7 @@ export default function LancamentoCargas() {
                   )}
                   {tracoAtual && modoDosagem === 'manual' && (
                     <span className="text-[10px] text-muted-foreground">
-                      Traço:{' '}
-                      {Math.round(Number(tracoAtual.consumo_areia) * volume)} kg
+                      Traço: {tracoAtual.consumo_areia} kg/m³
                     </span>
                   )}
                 </Label>
@@ -862,17 +897,25 @@ export default function LancamentoCargas() {
                       setAreia(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
-                    className={`font-mono font-semibold pr-9 ${
+                    className={`font-mono font-semibold ${
                       modoDosagem === 'manual'
-                        ? 'bg-background border-primary/40 focus-visible:ring-primary'
-                        : ''
+                        ? 'bg-background border-primary/40 focus-visible:ring-primary pr-14'
+                        : 'pr-9'
                     }`}
                     placeholder="0"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                    kg
+                    {modoDosagem === 'manual' ? 'kg/m³' : 'kg'}
                   </span>
                 </div>
+                {modoDosagem === 'manual' && (
+                  <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
+                    <span>Total da carga:</span>
+                    <span className="font-semibold text-foreground">
+                      {consumoReal.areia.toLocaleString('pt-BR')} kg
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Brita 12 */}
@@ -888,7 +931,9 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground">
-                    Brita 12 (kg)
+                    {modoDosagem === 'manual'
+                      ? 'Brita 12 (kg/m³)'
+                      : 'Brita 12 (kg)'}
                   </span>
                   {tracoAtual && modoDosagem === 'automatico' && (
                     <span className="text-[10px]">
@@ -897,9 +942,7 @@ export default function LancamentoCargas() {
                   )}
                   {tracoAtual && modoDosagem === 'manual' && (
                     <span className="text-[10px] text-muted-foreground">
-                      Traço:{' '}
-                      {Math.round(Number(tracoAtual.consumo_brita12) * volume)}{' '}
-                      kg
+                      Traço: {tracoAtual.consumo_brita12} kg/m³
                     </span>
                   )}
                 </Label>
@@ -918,17 +961,25 @@ export default function LancamentoCargas() {
                       setBrita12(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
-                    className={`font-mono font-semibold pr-9 ${
+                    className={`font-mono font-semibold ${
                       modoDosagem === 'manual'
-                        ? 'bg-background border-primary/40 focus-visible:ring-primary'
-                        : ''
+                        ? 'bg-background border-primary/40 focus-visible:ring-primary pr-14'
+                        : 'pr-9'
                     }`}
                     placeholder="0"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                    kg
+                    {modoDosagem === 'manual' ? 'kg/m³' : 'kg'}
                   </span>
                 </div>
+                {modoDosagem === 'manual' && (
+                  <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
+                    <span>Total da carga:</span>
+                    <span className="font-semibold text-foreground">
+                      {consumoReal.brita12.toLocaleString('pt-BR')} kg
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Brita 19 */}
@@ -944,7 +995,9 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground">
-                    Brita 19 (kg)
+                    {modoDosagem === 'manual'
+                      ? 'Brita 19 (kg/m³)'
+                      : 'Brita 19 (kg)'}
                   </span>
                   {tracoAtual && modoDosagem === 'automatico' && (
                     <span className="text-[10px]">
@@ -953,9 +1006,7 @@ export default function LancamentoCargas() {
                   )}
                   {tracoAtual && modoDosagem === 'manual' && (
                     <span className="text-[10px] text-muted-foreground">
-                      Traço:{' '}
-                      {Math.round(Number(tracoAtual.consumo_brita19) * volume)}{' '}
-                      kg
+                      Traço: {tracoAtual.consumo_brita19} kg/m³
                     </span>
                   )}
                 </Label>
@@ -974,17 +1025,25 @@ export default function LancamentoCargas() {
                       setBrita19(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
-                    className={`font-mono font-semibold pr-9 ${
+                    className={`font-mono font-semibold ${
                       modoDosagem === 'manual'
-                        ? 'bg-background border-primary/40 focus-visible:ring-primary'
-                        : ''
+                        ? 'bg-background border-primary/40 focus-visible:ring-primary pr-14'
+                        : 'pr-9'
                     }`}
                     placeholder="0"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                    kg
+                    {modoDosagem === 'manual' ? 'kg/m³' : 'kg'}
                   </span>
                 </div>
+                {modoDosagem === 'manual' && (
+                  <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
+                    <span>Total da carga:</span>
+                    <span className="font-semibold text-foreground">
+                      {consumoReal.brita19.toLocaleString('pt-BR')} kg
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Pó de Pedra */}
@@ -1000,7 +1059,9 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground">
-                    Pó de Pedra (kg)
+                    {modoDosagem === 'manual'
+                      ? 'Pó de Pedra (kg/m³)'
+                      : 'Pó de Pedra (kg)'}
                   </span>
                   {tracoAtual && modoDosagem === 'automatico' && (
                     <span className="text-[10px]">
@@ -1009,9 +1070,7 @@ export default function LancamentoCargas() {
                   )}
                   {tracoAtual && modoDosagem === 'manual' && (
                     <span className="text-[10px] text-muted-foreground">
-                      Traço:{' '}
-                      {Math.round(Number(tracoAtual.consumo_po_pedra) * volume)}{' '}
-                      kg
+                      Traço: {tracoAtual.consumo_po_pedra} kg/m³
                     </span>
                   )}
                 </Label>
@@ -1030,17 +1089,25 @@ export default function LancamentoCargas() {
                       setPoPedra(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
-                    className={`font-mono font-semibold pr-9 ${
+                    className={`font-mono font-semibold ${
                       modoDosagem === 'manual'
-                        ? 'bg-background border-primary/40 focus-visible:ring-primary'
-                        : ''
+                        ? 'bg-background border-primary/40 focus-visible:ring-primary pr-14'
+                        : 'pr-9'
                     }`}
                     placeholder="0"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                    kg
+                    {modoDosagem === 'manual' ? 'kg/m³' : 'kg'}
                   </span>
                 </div>
+                {modoDosagem === 'manual' && (
+                  <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
+                    <span>Total da carga:</span>
+                    <span className="font-semibold text-foreground">
+                      {consumoReal.poPedra.toLocaleString('pt-BR')} kg
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
