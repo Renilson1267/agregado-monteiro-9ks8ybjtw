@@ -1,5 +1,14 @@
+export interface Empresa {
+  id: string
+  nome: string
+  slug: string
+  ativo: boolean
+  created_at?: string
+}
+
 export interface Material {
   id: string
+  empresa_id?: string
   codigo: string
   nome: string
   unidade: string
@@ -11,6 +20,7 @@ export interface Material {
 
 export interface Traco {
   id: string
+  empresa_id?: string
   nome: string
   descricao: string | null
   fck_mpa: number | null
@@ -26,6 +36,7 @@ export interface Traco {
 
 export interface Motorista {
   id: string
+  empresa_id?: string
   nome: string
   ativo: boolean
   created_at?: string
@@ -33,6 +44,7 @@ export interface Motorista {
 
 export interface Veiculo {
   id: string
+  empresa_id?: string
   placa: string
   modelo: string | null
   ativo: boolean
@@ -41,6 +53,7 @@ export interface Veiculo {
 
 export interface Cidade {
   id: string
+  empresa_id?: string
   nome: string
   uf: string
   created_at?: string
@@ -48,6 +61,7 @@ export interface Cidade {
 
 export interface Carga {
   id: string
+  empresa_id?: string
   numero_carga: number
   data: string
   volume_m3: number
@@ -72,6 +86,7 @@ export interface Carga {
 
 export interface MovimentacaoEstoque {
   id: string
+  empresa_id?: string
   material_id: string
   tipo: 'ENTRADA' | 'SAIDA' | 'ABERTURA' | 'AJUSTE'
   quantidade: number
@@ -81,6 +96,16 @@ export interface MovimentacaoEstoque {
   observacao: string | null
   created_at?: string
   material?: Material
+}
+
+export interface PrecoMaterial {
+  id: string
+  empresa_id: string
+  material_codigo: string
+  mes_ano: string
+  preco_unitario: number
+  unidade: string
+  created_at?: string
 }
 
 export interface DashboardKPIs {

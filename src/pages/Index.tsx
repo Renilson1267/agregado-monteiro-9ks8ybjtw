@@ -9,6 +9,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConcreteiraService } from '@/services/concreteira'
+import { useEmpresa } from '@/hooks/use-empresa'
 import type { Material, Carga } from '@/types/concreteira'
 import {
   TrendingUp,
@@ -36,16 +37,18 @@ import {
 import { Link } from 'react-router-dom'
 
 export default function Index() {
+  const { empresaAtiva } = useEmpresa()
   const [materiais, setMateriais] = useState<Material[]>([])
   const [cargas, setCargas] = useState<Carga[]>([])
   const [loading, setLoading] = useState(true)
 
   const carregarDados = async () => {
+    if (!empresaAtiva) return
     setLoading(true)
     try {
       const [mats, crgs] = await Promise.all([
-        ConcreteiraService.getMateriais(),
-        ConcreteiraService.getCargas(),
+        ConcreteiraService.getMateriais(empresaAtiva.id),
+        ConcreteiraService.getCargas({ empresaId: empresaAtiva.id }),
       ])
       setMateriais(mats)
       setCargas(crgs)
@@ -57,8 +60,11 @@ export default function Index() {
   }
 
   useEffect(() => {
-    carregarDados()
-  }, [])
+    if (empresaAtiva) {
+      carregarDados()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaAtiva?.id])
 
   // Cálculos de KPIs
   // Consideramos data de referência a data mais recente no banco (para exibir dados expressivos se for histórico) ou hoje
@@ -213,17 +219,17 @@ export default function Index() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border/40 pb-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <span>Usina Monteiro</span>
+            <span>Usina {empresaAtiva?.nome || 'Concreteira'}</span>
             <Badge
               variant="outline"
               className="text-xs bg-primary/10 text-primary border-primary/30"
             >
-              Controle Operacional
+              Unidade {empresaAtiva?.slug?.toUpperCase() || 'ATIVA'}
             </Badge>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Acompanhamento diário de produção, expedição de cargas e saldo de
-            estoques
+            estoques da unidade {empresaAtiva?.nome || ''}
           </p>
         </div>
         <div className="flex items-center gap-3">

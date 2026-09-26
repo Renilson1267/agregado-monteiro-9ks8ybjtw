@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ConcreteiraService } from '@/services/concreteira'
+import { useEmpresa } from '@/hooks/use-empresa'
 import type { Material, MovimentacaoEstoque } from '@/types/concreteira'
 import {
   Boxes,
@@ -41,6 +42,7 @@ import {
 import { toast } from '@/hooks/use-toast'
 
 export default function Estoque() {
+  const { empresaAtiva } = useEmpresa()
   const [materiais, setMateriais] = useState<Material[]>([])
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([])
   const [filtroMaterial, setFiltroMaterial] = useState<string>('ALL')
@@ -66,11 +68,12 @@ export default function Estoque() {
   const [salvandoMinimo, setSalvandoMinimo] = useState(false)
 
   const carregarDados = async () => {
+    if (!empresaAtiva) return
     setLoading(true)
     try {
       const [mats, movs] = await Promise.all([
-        ConcreteiraService.getMateriais(),
-        ConcreteiraService.getMovimentacoes(filtroMaterial),
+        ConcreteiraService.getMateriais(empresaAtiva.id),
+        ConcreteiraService.getMovimentacoes(filtroMaterial, empresaAtiva.id),
       ])
       setMateriais(mats)
       setMovimentacoes(movs)
@@ -90,9 +93,11 @@ export default function Estoque() {
   }
 
   useEffect(() => {
-    carregarDados()
+    if (empresaAtiva) {
+      carregarDados()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroMaterial])
+  }, [filtroMaterial, empresaAtiva?.id])
 
   const handleSalvarEntrada = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -108,6 +113,7 @@ export default function Estoque() {
     setSalvandoEntrada(true)
     try {
       await ConcreteiraService.registrarEntradaEstoque({
+        empresa_id: empresaAtiva?.id,
         material_id: materialEntradaId,
         quantidade: quantidadeEntrada,
         data: dataEntrada,
@@ -170,10 +176,15 @@ export default function Estoque() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <Boxes className="w-6 h-6 text-primary" />
             Gestão de Estoque e Almoxarifado
+            {empresaAtiva && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-normal">
+                {empresaAtiva.nome}
+              </span>
+            )}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Acompanhe o saldo dos silos, caixas de brita/areia e registre notas
-            de reposição
+            de reposição da unidade {empresaAtiva?.nome || ''}
           </p>
         </div>
 

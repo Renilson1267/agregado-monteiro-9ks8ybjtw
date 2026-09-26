@@ -11,17 +11,28 @@ import type {
 
 export const ConcreteiraService = {
   // Materiais e Estoque
-  async getMateriais(): Promise<Material[]> {
-    const { data: materiais, error: matErr } = await (supabase as any)
+  async getMateriais(empresaId?: string): Promise<Material[]> {
+    let queryMat = (supabase as any)
       .from('materiais')
       .select('*')
       .order('ordem', { ascending: true })
 
+    if (empresaId) {
+      queryMat = queryMat.eq('empresa_id', empresaId)
+    }
+
+    const { data: materiais, error: matErr } = await queryMat
     if (matErr) throw matErr
 
-    const { data: movs, error: movErr } = await (supabase as any)
+    let queryMov = (supabase as any)
       .from('movimentacoes_estoque')
       .select('material_id, tipo, quantidade')
+
+    if (empresaId) {
+      queryMov = queryMov.eq('empresa_id', empresaId)
+    }
+
+    const { data: movs, error: movErr } = await queryMov
 
     if (movErr) throw movErr
 
@@ -54,12 +65,19 @@ export const ConcreteiraService = {
     return data
   },
 
-  async getMovimentacoes(materialId?: string): Promise<MovimentacaoEstoque[]> {
+  async getMovimentacoes(
+    materialId?: string,
+    empresaId?: string,
+  ): Promise<MovimentacaoEstoque[]> {
     let query = (supabase as any)
       .from('movimentacoes_estoque')
       .select('*, material:materiais(*)')
       .order('created_at', { ascending: false })
-      .limit(150)
+      .limit(200)
+
+    if (empresaId) {
+      query = query.eq('empresa_id', empresaId)
+    }
 
     if (materialId && materialId !== 'ALL') {
       query = query.eq('material_id', materialId)
@@ -71,6 +89,7 @@ export const ConcreteiraService = {
   },
 
   async registrarEntradaEstoque(payload: {
+    empresa_id?: string
     material_id: string
     quantidade: number
     data: string
@@ -80,6 +99,7 @@ export const ConcreteiraService = {
     const { data, error } = await (supabase as any)
       .from('movimentacoes_estoque')
       .insert({
+        empresa_id: payload.empresa_id || null,
         material_id: payload.material_id,
         tipo: 'ENTRADA',
         quantidade: payload.quantidade,
@@ -95,16 +115,22 @@ export const ConcreteiraService = {
   },
 
   // Traços
-  async getTracos(): Promise<Traco[]> {
-    const { data, error } = await (supabase as any)
+  async getTracos(empresaId?: string): Promise<Traco[]> {
+    let query = (supabase as any)
       .from('tracos')
       .select('*')
       .order('nome', { ascending: true })
+
+    if (empresaId) {
+      query = query.eq('empresa_id', empresaId)
+    }
+
+    const { data, error } = await query
     if (error) throw error
     return data || []
   },
 
-  async salvarTraco(traco: Partial<Traco>) {
+  async salvarTraco(traco: Partial<Traco>, empresaId?: string) {
     if (traco.id) {
       const { data, error } = await (supabase as any)
         .from('tracos')
@@ -119,6 +145,7 @@ export const ConcreteiraService = {
           consumo_cimento: traco.consumo_cimento,
           consumo_aditivo: traco.consumo_aditivo,
           ativo: traco.ativo ?? true,
+          ...(empresaId ? { empresa_id: empresaId } : {}),
         })
         .eq('id', traco.id)
         .select()
@@ -129,6 +156,7 @@ export const ConcreteiraService = {
       const { data, error } = await (supabase as any)
         .from('tracos')
         .insert({
+          empresa_id: empresaId || traco.empresa_id || null,
           nome: traco.nome,
           descricao: traco.descricao,
           fck_mpa: traco.fck_mpa,
@@ -148,20 +176,32 @@ export const ConcreteiraService = {
   },
 
   // Cadastros
-  async getMotoristas(): Promise<Motorista[]> {
-    const { data, error } = await (supabase as any)
-      .from('motoristas')
-      .select('*')
-      .order('nome')
+  async getMotoristas(empresaId?: string): Promise<Motorista[]> {
+    let query = (supabase as any).from('motoristas').select('*').order('nome')
+
+    if (empresaId) {
+      query = query.eq('empresa_id', empresaId)
+    }
+
+    const { data, error } = await query
     if (error) throw error
     return data || []
   },
 
-  async salvarMotorista(nome: string, ativo = true, id?: string) {
+  async salvarMotorista(
+    nome: string,
+    ativo = true,
+    id?: string,
+    empresaId?: string,
+  ) {
     if (id) {
       const { data, error } = await (supabase as any)
         .from('motoristas')
-        .update({ nome, ativo })
+        .update({
+          nome,
+          ativo,
+          ...(empresaId ? { empresa_id: empresaId } : {}),
+        })
         .eq('id', id)
         .select()
         .single()
@@ -170,18 +210,21 @@ export const ConcreteiraService = {
     }
     const { data, error } = await (supabase as any)
       .from('motoristas')
-      .insert({ nome, ativo })
+      .insert({ nome, ativo, empresa_id: empresaId || null })
       .select()
       .single()
     if (error) throw error
     return data
   },
 
-  async getVeiculos(): Promise<Veiculo[]> {
-    const { data, error } = await (supabase as any)
-      .from('veiculos')
-      .select('*')
-      .order('placa')
+  async getVeiculos(empresaId?: string): Promise<Veiculo[]> {
+    let query = (supabase as any).from('veiculos').select('*').order('placa')
+
+    if (empresaId) {
+      query = query.eq('empresa_id', empresaId)
+    }
+
+    const { data, error } = await query
     if (error) throw error
     return data || []
   },
@@ -191,11 +234,17 @@ export const ConcreteiraService = {
     modelo?: string,
     ativo = true,
     id?: string,
+    empresaId?: string,
   ) {
     if (id) {
       const { data, error } = await (supabase as any)
         .from('veiculos')
-        .update({ placa, modelo, ativo })
+        .update({
+          placa,
+          modelo,
+          ativo,
+          ...(empresaId ? { empresa_id: empresaId } : {}),
+        })
         .eq('id', id)
         .select()
         .single()
@@ -204,27 +253,30 @@ export const ConcreteiraService = {
     }
     const { data, error } = await (supabase as any)
       .from('veiculos')
-      .insert({ placa, modelo, ativo })
+      .insert({ placa, modelo, ativo, empresa_id: empresaId || null })
       .select()
       .single()
     if (error) throw error
     return data
   },
 
-  async getCidades(): Promise<Cidade[]> {
-    const { data, error } = await (supabase as any)
-      .from('cidades')
-      .select('*')
-      .order('nome')
+  async getCidades(empresaId?: string): Promise<Cidade[]> {
+    let query = (supabase as any).from('cidades').select('*').order('nome')
+
+    if (empresaId) {
+      query = query.eq('empresa_id', empresaId)
+    }
+
+    const { data, error } = await query
     if (error) throw error
     return data || []
   },
 
-  async salvarCidade(nome: string, uf = 'PB', id?: string) {
+  async salvarCidade(nome: string, uf = 'PB', id?: string, empresaId?: string) {
     if (id) {
       const { data, error } = await (supabase as any)
         .from('cidades')
-        .update({ nome, uf })
+        .update({ nome, uf, ...(empresaId ? { empresa_id: empresaId } : {}) })
         .eq('id', id)
         .select()
         .single()
@@ -233,7 +285,7 @@ export const ConcreteiraService = {
     }
     const { data, error } = await (supabase as any)
       .from('cidades')
-      .insert({ nome, uf })
+      .insert({ nome, uf, empresa_id: empresaId || null })
       .select()
       .single()
     if (error) throw error
@@ -242,6 +294,7 @@ export const ConcreteiraService = {
 
   // Cargas
   async getCargas(filtros?: {
+    empresaId?: string
     dataInicio?: string
     dataFim?: string
     cidade?: string
@@ -255,6 +308,7 @@ export const ConcreteiraService = {
       .order('data', { ascending: false })
       .order('numero_carga', { ascending: false })
 
+    if (filtros?.empresaId) query = query.eq('empresa_id', filtros.empresaId)
     if (filtros?.dataInicio) query = query.gte('data', filtros.dataInicio)
     if (filtros?.dataFim) query = query.lte('data', filtros.dataFim)
     if (filtros?.cidade && filtros.cidade !== 'ALL')
@@ -270,7 +324,30 @@ export const ConcreteiraService = {
     return data || []
   },
 
+  async getProximoNumeroCarga(empresaId?: string): Promise<number> {
+    let query = (supabase as any)
+      .from('cargas')
+      .select('numero_carga')
+      .order('numero_carga', { ascending: false })
+      .limit(1)
+
+    if (empresaId) {
+      query = query.eq('empresa_id', empresaId)
+    }
+
+    const { data, error } = await query
+    if (error) {
+      console.error('Erro ao buscar próximo número de carga:', error)
+      return 1
+    }
+    if (data && data.length > 0 && data[0].numero_carga) {
+      return Number(data[0].numero_carga) + 1
+    }
+    return 1
+  },
+
   async criarCarga(payload: {
+    empresa_id?: string
     data: string
     volume_m3: number
     traco_id?: string
@@ -287,10 +364,15 @@ export const ConcreteiraService = {
     observacao?: string
     carga_zerada?: boolean
   }) {
+    // 0. Calcular próximo número de carga para a empresa
+    const proximoNum = await this.getProximoNumeroCarga(payload.empresa_id)
+
     // 1. Inserir carga
     const { data: carga, error: cargaErr } = await (supabase as any)
       .from('cargas')
       .insert({
+        empresa_id: payload.empresa_id || null,
+        numero_carga: proximoNum,
         data: payload.data,
         volume_m3: payload.volume_m3,
         traco_id: payload.traco_id || null,
@@ -314,7 +396,7 @@ export const ConcreteiraService = {
 
     // 2. Se não for zerada, gerar saídas de estoque
     if (!payload.carga_zerada) {
-      const materiais = await this.getMateriais()
+      const materiais = await this.getMateriais(payload.empresa_id)
       const matMap = new Map(materiais.map((m) => [m.codigo, m.id]))
       const saídas: any[] = []
 
@@ -322,6 +404,7 @@ export const ConcreteiraService = {
 
       if (payload.consumo_cimento > 0 && matMap.get('cimento')) {
         saídas.push({
+          empresa_id: payload.empresa_id || null,
           material_id: matMap.get('cimento'),
           tipo: 'SAIDA',
           quantidade: payload.consumo_cimento,
@@ -333,6 +416,7 @@ export const ConcreteiraService = {
       }
       if (payload.consumo_aditivo > 0 && matMap.get('aditivo')) {
         saídas.push({
+          empresa_id: payload.empresa_id || null,
           material_id: matMap.get('aditivo'),
           tipo: 'SAIDA',
           quantidade: payload.consumo_aditivo,
@@ -344,6 +428,7 @@ export const ConcreteiraService = {
       }
       if (payload.consumo_areia > 0 && matMap.get('areia')) {
         saídas.push({
+          empresa_id: payload.empresa_id || null,
           material_id: matMap.get('areia'),
           tipo: 'SAIDA',
           quantidade: payload.consumo_areia,
@@ -355,6 +440,7 @@ export const ConcreteiraService = {
       }
       if (payload.consumo_brita12 > 0 && matMap.get('brita12')) {
         saídas.push({
+          empresa_id: payload.empresa_id || null,
           material_id: matMap.get('brita12'),
           tipo: 'SAIDA',
           quantidade: payload.consumo_brita12,
@@ -366,6 +452,7 @@ export const ConcreteiraService = {
       }
       if (payload.consumo_brita19 > 0 && matMap.get('brita19')) {
         saídas.push({
+          empresa_id: payload.empresa_id || null,
           material_id: matMap.get('brita19'),
           tipo: 'SAIDA',
           quantidade: payload.consumo_brita19,
@@ -377,6 +464,7 @@ export const ConcreteiraService = {
       }
       if (payload.consumo_po_pedra > 0 && matMap.get('po_pedra')) {
         saídas.push({
+          empresa_id: payload.empresa_id || null,
           material_id: matMap.get('po_pedra'),
           tipo: 'SAIDA',
           quantidade: payload.consumo_po_pedra,
@@ -393,5 +481,21 @@ export const ConcreteiraService = {
     }
 
     return carga
+  },
+
+  // Custos / Preços Unitários
+  async getPrecosMaterial(empresaId?: string): Promise<any[]> {
+    let query = (supabase as any)
+      .from('precos_material')
+      .select('*')
+      .order('mes_ano', { ascending: true })
+
+    if (empresaId) {
+      query = query.eq('empresa_id', empresaId)
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+    return data || []
   },
 }

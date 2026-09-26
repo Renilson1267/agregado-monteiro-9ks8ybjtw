@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ConcreteiraService } from '@/services/concreteira'
+import { useEmpresa } from '@/hooks/use-empresa'
 import type { Carga, Cidade, Veiculo, Motorista } from '@/types/concreteira'
 import {
   FileSpreadsheet,
@@ -40,6 +41,7 @@ import {
 } from 'recharts'
 
 export default function Relatorios() {
+  const { empresaAtiva } = useEmpresa()
   const [cargas, setCargas] = useState<Carga[]>([])
   const [cidades, setCidades] = useState<Cidade[]>([])
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
@@ -55,11 +57,12 @@ export default function Relatorios() {
   const [apenasZeradas, setApenasZeradas] = useState(false)
 
   const carregarFiltrosIniciais = async () => {
+    if (!empresaAtiva) return
     try {
       const [cid, vei, mot] = await Promise.all([
-        ConcreteiraService.getCidades(),
-        ConcreteiraService.getVeiculos(),
-        ConcreteiraService.getMotoristas(),
+        ConcreteiraService.getCidades(empresaAtiva.id),
+        ConcreteiraService.getVeiculos(empresaAtiva.id),
+        ConcreteiraService.getMotoristas(empresaAtiva.id),
       ])
       setCidades(cid)
       setCVeiculos(vei)
@@ -72,9 +75,11 @@ export default function Relatorios() {
   const setCVeiculos = setVeiculos
 
   const carregarRelatorio = async () => {
+    if (!empresaAtiva) return
     setLoading(true)
     try {
       const dados = await ConcreteiraService.getCargas({
+        empresaId: empresaAtiva.id,
         dataInicio: dataInicio || undefined,
         dataFim: dataFim || undefined,
         cidade: cidadeFiltro,
@@ -91,10 +96,12 @@ export default function Relatorios() {
   }
 
   useEffect(() => {
-    carregarFiltrosIniciais()
-    carregarRelatorio()
+    if (empresaAtiva) {
+      carregarFiltrosIniciais()
+      carregarRelatorio()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [empresaAtiva?.id])
 
   const handleFiltrar = (e: React.FormEvent) => {
     e.preventDefault()
@@ -109,7 +116,11 @@ export default function Relatorios() {
     setMotoristaFiltro('ALL')
     setApenasZeradas(false)
     setTimeout(() => {
-      ConcreteiraService.getCargas().then(setCargas)
+      if (empresaAtiva) {
+        ConcreteiraService.getCargas({ empresaId: empresaAtiva.id }).then(
+          setCargas,
+        )
+      }
     }, 50)
   }
 
@@ -223,10 +234,15 @@ export default function Relatorios() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <FileSpreadsheet className="w-6 h-6 text-primary" />
             Relatórios e Auditoria de Cargas
+            {empresaAtiva && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-normal">
+                {empresaAtiva.nome}
+              </span>
+            )}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Filtre por período, insumos, destinos e exporte consultas para
-            planilha CSV
+            planilha CSV da unidade {empresaAtiva?.nome || ''}
           </p>
         </div>
 

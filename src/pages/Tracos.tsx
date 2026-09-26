@@ -21,6 +21,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { ConcreteiraService } from '@/services/concreteira'
+import { useEmpresa } from '@/hooks/use-empresa'
 import type { Traco } from '@/types/concreteira'
 import {
   FlaskConical,
@@ -32,6 +33,7 @@ import {
 import { toast } from '@/hooks/use-toast'
 
 export default function Tracos() {
+  const { empresaAtiva } = useEmpresa()
   const [tracos, setTracos] = useState<Traco[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -52,9 +54,10 @@ export default function Tracos() {
   const [aditivo, setAditivo] = useState<number>(2.5)
 
   const carregarTracos = async () => {
+    if (!empresaAtiva) return
     setLoading(true)
     try {
-      const data = await ConcreteiraService.getTracos()
+      const data = await ConcreteiraService.getTracos(empresaAtiva.id)
       setTracos(data)
     } catch (err: any) {
       toast({
@@ -68,8 +71,11 @@ export default function Tracos() {
   }
 
   useEffect(() => {
-    carregarTracos()
-  }, [])
+    if (empresaAtiva) {
+      carregarTracos()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaAtiva?.id])
 
   const abrirNovo = () => {
     setTracoEditandoId(null)
@@ -112,19 +118,23 @@ export default function Tracos() {
 
     setSalvando(true)
     try {
-      await ConcreteiraService.salvarTraco({
-        id: tracoEditandoId || undefined,
-        nome,
-        descricao,
-        fck_mpa: fckMpa ? Number(fckMpa) : null,
-        consumo_brita12: Number(brita12),
-        consumo_brita19: Number(brita19),
-        consumo_areia: Number(areia),
-        consumo_po_pedra: Number(poPedra),
-        consumo_cimento: Number(cimento),
-        consumo_aditivo: Number(aditivo),
-        ativo: true,
-      })
+      await ConcreteiraService.salvarTraco(
+        {
+          id: tracoEditandoId || undefined,
+          empresa_id: empresaAtiva?.id,
+          nome,
+          descricao,
+          fck_mpa: fckMpa ? Number(fckMpa) : null,
+          consumo_brita12: Number(brita12),
+          consumo_brita19: Number(brita19),
+          consumo_areia: Number(areia),
+          consumo_po_pedra: Number(poPedra),
+          consumo_cimento: Number(cimento),
+          consumo_aditivo: Number(aditivo),
+          ativo: true,
+        },
+        empresaAtiva?.id,
+      )
 
       toast({
         title: 'Traço salvo com sucesso!',
@@ -153,10 +163,15 @@ export default function Tracos() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <FlaskConical className="w-6 h-6 text-primary" />
             Traços e Dosagens de Concreto
+            {empresaAtiva && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-normal">
+                {empresaAtiva.nome}
+              </span>
+            )}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Defina o consumo padrão por metro cúbico (m³) para cada tipo e
-            resistência de concreto
+            Defina o consumo padrão por metro cúbico (m³) da unidade{' '}
+            {empresaAtiva?.nome || ''}
           </p>
         </div>
 

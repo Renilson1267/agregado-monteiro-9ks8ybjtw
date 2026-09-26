@@ -19,11 +19,13 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { ConcreteiraService } from '@/services/concreteira'
+import { useEmpresa } from '@/hooks/use-empresa'
 import type { Motorista, Veiculo, Cidade } from '@/types/concreteira'
 import { Users, Truck, MapPin, Plus, Check, RefreshCw } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 export default function Cadastros() {
+  const { empresaAtiva } = useEmpresa()
   const [motoristas, setMotoristas] = useState<Motorista[]>([])
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [cidades, setCidades] = useState<Cidade[]>([])
@@ -44,12 +46,13 @@ export default function Cadastros() {
   const [salvando, setSalvando] = useState(false)
 
   const carregarTudo = async () => {
+    if (!empresaAtiva) return
     setLoading(true)
     try {
       const [mot, vei, cid] = await Promise.all([
-        ConcreteiraService.getMotoristas(),
-        ConcreteiraService.getVeiculos(),
-        ConcreteiraService.getCidades(),
+        ConcreteiraService.getMotoristas(empresaAtiva.id),
+        ConcreteiraService.getVeiculos(empresaAtiva.id),
+        ConcreteiraService.getCidades(empresaAtiva.id),
       ])
       setMotoristas(mot)
       setVeiculos(vei)
@@ -66,15 +69,23 @@ export default function Cadastros() {
   }
 
   useEffect(() => {
-    carregarTudo()
-  }, [])
+    if (empresaAtiva) {
+      carregarTudo()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaAtiva?.id])
 
   const handleSalvarMotorista = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!nomeMotorista.trim()) return
     setSalvando(true)
     try {
-      await ConcreteiraService.salvarMotorista(nomeMotorista.trim())
+      await ConcreteiraService.salvarMotorista(
+        nomeMotorista.trim(),
+        true,
+        undefined,
+        empresaAtiva?.id,
+      )
       toast({ title: 'Motorista cadastrado com sucesso!' })
       setNomeMotorista('')
       setOpenMotorista(false)
@@ -98,6 +109,9 @@ export default function Cadastros() {
       await ConcreteiraService.salvarVeiculo(
         placaVeiculo.trim().toUpperCase(),
         modeloVeiculo.trim() || undefined,
+        true,
+        undefined,
+        empresaAtiva?.id,
       )
       toast({ title: 'Veículo cadastrado com sucesso!' })
       setPlacaVeiculo('')
@@ -123,6 +137,8 @@ export default function Cadastros() {
       await ConcreteiraService.salvarCidade(
         nomeCidade.trim(),
         ufCidade.trim().toUpperCase(),
+        undefined,
+        empresaAtiva?.id,
       )
       toast({ title: 'Cidade cadastrada com sucesso!' })
       setNomeCidade('')
@@ -146,10 +162,15 @@ export default function Cadastros() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             Cadastros Auxiliares
+            {empresaAtiva && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-normal">
+                {empresaAtiva.nome}
+              </span>
+            )}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Gerencie motoristas, frota de caminhões betoneira e cidades
-            atendidas
+            atendidas da unidade {empresaAtiva?.nome || ''}
           </p>
         </div>
         <Button

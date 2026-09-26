@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ConcreteiraService } from '@/services/concreteira'
+import { useEmpresa } from '@/hooks/use-empresa'
 import type { Traco, Motorista, Veiculo, Cidade } from '@/types/concreteira'
 import {
   Truck,
@@ -32,6 +33,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 export default function LancamentoCargas() {
   const navigate = useNavigate()
+  const { empresaAtiva } = useEmpresa()
   const [tracos, setTracos] = useState<Traco[]>([])
   const [motoristas, setMotoristas] = useState<Motorista[]>([])
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
@@ -60,12 +62,13 @@ export default function LancamentoCargas() {
 
   useEffect(() => {
     async function init() {
+      if (!empresaAtiva) return
       try {
         const [tr, mot, veic, cid] = await Promise.all([
-          ConcreteiraService.getTracos(),
-          ConcreteiraService.getMotoristas(),
-          ConcreteiraService.getVeiculos(),
-          ConcreteiraService.getCidades(),
+          ConcreteiraService.getTracos(empresaAtiva.id),
+          ConcreteiraService.getMotoristas(empresaAtiva.id),
+          ConcreteiraService.getVeiculos(empresaAtiva.id),
+          ConcreteiraService.getCidades(empresaAtiva.id),
         ])
         setTracos(tr)
         setMotoristas(mot)
@@ -74,13 +77,16 @@ export default function LancamentoCargas() {
 
         if (tr.length > 0) {
           setTracoSelecionadoId(tr[0].id)
+        } else {
+          setTracoSelecionadoId('')
         }
       } catch (err) {
         console.error('Erro ao carregar dados do formulário:', err)
       }
     }
     init()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaAtiva?.id])
 
   // Recalcular insumos quando mudar traço, volume ou cargaZerada
   useEffect(() => {
@@ -130,6 +136,7 @@ export default function LancamentoCargas() {
     setSalvando(true)
     try {
       await ConcreteiraService.criarCarga({
+        empresa_id: empresaAtiva?.id,
         data: dataCarga,
         volume_m3: volume,
         traco_id: traco?.id,
@@ -179,12 +186,17 @@ export default function LancamentoCargas() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
               Lançamento Rápido de Carga
+              {empresaAtiva && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-normal">
+                  {empresaAtiva.nome}
+                </span>
+              )}
             </h1>
             <p className="text-sm text-muted-foreground">
               Registro de despacho na balança com dosagem e baixa automática no
-              estoque
+              estoque da unidade {empresaAtiva?.nome || ''}
             </p>
           </div>
         </div>
