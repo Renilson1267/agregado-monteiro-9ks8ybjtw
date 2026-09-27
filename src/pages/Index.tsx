@@ -85,7 +85,6 @@ export default function Index() {
   const { isBalanceiro, isAdministrador } = useUsuario()
   const { empresaAtiva } = useEmpresa()
 
-
   const [materiais, setMateriais] = useState<Material[]>([])
   const [cargas, setCargas] = useState<Carga[]>([])
   const [metaProducao, setMetaProducao] = useState<MetaProducao | null>(null)
