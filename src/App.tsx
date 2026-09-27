@@ -36,16 +36,16 @@ const App = () => (
                 {/* Rotas Protegidas Globais (Requer estar logado) */}
                 <Route element={<ProtectedRoute />}>
                   <Route element={<Layout />}>
-                    {/* Acesso liberado a Balanceiro & Admin */}
+                    {/* Acesso liberado a Balanceiro & Admin (Dashboard e Estoque sem valores financeiros) */}
+                    <Route path="/" element={<Index />} />
                     <Route path="/lancamentos" element={<LancamentoCargas />} />
+                    <Route path="/estoque" element={<Estoque />} />
                     <Route path="/ordens" element={<Ordens />} />
 
                     {/* Rotas Restritas a Administrador */}
                     <Route
                       element={<ProtectedRoute permitirApenasAdmin={true} />}
                     >
-                      <Route path="/" element={<Index />} />
-                      <Route path="/estoque" element={<Estoque />} />
                       <Route path="/tracos" element={<Tracos />} />
                       <Route path="/cadastros" element={<Cadastros />} />
                       <Route path="/relatorios" element={<Relatorios />} />

@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select'
 import { ConcreteiraService } from '@/services/concreteira'
 import { useEmpresa } from '@/hooks/use-empresa'
+import { useUsuario } from '@/hooks/use-usuario'
 import type { Material, MovimentacaoEstoque } from '@/types/concreteira'
 import {
   Boxes,
@@ -43,6 +44,7 @@ import { toast } from '@/hooks/use-toast'
 
 export default function Estoque() {
   const { empresaAtiva } = useEmpresa()
+  const { isBalanceiro } = useUsuario()
   const [materiais, setMateriais] = useState<Material[]>([])
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([])
   const [filtroMaterial, setFiltroMaterial] = useState<string>('ALL')
@@ -425,19 +427,26 @@ export default function Estoque() {
                     </div>
 
                     <div className="flex items-center justify-between pt-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs h-8 text-muted-foreground hover:text-foreground gap-1 px-2"
-                        onClick={() => {
-                          setMaterialEditando(mat)
-                          setNovoMinimo(mat.estoque_minimo)
-                          setOpenMinimo(true)
-                        }}
-                      >
-                        <Settings2 className="w-3.5 h-3.5" />
-                        Alterar Mínimo
-                      </Button>
+                      {!isBalanceiro ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-8 text-muted-foreground hover:text-foreground gap-1 px-2"
+                          onClick={() => {
+                            setMaterialEditando(mat)
+                            setNovoMinimo(mat.estoque_minimo)
+                            setOpenMinimo(true)
+                          }}
+                        >
+                          <Settings2 className="w-3.5 h-3.5" />
+                          Alterar Mínimo
+                        </Button>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground">
+                          Mínimo: {mat.estoque_minimo.toLocaleString('pt-BR')}{' '}
+                          {mat.unidade}
+                        </span>
+                      )}
 
                       <Button
                         variant="outline"

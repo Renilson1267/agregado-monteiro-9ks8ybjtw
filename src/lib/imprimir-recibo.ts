@@ -78,7 +78,7 @@ export async function printElementInIsolatedIframe(
     <style>
       @page {
         size: A4 portrait;
-        margin: 3mm 5mm 3mm 5mm;
+        margin: 3mm 4mm 3mm 4mm;
       }
       * {
         box-sizing: border-box;
@@ -91,7 +91,7 @@ export async function printElementInIsolatedIframe(
         background: #ffffff !important;
         background-color: #ffffff !important;
         color: #000000 !important;
-        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        font-family: Arial, Helvetica, ui-sans-serif, system-ui, sans-serif !important;
         font-size: 8pt !important;
         line-height: 1.15 !important;
         width: 100% !important;
@@ -101,6 +101,14 @@ export async function printElementInIsolatedIframe(
       .page-break-inside-avoid {
         page-break-inside: avoid !important;
         break-inside: avoid !important;
+      }
+      table {
+        table-layout: fixed !important;
+        width: 100% !important;
+        border-collapse: collapse !important;
+      }
+      th, td {
+        box-sizing: border-box !important;
       }
       img {
         max-width: 100%;

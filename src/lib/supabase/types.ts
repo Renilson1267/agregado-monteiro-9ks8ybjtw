@@ -820,6 +820,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      atualizar_email_usuario: {
+        Args: { p_novo_email: string; p_usuario_app_id: string }
+        Returns: Json
+      }
       proximo_numero_os: { Args: { p_empresa_id: string }; Returns: number }
     }
     Enums: {

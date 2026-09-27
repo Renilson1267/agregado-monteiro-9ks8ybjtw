@@ -73,6 +73,8 @@ import {
   formatarTelefone,
   formatarCep,
   limparMascara,
+  consultarCNPJ,
+  consultarCEP,
 } from '@/lib/documentos'
 
 export default function LancamentoCargas() {
@@ -222,6 +224,8 @@ export default function LancamentoCargas() {
     useState<boolean>(true)
   const [salvandoClienteRapido, setSalvandoClienteRapido] =
     useState<boolean>(false)
+  const [buscandoCnpjRapido, setBuscandoCnpjRapido] = useState<boolean>(false)
+  const [buscandoCepRapido, setBuscandoCepRapido] = useState<boolean>(false)
 
   // Estado da OS gerada para impressão imediata
   const [osGeradaParaImpressao, setOsGeradaParaImpressao] =
@@ -439,6 +443,71 @@ export default function LancamentoCargas() {
     // Inicializa o interruptor de insumos com o valor configurado no cadastro do cliente
     setExibirInsumosNaOs(cli.exibir_insumos_os !== false)
     setClienteDropdownAberto(false)
+  }
+
+  // Busca automática de CNPJ no cadastro rápido de cliente (BrasilAPI)
+  const handleBlurCpfCnpjRapido = async () => {
+    const raw = limparMascara(novoClienteCpfCnpj)
+    if (novoClienteTipo === 'PJ' && raw.length === 14) {
+      setBuscandoCnpjRapido(true)
+      try {
+        const dados = await consultarCNPJ(raw)
+        if (dados.razao_social) {
+          setNovoClienteNome(dados.razao_social)
+        }
+        if (dados.nome_fantasia) {
+          setNovoClienteNomeFantasia(dados.nome_fantasia)
+        }
+        if (dados.logradouro) setNovoClienteLogradouro(dados.logradouro)
+        if (dados.numero) setNovoClienteNumero(dados.numero)
+        if (dados.bairro) setNovoClienteBairro(dados.bairro)
+        if (dados.municipio) setNovoClienteCidade(dados.municipio)
+        if (dados.uf) setNovoClienteUf(dados.uf)
+        if (dados.cep) setNovoClienteCep(formatarCep(dados.cep))
+        if (dados.ddd_telefone_1 && !novoClienteTelefone) {
+          setNovoClienteTelefone(formatarTelefone(dados.ddd_telefone_1))
+        }
+
+        toast({
+          title: 'Dados do CNPJ preenchidos automaticamente!',
+          description: dados.razao_social,
+        })
+      } catch (err: any) {
+        toast({
+          title: 'Aviso de consulta de CNPJ',
+          description: err.message,
+        })
+      } finally {
+        setBuscandoCnpjRapido(false)
+      }
+    }
+  }
+
+  // Busca automática de CEP no cadastro rápido de cliente (ViaCEP)
+  const handleBlurCepRapido = async () => {
+    const raw = limparMascara(novoClienteCep)
+    if (raw.length !== 8) return
+
+    setBuscandoCepRapido(true)
+    try {
+      const dados = await consultarCEP(raw)
+      if (dados.logradouro) setNovoClienteLogradouro(dados.logradouro)
+      if (dados.bairro) setNovoClienteBairro(dados.bairro)
+      if (dados.localidade) setNovoClienteCidade(dados.localidade)
+      if (dados.uf) setNovoClienteUf(dados.uf)
+
+      toast({
+        title: 'Endereço localizado via CEP!',
+        description: `${dados.localidade} - ${dados.uf}`,
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Aviso de CEP',
+        description: err.message,
+      })
+    } finally {
+      setBuscandoCepRapido(false)
+    }
   }
 
   // Cadastro rápido de cliente
@@ -2902,101 +2971,180 @@ export default function LancamentoCargas() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="cpfRapido" className="text-xs">
-                    {novoClienteTipo === 'PJ' ? 'CNPJ' : 'CPF'}
-                  </Label>
-                  <Input
-                    id="cpfRapido"
-                    value={novoClienteCpfCnpj}
-                    onChange={(e) => setNovoClienteCpfCnpj(e.target.value)}
-                    placeholder={
-                      novoClienteTipo === 'PJ'
-                        ? '00.000.000/0000-00'
-                        : '000.000.000-00'
-                    }
-                    className="text-xs font-mono"
-                  />
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="cpfRapido" className="text-xs">
+                      {novoClienteTipo === 'PJ'
+                        ? 'CNPJ (Busca Automática) *'
+                        : 'CPF *'}
+                    </Label>
+                    {buscandoCnpjRapido && (
+                      <span className="text-[10px] text-primary flex items-center gap-1 animate-pulse">
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                        Buscando...
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="cpfRapido"
+                      value={novoClienteCpfCnpj}
+                      onChange={(e) =>
+                        setNovoClienteCpfCnpj(formatarCpfCnpj(e.target.value))
+                      }
+                      onBlur={handleBlurCpfCnpjRapido}
+                      placeholder={
+                        novoClienteTipo === 'PJ'
+                          ? '00.000.000/0000-00'
+                          : '000.000.000-00'
+                      }
+                      className="text-xs font-mono"
+                    />
+                    {novoClienteTipo === 'PJ' && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleBlurCpfCnpjRapido}
+                        className="absolute right-1 top-1 h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                        title="Buscar dados do CNPJ na BrasilAPI"
+                      >
+                        Buscar
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-1">
                   <Label htmlFor="telRapido" className="text-xs">
-                    Telefone
+                    Telefone / WhatsApp
                   </Label>
                   <Input
                     id="telRapido"
                     value={novoClienteTelefone}
-                    onChange={(e) => setNovoClienteTelefone(e.target.value)}
+                    onChange={(e) =>
+                      setNovoClienteTelefone(formatarTelefone(e.target.value))
+                    }
                     placeholder="(83) 90000-0000"
-                    className="text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1 col-span-2">
-                  <Label htmlFor="endRapido" className="text-xs">
-                    Endereço
-                  </Label>
-                  <Input
-                    id="endRapido"
-                    value={novoClienteLogradouro}
-                    onChange={(e) => setNovoClienteLogradouro(e.target.value)}
-                    placeholder="Rua / Av"
-                    className="text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="numRapido" className="text-xs">
-                    Número
-                  </Label>
-                  <Input
-                    id="numRapido"
-                    value={novoClienteNumero}
-                    onChange={(e) => setNovoClienteNumero(e.target.value)}
-                    placeholder="Nº"
-                    className="text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="bairroRapido" className="text-xs">
-                    Bairro
-                  </Label>
-                  <Input
-                    id="bairroRapido"
-                    value={novoClienteBairro}
-                    onChange={(e) => setNovoClienteBairro(e.target.value)}
-                    placeholder="Bairro"
-                    className="text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="cidRapido" className="text-xs">
-                    Cidade
-                  </Label>
-                  <Input
-                    id="cidRapido"
-                    value={novoClienteCidade}
-                    onChange={(e) => setNovoClienteCidade(e.target.value)}
-                    placeholder="Cidade"
-                    className="text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="cepRapido" className="text-xs">
-                    CEP
-                  </Label>
-                  <Input
-                    id="cepRapido"
-                    value={novoClienteCep}
-                    onChange={(e) => setNovoClienteCep(e.target.value)}
-                    placeholder="58000-000"
                     className="text-xs font-mono"
                   />
+                </div>
+              </div>
+
+              {/* Endereço com Busca Automática de CEP */}
+              <div className="p-2.5 rounded-lg border border-border/40 bg-muted/20 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5 text-primary">
+                    <MapPin className="w-3.5 h-3.5" />
+                    Endereço
+                  </span>
+                  {buscandoCepRapido && (
+                    <span className="text-[10px] text-primary flex items-center gap-1 animate-pulse font-normal">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      Buscando ViaCEP...
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="cepRapido" className="text-xs">
+                      CEP (Busca Automática)
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="cepRapido"
+                        value={novoClienteCep}
+                        onChange={(e) =>
+                          setNovoClienteCep(formatarCep(e.target.value))
+                        }
+                        onBlur={handleBlurCepRapido}
+                        placeholder="58000-000"
+                        className="text-xs font-mono"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleBlurCepRapido}
+                        className="absolute right-1 top-1 h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                        title="Buscar CEP na ViaCEP"
+                      >
+                        Buscar
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label htmlFor="endRapido" className="text-xs">
+                      Logradouro / Rua
+                    </Label>
+                    <Input
+                      id="endRapido"
+                      value={novoClienteLogradouro}
+                      onChange={(e) => setNovoClienteLogradouro(e.target.value)}
+                      placeholder="Rua / Av / Sítio"
+                      className="text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="space-y-1 col-span-1">
+                    <Label htmlFor="numRapido" className="text-xs">
+                      Número
+                    </Label>
+                    <Input
+                      id="numRapido"
+                      value={novoClienteNumero}
+                      onChange={(e) => setNovoClienteNumero(e.target.value)}
+                      placeholder="Nº ou S/N"
+                      className="text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1 col-span-1">
+                    <Label htmlFor="bairroRapido" className="text-xs">
+                      Bairro
+                    </Label>
+                    <Input
+                      id="bairroRapido"
+                      value={novoClienteBairro}
+                      onChange={(e) => setNovoClienteBairro(e.target.value)}
+                      placeholder="Bairro"
+                      className="text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1 col-span-1">
+                    <Label htmlFor="cidRapido" className="text-xs">
+                      Cidade
+                    </Label>
+                    <Input
+                      id="cidRapido"
+                      value={novoClienteCidade}
+                      onChange={(e) => setNovoClienteCidade(e.target.value)}
+                      placeholder="Cidade"
+                      className="text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1 col-span-1">
+                    <Label htmlFor="ufRapido" className="text-xs">
+                      UF
+                    </Label>
+                    <Input
+                      id="ufRapido"
+                      value={novoClienteUf}
+                      onChange={(e) =>
+                        setNovoClienteUf(e.target.value.toUpperCase())
+                      }
+                      placeholder="PB"
+                      maxLength={2}
+                      className="text-xs font-mono uppercase"
+                    />
+                  </div>
                 </div>
               </div>
 

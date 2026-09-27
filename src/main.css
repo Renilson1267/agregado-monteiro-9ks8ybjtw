@@ -396,6 +396,7 @@
   /* Tabelas */
   table {
     width: 100% !important;
+    table-layout: fixed !important;
     border-collapse: collapse !important;
   }
 

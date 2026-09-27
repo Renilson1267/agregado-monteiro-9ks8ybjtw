@@ -147,23 +147,23 @@ function ViaRecibo({
             </>
           )}
 
-          <div className="col-span-8 flex">
-            <span className="font-bold w-12 text-black shrink-0">
+          <div className="col-span-8 flex items-baseline">
+            <span className="font-bold w-14 text-black shrink-0">
               Endereço:
             </span>
             <span className="uppercase flex-1 text-black truncate">
               {ordem.destinatario_endereco || '—'}
             </span>
           </div>
-          <div className="col-span-4 flex">
-            <span className="font-bold w-10 text-black shrink-0">Bairro:</span>
+          <div className="col-span-4 flex items-baseline">
+            <span className="font-bold w-12 text-black shrink-0">Bairro:</span>
             <span className="uppercase flex-1 text-black truncate">
               {ordem.destinatario_bairro || '—'}
             </span>
           </div>
 
-          <div className="col-span-8 flex">
-            <span className="font-bold w-12 text-black shrink-0">
+          <div className="col-span-8 flex items-baseline">
+            <span className="font-bold w-14 text-black shrink-0">
               Município:
             </span>
             <span className="uppercase flex-1 text-black truncate">
@@ -172,23 +172,23 @@ function ViaRecibo({
                 : '—'}
             </span>
           </div>
-          <div className="col-span-4 flex">
-            <span className="font-bold w-10 text-black shrink-0">CEP:</span>
+          <div className="col-span-4 flex items-baseline">
+            <span className="font-bold w-12 text-black shrink-0">CEP:</span>
             <span className="font-mono flex-1 text-black">
               {ordem.destinatario_cep || '—'}
             </span>
           </div>
 
-          <div className="col-span-8 flex">
-            <span className="font-bold w-12 text-black shrink-0">
+          <div className="col-span-8 flex items-baseline">
+            <span className="font-bold w-14 text-black shrink-0">
               CNPJ/CPF:
             </span>
             <span className="font-mono flex-1 text-black">
               {ordem.destinatario_cpf_cnpj || '—'}
             </span>
           </div>
-          <div className="col-span-4 flex">
-            <span className="font-bold w-10 text-black shrink-0">Fone:</span>
+          <div className="col-span-4 flex items-baseline">
+            <span className="font-bold w-12 text-black shrink-0">Fone:</span>
             <span className="flex-1 text-black truncate">
               {ordem.destinatario_telefone || '—'}
             </span>
@@ -198,13 +198,18 @@ function ViaRecibo({
 
       {/* TABELA DE ITENS (Quantidade / Unidade / Discriminação) */}
       <div className="border border-black mb-0.5">
-        <table className="w-full text-[6.5pt] border-collapse leading-tight">
+        <table className="w-full table-fixed text-[6.5pt] border-collapse leading-tight">
+          <colgroup>
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '15%' }} />
+            <col style={{ width: '63%' }} />
+          </colgroup>
           <thead>
             <tr className="border-b border-black bg-gray-50">
-              <th className="py-0.5 px-1.5 text-right border-r border-black w-20 font-bold text-black">
+              <th className="py-0.5 px-1.5 text-right border-r border-black font-bold text-black">
                 Quantidade
               </th>
-              <th className="py-0.5 px-1.5 text-center border-r border-black w-14 font-bold text-black">
+              <th className="py-0.5 px-1.5 text-center border-r border-black font-bold text-black">
                 Unidade
               </th>
               <th className="py-0.5 px-1.5 text-left font-bold text-black">
@@ -225,7 +230,7 @@ function ViaRecibo({
                   <td className="py-0.5 px-1.5 text-center uppercase border-r border-black text-black">
                     {it.unidade}
                   </td>
-                  <td className="py-0.5 px-1.5 uppercase font-semibold text-black">
+                  <td className="py-0.5 px-1.5 uppercase font-semibold text-black truncate">
                     {it.discriminacao}
                   </td>
                 </tr>
@@ -242,7 +247,6 @@ function ViaRecibo({
             )}
           </tbody>
         </table>
-
         {/* TABELA CONDICIONAL DE INSUMOS DA CARGA (quando exibir_insumos_os === true) */}
         {ordem.exibir_insumos_os &&
           ordem.insumos_detalhados &&
@@ -276,44 +280,49 @@ function ViaRecibo({
         <div className="bg-gray-100 text-center font-bold text-[6.5pt] uppercase py-0.5 border-b border-black">
           VERIFICAÇÃO SLUMP - CENTRAL
         </div>
-        <table className="w-full text-[6pt] border-collapse text-center leading-tight">
+        <table className="w-full table-fixed text-[6pt] border-collapse text-center leading-tight">
+          <colgroup>
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '20%' }} />
+          </colgroup>
           <thead>
             <tr className="border-b border-black bg-gray-50 font-bold text-black">
-              <th className="py-0.5 px-1 border-r border-black w-1/5">
+              <th className="py-0.5 px-1 border-r border-black">
                 SLUMP MEDIDO
               </th>
-              <th className="py-0.5 px-1 border-r border-black w-1/5">
-                SLUMP SAÍDA
-              </th>
-              <th className="py-0.5 px-1 border-r border-black w-1/5">
+              <th className="py-0.5 px-1 border-r border-black">SLUMP SAÍDA</th>
+              <th className="py-0.5 px-1 border-r border-black">
                 ÁGUA ADIC. (L)
               </th>
-              <th className="py-0.5 px-1 border-r border-black w-1/5">
-                MOLDAGEM
-              </th>
-              <th className="py-0.5 px-1 w-1/5">VISTO MOTORISTA</th>
+              <th className="py-0.5 px-1 border-r border-black">MOLDAGEM</th>
+              <th className="py-0.5 px-1">VISTO MOTORISTA</th>
             </tr>
           </thead>
           <tbody>
             {/* Linha 1: Central */}
             <tr className="border-b border-black h-3.5 text-black">
-              <td className="border-r border-black font-semibold">
+              <td className="border-r border-black font-semibold truncate px-0.5">
                 {ordem.slump_central_medido
                   ? `${ordem.slump_central_medido} ${ordem.slump_tolerancia ? `(${ordem.slump_tolerancia})` : ''}`
                   : ''}
               </td>
-              <td className="border-r border-black font-semibold">
+              <td className="border-r border-black font-semibold truncate px-0.5">
                 {ordem.slump_central_saida || ''}
               </td>
-              <td className="border-r border-black font-mono">
+              <td className="border-r border-black font-mono truncate px-0.5">
                 {ordem.agua_adic_central != null && ordem.agua_adic_central > 0
                   ? `${ordem.agua_adic_central} L`
                   : ''}
               </td>
-              <td className="border-r border-black">
+              <td className="border-r border-black truncate px-0.5">
                 {ordem.moldagem_central || ''}
               </td>
-              <td>{ordem.visto_motorista_central || ''}</td>
+              <td className="truncate px-0.5">
+                {ordem.visto_motorista_central || ''}
+              </td>
             </tr>
             {/* Linha 2: Peça Concretada */}
             <tr className="bg-gray-50 text-[5.5pt] font-bold border-b border-black text-black">
@@ -324,21 +333,23 @@ function ViaRecibo({
               <td className="py-0.5">VISTO MOTORISTA</td>
             </tr>
             <tr className="h-3.5 text-black">
-              <td className="border-r border-black font-semibold">
+              <td className="border-r border-black font-semibold truncate px-0.5">
                 {ordem.slump_peca_medido || ''}
               </td>
-              <td className="border-r border-black font-semibold">
+              <td className="border-r border-black font-semibold truncate px-0.5">
                 {ordem.slump_peca_saida || ''}
               </td>
-              <td className="border-r border-black font-mono">
+              <td className="border-r border-black font-mono truncate px-0.5">
                 {ordem.agua_adic_peca != null && ordem.agua_adic_peca > 0
                   ? `${ordem.agua_adic_peca} L`
                   : ''}
               </td>
-              <td className="border-r border-black uppercase">
+              <td className="border-r border-black uppercase truncate px-0.5">
                 {ordem.peca_concretada || ''}
               </td>
-              <td>{ordem.visto_motorista_peca || ''}</td>
+              <td className="truncate px-0.5">
+                {ordem.visto_motorista_peca || ''}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -349,41 +360,45 @@ function ViaRecibo({
         <div className="bg-gray-100 text-center font-bold text-[6.5pt] uppercase py-0.5 border-b border-black">
           DADOS DE TRANSPORTE
         </div>
-        <table className="w-full text-[6pt] border-collapse text-center leading-tight">
+        <table className="w-full table-fixed text-[6pt] border-collapse text-center leading-tight">
+          <colgroup>
+            <col style={{ width: '16.66%' }} />
+            <col style={{ width: '33.34%' }} />
+            <col style={{ width: '16.66%' }} />
+            <col style={{ width: '8.33%' }} />
+            <col style={{ width: '8.33%' }} />
+            <col style={{ width: '16.68%' }} />
+          </colgroup>
           <thead>
             <tr className="border-b border-black bg-gray-50 font-bold text-black">
-              <th className="py-0.5 px-1 border-r border-black w-1/6">PLACA</th>
-              <th className="py-0.5 px-1 border-r border-black w-2/6">
-                MOTORISTA
-              </th>
-              <th className="py-0.5 px-1 border-r border-black w-1/6">LACRE</th>
-              <th className="py-0.5 px-1 border-r border-black w-1/12">
-                KM INI
-              </th>
-              <th className="py-0.5 px-1 border-r border-black w-1/12">
-                KM FIM
-              </th>
-              <th className="py-0.5 px-1 w-1/6">HORA CARGA</th>
+              <th className="py-0.5 px-1 border-r border-black">PLACA</th>
+              <th className="py-0.5 px-1 border-r border-black">MOTORISTA</th>
+              <th className="py-0.5 px-1 border-r border-black">LACRE</th>
+              <th className="py-0.5 px-1 border-r border-black">KM INI</th>
+              <th className="py-0.5 px-1 border-r border-black">KM FIM</th>
+              <th className="py-0.5 px-1">HORA CARGA</th>
             </tr>
           </thead>
           <tbody>
             <tr className="border-b border-black h-3.5 text-black">
-              <td className="border-r border-black font-mono font-bold text-[6.5pt]">
+              <td className="border-r border-black font-mono font-bold text-[6.5pt] truncate px-0.5">
                 {ordem.veiculo_placa || ''}
               </td>
-              <td className="border-r border-black uppercase font-semibold">
+              <td className="border-r border-black uppercase font-semibold truncate px-0.5">
                 {ordem.motorista_nome || ''}
               </td>
-              <td className="border-r border-black font-mono">
+              <td className="border-r border-black font-mono truncate px-0.5">
                 {ordem.lacre || ''}
               </td>
-              <td className="border-r border-black font-mono">
+              <td className="border-r border-black font-mono truncate px-0.5">
                 {ordem.km_inicial ?? ''}
               </td>
-              <td className="border-r border-black font-mono">
+              <td className="border-r border-black font-mono truncate px-0.5">
                 {ordem.km_final ?? ''}
               </td>
-              <td className="font-mono">{ordem.hora_carga || ''}</td>
+              <td className="font-mono truncate px-0.5">
+                {ordem.hora_carga || ''}
+              </td>
             </tr>
             {/* Horários */}
             <tr className="bg-gray-50 text-[5.5pt] font-bold border-b border-black text-black">
@@ -395,22 +410,24 @@ function ViaRecibo({
               <td className="py-0.5">CHEGADA CENT.</td>
             </tr>
             <tr className="border-b border-black h-3.5 text-[6pt] font-mono text-black">
-              <td className="border-r border-black">
+              <td className="border-r border-black truncate px-0.5">
                 {ordem.hora_saida_central || ''}
               </td>
-              <td className="border-r border-black">
+              <td className="border-r border-black truncate px-0.5">
                 {ordem.hora_chegada_obra || ''}
               </td>
-              <td className="border-r border-black">
+              <td className="border-r border-black truncate px-0.5">
                 {ordem.hora_inicio_descarga || ''}
               </td>
-              <td className="border-r border-black">
+              <td className="border-r border-black truncate px-0.5">
                 {ordem.hora_fim_descarga || ''}
               </td>
-              <td className="border-r border-black">
+              <td className="border-r border-black truncate px-0.5">
                 {ordem.hora_saida_obra || ''}
               </td>
-              <td>{ordem.hora_chegada_central || ''}</td>
+              <td className="truncate px-0.5">
+                {ordem.hora_chegada_central || ''}
+              </td>
             </tr>
             {/* Visto Obra */}
             <tr className="h-3 text-left text-black">

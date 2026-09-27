@@ -35,7 +35,9 @@ export function Sidebar() {
 
   const navItems = isBalanceiro
     ? [
+        { icon: LayoutDashboard, label: 'Dashboard Operacional', path: '/' },
         { icon: Truck, label: 'Lançar Cargas', path: '/lancamentos' },
+        { icon: Boxes, label: 'Estoque de Insumos', path: '/estoque' },
         { icon: FileText, label: 'Ordens & Recibos', path: '/ordens' },
       ]
     : [
@@ -61,7 +63,7 @@ export function Sidebar() {
       >
         <div className="mb-4">
           <Link
-            to={isBalanceiro ? '/lancamentos' : '/'}
+            to="/"
             className="flex items-center justify-center w-13 h-13 p-1 rounded-2xl bg-white dark:bg-slate-900 border border-border/60 shadow-md hover:scale-105 transition-all overflow-hidden"
             title={`GC MIX Concreto Usinado & Pedreira Cordeiro — ${empresaAtiva?.nome || 'Sistema'}`}
           >

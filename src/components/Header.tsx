@@ -52,7 +52,9 @@ export function Header() {
   // Links visíveis no cabeçalho conforme o perfil
   const navLinks = isBalanceiro
     ? [
+        { label: 'Dashboard Operacional', path: '/' },
         { label: 'Lançar Cargas', path: '/lancamentos' },
+        { label: 'Estoque de Insumos', path: '/estoque' },
         { label: 'Ordens & Recibos', path: '/ordens' },
       ]
     : [

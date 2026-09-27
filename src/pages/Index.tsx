@@ -38,6 +38,7 @@ import {
   CheckCircle2,
   Clock,
   Pencil,
+  Activity,
 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import type { MetaProducao } from '@/types/concreteira'
@@ -84,12 +85,7 @@ export default function Index() {
   const { isBalanceiro, isAdministrador } = useUsuario()
   const { empresaAtiva } = useEmpresa()
 
-  // Se o perfil for Balanceiro, cai direto na expedição (/lancamentos)
-  useEffect(() => {
-    if (isBalanceiro) {
-      navigate('/lancamentos', { replace: true })
-    }
-  }, [isBalanceiro, navigate])
+
   const [materiais, setMateriais] = useState<Material[]>([])
   const [cargas, setCargas] = useState<Carga[]>([])
   const [metaProducao, setMetaProducao] = useState<MetaProducao | null>(null)
@@ -518,12 +514,17 @@ export default function Index() {
           <div className="text-right">
             <strong>Volume:</strong> {volumePeriodo.toFixed(1)} m³ |{' '}
             <strong>Aditivo:</strong>{' '}
-            {consumoPeriodo.aditivo.toLocaleString('pt-BR')} L |{' '}
-            <strong>Custos:</strong> R${' '}
-            {custoTotalPeriodo.toLocaleString('pt-BR', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
+            {consumoPeriodo.aditivo.toLocaleString('pt-BR')} L
+            {!isBalanceiro && (
+              <>
+                {' '}
+                | <strong>Custos:</strong> R${' '}
+                {custoTotalPeriodo.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -580,23 +581,25 @@ export default function Index() {
                   style: { textAnchor: 'middle' },
                 }}
               />
-              {/* Eixo Direito: Custo Total R$ */}
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                stroke="#000000"
-                fontSize={10}
-                tickLine={true}
-                tick={{ fill: '#000000' }}
-                label={{
-                  value: 'Custo Total (R$)',
-                  angle: 90,
-                  position: 'insideRight',
-                  fill: '#000000',
-                  fontSize: 10,
-                  style: { textAnchor: 'middle' },
-                }}
-              />
+              {/* Eixo Direito: Custo Total R$ (apenas Administrador) */}
+              {!isBalanceiro && (
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="#000000"
+                  fontSize={10}
+                  tickLine={false}
+                  label={{
+                    value: 'Custo Total (R$)',
+                    angle: 90,
+                    position: 'insideRight',
+                    fill: '#000000',
+                    fontSize: 10,
+                    style: { textAnchor: 'middle' },
+                  }}
+                />
+              )}
+              <Tooltip />
               <Legend
                 wrapperStyle={{
                   fontSize: '11px',
@@ -619,15 +622,17 @@ export default function Index() {
                 fill="#777777"
                 radius={[2, 2, 0, 0]}
               />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="custo_total"
-                name="Custo Total (R$)"
-                stroke="#000000"
-                strokeWidth={2.5}
-                dot={{ r: 4, fill: '#000000' }}
-              />
+              {!isBalanceiro && (
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="custo_total"
+                  name="Custo Total (R$)"
+                  stroke="#000000"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: '#000000' }}
+                />
+              )}{' '}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -643,13 +648,19 @@ export default function Index() {
               <th className="py-1 px-2 border-r border-black text-right">
                 Volume (m³)
               </th>
-              <th className="py-1 px-2 border-r border-black text-right">
+              <th
+                className={`py-1 px-2 ${!isBalanceiro ? 'border-r border-black' : ''} text-right`}
+              >
                 Aditivo (L)
               </th>
-              <th className="py-1 px-2 border-r border-black text-right">
-                Custo Total (R$)
-              </th>
-              <th className="py-1 px-2 text-right">Custo Médio / m³</th>
+              {!isBalanceiro && (
+                <>
+                  <th className="py-1 px-2 border-r border-black text-right">
+                    Custo Total (R$)
+                  </th>
+                  <th className="py-1 px-2 text-right">Custo Médio / m³</th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -667,23 +678,29 @@ export default function Index() {
                   <td className="py-1 px-2 border-r border-black text-right font-mono font-semibold">
                     {m.volume_m3.toFixed(1)} m³
                   </td>
-                  <td className="py-1 px-2 border-r border-black text-right font-mono font-semibold">
+                  <td
+                    className={`py-1 px-2 ${!isBalanceiro ? 'border-r border-black' : ''} text-right font-mono font-semibold`}
+                  >
                     {m.aditivo_l.toLocaleString('pt-BR')} L
                   </td>
-                  <td className="py-1 px-2 border-r border-black text-right font-mono font-semibold">
-                    R${' '}
-                    {m.custo_total.toLocaleString('pt-BR', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </td>
-                  <td className="py-1 px-2 text-right font-mono">
-                    R${' '}
-                    {custoMedioM3.toLocaleString('pt-BR', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </td>
+                  {!isBalanceiro && (
+                    <>
+                      <td className="py-1 px-2 border-r border-black text-right font-mono font-semibold">
+                        R${' '}
+                        {m.custo_total.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="py-1 px-2 text-right font-mono">
+                        R${' '}
+                        {custoMedioM3.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </td>
+                    </>
+                  )}
                 </tr>
               )
             })}
@@ -697,23 +714,29 @@ export default function Index() {
               <td className="py-1.5 px-2 border-r border-black text-right font-mono">
                 {volumePeriodo.toFixed(1)} m³
               </td>
-              <td className="py-1.5 px-2 border-r border-black text-right font-mono">
+              <td
+                className={`py-1.5 px-2 ${!isBalanceiro ? 'border-r border-black' : ''} text-right font-mono`}
+              >
                 {consumoPeriodo.aditivo.toLocaleString('pt-BR')} L
               </td>
-              <td className="py-1.5 px-2 border-r border-black text-right font-mono">
-                R${' '}
-                {custoTotalPeriodo.toLocaleString('pt-BR', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </td>
-              <td className="py-1.5 px-2 text-right font-mono">
-                R${' '}
-                {custoMedioPorM3Periodo.toLocaleString('pt-BR', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </td>
+              {!isBalanceiro && (
+                <>
+                  <td className="py-1.5 px-2 border-r border-black text-right font-mono">
+                    R${' '}
+                    {custoTotalPeriodo.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                  <td className="py-1.5 px-2 text-right font-mono">
+                    R${' '}
+                    {custoMedioPorM3Periodo.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                </>
+              )}
             </tr>
           </tbody>
         </table>
@@ -808,17 +831,19 @@ export default function Index() {
               </div>
             </div>
 
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="text-xs gap-1.5 h-8 self-start sm:self-auto border-border/60 hover:bg-muted"
-            >
-              <Link to="/cadastros">
-                <Target className="w-3.5 h-3.5 text-primary" />
-                Ajustar Metas
-              </Link>
-            </Button>
+            {isAdministrador && (
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="text-xs gap-1.5 h-8 self-start sm:self-auto border-border/60 hover:bg-muted"
+              >
+                <Link to="/cadastros">
+                  <Target className="w-3.5 h-3.5 text-primary" />
+                  Ajustar Metas
+                </Link>
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="px-4 sm:px-6 pb-5 pt-0">
@@ -1208,75 +1233,121 @@ export default function Index() {
         </Card>
       </div>
 
-      {/* Bloco de Custos dos Insumos Alimentados pelo Período */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-br from-emerald-500/10 to-transparent border-emerald-500/30">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-              Custo Total Insumos (Período)
-            </CardTitle>
-            <DollarSign className="w-4 h-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold font-mono text-foreground">
-              R${' '}
-              {custoTotalPeriodo.toLocaleString('pt-BR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Soma dos insumos consumidos em {volumePeriodo.toFixed(1)} m³ no
-              período
-            </p>
-          </CardContent>
-        </Card>
+      {/* Bloco de Custos dos Insumos Alimentados pelo Período (Oculto para Balanceiro) */}
+      {!isBalanceiro ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Card className="bg-gradient-to-br from-emerald-500/10 to-transparent border-emerald-500/30">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                Custo Total Insumos (Período)
+              </CardTitle>
+              <DollarSign className="w-4 h-4 text-emerald-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold font-mono text-foreground">
+                R${' '}
+                {custoTotalPeriodo.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Soma dos insumos consumidos em {volumePeriodo.toFixed(1)} m³ no
+                período
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-gradient-to-br from-primary/10 to-transparent border-primary/30">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-primary uppercase tracking-wider">
-              Custo Médio dos Insumos por m³
-            </CardTitle>
-            <Coins className="w-4 h-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold font-mono text-foreground">
-              R${' '}
-              {custoMedioPorM3Periodo.toLocaleString('pt-BR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}{' '}
-              <span className="text-sm font-normal text-muted-foreground">
-                / m³
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Média ponderada do m³ expedido na unidade
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="bg-gradient-to-br from-primary/10 to-transparent border-primary/30">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs font-medium text-primary uppercase tracking-wider">
+                Custo Médio dos Insumos por m³
+              </CardTitle>
+              <Coins className="w-4 h-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold font-mono text-foreground">
+                R${' '}
+                {custoMedioPorM3Periodo.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}{' '}
+                <span className="text-sm font-normal text-muted-foreground">
+                  / m³
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Média ponderada do m³ expedido na unidade
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-card/70 border-border/40">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Cimento Consumido (Período)
-            </CardTitle>
-            <BarChart2 className="w-4 h-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold font-mono text-foreground">
-              {(consumoPeriodo.cimento / 1000).toFixed(2)}{' '}
-              <span className="text-sm font-normal text-muted-foreground">
-                toneladas
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1 font-mono">
-              Aditivo: {consumoPeriodo.aditivo.toLocaleString('pt-BR')} L |
-              Água: {(consumoPeriodo.agua / 1000).toFixed(1)} m³
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="bg-card/70 border-border/40">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Cimento Consumido (Período)
+              </CardTitle>
+              <BarChart2 className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold font-mono text-foreground">
+                {(consumoPeriodo.cimento / 1000).toFixed(2)}{' '}
+                <span className="text-sm font-normal text-muted-foreground">
+                  toneladas
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 font-mono">
+                Aditivo: {consumoPeriodo.aditivo.toLocaleString('pt-BR')} L |
+                Água: {(consumoPeriodo.agua / 1000).toFixed(1)} m³
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Card className="bg-card/70 border-border/40">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Cimento Consumido (Período)
+              </CardTitle>
+              <BarChart2 className="w-4 h-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold font-mono text-foreground">
+                {(consumoPeriodo.cimento / 1000).toFixed(2)}{' '}
+                <span className="text-sm font-normal text-muted-foreground">
+                  toneladas
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 font-mono">
+                {consumoPeriodo.cimento.toLocaleString('pt-BR')} kg aplicados
+                nas cargas
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/70 border-border/40">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Água e Aditivo Consumidos (Período)
+              </CardTitle>
+              <Activity className="w-4 h-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold font-mono text-foreground">
+                {consumoPeriodo.aditivo.toLocaleString('pt-BR')}{' '}
+                <span className="text-sm font-normal text-muted-foreground">
+                  L de aditivo
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 font-mono">
+                Água total: {(consumoPeriodo.agua / 1000).toFixed(1)} m³ (
+                {consumoPeriodo.agua.toLocaleString('pt-BR')} L)
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Gráficos de Produção */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1396,15 +1467,16 @@ export default function Index() {
         </Card>
       </div>
 
-      {/* Gráfico 3 (TELA NORMAL): Consumo Mensal com Volume (m³), Aditivo (L) e Valores dos Custos (R$) */}
+      {/* Gráfico 3 (TELA NORMAL): Consumo Mensal com Volume (m³), Aditivo (L) e Valores dos Custos (R$ apenas Admin) */}
       <Card className="border-border/40 bg-card/60">
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-primary" />
               <span>
-                Consumo Mensal: Volume (m³), Aditivo (L) e Valores dos Custos
-                (R$)
+                {isBalanceiro
+                  ? 'Consumo Mensal: Volume (m³) e Aditivo (L)'
+                  : 'Consumo Mensal: Volume (m³), Aditivo (L) e Valores dos Custos (R$)'}
               </span>
             </CardTitle>
             <CardDescription className="text-xs">
@@ -1427,7 +1499,12 @@ export default function Index() {
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart
                 data={dadosGraficoMensal}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                margin={{
+                  top: 10,
+                  right: isBalanceiro ? 10 : 30,
+                  left: 0,
+                  bottom: 0,
+                }}
               >
                 <CartesianGrid
                   strokeDasharray="3 3"
@@ -1455,22 +1532,24 @@ export default function Index() {
                     style: { textAnchor: 'middle' },
                   }}
                 />
-                {/* Eixo Direito: Custos Totais (R$) */}
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  stroke="#10b981"
-                  fontSize={11}
-                  tickLine={false}
-                  label={{
-                    value: 'Custo Total (R$)',
-                    angle: 90,
-                    position: 'insideRight',
-                    fill: '#10b981',
-                    fontSize: 10,
-                    style: { textAnchor: 'middle' },
-                  }}
-                />
+                {/* Eixo Direito: Custos Totais (R$) - apenas Administrador */}
+                {!isBalanceiro && (
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    stroke="#10b981"
+                    fontSize={11}
+                    tickLine={false}
+                    label={{
+                      value: 'Custo Total (R$)',
+                      angle: 90,
+                      position: 'insideRight',
+                      fill: '#10b981',
+                      fontSize: 10,
+                      style: { textAnchor: 'middle' },
+                    }}
+                  />
+                )}
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'hsl(var(--card))',
@@ -1511,15 +1590,17 @@ export default function Index() {
                   fill="#06b6d4"
                   radius={[4, 4, 0, 0]}
                 />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="custo_total"
-                  name="Custo Total (R$)"
-                  stroke="#10b981"
-                  strokeWidth={2.5}
-                  dot={{ r: 4, fill: '#10b981' }}
-                />
+                {!isBalanceiro && (
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="custo_total"
+                    name="Custo Total (R$)"
+                    stroke="#10b981"
+                    strokeWidth={2.5}
+                    dot={{ r: 4, fill: '#10b981' }}
+                  />
+                )}
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -1673,8 +1754,12 @@ export default function Index() {
                   <th className="py-2.5 px-3">Data</th>
                   <th className="py-2.5 px-3">Volume</th>
                   <th className="py-2.5 px-3">Traço</th>
-                  <th className="py-2.5 px-3">Custo Total</th>
-                  <th className="py-2.5 px-3">Custo/m³</th>
+                  {!isBalanceiro && (
+                    <>
+                      <th className="py-2.5 px-3">Custo Total</th>
+                      <th className="py-2.5 px-3">Custo/m³</th>
+                    </>
+                  )}
                   <th className="py-2.5 px-3">{nomeCimento} (kg)</th>
                   <th className="py-2.5 px-3">Aditivo (L)</th>
                   <th className="py-2.5 px-3">Motorista / Placa</th>
@@ -1689,7 +1774,7 @@ export default function Index() {
                 {cargasFiltradas.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={isAdministrador ? 13 : 12}
+                      colSpan={isBalanceiro ? 10 : isAdministrador ? 13 : 12}
                       className="py-6 text-center text-muted-foreground italic"
                     >
                       Nenhuma carga encontrada para o período selecionado.
@@ -1738,14 +1823,18 @@ export default function Index() {
                       >
                         {c.traco_nome || '—'}
                       </td>
-                      <td className="py-2.5 px-3 font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                        {c.custo ? `R$ ${c.custo.total.toFixed(2)}` : '—'}
-                      </td>
-                      <td className="py-2.5 px-3 font-mono text-muted-foreground">
-                        {c.custo && c.custo.custoPorM3 > 0
-                          ? `R$ ${c.custo.custoPorM3.toFixed(2)}`
-                          : '—'}
-                      </td>
+                      {!isBalanceiro && (
+                        <>
+                          <td className="py-2.5 px-3 font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                            {c.custo ? `R$ ${c.custo.total.toFixed(2)}` : '—'}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-muted-foreground">
+                            {c.custo && c.custo.custoPorM3 > 0
+                              ? `R$ ${c.custo.custoPorM3.toFixed(2)}`
+                              : '—'}
+                          </td>
+                        </>
+                      )}
                       <td className="py-2.5 px-3 font-mono">
                         {Number(c.consumo_cimento).toLocaleString('pt-BR')}
                       </td>
