@@ -1595,18 +1595,18 @@ export default function Index() {
                     </div>
                     <div className="mt-3 flex items-baseline gap-2">
                       <span className="text-3xl font-extrabold text-foreground">
-                        {saldo >= 1000
+                        {mat.unidade === 'kg' && saldo >= 1000
                           ? (saldo / 1000).toLocaleString('pt-BR', {
                               maximumFractionDigits: 2,
                             })
                           : saldo.toLocaleString('pt-BR')}
                       </span>
                       <span className="text-sm text-muted-foreground font-medium">
-                        {saldo >= 1000 && mat.unidade === 'kg'
+                        {mat.unidade === 'kg' && saldo >= 1000
                           ? 'toneladas (t)'
                           : mat.unidade}
                       </span>
-                      {saldo >= 1000 && mat.unidade === 'kg' && (
+                      {mat.unidade === 'kg' && saldo >= 1000 && (
                         <span className="text-xs text-muted-foreground font-mono ml-auto">
                           ({saldo.toLocaleString('pt-BR')} kg)
                         </span>
