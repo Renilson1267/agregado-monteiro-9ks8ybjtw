@@ -126,10 +126,10 @@ export default function LancamentoCargas() {
   const [poPedra, setPoPedra] = useState<number>(0)
   const [cimento, setCimento] = useState<number>(0)
   const [aditivo, setAditivo] = useState<number>(0)
-  // Fator de dosagem para cálculo do aditivo no modo manual:
+  // Fator de dosagem para cálculo do aditivo (manual ou traço automático):
   // aditivo (L) = cimento TOTAL da carga (kg) × fator
-  // onde cimento_total_kg = dosagem_cimento_kg_m3 × volume_m3
-  // Faixa de fatores do aditivo: 0,005 a 0,010
+  // onde cimento_total_kg = dosagem_cimento_kg_m3 × volume_m3 (ou cimento_total no automático)
+  // Faixa de fatores do aditivo: 0,005 a 0,010 (+ personalizado)
   const [fatorAditivoManual, setFatorAditivoManual] = useState<number>(0.006)
   const [aditivoBruto, setAditivoBruto] = useState<number>(0)
 
@@ -593,27 +593,30 @@ export default function LancamentoCargas() {
       setAditivoEditadoManualmente(false)
       setAguaEditadaManualmente(false)
 
-      if (modoDosagem === 'manual') {
-        // No modo manual:
-        // cimento total da carga (kg) = dosagem (kg/m³) × volume (m³)
-        const cimentoTotal = cimentoDosagem * vol
-        // aditivo (L) = cimento total (kg) × fator
-        const adtBruto = cimentoTotal * (fatorAditivoManual || 0.006)
-        setAditivoBruto(adtBruto)
-        setAditivo(Math.round(adtBruto))
-
-        // água (L) = cimento total (kg) × fator
-        const agBruta = cimentoTotal * (fatorAguaManual || 0.55)
-        setAguaBruta(agBruta)
-        setAgua(Math.round(agBruta))
-      } else {
-        setAditivo(Number(traco.consumo_aditivo) || 0)
-        setAditivoBruto(Number(traco.consumo_aditivo) || 0)
-        const cimentoTotal = cimentoDosagem * vol
-        const agBruta = cimentoTotal * (fatorAguaManual || 0.55)
-        setAguaBruta(agBruta)
-        setAgua(Math.round(agBruta))
+      // Derivar ou manter o fator de aditivo inicial a partir do traço selecionado
+      let fatorAdt = fatorAditivoManual || 0.006
+      if (
+        Number(traco.consumo_cimento) > 0 &&
+        Number(traco.consumo_aditivo) > 0
+      ) {
+        const fatorTraco =
+          Number(traco.consumo_aditivo) / Number(traco.consumo_cimento)
+        if (fatorTraco >= 0.001 && fatorTraco <= 0.05) {
+          fatorAdt = Number(fatorTraco.toFixed(4))
+          setFatorAditivoManual(fatorAdt)
+        }
       }
+
+      const cimentoTotal = cimentoDosagem * vol
+      // aditivo (L) = cimento total (kg) × fator
+      const adtBruto = cimentoTotal * fatorAdt
+      setAditivoBruto(adtBruto)
+      setAditivo(Math.round(adtBruto))
+
+      // água (L) = cimento total (kg) × fator
+      const agBruta = cimentoTotal * (fatorAguaManual || 0.55)
+      setAguaBruta(agBruta)
+      setAgua(Math.round(agBruta))
     }
   }
 
@@ -633,7 +636,7 @@ export default function LancamentoCargas() {
     }
 
     if (modoDosagem === 'automatico') {
-      // No modo automático (apenas administradores usam), preenche com traço
+      // No modo automático, preenche dosagens com o traço
       const traco = tracos.find((t) => t.id === tracoSelecionadoId)
       if (traco) {
         const cimentoDosagem = Number(traco.consumo_cimento) || 0
@@ -642,14 +645,22 @@ export default function LancamentoCargas() {
         setAreia(Number(traco.consumo_areia) || 0)
         setPoPedra(Number(traco.consumo_po_pedra) || 0)
         setCimento(cimentoDosagem)
-        setAditivo(Number(traco.consumo_aditivo) || 0)
-        setAditivoBruto(Number(traco.consumo_aditivo) || 0)
 
-        // Água do traço automático (se houver no traço ou calculada via fator água)
         const cimentoTotal = cimentoDosagem * volume
+        // No modo automático, o aditivo também é liderado pela fórmula do fator sobre o cimento total da carga:
+        // aditivo = cimento total × fator (ou valor digitado se o usuário sobrescrever)
+        const adtBruto = cimentoTotal * (fatorAditivoManual || 0)
+        setAditivoBruto(adtBruto)
+        if (!aditivoEditadoManualmente) {
+          setAditivo(Math.round(adtBruto))
+        }
+
+        // Água do traço automático (calculada via fator água ou digitada)
         const agBruta = cimentoTotal * (fatorAguaManual || 0.55)
         setAguaBruta(agBruta)
-        setAgua(Math.round(agBruta))
+        if (!aguaEditadaManualmente) {
+          setAgua(Math.round(agBruta))
+        }
       }
     } else {
       // Modo manual:
@@ -715,20 +726,21 @@ export default function LancamentoCargas() {
     setModoDosagem(novoModo)
     setAditivoEditadoManualmente(false)
     setAguaEditadaManualmente(false)
-    if (novoModo === 'manual' && !cargaZerada) {
+    if (!cargaZerada) {
       // Determinar um fator sugerido coerente com o traço atual se existir:
       // aditivo_por_m3 = consumo_cimento * fator  =>  fator = aditivo_por_m3 / consumo_cimento
       const traco = tracos.find((t) => t.id === tracoSelecionadoId)
-      if (traco && Number(traco.consumo_cimento) > 0) {
+      if (
+        traco &&
+        Number(traco.consumo_cimento) > 0 &&
+        Number(traco.consumo_aditivo) > 0
+      ) {
         const fatorSugerido =
           Number(traco.consumo_aditivo) / Number(traco.consumo_cimento)
-        // Se bater próximo de opções conhecidas, adota
-        if (fatorSugerido >= 0.0003 && fatorSugerido <= 0.005) {
+        if (fatorSugerido >= 0.001 && fatorSugerido <= 0.05) {
           setFatorAditivoManual(Number(fatorSugerido.toFixed(4)))
         }
       }
-      aplicarDosagemTraco(tracoSelecionadoId, volume)
-    } else if (novoModo === 'automatico' && !cargaZerada) {
       aplicarDosagemTraco(tracoSelecionadoId, volume)
     }
   }
@@ -746,22 +758,19 @@ export default function LancamentoCargas() {
     }
   }
 
-  // Consumos REAIS da carga (multiplicados pelo volume):
-  // No modo manual: o operador digita dosagem em kg/m³ e o aditivo já foi calculado como total (L).
-  // Portanto: consumo real = dosagem (kg/m³) × volume (m³).
-  // Aditivo e Água são gravados como valor INTEIRO (Math.round).
-  // No modo automático: os campos do traço são dosagens por m³, multiplicados pelo volume.
+  // Consumos REAIS da carga:
+  // Em ambos os modos (manual e traço automático):
+  // - Sólidos (cimento, areia, britas, pó de pedra) guardam dosagem por m³ e são multiplicados pelo volume.
+  // - Aditivo e Água são liderados como volume TOTAL em litros da carga (já calculados com fator sobre cimento total ou digitados)
+  //   e gravados como valor INTEIRO (Math.round).
   const consumoReal = {
     cimento: Math.round(cimento * volume),
     areia: Math.round(areia * volume),
     brita12: Math.round(brita12 * volume),
     brita19: Math.round(brita19 * volume),
     poPedra: Math.round(poPedra * volume),
-    aditivo:
-      modoDosagem === 'manual'
-        ? Math.round(aditivo)
-        : Math.round(aditivo * volume),
-    agua: modoDosagem === 'manual' ? Math.round(agua) : Math.round(agua),
+    aditivo: Math.round(aditivo),
+    agua: Math.round(agua),
   }
 
   const validarFormulario = (): boolean => {
@@ -888,10 +897,10 @@ export default function LancamentoCargas() {
         observacao: observacao
           ? modoDosagem === 'manual'
             ? `[Modo Manual | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}] ${observacao}`
-            : observacao
+            : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}] ${observacao}`
           : modoDosagem === 'manual'
             ? `[Lançamento manual | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}]`
-            : undefined,
+            : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}]`,
         carga_zerada: cargaZerada,
       })
 
@@ -980,10 +989,10 @@ export default function LancamentoCargas() {
           observacao: observacao
             ? modoDosagem === 'manual'
               ? `[Modo Manual | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}] ${observacao}`
-              : observacao
+              : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}] ${observacao}`
             : modoDosagem === 'manual'
               ? `[Lançamento manual | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}]`
-              : undefined,
+              : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}]`,
           carga_zerada: cargaZerada,
         },
         entrega: {
@@ -1292,7 +1301,7 @@ export default function LancamentoCargas() {
                 </CardTitle>
                 <CardDescription className="text-xs mt-1">
                   {modoDosagem === 'automatico'
-                    ? `Dosagem base do traço por m³ multiplicada pelo volume (${volume} m³). Baixa de estoque apenas para ${materiais.find((m) => m.codigo === 'cimento')?.nome || 'CP II F-40 / CP V ARI'} e Aditivo.`
+                    ? `Dosagem base do traço multiplicada pelo volume (${volume} m³). Aditivo liderado por fator sobre cimento total (com seletor e edição manual). Baixa de estoque apenas para ${materiais.find((m) => m.codigo === 'cimento')?.nome || 'CP II F-40 / CP V ARI'} e Aditivo.`
                     : `Modo manual ativo: informe a dosagem de cada insumo em kg/m³. O consumo gravado e os custos são multiplicados automaticamente pelo volume (${volume} m³).`}
                 </CardDescription>
               </div>
@@ -1392,7 +1401,7 @@ export default function LancamentoCargas() {
                   <span className="text-[11px] text-muted-foreground">
                     {modoDosagem === 'manual'
                       ? 'Multiplicador aplicado às dosagens (kg/m³) para obter o consumo total real, aditivo e custos'
-                      : 'Volume em metros cúbicos multiplicado pelos insumos do traço'}
+                      : 'Volume em metros cúbicos multiplicado pelos insumos do traço e cimento total para cálculo do aditivo/água'}
                   </span>
                 </div>
               </div>
@@ -1526,12 +1535,12 @@ export default function LancamentoCargas() {
                 )}
               </div>
 
-              {/* Aditivo: CALCULADO NO MODO MANUAL */}
+              {/* Aditivo: CALCULADO POR FATOR (MESMO COMPORTAMENTO NO MODO AUTOMÁTICO E MANUAL) */}
               <div
                 className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
                   modoDosagem === 'manual'
                     ? 'border-primary/50 bg-primary/10 ring-1 ring-primary/30'
-                    : 'border-border/40 bg-background/50'
+                    : 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
                 }`}
               >
                 <Label
@@ -1543,198 +1552,174 @@ export default function LancamentoCargas() {
                     <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal">
                       Estoque
                     </span>
-                    {modoDosagem === 'manual' &&
-                      (aditivoEditadoManualmente ? (
-                        <span className="text-[10px] px-1 py-0.2 bg-amber-500/15 text-amber-700 dark:text-amber-300 rounded font-medium">
-                          Digitado
-                        </span>
-                      ) : (
-                        <span className="text-[10px] px-1 py-0.2 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded font-medium">
-                          Calculado
-                        </span>
-                      ))}
+                    {aditivoEditadoManualmente ? (
+                      <span className="text-[10px] px-1 py-0.2 bg-amber-500/15 text-amber-700 dark:text-amber-300 rounded font-medium">
+                        Digitado
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-1 py-0.2 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded font-medium">
+                        Calculado
+                      </span>
+                    )}
                   </span>
-                  {tracoAtual && modoDosagem === 'automatico' && (
-                    <span className="text-[10px]">
-                      ({tracoAtual.consumo_aditivo} L/m³)
-                    </span>
-                  )}
-                  {tracoAtual && modoDosagem === 'manual' && (
+                  {tracoAtual && (
                     <span className="text-[10px] text-muted-foreground">
                       Traço:{' '}
                       {(Number(tracoAtual.consumo_aditivo) * volume).toFixed(2)}{' '}
-                      L
+                      L ({tracoAtual.consumo_aditivo} L/m³)
                     </span>
                   )}
                 </Label>
 
-                {modoDosagem === 'manual' ? (
-                  <div className="space-y-2">
-                    {/* Campo Aditivo Editável com opção de recalcular */}
-                    <div className="relative flex items-center gap-1.5">
-                      <div className="relative flex-1">
-                        <Input
-                          id="aditivo"
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={
-                            aditivo === 0 && aditivoEditadoManualmente
-                              ? ''
-                              : aditivo
-                          }
-                          onChange={(e) => {
-                            const val =
-                              e.target.value === '' ? 0 : Number(e.target.value)
-                            setAditivoEditadoManualmente(true)
-                            setAditivo(isNaN(val) ? 0 : Math.round(val))
-                          }}
-                          disabled={cargaZerada}
-                          className="font-mono font-bold text-base bg-background text-foreground pr-8 border-primary/40 focus-visible:ring-primary"
-                          placeholder="0"
-                          title="Digite o volume de aditivo (L) ou use o cálculo do fator"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
-                          L
-                        </span>
-                      </div>
-                      <Button
-                        type="button"
-                        variant={
-                          aditivoEditadoManualmente ? 'secondary' : 'outline'
-                        }
-                        size="icon"
-                        onClick={handleRecalcularAditivo}
-                        disabled={cargaZerada}
-                        className="h-9 w-9 shrink-0"
-                        title="Recalcular aditivo pela fórmula (cimento total × fator)"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-
-                    {/* Fator de dosagem selecionável/editável (faixa 0,005 a 0,010) */}
-                    <div className="pt-1 border-t border-border/30 flex items-center gap-1.5">
-                      <Label
-                        htmlFor="fator-aditivo"
-                        className="text-[11px] font-medium text-muted-foreground shrink-0"
-                      >
-                        Fator:
-                      </Label>
-
-                      {/* Select com opções rápidas (0,005 a 0,010) */}
-                      <Select
-                        value={
-                          OPCOES_FATOR_ADITIVO.some(
-                            (o) => o.valor === fatorAditivoManual,
-                          )
-                            ? String(fatorAditivoManual)
-                            : 'custom'
-                        }
-                        onValueChange={(val) => {
-                          if (val !== 'custom') {
-                            setFatorAditivoManual(Number(val))
-                            setAditivoEditadoManualmente(false)
-                          }
-                        }}
-                        disabled={cargaZerada}
-                      >
-                        <SelectTrigger
-                          id="fator-aditivo-select"
-                          className="h-8 text-xs font-mono font-medium flex-1 px-2 bg-background border-border/70 shadow-sm"
-                        >
-                          <SelectValue placeholder="Selecione o fator">
-                            {OPCOES_FATOR_ADITIVO.some(
-                              (o) => o.valor === fatorAditivoManual,
-                            )
-                              ? String(fatorAditivoManual).replace('.', ',')
-                              : `${String(fatorAditivoManual).replace('.', ',')} (outro)`}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent className="z-50 bg-popover text-popover-foreground">
-                          {OPCOES_FATOR_ADITIVO.map((op) => (
-                            <SelectItem
-                              key={op.valor}
-                              value={String(op.valor)}
-                              className="font-mono text-xs cursor-pointer"
-                            >
-                              Fator {op.rotulo}
-                            </SelectItem>
-                          ))}
-                          {!OPCOES_FATOR_ADITIVO.some(
-                            (o) => o.valor === fatorAditivoManual,
-                          ) && (
-                            <SelectItem
-                              value="custom"
-                              className="font-mono text-xs cursor-pointer"
-                            >
-                              {String(fatorAditivoManual).replace('.', ',')}{' '}
-                              (Personalizado)
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-
-                      {/* Input numérico para digitação livre do fator (faixa 0,005 a 0,01) */}
+                <div className="space-y-2">
+                  {/* Campo Aditivo Editável com opção de recalcular */}
+                  <div className="relative flex items-center gap-1.5">
+                    <div className="relative flex-1">
                       <Input
-                        id="fator-aditivo"
+                        id="aditivo"
                         type="number"
-                        step="0.0005"
-                        min="0.001"
-                        max="0.05"
-                        value={fatorAditivoManual || ''}
+                        min="0"
+                        step="1"
+                        value={
+                          aditivo === 0 && aditivoEditadoManualmente
+                            ? ''
+                            : aditivo
+                        }
                         onChange={(e) => {
                           const val =
                             e.target.value === '' ? 0 : Number(e.target.value)
-                          setFatorAditivoManual(isNaN(val) ? 0 : val)
-                          setAditivoEditadoManualmente(false)
+                          setAditivoEditadoManualmente(true)
+                          setAditivo(isNaN(val) ? 0 : Math.round(val))
                         }}
                         disabled={cargaZerada}
-                        className="h-8 w-20 text-xs font-mono font-medium text-center px-1 bg-background border-border/70"
-                        title="Ou digite manualmente o fator de aditivo"
-                        placeholder="0.006"
+                        className="font-mono font-bold text-base bg-background text-foreground pr-8 border-primary/40 focus-visible:ring-primary"
+                        placeholder="0"
+                        title="Digite o volume de aditivo (L) ou use o cálculo do fator"
                       />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
+                        L
+                      </span>
                     </div>
-                    {/* Legenda com o valor bruto e arredondamento */}
-                    <div className="text-[10px] text-muted-foreground leading-tight space-y-0.5">
-                      <div>
-                        {consumoReal.cimento} kg × {fatorAditivoManual} ={' '}
-                        <span className="font-mono font-medium">
-                          {aditivoBruto.toFixed(2)} →{' '}
-                        </span>
-                        <span className="font-semibold text-foreground font-mono">
-                          {Math.round(aditivoBruto)} L
-                        </span>
-                        {aditivoEditadoManualmente && (
-                          <span className="ml-1 text-amber-600 dark:text-amber-400 font-semibold font-mono">
-                            (Digitado: {aditivo} L)
-                          </span>
+                    <Button
+                      type="button"
+                      variant={
+                        aditivoEditadoManualmente ? 'secondary' : 'outline'
+                      }
+                      size="icon"
+                      onClick={handleRecalcularAditivo}
+                      disabled={cargaZerada}
+                      className="h-9 w-9 shrink-0"
+                      title="Recalcular aditivo pela fórmula (cimento total × fator)"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+
+                  {/* Fator de dosagem selecionável/editável (faixa 0,005 a 0,010) */}
+                  <div className="pt-1 border-t border-border/30 flex items-center gap-1.5">
+                    <Label
+                      htmlFor="fator-aditivo"
+                      className="text-[11px] font-medium text-muted-foreground shrink-0"
+                    >
+                      Fator:
+                    </Label>
+
+                    {/* Select com opções rápidas (0,005 a 0,010) */}
+                    <Select
+                      value={
+                        OPCOES_FATOR_ADITIVO.some(
+                          (o) => o.valor === fatorAditivoManual,
+                        )
+                          ? String(fatorAditivoManual)
+                          : 'custom'
+                      }
+                      onValueChange={(val) => {
+                        if (val !== 'custom') {
+                          setFatorAditivoManual(Number(val))
+                          setAditivoEditadoManualmente(false)
+                        }
+                      }}
+                      disabled={cargaZerada}
+                    >
+                      <SelectTrigger
+                        id="fator-aditivo-select"
+                        className="h-8 text-xs font-mono font-medium flex-1 px-2 bg-background border-border/70 shadow-sm"
+                      >
+                        <SelectValue placeholder="Selecione o fator">
+                          {OPCOES_FATOR_ADITIVO.some(
+                            (o) => o.valor === fatorAditivoManual,
+                          )
+                            ? String(fatorAditivoManual).replace('.', ',')
+                            : `${String(fatorAditivoManual).replace('.', ',')} (outro)`}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="z-50 bg-popover text-popover-foreground">
+                        {OPCOES_FATOR_ADITIVO.map((op) => (
+                          <SelectItem
+                            key={op.valor}
+                            value={String(op.valor)}
+                            className="font-mono text-xs cursor-pointer"
+                          >
+                            Fator {op.rotulo}
+                          </SelectItem>
+                        ))}
+                        {!OPCOES_FATOR_ADITIVO.some(
+                          (o) => o.valor === fatorAditivoManual,
+                        ) && (
+                          <SelectItem
+                            value="custom"
+                            className="font-mono text-xs cursor-pointer"
+                          >
+                            {String(fatorAditivoManual).replace('.', ',')}{' '}
+                            (Personalizado)
+                          </SelectItem>
                         )}
-                      </div>
-                      <div className="text-[9px] text-muted-foreground/80">
-                        {aditivoEditadoManualmente
-                          ? 'Valor manual digitado pelo operador (clique em ↺ para restaurar a fórmula)'
-                          : 'Arredondamento inteiro: ≥ 0,5 sobe | Campo aberto para digitação'}
-                      </div>
+                      </SelectContent>
+                    </Select>
+
+                    {/* Input numérico para digitação livre do fator (faixa 0,005 a 0,01) */}
+                    <Input
+                      id="fator-aditivo"
+                      type="number"
+                      step="0.0005"
+                      min="0.001"
+                      max="0.05"
+                      value={fatorAditivoManual || ''}
+                      onChange={(e) => {
+                        const val =
+                          e.target.value === '' ? 0 : Number(e.target.value)
+                        setFatorAditivoManual(isNaN(val) ? 0 : val)
+                        setAditivoEditadoManualmente(false)
+                      }}
+                      disabled={cargaZerada}
+                      className="h-8 w-20 text-xs font-mono font-medium text-center px-1 bg-background border-border/70"
+                      title="Ou digite manualmente o fator de aditivo"
+                      placeholder="0.006"
+                    />
+                  </div>
+                  {/* Legenda com o valor bruto e arredondamento */}
+                  <div className="text-[10px] text-muted-foreground leading-tight space-y-0.5">
+                    <div>
+                      {consumoReal.cimento} kg × {fatorAditivoManual} ={' '}
+                      <span className="font-mono font-medium">
+                        {aditivoBruto.toFixed(2)} →{' '}
+                      </span>
+                      <span className="font-semibold text-foreground font-mono">
+                        {Math.round(aditivoBruto)} L
+                      </span>
+                      {aditivoEditadoManualmente && (
+                        <span className="ml-1 text-amber-600 dark:text-amber-400 font-semibold font-mono">
+                          (Digitado: {aditivo} L)
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[9px] text-muted-foreground/80">
+                      {aditivoEditadoManualmente
+                        ? 'Valor manual digitado pelo operador (clique em ↺ para restaurar a fórmula)'
+                        : 'Arredondamento inteiro: ≥ 0,5 sobe | Campo aberto para digitação'}
                     </div>
                   </div>
-                ) : (
-                  <div className="relative">
-                    <Input
-                      id="aditivo"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={consumoReal.aditivo}
-                      disabled
-                      className="font-mono font-semibold pr-8 bg-muted/40 cursor-not-allowed"
-                      placeholder="0"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                      L
-                    </span>
-                  </div>
-                )}
+                </div>
               </div>
 
               {/* NOVO: ÁGUA (Calculada com opção de digitação manual) */}
