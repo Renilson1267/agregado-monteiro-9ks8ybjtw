@@ -17,6 +17,7 @@ import Cadastros from './pages/Cadastros'
 import Ordens from './pages/Ordens'
 import Relatorios from './pages/Relatorios'
 import ControleExames from './pages/ControleExames'
+import FolhaPagamento from './pages/FolhaPagamento'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -49,10 +50,10 @@ const App = () => (
                       element={<ProtectedRoute permitirApenasAdmin={true} />}
                     >
                       <Route path="/tracos" element={<Tracos />} />
-                      <Route path="/cadastros" element={<Cadastros />} />
                       <Route path="/relatorios" element={<Relatorios />} />
-                    </Route>
-                  </Route>
+                      <Route path="/folha" element={<FolhaPagamento />} />
+                      <Route path="/cadastros" element={<Cadastros />} />
+                    </Route>                  </Route>
                 </Route>
 
                 <Route path="*" element={<NotFound />} />

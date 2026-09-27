@@ -11,7 +11,6 @@
     ".skip.config.json",
     ".env*",
     ".npmrc",
-    ".oxfmtrc.json",
     ".oxlintrc.json",
     "bun.lockb",
     "package-lock.json",
@@ -32,7 +31,7 @@
     "README.md"
   ],
   "deployment": {
-    "lastDevBuildRef": "728e527",
+    "lastDevBuildRef": "191a7c4",
     "lastProdBuildRef": "728e527",
     "publishedAt": "2026-09-27T17:38:29.048Z",
     "lastPublishedRef": "728e527"

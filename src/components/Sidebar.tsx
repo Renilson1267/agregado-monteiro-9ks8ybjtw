@@ -14,6 +14,7 @@ import {
   FileText,
   FileSpreadsheet,
   HeartPulse,
+  Briefcase,
 } from 'lucide-react'
 import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from '@/assets/logos'
 import { useTheme } from 'next-themes'
@@ -57,6 +58,11 @@ export function Sidebar() {
           icon: HeartPulse,
           label: 'Controle de Exames (ASO)',
           path: '/exames',
+        },
+        {
+          icon: Briefcase,
+          label: 'Folha de Pagamento',
+          path: '/folha',
         },
         { icon: FileSpreadsheet, label: 'Relatórios', path: '/relatorios' },
       ]

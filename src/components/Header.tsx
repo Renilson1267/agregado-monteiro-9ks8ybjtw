@@ -66,6 +66,7 @@ export function Header() {
         { label: 'Cadastros', path: '/cadastros' },
         { label: 'Ordens & Recibos', path: '/ordens' },
         { label: 'Exames (ASO)', path: '/exames' },
+        { label: 'Folha', path: '/folha' },
         { label: 'Relatórios', path: '/relatorios' },
       ]
 

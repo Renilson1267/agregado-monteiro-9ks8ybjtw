@@ -42,6 +42,7 @@ import {
   Pencil,
   Activity,
   HeartPulse,
+  Briefcase,
 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import type { MetaProducao } from '@/types/concreteira'
@@ -749,10 +750,11 @@ export default function Index() {
         </table>
       </div>
 
-      {/* Top Banner & Ações com Logo Oficial GC MIX */}
-      <div className="no-print flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-border/40 pb-4">
-        <div className="flex items-center gap-3.5">
-          <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-border/60 shadow-sm shrink-0">
+      {/* ERP Pedreira Cordeiro Banner & Header de Ações Multi-Empresa */}
+      <div className="no-print p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-card via-card/95 to-primary/10 border border-border/60 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-72 h-32 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex items-center gap-3.5 relative z-10">
+          <div className="p-2 rounded-2xl bg-white dark:bg-slate-900 border border-border/70 shadow-sm shrink-0">
             <img
               src={LOGO_GC_MIX_HORIZONTAL}
               alt={LOGO_ALT_TEXT}
@@ -760,31 +762,49 @@ export default function Index() {
             />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2 flex-wrap">
-              <span>Usina {empresaAtiva?.nome || 'Concreteira'}</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                ERP Grupo Pedreira Cordeiro & GC MIX
+              </span>
               <Badge
                 variant="outline"
-                className="text-xs bg-primary/10 text-primary border-primary/30 font-semibold"
+                className="text-xs bg-card/80 border-border/60 font-semibold"
               >
-                Unidade {empresaAtiva?.slug?.toUpperCase() || 'ATIVA'}
+                Unidade Ativa: {empresaAtiva?.nome || 'Concreteira'}
               </Badge>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground mt-1 flex items-center gap-2 flex-wrap">
+              <span>Painel de Operações & Indicadores</span>
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              GC MIX Concreto Usinado & Pedreira Cordeiro — Produção, expedição
-              e estoques
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Gestão de produção em m³, consumo de agregados/cimento, metas e expedição multi-empresa
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap relative z-10 w-full sm:w-auto">
+          {isAdministrador && (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs bg-card/60 hover:bg-card border-border/60"
+            >
+              <Link to="/folha">
+                <Briefcase className="w-4 h-4 text-primary" />
+                Folha de Pagamento
+              </Link>
+            </Button>
+          )}
+
           <Button
-            variant="default"
+            variant="outline"
             size="sm"
             onClick={handleImprimir}
-            className="gap-2 bg-primary text-primary-foreground shadow-sm"
+            className="gap-2 text-xs bg-card/60 hover:bg-card border-border/60"
           >
             <Printer className="w-4 h-4" />
-            Imprimir / Salvar PDF
+            Imprimir A4
           </Button>
 
           <Button
@@ -792,7 +812,7 @@ export default function Index() {
             size="sm"
             onClick={carregarDados}
             disabled={loading}
-            className="gap-2"
+            className="gap-2 text-xs bg-card/60 hover:bg-card border-border/60"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Atualizar
@@ -801,7 +821,7 @@ export default function Index() {
           <Button
             asChild
             size="sm"
-            className="gap-2 bg-secondary text-secondary-foreground"
+            className="gap-2 bg-primary text-primary-foreground font-semibold shadow-sm text-xs"
           >
             <Link to="/lancamentos">
               <Truck className="w-4 h-4" />
