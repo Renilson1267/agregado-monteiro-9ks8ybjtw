@@ -18,8 +18,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ConcreteiraService } from '@/services/concreteira'
+import { ExamesService } from '@/services/exames'
 import { useEmpresa } from '@/hooks/use-empresa'
 import type { Material, Carga } from '@/types/concreteira'
+import type { ResumoExamesEmpresa } from '@/types/exames'
 import {
   TrendingUp,
   Truck,
@@ -39,6 +41,7 @@ import {
   Clock,
   Pencil,
   Activity,
+  HeartPulse,
 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import type { MetaProducao } from '@/types/concreteira'
@@ -88,6 +91,9 @@ export default function Index() {
   const [materiais, setMateriais] = useState<Material[]>([])
   const [cargas, setCargas] = useState<Carga[]>([])
   const [metaProducao, setMetaProducao] = useState<MetaProducao | null>(null)
+  const [resumoExames, setResumoExames] = useState<ResumoExamesEmpresa | null>(
+    null,
+  )
   const [loading, setLoading] = useState(true)
   const [osParaReimpressao, setOsParaReimpressao] =
     useState<OrdemServico | null>(null)
@@ -102,14 +108,16 @@ export default function Index() {
     if (!empresaAtiva) return
     setLoading(true)
     try {
-      const [mats, crgs, meta] = await Promise.all([
+      const [mats, crgs, meta, examesRes] = await Promise.all([
         ConcreteiraService.getMateriais(empresaAtiva.id),
         ConcreteiraService.getCargas({ empresaId: empresaAtiva.id }),
         ConcreteiraService.getMetaProducao(empresaAtiva.id),
+        ExamesService.getResumoExames(empresaAtiva.id),
       ])
       setMateriais(mats)
       setCargas(crgs)
       setMetaProducao(meta)
+      setResumoExames(examesRes)
     } catch (e) {
       console.error('Erro ao carregar dados do dashboard:', e)
     } finally {
@@ -1087,6 +1095,68 @@ export default function Index() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Alerta de Exames Vencidos na Unidade Ativa (Requisito 6) */}
+      {resumoExames && resumoExames.totalVencidos > 0 && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 flex items-start gap-3 text-destructive animate-in fade-in">
+          <HeartPulse className="w-5 h-5 mt-0.5 shrink-0 text-destructive" />
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h4 className="font-bold text-sm">
+                Alerta Ocupacional: Exames (ASO) Vencidos na Unidade{' '}
+                {empresaAtiva?.nome}
+              </h4>
+              <Badge variant="destructive" className="font-mono text-xs">
+                {resumoExames.totalVencidos} exame(s)
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Existem{' '}
+              {
+                resumoExames.funcionariosComVencimento.filter(
+                  (f) => f.totalVencidos > 0,
+                ).length
+              }{' '}
+              colaborador(es) com exames médicos vencidos na empresa ativa.
+              Regularize para conformidade com as normas trabalhistas e de
+              segurança.
+            </p>
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
+              {resumoExames.funcionariosComVencimento
+                .filter((f) => f.totalVencidos > 0)
+                .slice(0, 5)
+                .map((f) => (
+                  <Badge
+                    key={f.id}
+                    variant="outline"
+                    className="text-[11px] bg-background/80 border-destructive/40 text-destructive font-medium"
+                  >
+                    {f.nome} ({f.funcao}): {f.totalVencidos} vencido(s)
+                  </Badge>
+                ))}
+              {resumoExames.funcionariosComVencimento.filter(
+                (f) => f.totalVencidos > 0,
+              ).length > 5 && (
+                <span className="text-[11px] text-muted-foreground self-center">
+                  +
+                  {resumoExames.funcionariosComVencimento.filter(
+                    (f) => f.totalVencidos > 0,
+                  ).length - 5}{' '}
+                  colaboradores
+                </span>
+              )}
+            </div>
+          </div>
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 text-xs h-8"
+          >
+            <Link to="/exames">Ver Exames</Link>
+          </Button>
+        </div>
+      )}
 
       {/* Alertas de Estoque Baixo */}
       {alertasEstoque.length > 0 && (

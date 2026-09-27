@@ -56,6 +56,7 @@ export function Header() {
         { label: 'Lançar Cargas', path: '/lancamentos' },
         { label: 'Estoque de Insumos', path: '/estoque' },
         { label: 'Ordens & Recibos', path: '/ordens' },
+        { label: 'Exames (ASO)', path: '/exames' },
       ]
     : [
         { label: 'Dashboard', path: '/' },
@@ -64,6 +65,7 @@ export function Header() {
         { label: 'Traços / Dosagens', path: '/tracos' },
         { label: 'Cadastros', path: '/cadastros' },
         { label: 'Ordens & Recibos', path: '/ordens' },
+        { label: 'Exames (ASO)', path: '/exames' },
         { label: 'Relatórios', path: '/relatorios' },
       ]
 

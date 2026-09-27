@@ -13,6 +13,7 @@ import {
   Settings,
   FileText,
   FileSpreadsheet,
+  HeartPulse,
 } from 'lucide-react'
 import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from '@/assets/logos'
 import { useTheme } from 'next-themes'
@@ -39,6 +40,11 @@ export function Sidebar() {
         { icon: Truck, label: 'Lançar Cargas', path: '/lancamentos' },
         { icon: Boxes, label: 'Estoque de Insumos', path: '/estoque' },
         { icon: FileText, label: 'Ordens & Recibos', path: '/ordens' },
+        {
+          icon: HeartPulse,
+          label: 'Controle de Exames (ASO)',
+          path: '/exames',
+        },
       ]
     : [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -47,6 +53,11 @@ export function Sidebar() {
         { icon: FlaskConical, label: 'Traços / Dosagens', path: '/tracos' },
         { icon: Users, label: 'Cadastros', path: '/cadastros' },
         { icon: FileText, label: 'Ordens & Recibos', path: '/ordens' },
+        {
+          icon: HeartPulse,
+          label: 'Controle de Exames (ASO)',
+          path: '/exames',
+        },
         { icon: FileSpreadsheet, label: 'Relatórios', path: '/relatorios' },
       ]
 
