@@ -3,6 +3,7 @@ import { ConcreteiraService } from '@/services/concreteira'
 import { useEmpresa } from '@/hooks/use-empresa'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
+import { useUsuario } from '@/hooks/use-usuario'
 import type { UsuarioApp } from '@/types/concreteira'
 import {
   Card,
@@ -45,11 +46,23 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
+  Trash2,
 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 export function PainelUsuarios() {
   const { empresas } = useEmpresa()
-  const { signUp } = useAuth()
+  const { signUp, user: authUser } = useAuth()
+  const { isAdministrador } = useUsuario()
   const { toast } = useToast()
 
   const [usuarios, setUsuarios] = useState<UsuarioApp[]>([])
@@ -69,6 +82,11 @@ export function PainelUsuarios() {
   const [ativo, setAtivo] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [erroModal, setErroModal] = useState<string | null>(null)
+
+  // Estado para confirmação de exclusão
+  const [usuarioParaExcluir, setUsuarioParaExcluir] =
+    useState<UsuarioApp | null>(null)
+  const [excluindo, setExcluindo] = useState(false)
 
   const carregarUsuarios = useCallback(async () => {
     try {
@@ -236,6 +254,31 @@ export function PainelUsuarios() {
     }
   }
 
+  const confirmarExcluirUsuario = async () => {
+    if (!usuarioParaExcluir) return
+    setExcluindo(true)
+    try {
+      await ConcreteiraService.excluirUsuarioApp(
+        usuarioParaExcluir.id,
+        authUser?.email || undefined,
+      )
+      toast({
+        title: 'Usuário excluído',
+        description: `O cadastro do usuário "${usuarioParaExcluir.nome}" foi removido com sucesso.`,
+      })
+      setUsuarioParaExcluir(null)
+      carregarUsuarios()
+    } catch (err: any) {
+      toast({
+        title: 'Não foi possível excluir o usuário',
+        description: err.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setExcluindo(false)
+    }
+  }
+
   const usuariosFiltrados = usuarios.filter((u) => {
     const termo = busca.toLowerCase()
     return (
@@ -394,6 +437,17 @@ export function PainelUsuarios() {
                             >
                               <Power className="w-3.5 h-3.5" />
                             </Button>
+                            {isAdministrador && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => setUsuarioParaExcluir(u)}
+                                title="Excluir Usuário"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -616,6 +670,50 @@ export function PainelUsuarios() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog de Confirmação para Excluir Usuário */}
+      <AlertDialog
+        open={!!usuarioParaExcluir}
+        onOpenChange={(open) =>
+          !excluindo && !open && setUsuarioParaExcluir(null)
+        }
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              Confirmar Exclusão de Usuário
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm pt-2 leading-relaxed">
+              Deseja realmente remover o usuário{' '}
+              <strong className="text-foreground">
+                "{usuarioParaExcluir?.nome}"
+              </strong>{' '}
+              ({usuarioParaExcluir?.email})?
+              <br />
+              <span className="block mt-2 text-xs text-muted-foreground">
+                Dica: caso o usuário tenha deixado a empresa mas possua
+                histórico de atividades, a <strong>desativação</strong> (ícone
+                de energia) é a alternativa recomendada para preservar
+                auditoria.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel disabled={excluindo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                confirmarExcluirUsuario()
+              }}
+              disabled={excluindo}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {excluindo ? 'Excluindo...' : 'Sim, Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

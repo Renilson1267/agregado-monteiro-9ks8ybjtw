@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog'
 import { ConcreteiraService } from '@/services/concreteira'
 import { useEmpresa } from '@/hooks/use-empresa'
+import { useUsuario } from '@/hooks/use-usuario'
 import type {
   Motorista,
   Veiculo,
@@ -54,6 +55,16 @@ import {
   FileSpreadsheet,
   Target,
 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { ModalImportarCargasCSV } from '@/components/ModalImportarCargasCSV'
 import {
   formatarCpfCnpj,
@@ -85,6 +96,7 @@ import { toast } from '@/hooks/use-toast'
 
 export default function Cadastros() {
   const { empresaAtiva } = useEmpresa()
+  const { isAdministrador } = useUsuario()
   const [motoristas, setMotoristas] = useState<Motorista[]>([])
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [cidades, setCidades] = useState<Cidade[]>([])
@@ -299,6 +311,22 @@ export default function Cadastros() {
 
   const [salvando, setSalvando] = useState(false)
   const [openImportarCsv, setOpenImportarCsv] = useState(false)
+
+  // Estado para confirmação de exclusão genérica com AlertDialog
+  const [dialogExclusao, setDialogExclusao] = useState<{
+    open: boolean
+    tipo: 'cliente' | 'motorista' | 'veiculo' | 'cidade' | 'material' | 'meta'
+    id: string
+    titulo: string
+    descricao: string
+  }>({
+    open: false,
+    tipo: 'cliente',
+    id: '',
+    titulo: '',
+    descricao: '',
+  })
+  const [excluindo, setExcluindo] = useState(false)
 
   const carregarTudo = async () => {
     if (!empresaAtiva) return
@@ -664,18 +692,46 @@ export default function Cadastros() {
     }
   }
 
-  const handleExcluirCliente = async (id: string, nome: string) => {
-    if (!confirm(`Deseja realmente remover o cliente "${nome}"?`)) return
+  const confirmarExclusao = async () => {
+    const { tipo, id, titulo } = dialogExclusao
+    if (!id && tipo !== 'meta') return
+    setExcluindo(true)
     try {
-      await ConcreteiraService.excluirCliente(id)
-      toast({ title: 'Cliente removido' })
+      if (tipo === 'cliente') {
+        await ConcreteiraService.excluirCliente(id, empresaAtiva?.id)
+        toast({ title: 'Cliente excluído com sucesso!' })
+      } else if (tipo === 'motorista') {
+        await ConcreteiraService.excluirMotorista(id, empresaAtiva?.id)
+        toast({ title: 'Motorista excluído com sucesso!' })
+      } else if (tipo === 'veiculo') {
+        await ConcreteiraService.excluirVeiculo(id, empresaAtiva?.id)
+        toast({ title: 'Veículo excluído com sucesso!' })
+      } else if (tipo === 'cidade') {
+        await ConcreteiraService.excluirCidade(id, empresaAtiva?.id)
+        toast({ title: 'Cidade excluída com sucesso!' })
+      } else if (tipo === 'material') {
+        await ConcreteiraService.excluirMaterial(id, empresaAtiva?.id)
+        toast({ title: 'Insumo excluído com sucesso!' })
+      } else if (tipo === 'meta') {
+        if (empresaAtiva?.id) {
+          await ConcreteiraService.excluirMetaProducao(empresaAtiva.id)
+          setMetaProducao(null)
+          setMetaDiariaInput(50)
+          setMetaMensalInput(1000)
+          setObservacaoMetaInput('')
+          toast({ title: 'Metas de produção redefinidas com sucesso!' })
+        }
+      }
+      setDialogExclusao((prev) => ({ ...prev, open: false }))
       carregarTudo()
     } catch (err: any) {
       toast({
-        title: 'Erro ao excluir',
+        title: `Erro ao excluir ${titulo}`,
         description: err.message,
         variant: 'destructive',
       })
+    } finally {
+      setExcluindo(false)
     }
   }
 
@@ -897,14 +953,37 @@ export default function Cadastros() {
                       totalmente isoladas.
                     </span>
                   </div>
-                  <Button
-                    type="submit"
-                    disabled={salvandoMeta}
-                    className="bg-primary text-primary-foreground font-semibold gap-1.5 text-xs shadow-sm"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    {salvandoMeta ? 'Salvando...' : 'Salvar Metas'}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {isAdministrador && metaProducao && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setDialogExclusao({
+                            open: true,
+                            tipo: 'meta',
+                            id: metaProducao.id,
+                            titulo: 'Metas de Produção',
+                            descricao: `Deseja realmente remover/redefinir as metas de produção configuradas para a unidade ${empresaAtiva?.nome}? Os valores voltarão aos padrões iniciais.`,
+                          })
+                        }
+                        className="text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10 text-xs gap-1"
+                        title="Limpar e redefinir metas desta unidade"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Excluir Metas
+                      </Button>
+                    )}
+                    <Button
+                      type="submit"
+                      disabled={salvandoMeta}
+                      className="bg-primary text-primary-foreground font-semibold gap-1.5 text-xs shadow-sm"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      {salvandoMeta ? 'Salvando...' : 'Salvar Metas'}
+                    </Button>
+                  </div>
                 </div>
               </form>
             </CardContent>
@@ -1034,17 +1113,25 @@ export default function Cadastros() {
                               >
                                 <Edit2 className="w-3.5 h-3.5 text-foreground" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                                onClick={() =>
-                                  handleExcluirCliente(cli.id, cli.nome)
-                                }
-                                title="Excluir Cliente"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
+                              {isAdministrador && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() =>
+                                    setDialogExclusao({
+                                      open: true,
+                                      tipo: 'cliente',
+                                      id: cli.id,
+                                      titulo: 'Cliente',
+                                      descricao: `Deseja realmente excluir o cadastro do cliente "${cli.nome}"? Ordens de Serviço vinculadas a ele impedirão a exclusão direta para manter o histórico fiscal e operacional.`,
+                                    })
+                                  }
+                                  title="Excluir Cliente"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1215,24 +1302,45 @@ export default function Cadastros() {
                       </div>
 
                       <div className="pt-2 border-t border-border/30 flex items-center justify-between gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="h-7 text-xs gap-1 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 font-medium"
-                          onClick={() => {
-                            setMaterialXml(mat)
-                            setXmlTexto('')
-                            setXmlParseado(null)
-                            setItemSelecionado(null)
-                            setErroXml(null)
-                            setModoEntradaXml('upload')
-                            setOpenXmlModal(true)
-                          }}
-                          title="Importar NF-e em XML para calcular custo unitário automaticamente"
-                        >
-                          <FileCode className="w-3.5 h-3.5" />
-                          XML da Nota
-                        </Button>
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-7 text-xs gap-1 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 font-medium"
+                            onClick={() => {
+                              setMaterialXml(mat)
+                              setXmlTexto('')
+                              setXmlParseado(null)
+                              setItemSelecionado(null)
+                              setErroXml(null)
+                              setModoEntradaXml('upload')
+                              setOpenXmlModal(true)
+                            }}
+                            title="Importar NF-e em XML para calcular custo unitário automaticamente"
+                          >
+                            <FileCode className="w-3.5 h-3.5" />
+                            XML da Nota
+                          </Button>
+                          {isAdministrador && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() =>
+                                setDialogExclusao({
+                                  open: true,
+                                  tipo: 'material',
+                                  id: mat.id,
+                                  titulo: 'Insumo / Material',
+                                  descricao: `Deseja realmente excluir o insumo "${mat.nome}"? Se houver cargas, movimentações de estoque ou dosagens vinculadas, a exclusão será bloqueada pelo sistema.`,
+                                })
+                              }
+                              title="Excluir Insumo"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </div>
 
                         <Button
                           variant="outline"
@@ -1302,12 +1410,33 @@ export default function Cadastros() {
                         Status: Ativo na frota
                       </p>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className="text-xs text-emerald-500 border-emerald-500/30 bg-emerald-500/10"
-                    >
-                      Ativo
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className="text-xs text-emerald-500 border-emerald-500/30 bg-emerald-500/10"
+                      >
+                        Ativo
+                      </Badge>
+                      {isAdministrador && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() =>
+                            setDialogExclusao({
+                              open: true,
+                              tipo: 'motorista',
+                              id: m.id,
+                              titulo: 'Motorista',
+                              descricao: `Deseja realmente excluir o motorista "${m.nome}"? Se ele possuir cargas expedidas associadas, a exclusão será bloqueada para manter a rastreabilidade das entregas.`,
+                            })
+                          }
+                          title="Excluir Motorista"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1351,12 +1480,33 @@ export default function Cadastros() {
                         {v.modelo || 'Betoneira'}
                       </p>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className="text-xs text-emerald-500 border-emerald-500/30 bg-emerald-500/10"
-                    >
-                      Operacional
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className="text-xs text-emerald-500 border-emerald-500/30 bg-emerald-500/10"
+                      >
+                        Operacional
+                      </Badge>
+                      {isAdministrador && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() =>
+                            setDialogExclusao({
+                              open: true,
+                              tipo: 'veiculo',
+                              id: v.id,
+                              titulo: 'Veículo',
+                              descricao: `Deseja realmente excluir o veículo placa "${v.placa}"? Cargas associadas a este veículo impedirão a exclusão para preservar o histórico da frota.`,
+                            })
+                          }
+                          title="Excluir Veículo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1398,9 +1548,30 @@ export default function Cadastros() {
                         {c.nome}
                       </span>
                     </div>
-                    <Badge variant="outline" className="text-xs font-mono">
-                      {c.uf}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs font-mono">
+                        {c.uf}
+                      </Badge>
+                      {isAdministrador && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() =>
+                            setDialogExclusao({
+                              open: true,
+                              tipo: 'cidade',
+                              id: c.id,
+                              titulo: 'Cidade',
+                              descricao: `Deseja realmente excluir a cidade "${c.nome} - ${c.uf}"? Se houver cargas registradas com destino a esta cidade, a exclusão será bloqueada.`,
+                            })
+                          }
+                          title="Excluir Cidade"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -2388,6 +2559,39 @@ export default function Cadastros() {
           carregarTudo()
         }}
       />
+
+      {/* AlertDialog de Confirmação de Exclusão */}
+      <AlertDialog
+        open={dialogExclusao.open}
+        onOpenChange={(open) =>
+          !excluindo && setDialogExclusao((prev) => ({ ...prev, open }))
+        }
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              Confirmar Exclusão: {dialogExclusao.titulo}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm pt-2 leading-relaxed">
+              {dialogExclusao.descricao}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel disabled={excluindo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                confirmarExclusao()
+              }}
+              disabled={excluindo}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {excluindo ? 'Excluindo...' : 'Sim, Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

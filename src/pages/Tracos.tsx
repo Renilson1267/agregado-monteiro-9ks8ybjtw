@@ -30,12 +30,24 @@ import {
   Layers,
   DollarSign,
   TrendingUp,
+  Trash2,
+  AlertCircle,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 export default function Tracos() {
   const { empresaAtiva } = useEmpresa()
-  const { isBalanceiro } = useUsuario()
+  const { isBalanceiro, isAdministrador } = useUsuario()
   const [tracos, setTracos] = useState<Traco[]>([])
   const [precos, setPrecos] = useState<PrecoMaterial[]>([])
   const [materiais, setMateriais] = useState<Material[]>([])
@@ -46,6 +58,10 @@ export default function Tracos() {
   const [openDialog, setOpenDialog] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [tracoEditandoId, setTracoEditandoId] = useState<string | null>(null)
+
+  // Estado para confirmação de exclusão do traço
+  const [tracoParaExcluir, setTracoParaExcluir] = useState<Traco | null>(null)
+  const [excluindo, setExcluindo] = useState(false)
 
   // Campos do traço
   const [nome, setNome] = useState('')
@@ -102,6 +118,31 @@ export default function Tracos() {
     setCimento(320)
     setAditivo(2.5)
     setOpenDialog(true)
+  }
+
+  const confirmarExcluirTraco = async () => {
+    if (!tracoParaExcluir) return
+    setExcluindo(true)
+    try {
+      await ConcreteiraService.excluirTraco(
+        tracoParaExcluir.id,
+        empresaAtiva?.id,
+      )
+      toast({
+        title: 'Traço excluído',
+        description: `O traço "${tracoParaExcluir.nome}" foi removido com sucesso.`,
+      })
+      setTracoParaExcluir(null)
+      carregarTracos()
+    } catch (err: any) {
+      toast({
+        title: 'Não foi possível excluir o traço',
+        description: err.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setExcluindo(false)
+    }
   }
 
   const abrirEdicao = (traco: Traco) => {
@@ -244,15 +285,28 @@ export default function Tracos() {
                       </Badge>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                    onClick={() => abrirEdicao(t)}
-                    title="Editar Traço"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => abrirEdicao(t)}
+                      title="Editar Traço"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    {isAdministrador && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setTracoParaExcluir(t)}
+                        title="Excluir Traço"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 {t.descricao && (
                   <CardDescription className="text-xs mt-2 line-clamp-2">
@@ -379,6 +433,49 @@ export default function Tracos() {
           )
         })}
       </div>
+
+      {/* AlertDialog de Confirmação de Exclusão de Traço */}
+      <AlertDialog
+        open={!!tracoParaExcluir}
+        onOpenChange={(open) =>
+          !excluindo && !open && setTracoParaExcluir(null)
+        }
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              Confirmar Exclusão de Traço
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm pt-2 leading-relaxed">
+              Deseja realmente excluir a receita do traço{' '}
+              <strong className="text-foreground">
+                "{tracoParaExcluir?.nome}"
+              </strong>
+              ?
+              <br />
+              <span className="block mt-2 text-xs text-muted-foreground">
+                Se este traço já tiver sido utilizado na expedição de cargas
+                nesta unidade ({empresaAtiva?.nome}), o sistema bloqueará a
+                exclusão para evitar distorções no histórico operacional.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel disabled={excluindo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                confirmarExcluirTraco()
+              }}
+              disabled={excluindo}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {excluindo ? 'Excluindo...' : 'Sim, Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Dialog Formulário de Traço */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>

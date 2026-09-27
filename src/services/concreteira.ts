@@ -1562,9 +1562,316 @@ export const ConcreteiraService = {
     }
   },
 
-  async excluirCliente(id: string): Promise<void> {
+  async excluirCliente(id: string, empresaId?: string): Promise<void> {
+    // 1. Verificar vínculos com ordens de serviço
+    let queryOs = (supabase as any)
+      .from('ordens_servico')
+      .select('numero_os', { count: 'exact' })
+      .eq('cliente_id', id)
+    if (empresaId) queryOs = queryOs.eq('empresa_id', empresaId)
+    const { count: totalOs, error: errOs } = await queryOs
+    if (errOs) throw errOs
+    if (totalOs && totalOs > 0) {
+      throw new Error(
+        `Não é possível excluir este cliente porque existem ${totalOs} Ordem(ns) de Serviço vinculada(s). Para preservar o histórico operacional e fiscal, desative o cadastro em vez de excluir.`,
+      )
+    }
+
+    let queryDel = (supabase as any).from('clientes').delete().eq('id', id)
+    if (empresaId) queryDel = queryDel.eq('empresa_id', empresaId)
+    const { error } = await queryDel
+    if (error) throw error
+  },
+
+  async excluirMotorista(id: string, empresaId?: string): Promise<void> {
+    // 1. Obter nome do motorista para checar vínculos por ID ou por nome nas cargas
+    const { data: mot } = await (supabase as any)
+      .from('motoristas')
+      .select('nome')
+      .eq('id', id)
+      .maybeSingle()
+
+    // 2. Verificar cargas vinculadas por motorista_id
+    let queryCargasId = (supabase as any)
+      .from('cargas')
+      .select('id', { count: 'exact', head: true })
+      .eq('motorista_id', id)
+    if (empresaId) queryCargasId = queryCargasId.eq('empresa_id', empresaId)
+    const { count: countCargasId } = await queryCargasId
+
+    // Também verificar por motorista_nome se existir
+    let countCargasNome = 0
+    if (mot?.nome) {
+      let queryCargasNome = (supabase as any)
+        .from('cargas')
+        .select('id', { count: 'exact', head: true })
+        .eq('motorista_nome', mot.nome)
+      if (empresaId)
+        queryCargasNome = queryCargasNome.eq('empresa_id', empresaId)
+      const { count } = await queryCargasNome
+      countCargasNome = count || 0
+    }
+
+    const totalCargas = Math.max(countCargasId || 0, countCargasNome)
+    if (totalCargas > 0) {
+      throw new Error(
+        `Não é possível excluir o motorista porque existem ${totalCargas} carga(s) expedida(s) associada(s) a ele. Recomendamos desativar o motorista para manter os relatórios operacionais intactos.`,
+      )
+    }
+
+    // 3. Excluir motorista
+    let queryDel = (supabase as any).from('motoristas').delete().eq('id', id)
+    if (empresaId) queryDel = queryDel.eq('empresa_id', empresaId)
+    const { error } = await queryDel
+    if (error) throw error
+  },
+
+  async excluirVeiculo(id: string, empresaId?: string): Promise<void> {
+    // 1. Obter placa do veículo para checar vínculos
+    const { data: vei } = await (supabase as any)
+      .from('veiculos')
+      .select('placa')
+      .eq('id', id)
+      .maybeSingle()
+
+    // 2. Verificar cargas vinculadas por veiculo_id
+    let queryCargasId = (supabase as any)
+      .from('cargas')
+      .select('id', { count: 'exact', head: true })
+      .eq('veiculo_id', id)
+    if (empresaId) queryCargasId = queryCargasId.eq('empresa_id', empresaId)
+    const { count: countCargasId } = await queryCargasId
+
+    let countCargasPlaca = 0
+    if (vei?.placa) {
+      let queryCargasPlaca = (supabase as any)
+        .from('cargas')
+        .select('id', { count: 'exact', head: true })
+        .eq('veiculo_placa', vei.placa)
+      if (empresaId)
+        queryCargasPlaca = queryCargasPlaca.eq('empresa_id', empresaId)
+      const { count } = await queryCargasPlaca
+      countCargasPlaca = count || 0
+    }
+
+    const totalCargas = Math.max(countCargasId || 0, countCargasPlaca)
+    if (totalCargas > 0) {
+      throw new Error(
+        `Não é possível excluir o veículo placa "${vei?.placa || ''}" porque existem ${totalCargas} carga(s) associada(s) a ele. Desative o veículo para manter o histórico da frota.`,
+      )
+    }
+
+    let queryDel = (supabase as any).from('veiculos').delete().eq('id', id)
+    if (empresaId) queryDel = queryDel.eq('empresa_id', empresaId)
+    const { error } = await queryDel
+    if (error) throw error
+  },
+
+  async excluirCidade(id: string, empresaId?: string): Promise<void> {
+    const { data: cid } = await (supabase as any)
+      .from('cidades')
+      .select('nome')
+      .eq('id', id)
+      .maybeSingle()
+
+    let queryCargasId = (supabase as any)
+      .from('cargas')
+      .select('id', { count: 'exact', head: true })
+      .eq('cidade_id', id)
+    if (empresaId) queryCargasId = queryCargasId.eq('empresa_id', empresaId)
+    const { count: countCargasId } = await queryCargasId
+
+    let countCargasNome = 0
+    if (cid?.nome) {
+      let queryCargasNome = (supabase as any)
+        .from('cargas')
+        .select('id', { count: 'exact', head: true })
+        .eq('cidade_nome', cid.nome)
+      if (empresaId)
+        queryCargasNome = queryCargasNome.eq('empresa_id', empresaId)
+      const { count } = await queryCargasNome
+      countCargasNome = count || 0
+    }
+
+    const totalCargas = Math.max(countCargasId || 0, countCargasNome)
+    if (totalCargas > 0) {
+      throw new Error(
+        `Não é possível excluir a cidade "${cid?.nome || ''}" porque constam ${totalCargas} carga(s) expedida(s) para este destino.`,
+      )
+    }
+
+    let queryDel = (supabase as any).from('cidades').delete().eq('id', id)
+    if (empresaId) queryDel = queryDel.eq('empresa_id', empresaId)
+    const { error } = await queryDel
+    if (error) throw error
+  },
+
+  async excluirMaterial(id: string, empresaId?: string): Promise<void> {
+    const { data: mat } = await (supabase as any)
+      .from('materiais')
+      .select('codigo, nome')
+      .eq('id', id)
+      .maybeSingle()
+
+    if (!mat) {
+      throw new Error('Insumo não encontrado.')
+    }
+
+    // 1. Checar movimentações de estoque
+    let queryMov = (supabase as any)
+      .from('movimentacoes_estoque')
+      .select('id', { count: 'exact', head: true })
+      .eq('material_id', id)
+    if (empresaId) queryMov = queryMov.eq('empresa_id', empresaId)
+    const { count: countMov } = await queryMov
+    if (countMov && countMov > 0) {
+      throw new Error(
+        `Não é possível excluir o insumo "${mat.nome}" pois existem ${countMov} movimentação(ões) de estoque registradas.`,
+      )
+    }
+
+    // 2. Checar se o código é um dos pilares do sistema (cimento, aditivo, etc.)
+    const insumosBasicos = [
+      'cimento',
+      'aditivo',
+      'areia',
+      'brita12',
+      'brita19',
+      'po_pedra',
+      'agua',
+    ]
+    if (insumosBasicos.includes(mat.codigo)) {
+      // Checar se existem cargas no sistema usando esse insumo
+      const colMap: Record<string, string> = {
+        cimento: 'consumo_cimento',
+        aditivo: 'consumo_aditivo',
+        areia: 'consumo_areia',
+        brita12: 'consumo_brita12',
+        brita19: 'consumo_brita19',
+        po_pedra: 'consumo_po_pedra',
+        agua: 'consumo_agua',
+      }
+      const col = colMap[mat.codigo]
+      if (col) {
+        let qCargas = (supabase as any)
+          .from('cargas')
+          .select('id', { count: 'exact', head: true })
+          .gt(col, 0)
+        if (empresaId) qCargas = qCargas.eq('empresa_id', empresaId)
+        const { count: countCargas } = await qCargas
+        if (countCargas && countCargas > 0) {
+          throw new Error(
+            `Não é possível excluir o insumo fundamental "${mat.nome}" pois ele está em uso em ${countCargas} carga(s).`,
+          )
+        }
+      }
+    }
+
+    // 3. Excluir histórico de preços correspondente
+    if (mat.codigo) {
+      let qPreco = (supabase as any)
+        .from('precos_material')
+        .delete()
+        .eq('material_codigo', mat.codigo)
+      if (empresaId) qPreco = qPreco.eq('empresa_id', empresaId)
+      await qPreco
+    }
+
+    let queryDel = (supabase as any).from('materiais').delete().eq('id', id)
+    if (empresaId) queryDel = queryDel.eq('empresa_id', empresaId)
+    const { error } = await queryDel
+    if (error) throw error
+  },
+
+  async excluirTraco(id: string, empresaId?: string): Promise<void> {
+    const { data: traco } = await (supabase as any)
+      .from('tracos')
+      .select('nome')
+      .eq('id', id)
+      .maybeSingle()
+
+    let queryCargasId = (supabase as any)
+      .from('cargas')
+      .select('id', { count: 'exact', head: true })
+      .eq('traco_id', id)
+    if (empresaId) queryCargasId = queryCargasId.eq('empresa_id', empresaId)
+    const { count: countCargasId } = await queryCargasId
+
+    let countCargasNome = 0
+    if (traco?.nome) {
+      let queryCargasNome = (supabase as any)
+        .from('cargas')
+        .select('id', { count: 'exact', head: true })
+        .eq('traco_nome', traco.nome)
+      if (empresaId)
+        queryCargasNome = queryCargasNome.eq('empresa_id', empresaId)
+      const { count } = await queryCargasNome
+      countCargasNome = count || 0
+    }
+
+    const totalCargas = Math.max(countCargasId || 0, countCargasNome)
+    if (totalCargas > 0) {
+      throw new Error(
+        `Não é possível excluir o traço "${traco?.nome || ''}" porque existem ${totalCargas} carga(s) expedida(s) com esta receita. Desative o traço para mantê-lo fora de novas seleções sem corromper o histórico.`,
+      )
+    }
+
+    let queryDel = (supabase as any).from('tracos').delete().eq('id', id)
+    if (empresaId) queryDel = queryDel.eq('empresa_id', empresaId)
+    const { error } = await queryDel
+    if (error) throw error
+  },
+
+  async excluirMetaProducao(empresaId: string): Promise<void> {
     const { error } = await (supabase as any)
-      .from('clientes')
+      .from('metas_producao')
+      .delete()
+      .eq('empresa_id', empresaId)
+    if (error) throw error
+  },
+
+  async excluirUsuarioApp(
+    id: string,
+    usuarioLogadoEmail?: string,
+  ): Promise<void> {
+    // 1. Obter dados do usuário a ser excluído
+    const { data: userApp, error: errGet } = await (supabase as any)
+      .from('usuarios_app')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
+    if (errGet) throw errGet
+    if (!userApp) throw new Error('Usuário não encontrado.')
+
+    // 2. Não permitir que o usuário exclua a si mesmo
+    if (
+      usuarioLogadoEmail &&
+      userApp.email.trim().toLowerCase() ===
+        usuarioLogadoEmail.trim().toLowerCase()
+    ) {
+      throw new Error(
+        'Você não pode excluir seu próprio usuário logado. Solicite a outro Administrador se necessário.',
+      )
+    }
+
+    // 3. Garantir que permanece pelo menos um Administrador ativo no sistema
+    if (userApp.perfil === 'administrador') {
+      const { data: outrosAdmins } = await (supabase as any)
+        .from('usuarios_app')
+        .select('id')
+        .eq('perfil', 'administrador')
+        .neq('id', id)
+        .eq('ativo', true)
+      if (!outrosAdmins || outrosAdmins.length === 0) {
+        throw new Error(
+          'Não é possível excluir este usuário pois ele é o único Administrador ativo no sistema.',
+        )
+      }
+    }
+
+    // 4. Executar exclusão da tabela usuarios_app
+    const { error } = await (supabase as any)
+      .from('usuarios_app')
       .delete()
       .eq('id', id)
     if (error) throw error
