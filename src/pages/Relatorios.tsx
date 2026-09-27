@@ -42,7 +42,9 @@ import {
   Coins,
   Layers,
   ArrowUpDown,
+  Calendar,
 } from 'lucide-react'
+import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from '@/assets/logos'
 import {
   ResponsiveContainer,
   BarChart,
@@ -79,6 +81,9 @@ export default function Relatorios() {
 
   // Dados comparativos Monteiro × SJE
   const [loadingComparativo, setLoadingComparativo] = useState(false)
+  const [tipoPeriodoComparativo, setTipoPeriodoComparativo] = useState<
+    'mes_atual' | 'hoje' | '7dias' | 'mes_anterior' | 'personalizado' | 'todos'
+  >('todos')
   const [comparativoDataInicio, setComparativoDataInicio] = useState('')
   const [comparativoDataFim, setComparativoDataFim] = useState('')
   const [dadosComparativo, setDadosComparativo] = useState<{
@@ -139,12 +144,21 @@ export default function Relatorios() {
     }
   }
 
-  const carregarComparativo = async () => {
+  const carregarComparativo = async (datasOverride?: {
+    ini?: string
+    fim?: string
+  }) => {
     setLoadingComparativo(true)
     try {
+      const ini = datasOverride
+        ? datasOverride.ini
+        : comparativoDataInicio || undefined
+      const fim = datasOverride
+        ? datasOverride.fim
+        : comparativoDataFim || undefined
       const res = await ConcreteiraService.getComparativoUnidades({
-        dataInicio: comparativoDataInicio || undefined,
-        dataFim: comparativoDataFim || undefined,
+        dataInicio: ini,
+        dataFim: fim,
       })
       setDadosComparativo(res)
     } catch (e) {
@@ -152,6 +166,50 @@ export default function Relatorios() {
     } finally {
       setLoadingComparativo(false)
     }
+  }
+
+  const aplicarPredefinicaoComparativo = (
+    tipo:
+      | 'mes_atual'
+      | 'hoje'
+      | '7dias'
+      | 'mes_anterior'
+      | 'personalizado'
+      | 'todos',
+  ) => {
+    setTipoPeriodoComparativo(tipo)
+    const hoje = new Date()
+    const hojeStr = hoje.toISOString().split('T')[0]
+
+    let ini = ''
+    let fim = ''
+
+    if (tipo === 'hoje') {
+      ini = hojeStr
+      fim = hojeStr
+    } else if (tipo === '7dias') {
+      const d7 = new Date()
+      d7.setDate(d7.getDate() - 6)
+      ini = d7.toISOString().split('T')[0]
+      fim = hojeStr
+    } else if (tipo === 'mes_atual') {
+      const ano = hoje.getFullYear()
+      const mes = hoje.getMonth()
+      ini = new Date(ano, mes, 1).toISOString().split('T')[0]
+      fim = new Date(ano, mes + 1, 0).toISOString().split('T')[0]
+    } else if (tipo === 'mes_anterior') {
+      const ano = hoje.getFullYear()
+      const mes = hoje.getMonth() - 1
+      ini = new Date(ano, mes, 1).toISOString().split('T')[0]
+      fim = new Date(ano, mes + 1, 0).toISOString().split('T')[0]
+    } else if (tipo === 'todos') {
+      ini = ''
+      fim = ''
+    }
+
+    setComparativoDataInicio(ini)
+    setComparativoDataFim(fim)
+    carregarComparativo({ ini: ini || undefined, fim: fim || undefined })
   }
 
   useEffect(() => {
@@ -344,26 +402,76 @@ export default function Relatorios() {
     .filter(Boolean)
     .join(' | ')
 
+  const labelPeriodoComparativo = (() => {
+    if (
+      tipoPeriodoComparativo === 'todos' &&
+      !comparativoDataInicio &&
+      !comparativoDataFim
+    ) {
+      return 'Todo o histórico operacional consolidado'
+    }
+    if (tipoPeriodoComparativo === 'hoje') return 'Hoje / Operação do dia'
+    if (tipoPeriodoComparativo === '7dias') return 'Últimos 7 dias'
+    if (tipoPeriodoComparativo === 'mes_atual') return 'Mês Atual'
+    if (tipoPeriodoComparativo === 'mes_anterior') return 'Mês Anterior'
+    const ini = comparativoDataInicio
+      ? comparativoDataInicio.split('-').reverse().join('/')
+      : 'Início'
+    const fim = comparativoDataFim
+      ? comparativoDataFim.split('-').reverse().join('/')
+      : 'Hoje'
+    return `${ini} até ${fim}`
+  })()
+
   return (
     <div className="space-y-6">
-      {/* CABEÇALHO EXCLUSIVO PARA IMPRESSÃO (Visível apenas em window.print) */}
-      <div className="print-only border-b border-gray-400 pb-3 mb-4">
+      {/* CABEÇALHO EXCLUSIVO PARA IMPRESSÃO A4 (Visível apenas em window.print) */}
+      <div className="print-only border-b-2 border-black pb-3 mb-4 text-black bg-white">
         <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-xl font-bold uppercase tracking-wider text-black">
-              CONCRETEIRA — RELATÓRIO OPERACIONAL E DE CUSTOS
-            </h1>
-            <p className="text-sm font-semibold text-gray-800">
-              Unidade: {empresaAtiva?.nome || 'Todas as Unidades'}
-            </p>
+          <div className="flex items-center gap-3">
+            <img
+              src={LOGO_GC_MIX_HORIZONTAL}
+              alt={LOGO_ALT_TEXT}
+              className="h-10 w-auto object-contain"
+            />
+            <div>
+              <h1 className="text-lg font-extrabold uppercase tracking-wider text-black">
+                {abaAtiva === 'comparativo'
+                  ? 'GC MIX — RELATÓRIO COMPARATIVO: MONTEIRO × SJE'
+                  : `GC MIX — ${empresaAtiva?.razao_social || empresaAtiva?.nome || 'CONCRETEIRA'}`}
+              </h1>
+              <p className="text-xs font-bold text-black">
+                {abaAtiva === 'comparativo'
+                  ? 'Comparativo Operacional de Produção, Consumo de Insumos e Custos'
+                  : 'Relatório Operacional, Expedição de Cargas e Auditoria de Custos'}
+              </p>
+              {empresaAtiva?.cnpj && abaAtiva !== 'comparativo' && (
+                <p className="text-[11px] text-black">
+                  CNPJ: {empresaAtiva.cnpj}
+                </p>
+              )}
+            </div>
           </div>
-          <div className="text-right text-xs text-gray-600">
-            <p>Emissão: {new Date().toLocaleString('pt-BR')}</p>
-            <p>Página: A4 Formatado</p>
+          <div className="text-right text-xs text-black">
+            <p className="font-semibold">
+              Emissão: {new Date().toLocaleString('pt-BR')}
+            </p>
+            <p>Padrão A4 • Fundo Branco</p>
           </div>
         </div>
-        <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-700">
-          <strong>Filtros Aplicados:</strong> {filtrosDescricao}
+        <div className="mt-2 p-2 bg-gray-100 border border-gray-300 rounded text-xs text-black flex justify-between items-center">
+          <div>
+            <strong>Período:</strong>{' '}
+            {abaAtiva === 'comparativo'
+              ? labelPeriodoComparativo
+              : filtrosDescricao}
+          </div>
+          <div className="text-right">
+            <strong>Unidades:</strong>{' '}
+            {abaAtiva === 'comparativo'
+              ? 'Monteiro & SJE'
+              : empresaAtiva?.nome || 'Ativa'}
+          </div>
         </div>
       </div>
 
@@ -1008,93 +1116,146 @@ export default function Relatorios() {
         </TabsContent>
 
         {/* ========================================================= */}
-        {/* TAB 2: RELATÓRIO COMPARATIVO MONTEIRO × SJE (Item 4) */}
+        {/* TAB 2: RELATÓRIO COMPARATIVO MONTEIRO × SJE (Opção 1) */}
         {/* ========================================================= */}
         <TabsContent value="comparativo" className="space-y-6 mt-4">
           {/* Card Informativo do Comparativo */}
-          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="no-print bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <h2 className="text-base font-bold text-foreground flex items-center gap-2">
                 <Scale className="w-5 h-5 text-primary" />
-                Relatório Comparativo de Produção e Custos: Usina Monteiro ×
-                Usina SJE
+                Relatório Comparativo Monteiro × SJE
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Visão consolidada comparando as duas unidades operacionais lado
-                a lado, independente da empresa ativa no momento.
+                Produção (cargas, volume m³), consumo de insumos (cimento kg,
+                aditivo L, água L) e custos (R$, custo/m³) lado a lado com
+                impressão PDF em padrão A4.
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleImprimir}
-              className="gap-2 bg-background shadow-sm text-xs"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Imprimir Comparativo
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleImprimir}
+                className="gap-2 bg-primary text-primary-foreground shadow-sm text-xs font-semibold"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Imprimir / PDF A4
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => carregarComparativo()}
+                disabled={loadingComparativo}
+                className="gap-1.5 text-xs"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${loadingComparativo ? 'animate-spin' : ''}`}
+                />
+                Atualizar
+              </Button>
+            </div>
           </div>
 
-          {/* Filtro de Período para o Comparativo */}
+          {/* Filtro de Período Rápido e Personalizado (mesmo padrão do Dashboard) */}
           <Card className="no-print border-border/40 bg-card/70">
-            <CardHeader className="py-3 px-4">
-              <CardTitle className="text-xs font-semibold uppercase text-muted-foreground">
-                Período de Comparação
-              </CardTitle>
+            <CardHeader className="py-3 px-4 pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1.5">
+                  <Filter className="w-3.5 h-3.5 text-primary" />
+                  Filtro de Período Comparativo
+                </CardTitle>
+                <Badge variant="outline" className="text-xs font-mono">
+                  {labelPeriodoComparativo}
+                </Badge>
+              </div>
             </CardHeader>
-            <CardContent className="pt-0">
-              <form
-                onSubmit={handleFiltrarComparativo}
-                className="flex flex-col sm:flex-row items-end gap-3"
-              >
-                <div className="space-y-1 flex-1">
-                  <Label htmlFor="compIni" className="text-xs">
-                    Data Início
-                  </Label>
-                  <Input
-                    id="compIni"
-                    type="date"
-                    value={comparativoDataInicio}
-                    onChange={(e) => setComparativoDataInicio(e.target.value)}
-                    className="h-8 text-xs"
-                  />
+            <CardContent className="pt-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="w-[180px]">
+                    <Select
+                      value={tipoPeriodoComparativo}
+                      onValueChange={(val: any) =>
+                        aplicarPredefinicaoComparativo(val)
+                      }
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Selecione o período" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todo o Histórico</SelectItem>
+                        <SelectItem value="hoje">Hoje / Último Dia</SelectItem>
+                        <SelectItem value="7dias">Últimos 7 dias</SelectItem>
+                        <SelectItem value="mes_atual">Mês Atual</SelectItem>
+                        <SelectItem value="mes_anterior">
+                          Mês Anterior
+                        </SelectItem>
+                        <SelectItem value="personalizado">
+                          Personalizado
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {tipoPeriodoComparativo === 'personalizado' && (
+                    <form
+                      onSubmit={handleFiltrarComparativo}
+                      className="flex items-center gap-2 flex-wrap"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <Label
+                          htmlFor="compIni"
+                          className="text-xs text-muted-foreground"
+                        >
+                          De:
+                        </Label>
+                        <Input
+                          id="compIni"
+                          type="date"
+                          value={comparativoDataInicio}
+                          onChange={(e) =>
+                            setComparativoDataInicio(e.target.value)
+                          }
+                          className="h-8 w-36 text-xs"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Label
+                          htmlFor="compFim"
+                          className="text-xs text-muted-foreground"
+                        >
+                          Até:
+                        </Label>
+                        <Input
+                          id="compFim"
+                          type="date"
+                          value={comparativoDataFim}
+                          onChange={(e) =>
+                            setComparativoDataFim(e.target.value)
+                          }
+                          className="h-8 w-36 text-xs"
+                        />
+                      </div>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        className="bg-primary text-primary-foreground h-8 text-xs gap-1"
+                      >
+                        <Filter className="w-3 h-3" />
+                        Filtrar
+                      </Button>
+                    </form>
+                  )}
                 </div>
-                <div className="space-y-1 flex-1">
-                  <Label htmlFor="compFim" className="text-xs">
-                    Data Fim
-                  </Label>
-                  <Input
-                    id="compFim"
-                    type="date"
-                    value={comparativoDataFim}
-                    onChange={(e) => setComparativoDataFim(e.target.value)}
-                    className="h-8 text-xs"
-                  />
+
+                <div className="text-xs text-muted-foreground">
+                  Recorte ativo:{' '}
+                  <strong className="text-foreground">
+                    {labelPeriodoComparativo}
+                  </strong>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 text-xs"
-                    onClick={() => {
-                      setComparativoDataInicio('')
-                      setComparativoDataFim('')
-                      setTimeout(carregarComparativo, 50)
-                    }}
-                  >
-                    Todo o Período
-                  </Button>
-                  <Button
-                    type="submit"
-                    size="sm"
-                    className="bg-primary text-primary-foreground h-8 text-xs gap-1"
-                  >
-                    <Filter className="w-3 h-3" />
-                    Comparar
-                  </Button>
-                </div>
-              </form>
+              </div>
             </CardContent>
           </Card>
 
@@ -1447,6 +1608,33 @@ export default function Relatorios() {
                           .reduce((a, b) => a + b.consumos.aditivo, 0)
                           .toLocaleString('pt-BR')}{' '}
                         L
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 px-3 font-medium">
+                        Consumo de Água
+                      </td>
+                      {dadosComparativo.unidades.map((u) => (
+                        <td
+                          key={u.empresaId}
+                          className="py-2.5 px-3 text-right font-mono"
+                        >
+                          {u.consumos.agua.toLocaleString('pt-BR')} L (
+                          {(u.consumos.agua / 1000).toFixed(1)} m³)
+                        </td>
+                      ))}
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-primary">
+                        {dadosComparativo.unidades
+                          .reduce((a, b) => a + b.consumos.agua, 0)
+                          .toLocaleString('pt-BR')}{' '}
+                        L (
+                        {(
+                          dadosComparativo.unidades.reduce(
+                            (a, b) => a + b.consumos.agua,
+                            0,
+                          ) / 1000
+                        ).toFixed(1)}{' '}
+                        m³)
                       </td>
                     </tr>
                   </tbody>

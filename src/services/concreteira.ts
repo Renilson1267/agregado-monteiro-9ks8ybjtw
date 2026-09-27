@@ -12,6 +12,7 @@ import type {
   ComparativoUnidade,
   Cliente,
   OrdemServico,
+  MetaProducao,
 } from '@/types/concreteira'
 
 export const ConcreteiraService = {
@@ -302,6 +303,65 @@ export const ConcreteiraService = {
         .single()
       if (error) throw error
       return data
+    }
+  },
+
+  // Metas de Produção por Empresa
+  async getMetaProducao(empresaId: string): Promise<MetaProducao | null> {
+    if (!empresaId) return null
+    const { data, error } = await (supabase as any)
+      .from('metas_producao')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .maybeSingle()
+
+    if (error) {
+      console.error('Erro ao buscar meta de produção:', error)
+      return null
+    }
+
+    if (!data) {
+      // Valores padrão de meta caso ainda não configurado
+      return {
+        empresa_id: empresaId,
+        meta_diaria_m3: 50,
+        meta_mensal_m3: 1000,
+        observacao: 'Meta padrão inicial',
+      }
+    }
+
+    return {
+      ...data,
+      meta_diaria_m3: Number(data.meta_diaria_m3) || 0,
+      meta_mensal_m3: Number(data.meta_mensal_m3) || 0,
+    }
+  },
+
+  async salvarMetaProducao(meta: {
+    empresa_id: string
+    meta_diaria_m3: number
+    meta_mensal_m3: number
+    observacao?: string
+  }): Promise<MetaProducao> {
+    const payload = {
+      empresa_id: meta.empresa_id,
+      meta_diaria_m3: Number(meta.meta_diaria_m3) || 0,
+      meta_mensal_m3: Number(meta.meta_mensal_m3) || 0,
+      observacao: meta.observacao || null,
+      updated_at: new Date().toISOString(),
+    }
+
+    const { data, error } = await (supabase as any)
+      .from('metas_producao')
+      .upsert(payload, { onConflict: 'empresa_id' })
+      .select()
+      .single()
+
+    if (error) throw error
+    return {
+      ...data,
+      meta_diaria_m3: Number(data.meta_diaria_m3) || 0,
+      meta_mensal_m3: Number(data.meta_mensal_m3) || 0,
     }
   },
 

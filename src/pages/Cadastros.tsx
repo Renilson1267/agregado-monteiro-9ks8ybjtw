@@ -28,6 +28,7 @@ import type {
   Cidade,
   Material,
   PrecoMaterial,
+  MetaProducao,
 } from '@/types/concreteira'
 import {
   Users,
@@ -51,6 +52,7 @@ import {
   User,
   Trash2,
   FileSpreadsheet,
+  Target,
 } from 'lucide-react'
 import { ModalImportarCargasCSV } from '@/components/ModalImportarCargasCSV'
 import {
@@ -90,6 +92,13 @@ export default function Cadastros() {
   const [precos, setPrecos] = useState<PrecoMaterial[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Metas de produção
+  const [metaProducao, setMetaProducao] = useState<MetaProducao | null>(null)
+  const [metaDiariaInput, setMetaDiariaInput] = useState<number>(50)
+  const [metaMensalInput, setMetaMensalInput] = useState<number>(1000)
+  const [observacaoMetaInput, setObservacaoMetaInput] = useState<string>('')
+  const [salvandoMeta, setSalvandoMeta] = useState(false)
 
   // Estado do Modal de Cliente
   const [openCliente, setOpenCliente] = useState(false)
@@ -295,13 +304,14 @@ export default function Cadastros() {
     if (!empresaAtiva) return
     setLoading(true)
     try {
-      const [mot, vei, cid, mats, prcs, clis] = await Promise.all([
+      const [mot, vei, cid, mats, prcs, clis, meta] = await Promise.all([
         ConcreteiraService.getMotoristas(empresaAtiva.id),
         ConcreteiraService.getVeiculos(empresaAtiva.id),
         ConcreteiraService.getCidades(empresaAtiva.id),
         ConcreteiraService.getMateriais(empresaAtiva.id),
         ConcreteiraService.getPrecosMaterial(empresaAtiva.id),
         ConcreteiraService.getClientes(empresaAtiva.id),
+        ConcreteiraService.getMetaProducao(empresaAtiva.id),
       ])
       setMotoristas(mot)
       setVeiculos(vei)
@@ -309,6 +319,12 @@ export default function Cadastros() {
       setMateriais(mats)
       setPrecos(prcs)
       setClientes(clis)
+      if (meta) {
+        setMetaProducao(meta)
+        setMetaDiariaInput(meta.meta_diaria_m3)
+        setMetaMensalInput(meta.meta_mensal_m3)
+        setObservacaoMetaInput(meta.observacao || '')
+      }
     } catch (e: any) {
       toast({
         title: 'Erro ao carregar cadastros',
@@ -378,6 +394,33 @@ export default function Cadastros() {
       })
     } finally {
       setSalvando(false)
+    }
+  }
+
+  const handleSalvarMeta = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!empresaAtiva) return
+    setSalvandoMeta(true)
+    try {
+      const salva = await ConcreteiraService.salvarMetaProducao({
+        empresa_id: empresaAtiva.id,
+        meta_diaria_m3: Number(metaDiariaInput) || 0,
+        meta_mensal_m3: Number(metaMensalInput) || 0,
+        observacao: observacaoMetaInput.trim() || undefined,
+      })
+      setMetaProducao(salva)
+      toast({
+        title: 'Metas de produção salvas!',
+        description: `Diária: ${salva.meta_diaria_m3} m³ | Mensal: ${salva.meta_mensal_m3} m³ salvas para a unidade ${empresaAtiva.nome}.`,
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao salvar metas',
+        description: err.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setSalvandoMeta(false)
     }
   }
 
@@ -692,28 +735,32 @@ export default function Cadastros() {
       </div>
 
       <Tabs defaultValue="usuarios" className="w-full">
-        <TabsList className="grid grid-cols-6 w-full max-w-3xl">
-          <TabsTrigger value="usuarios" className="gap-2">
+        <TabsList className="grid grid-cols-7 w-full max-w-4xl">
+          <TabsTrigger value="usuarios" className="gap-1.5 text-xs">
             <UserCog className="w-4 h-4" />
             Usuários
           </TabsTrigger>
-          <TabsTrigger value="clientes" className="gap-2">
+          <TabsTrigger value="metas" className="gap-1.5 text-xs">
+            <Target className="w-4 h-4 text-primary" />
+            Metas m³
+          </TabsTrigger>
+          <TabsTrigger value="clientes" className="gap-1.5 text-xs">
             <UserCheck className="w-4 h-4" />
             Clientes ({clientes.length})
           </TabsTrigger>
-          <TabsTrigger value="insumos" className="gap-2">
+          <TabsTrigger value="insumos" className="gap-1.5 text-xs">
             <Boxes className="w-4 h-4" />
             Insumos ({materiais.length})
           </TabsTrigger>
-          <TabsTrigger value="motoristas" className="gap-2">
+          <TabsTrigger value="motoristas" className="gap-1.5 text-xs">
             <Users className="w-4 h-4" />
             Motoristas ({motoristas.length})
           </TabsTrigger>
-          <TabsTrigger value="veiculos" className="gap-2">
+          <TabsTrigger value="veiculos" className="gap-1.5 text-xs">
             <Truck className="w-4 h-4" />
             Veículos ({veiculos.length})
           </TabsTrigger>
-          <TabsTrigger value="cidades" className="gap-2">
+          <TabsTrigger value="cidades" className="gap-1.5 text-xs">
             <MapPin className="w-4 h-4" />
             Cidades ({cidades.length})
           </TabsTrigger>
@@ -722,6 +769,146 @@ export default function Cadastros() {
         {/* TAB USUÁRIOS */}
         <TabsContent value="usuarios" className="mt-6 space-y-4">
           <PainelUsuarios />
+        </TabsContent>
+
+        {/* TAB METAS DE PRODUÇÃO (Opção 2) */}
+        <TabsContent value="metas" className="mt-6 space-y-4">
+          <Card className="border-border/40 bg-card/70">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Target className="w-4 h-4 text-primary" />
+                    Metas de Produção de Concreto Usinado (
+                    {empresaAtiva?.nome || 'Unidade'})
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Defina a meta diária e mensal em metros cúbicos (m³) para a
+                    concreteira. O Dashboard exibirá os indicadores em tempo
+                    real comparando realizado vs. meta.
+                  </CardDescription>
+                </div>
+                {metaProducao && (
+                  <Badge
+                    variant="outline"
+                    className="font-mono text-xs bg-primary/10 text-primary border-primary/30 shrink-0"
+                  >
+                    Última atualização:{' '}
+                    {new Date(
+                      metaProducao.updated_at || metaProducao.created_at || '',
+                    ).toLocaleDateString('pt-BR')}
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSalvarMeta} className="space-y-6 max-w-2xl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2 p-4 rounded-xl border border-border/40 bg-background/50">
+                    <Label
+                      htmlFor="metaDiaria"
+                      className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between"
+                    >
+                      <span>Meta Diária</span>
+                      <span className="text-[10px] text-primary lowercase font-normal font-mono">
+                        m³ / dia
+                      </span>
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="metaDiaria"
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={metaDiariaInput}
+                        onChange={(e) =>
+                          setMetaDiariaInput(Number(e.target.value))
+                        }
+                        className="h-11 text-lg font-bold font-mono pl-3 pr-12"
+                        placeholder="Ex: 50"
+                        required
+                      />
+                      <span className="absolute right-3 top-3 text-xs text-muted-foreground font-mono">
+                        m³
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Volume esperado de concreto expedido por dia de operação
+                      na usina.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 p-4 rounded-xl border border-border/40 bg-background/50">
+                    <Label
+                      htmlFor="metaMensal"
+                      className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between"
+                    >
+                      <span>Meta Mensal</span>
+                      <span className="text-[10px] text-primary lowercase font-normal font-mono">
+                        m³ / mês
+                      </span>
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="metaMensal"
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={metaMensalInput}
+                        onChange={(e) =>
+                          setMetaMensalInput(Number(e.target.value))
+                        }
+                        className="h-11 text-lg font-bold font-mono pl-3 pr-12"
+                        placeholder="Ex: 1000"
+                        required
+                      />
+                      <span className="absolute right-3 top-3 text-xs text-muted-foreground font-mono">
+                        m³
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Meta consolidada do mês civil para a unidade ativa (
+                      {empresaAtiva?.nome}).
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="obsMeta" className="text-xs font-medium">
+                    Observações / Critérios de Planejamento (opcional)
+                  </Label>
+                  <Input
+                    id="obsMeta"
+                    value={observacaoMetaInput}
+                    onChange={(e) => setObservacaoMetaInput(e.target.value)}
+                    placeholder="Ex: Meta revisada conforme capacidade dos caminhões e safra regional"
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="p-3.5 rounded-lg bg-primary/5 border border-primary/20 text-xs flex items-center justify-between">
+                  <div className="text-muted-foreground">
+                    <strong className="text-foreground">
+                      Unidade Configurada:
+                    </strong>{' '}
+                    {empresaAtiva?.nome} ({empresaAtiva?.slug?.toUpperCase()})
+                    <span className="block text-[11px] mt-0.5">
+                      Multi-empresa: Monteiro e SJE têm metas individuais e
+                      totalmente isoladas.
+                    </span>
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={salvandoMeta}
+                    className="bg-primary text-primary-foreground font-semibold gap-1.5 text-xs shadow-sm"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {salvandoMeta ? 'Salvando...' : 'Salvar Metas'}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* TAB CLIENTES */}

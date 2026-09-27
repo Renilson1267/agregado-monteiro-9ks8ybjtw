@@ -34,7 +34,12 @@ import {
   Coins,
   Printer,
   Filter,
+  Target,
+  CheckCircle2,
+  Clock,
 } from 'lucide-react'
+import { Progress } from '@/components/ui/progress'
+import type { MetaProducao } from '@/types/concreteira'
 import {
   ResponsiveContainer,
   BarChart,
@@ -86,6 +91,7 @@ export default function Index() {
   }, [isBalanceiro, navigate])
   const [materiais, setMateriais] = useState<Material[]>([])
   const [cargas, setCargas] = useState<Carga[]>([])
+  const [metaProducao, setMetaProducao] = useState<MetaProducao | null>(null)
   const [loading, setLoading] = useState(true)
   const [osParaReimpressao, setOsParaReimpressao] =
     useState<OrdemServico | null>(null)
@@ -100,12 +106,14 @@ export default function Index() {
     if (!empresaAtiva) return
     setLoading(true)
     try {
-      const [mats, crgs] = await Promise.all([
+      const [mats, crgs, meta] = await Promise.all([
         ConcreteiraService.getMateriais(empresaAtiva.id),
         ConcreteiraService.getCargas({ empresaId: empresaAtiva.id }),
+        ConcreteiraService.getMetaProducao(empresaAtiva.id),
       ])
       setMateriais(mats)
       setCargas(crgs)
+      setMetaProducao(meta)
     } catch (e) {
       console.error('Erro ao carregar dados do dashboard:', e)
     } finally {
@@ -224,6 +232,66 @@ export default function Index() {
   const custoMedioPorM3Periodo = useMemo(() => {
     return volumePeriodo > 0 ? custoTotalPeriodo / volumePeriodo : 0
   }, [volumePeriodo, custoTotalPeriodo])
+
+  // Cálculos de Metas de Produção (Opção 2)
+  const dadosMetas = useMemo(() => {
+    const hojeStr = new Date().toISOString().split('T')[0]
+    // Data de referência mais recente disponível nas cargas ou hoje
+    const dataMaisRecente = cargas.length > 0 ? cargas[0].data : hojeStr
+    const dataRefObj = new Date(dataMaisRecente + 'T12:00:00')
+    const ano = dataRefObj.getFullYear()
+    const mes = String(dataRefObj.getMonth() + 1).padStart(2, '0')
+    const chaveMesRef = `${ano}-${mes}`
+
+    // Produção do dia (usa a data mais recente com operação se hoje não tiver cargas)
+    const dataDiaConsiderada = cargas.some((c) => c.data === hojeStr)
+      ? hojeStr
+      : dataMaisRecente
+
+    const volumeDia = cargas
+      .filter((c) => c.data === dataDiaConsiderada && !c.carga_zerada)
+      .reduce((acc, c) => acc + Number(c.volume_m3 || 0), 0)
+
+    // Produção do mês de referência
+    const volumeMes = cargas
+      .filter(
+        (c) => c.data && c.data.startsWith(chaveMesRef) && !c.carga_zerada,
+      )
+      .reduce((acc, c) => acc + Number(c.volume_m3 || 0), 0)
+
+    const metaDiaria = Number(metaProducao?.meta_diaria_m3) || 50
+    const metaMensal = Number(metaProducao?.meta_mensal_m3) || 1000
+
+    const pctDiario = metaDiaria > 0 ? (volumeDia / metaDiaria) * 100 : 0
+    const pctMensal = metaMensal > 0 ? (volumeMes / metaMensal) * 100 : 0
+
+    // Volume do período selecionado pelo filtro vs meta proporcional
+    const volumeRecorte = volumePeriodo
+    let metaRecorte = metaMensal
+    if (tipoPeriodo === 'hoje') {
+      metaRecorte = metaDiaria
+    } else if (tipoPeriodo === '7dias') {
+      metaRecorte = metaDiaria * 7
+    }
+    const pctRecorte = metaRecorte > 0 ? (volumeRecorte / metaRecorte) * 100 : 0
+
+    return {
+      dataDiaConsiderada,
+      volumeDia,
+      volumeMes,
+      metaDiaria,
+      metaMensal,
+      pctDiario: Math.min(Math.round(pctDiario), 999),
+      pctMensal: Math.min(Math.round(pctMensal), 999),
+      volumeRecorte,
+      metaRecorte,
+      pctRecorte: Math.min(Math.round(pctRecorte), 999),
+      chaveMesRef,
+      atingiuDiario: volumeDia >= metaDiaria,
+      atingiuMensal: volumeMes >= metaMensal,
+      atingiuRecorte: volumeRecorte >= metaRecorte,
+    }
+  }, [cargas, metaProducao, volumePeriodo, tipoPeriodo])
 
   // Consumo de materiais no período filtrado
   const consumoPeriodo = useMemo(() => {
@@ -711,6 +779,225 @@ export default function Index() {
           </Button>
         </div>
       </div>
+
+      {/* CARD DE METAS DE PRODUÇÃO (Opção 2 - Realizado vs Meta Diária e Mensal) */}
+      <Card className="no-print border-border/50 bg-gradient-to-r from-card/90 via-card/60 to-primary/5 shadow-sm">
+        <CardHeader className="pb-3 pt-4 px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-primary/10 text-primary border border-primary/20">
+                <Target className="w-5 h-5" />
+              </div>
+              <div>
+                <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2">
+                  <span>
+                    Metas de Produção — {empresaAtiva?.nome || 'Unidade'}
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono uppercase bg-background/50"
+                  >
+                    Realizado vs Meta
+                  </Badge>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Acompanhamento diário e mensal de volume expedido (m³) com
+                  status visual de atingimento.
+                </CardDescription>
+              </div>
+            </div>
+
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1.5 h-8 self-start sm:self-auto border-border/60 hover:bg-muted"
+            >
+              <Link to="/cadastros">
+                <Target className="w-3.5 h-3.5 text-primary" />
+                Ajustar Metas
+              </Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6 pb-5 pt-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Meta 1: Produção Diária */}
+            <div
+              className={`p-4 rounded-xl border transition-all ${
+                dadosMetas.atingiuDiario
+                  ? 'bg-emerald-500/10 border-emerald-500/30'
+                  : 'bg-card/60 border-border/50'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Meta Diária
+                  </span>
+                </div>
+                <Badge
+                  variant={dadosMetas.atingiuDiario ? 'default' : 'secondary'}
+                  className={`text-[11px] font-mono font-bold ${
+                    dadosMetas.atingiuDiario
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-600'
+                      : dadosMetas.pctDiario >= 70
+                        ? 'bg-amber-500/15 text-amber-500 border-amber-500/30'
+                        : 'bg-rose-500/15 text-rose-500 border-rose-500/30'
+                  }`}
+                >
+                  {dadosMetas.atingiuDiario ? (
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Atingida (
+                      {dadosMetas.pctDiario}%)
+                    </span>
+                  ) : (
+                    <span>{dadosMetas.pctDiario}% atingido</span>
+                  )}
+                </Badge>
+              </div>
+
+              <div className="flex items-baseline justify-between mb-1.5">
+                <div className="text-2xl font-black font-mono text-foreground">
+                  {dadosMetas.volumeDia.toFixed(1)}{' '}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    / {dadosMetas.metaDiaria} m³
+                  </span>
+                </div>
+                <div className="text-xs font-mono text-muted-foreground">
+                  {dadosMetas.volumeDia >= dadosMetas.metaDiaria
+                    ? `+${(dadosMetas.volumeDia - dadosMetas.metaDiaria).toFixed(1)} m³ acima`
+                    : `Faltam ${(dadosMetas.metaDiaria - dadosMetas.volumeDia).toFixed(1)} m³`}
+                </div>
+              </div>
+
+              <Progress
+                value={Math.min(dadosMetas.pctDiario, 100)}
+                className="h-2.5 bg-muted/60"
+              />
+
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Operação do dia{' '}
+                {dadosMetas.dataDiaConsiderada.split('-').reverse().join('/')}.
+              </p>
+            </div>
+
+            {/* Meta 2: Produção Mensal */}
+            <div
+              className={`p-4 rounded-xl border transition-all ${
+                dadosMetas.atingiuMensal
+                  ? 'bg-emerald-500/10 border-emerald-500/30'
+                  : 'bg-card/60 border-border/50'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Meta Mensal
+                  </span>
+                </div>
+                <Badge
+                  variant={dadosMetas.atingiuMensal ? 'default' : 'secondary'}
+                  className={`text-[11px] font-mono font-bold ${
+                    dadosMetas.atingiuMensal
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-600'
+                      : dadosMetas.pctMensal >= 70
+                        ? 'bg-amber-500/15 text-amber-500 border-amber-500/30'
+                        : 'bg-rose-500/15 text-rose-500 border-rose-500/30'
+                  }`}
+                >
+                  {dadosMetas.atingiuMensal ? (
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Atingida (
+                      {dadosMetas.pctMensal}%)
+                    </span>
+                  ) : (
+                    <span>{dadosMetas.pctMensal}% atingido</span>
+                  )}
+                </Badge>
+              </div>
+
+              <div className="flex items-baseline justify-between mb-1.5">
+                <div className="text-2xl font-black font-mono text-foreground">
+                  {dadosMetas.volumeMes.toFixed(1)}{' '}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    / {dadosMetas.metaMensal} m³
+                  </span>
+                </div>
+                <div className="text-xs font-mono text-muted-foreground">
+                  {dadosMetas.volumeMes >= dadosMetas.metaMensal
+                    ? `+${(dadosMetas.volumeMes - dadosMetas.metaMensal).toFixed(1)} m³ acima`
+                    : `Faltam ${(dadosMetas.metaMensal - dadosMetas.volumeMes).toFixed(1)} m³`}
+                </div>
+              </div>
+
+              <Progress
+                value={Math.min(dadosMetas.pctMensal, 100)}
+                className="h-2.5 bg-muted/60"
+              />
+
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Consolidado do mês{' '}
+                {dadosMetas.chaveMesRef.split('-').reverse().join('/')}.
+              </p>
+            </div>
+
+            {/* Meta 3: Desempenho no Filtro de Período Ativo */}
+            <div
+              className={`p-4 rounded-xl border transition-all md:col-span-2 lg:col-span-1 ${
+                dadosMetas.atingiuRecorte
+                  ? 'bg-emerald-500/10 border-emerald-500/30'
+                  : 'bg-card/60 border-border/50'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Filter className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Período Filtrado
+                  </span>
+                </div>
+                <Badge
+                  variant={dadosMetas.atingiuRecorte ? 'default' : 'secondary'}
+                  className={`text-[11px] font-mono font-bold ${
+                    dadosMetas.atingiuRecorte
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-600'
+                      : 'bg-primary/10 text-primary border-primary/30'
+                  }`}
+                >
+                  {dadosMetas.pctRecorte}% do referencial
+                </Badge>
+              </div>
+
+              <div className="flex items-baseline justify-between mb-1.5">
+                <div className="text-2xl font-black font-mono text-foreground">
+                  {dadosMetas.volumeRecorte.toFixed(1)}{' '}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    / {dadosMetas.metaRecorte.toFixed(0)} m³
+                  </span>
+                </div>
+                <div className="text-xs font-mono text-muted-foreground">
+                  {cargasValidasPeriodo.length} cargas
+                </div>
+              </div>
+
+              <Progress
+                value={Math.min(dadosMetas.pctRecorte, 100)}
+                className="h-2.5 bg-muted/60"
+              />
+
+              <p
+                className="text-[11px] text-muted-foreground mt-2 truncate"
+                title={labelPeriodo}
+              >
+                Filtro: {labelPeriodo}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Barra de Filtro de Período do Dashboard */}
       <Card className="no-print bg-card/70 border-border/40 shadow-sm">

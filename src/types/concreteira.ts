@@ -309,3 +309,13 @@ export interface ComparativoUnidade {
     custoPorM3: number
   }>
 }
+
+export interface MetaProducao {
+  id?: string
+  empresa_id: string
+  meta_diaria_m3: number
+  meta_mensal_m3: number
+  observacao?: string | null
+  created_at?: string
+  updated_at?: string
+}
