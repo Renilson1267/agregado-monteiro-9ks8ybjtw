@@ -55,6 +55,7 @@ import {
   FileSpreadsheet,
   MapPin,
   RefreshCw,
+  User,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -2166,6 +2167,85 @@ export default function LancamentoCargas() {
                   </div>
                 )}
               </div>
+
+              {/* Motorista (ao lado de Pó de Pedra) */}
+              <div className="space-y-1.5 p-3 rounded-lg border border-border/40 bg-background/50">
+                <Label
+                  htmlFor="motoristaAoLadoPoPedra"
+                  className="text-xs text-muted-foreground flex justify-between items-center"
+                >
+                  <span className="font-semibold text-foreground flex items-center gap-1">
+                    <User className="w-3.5 h-3.5 text-primary" />
+                    Motorista
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    Livre / Sugestão
+                  </span>
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="motoristaAoLadoPoPedra"
+                    list="lista-motoristas"
+                    value={motoristaNome}
+                    onChange={(e) => setMotoristaNome(e.target.value)}
+                    placeholder="Nome do motorista..."
+                    className="h-10 text-xs bg-background font-medium"
+                  />
+                </div>
+                <div className="text-[11px] text-muted-foreground flex justify-between items-center pt-0.5">
+                  <span>Vinculado à carga e OS</span>
+                  {motoristaNome && (
+                    <span className="font-semibold text-primary truncate max-w-[130px]">
+                      {motoristaNome}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Placa da Betoneira (ao lado de Pó de Pedra) */}
+              <div className="space-y-1.5 p-3 rounded-lg border border-border/40 bg-background/50">
+                <Label
+                  htmlFor="veiculoAoLadoPoPedra"
+                  className="text-xs text-muted-foreground flex justify-between items-center"
+                >
+                  <span className="font-semibold text-foreground flex items-center gap-1">
+                    <Truck className="w-3.5 h-3.5 text-primary" />
+                    Placa da Betoneira
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    Veículos da unidade
+                  </span>
+                </Label>
+                <div className="relative">
+                  <Select value={veiculoPlaca} onValueChange={setVeiculoPlaca}>
+                    <SelectTrigger
+                      id="veiculoAoLadoPoPedra"
+                      className="h-10 text-xs bg-background font-mono font-semibold"
+                    >
+                      <SelectValue placeholder="Selecione a betoneira" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {veiculos.map((v) => (
+                        <SelectItem
+                          key={v.id}
+                          value={v.placa}
+                          className="text-xs font-mono"
+                        >
+                          {v.placa} {v.modelo ? `- ${v.modelo}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="text-[11px] text-muted-foreground flex justify-between items-center pt-0.5">
+                  <span>Caminhão selecionado</span>
+                  {veiculoPlaca && (
+                    <span className="font-semibold text-primary font-mono">
+                      {veiculoPlaca}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -2591,9 +2671,14 @@ export default function LancamentoCargas() {
                 </div>
 
                 <div className="space-y-1 sm:col-span-2">
-                  <Label htmlFor="motoristaEntrega" className="text-xs">
-                    Motorista (Digitação livre ou seleção)
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="motoristaEntrega" className="text-xs">
+                      Motorista
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">
+                      Sincronizado
+                    </span>
+                  </div>
                   <Input
                     id="motoristaEntrega"
                     list="lista-motoristas"
@@ -2612,19 +2697,24 @@ export default function LancamentoCargas() {
                 </div>
 
                 <div className="space-y-1 sm:col-span-2">
-                  <Label htmlFor="veiculoEntrega" className="text-xs">
-                    Placa do Caminhão
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="veiculoEntrega" className="text-xs">
+                      Placa da Betoneira
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">
+                      Sincronizado
+                    </span>
+                  </div>
                   <Select value={veiculoPlaca} onValueChange={setVeiculoPlaca}>
                     <SelectTrigger id="veiculoEntrega" className="text-xs">
-                      <SelectValue placeholder="Selecione o caminhão" />
+                      <SelectValue placeholder="Selecione a betoneira" />
                     </SelectTrigger>
                     <SelectContent>
                       {veiculos.map((v) => (
                         <SelectItem
                           key={v.id}
                           value={v.placa}
-                          className="text-xs"
+                          className="text-xs font-mono"
                         >
                           {v.placa} {v.modelo ? `- ${v.modelo}` : ''}
                         </SelectItem>

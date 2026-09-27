@@ -1652,12 +1652,10 @@ export const ConcreteiraService = {
     }
   },
 
-  async excluirOrdemServico(id: string): Promise<void> {
-    const { error } = await (supabase as any)
-      .from('ordens_servico')
-      .delete()
-      .eq('id', id)
-    if (error) throw error
+  async excluirOrdemServico(_id: string): Promise<void> {
+    throw new Error(
+      'O Recibo/OS sequencial não pode ser excluído para não quebrar a sequência contínua de numeração da empresa.',
+    )
   },
 
   // ==========================================

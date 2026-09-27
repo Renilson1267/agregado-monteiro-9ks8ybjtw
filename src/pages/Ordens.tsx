@@ -473,22 +473,6 @@ export default function Ordens() {
     }
   }
 
-  // Excluir OS
-  const handleExcluirOS = async (id: string, num: number) => {
-    if (!confirm(`Deseja realmente remover o Recibo Nº ${num}?`)) return
-    try {
-      await ConcreteiraService.excluirOrdemServico(id)
-      toast({ title: `Recibo Nº ${num} excluído` })
-      carregarDados()
-    } catch (err: any) {
-      toast({
-        title: 'Erro ao excluir',
-        description: err.message,
-        variant: 'destructive',
-      })
-    }
-  }
-
   // Ação de Impressão
   const dispararImpressao = (os: OrdemServico) => {
     setOrdemParaImprimir(os)
@@ -698,20 +682,6 @@ export default function Ordens() {
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </Button>
-
-                            {!isBalanceiro && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                onClick={() =>
-                                  handleExcluirOS(os.id, os.numero_os)
-                                }
-                                title="Excluir Ordem"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            )}
                           </div>
                         </td>
                       </tr>
@@ -750,12 +720,19 @@ export default function Ordens() {
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Número do Recibo *</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Número do Recibo</Label>
+                    <span className="text-[10px] text-muted-foreground font-medium">
+                      Sequencial Bloqueado
+                    </span>
+                  </div>
                   <Input
                     type="number"
                     value={numeroOs}
-                    onChange={(e) => setNumeroOs(Number(e.target.value))}
-                    className="h-9 text-xs font-mono font-bold"
+                    readOnly
+                    disabled
+                    tabIndex={-1}
+                    className="h-9 text-xs font-mono font-bold bg-muted/60 text-foreground cursor-not-allowed border-dashed select-none"
                     required
                   />
                 </div>
