@@ -38,7 +38,7 @@ BEGIN
     -- Atualizar a senha e garantir email_confirmed_at e integridade GoTrue
     UPDATE auth.users
     SET
-      encrypted_password = crypt(v_nova_senha, gen_salt('bf')),
+      encrypted_password = extensions.crypt(v_nova_senha, extensions.gen_salt('bf')),
       email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
       updated_at = NOW(),
       confirmation_token = COALESCE(confirmation_token, ''),
@@ -82,7 +82,7 @@ BEGIN
       v_user_id,
       '00000000-0000-0000-0000-000000000000',
       v_target_email,
-      crypt(v_nova_senha, gen_salt('bf')),
+      extensions.crypt(v_nova_senha, extensions.gen_salt('bf')),
       NOW(),
       NOW(),
       NOW(),
@@ -149,7 +149,7 @@ BEGIN
       ativo = true,
       updated_at = NOW();
 
-    RAISE NOTICE 'Registro de Marinaldo criado em public.usuarios_app vinculado a SJE.', v_target_email;
+    RAISE NOTICE 'Registro de Marinaldo criado em public.usuarios_app vinculado a SJE: %', v_target_email;
   END IF;
 
 END $$;
