@@ -1735,9 +1735,31 @@ export const ConcreteiraService = {
     }
 
     if (dados.id) {
+      // Se houver alteração de e-mail na edição de usuário existente,
+      // invoca a RPC que atualiza com segurança em auth.users, auth.identities e usuarios_app
+      const emailNovo = payload.email
+      const { data: resRpc, error: errRpc } = await (supabase as any).rpc(
+        'atualizar_email_usuario',
+        {
+          p_usuario_app_id: dados.id,
+          p_novo_email: emailNovo,
+        },
+      )
+      if (errRpc) throw errRpc
+      if (resRpc && resRpc.success === false) {
+        throw new Error(resRpc.error || 'Erro ao atualizar e-mail do usuário.')
+      }
+
+      // Atualiza os demais campos cadastrais
       const { data, error } = await (supabase as any)
         .from('usuarios_app')
-        .update(payload)
+        .update({
+          nome: payload.nome,
+          perfil: payload.perfil,
+          empresa_id: payload.empresa_id,
+          ativo: payload.ativo,
+          updated_at: payload.updated_at,
+        })
         .eq('id', dados.id)
         .select()
         .single()

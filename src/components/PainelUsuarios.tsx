@@ -120,8 +120,31 @@ export function PainelUsuarios() {
     e.preventDefault()
     setErroModal(null)
 
-    if (!nome.trim() || !email.trim()) {
+    const emailFormatado = email.trim().toLowerCase()
+    const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+    if (!nome.trim() || !emailFormatado) {
       setErroModal('Nome e e-mail são obrigatórios.')
+      return
+    }
+
+    if (!regexEmail.test(emailFormatado)) {
+      setErroModal(
+        'Por favor, informe um endereço de e-mail válido (exemplo: usuario@empresa.com.br).',
+      )
+      return
+    }
+
+    // Validação preventiva no client de e-mail duplicado em outros usuários da lista
+    const emailEmUsoPorOutro = usuarios.find(
+      (u) =>
+        u.email.toLowerCase() === emailFormatado &&
+        (!editando || u.id !== editando.id),
+    )
+    if (emailEmUsoPorOutro) {
+      setErroModal(
+        `O e-mail "${emailFormatado}" já está em uso pelo operador "${emailEmUsoPorOutro.nome}". Escolha outro e-mail.`,
+      )
       return
     }
 
@@ -131,7 +154,6 @@ export function PainelUsuarios() {
       )
       return
     }
-
     // Regra: Balanceiro DEVE ter empresa vinculada
     if (perfil === 'balanceiro' && (empresaId === 'todas' || !empresaId)) {
       setErroModal(
@@ -422,20 +444,32 @@ export function PainelUsuarios() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                E-mail (Usado no Login)
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                  E-mail (Usado no Login)
+                </Label>
+                {editando && (
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    Liberado para correção
+                  </span>
+                )}
+              </div>
               <Input
                 type="email"
                 placeholder="usuario@concreteira.com.br"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={salvando || !!editando}
+                disabled={salvando}
                 required
               />
+              {editando && (
+                <p className="text-[10px] text-muted-foreground">
+                  Ao corrigir o e-mail, o operador passará a usar este novo
+                  e-mail para login mantendo a mesma senha.
+                </p>
+              )}
             </div>
-
             {!editando && (
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold flex items-center gap-1.5">
