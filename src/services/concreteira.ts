@@ -1305,18 +1305,46 @@ export const ConcreteiraService = {
     const { data: todasCargas, error: crgErr } = await cargasQuery
     if (crgErr) throw crgErr
 
-    // Busca todos os preços
-    const { data: todosPrecos, error: prcErr } = await (supabase as any)
-      .from('precos_material')
-      .select('*')
+    // Busca todos os preços e materiais cadastrados de todas as empresas
+    const [
+      { data: todosPrecos, error: prcErr },
+      { data: todosMateriais, error: matErr },
+    ] = await Promise.all([
+      (supabase as any).from('precos_material').select('*'),
+      (supabase as any).from('materiais').select('*'),
+    ])
     if (prcErr) throw prcErr
+    if (matErr) throw matErr
 
     const listaCargas = (todasCargas || []) as Carga[]
     const listaPrecos = (todosPrecos || []) as PrecoMaterial[]
+    const listaMateriais = (todosMateriais || []) as Material[]
 
     const unidades: ComparativoUnidade[] = (empresas || []).map((emp: any) => {
       const cargasEmpresa = listaCargas.filter((c) => c.empresa_id === emp.id)
       const precosEmpresa = listaPrecos.filter((p) => p.empresa_id === emp.id)
+      const materiaisEmpresa = listaMateriais.filter(
+        (m) => m.empresa_id === emp.id,
+      )
+
+      // Densidades reais com fallback para conversão kg -> m³
+      // Fallbacks padrão: brita12 = 1.38 t/m³, brita19 = 1.44 t/m³, areia = 1.50 t/m³
+      const matBrita12 = materiaisEmpresa.find((m) => m.codigo === 'brita12')
+      const matBrita19 = materiaisEmpresa.find((m) => m.codigo === 'brita19')
+      const matAreia = materiaisEmpresa.find((m) => m.codigo === 'areia')
+
+      const densidadeBrita12 =
+        matBrita12 && Number(matBrita12.densidade) > 0
+          ? Number(matBrita12.densidade)
+          : 1.38
+      const densidadeBrita19 =
+        matBrita19 && Number(matBrita19.densidade) > 0
+          ? Number(matBrita19.densidade)
+          : 1.44
+      const densidadeAreia =
+        matAreia && Number(matAreia.densidade) > 0
+          ? Number(matAreia.densidade)
+          : 1.5
 
       let volumeTotal = 0
       let cargasTotal = cargasEmpresa.length
@@ -1429,6 +1457,11 @@ export const ConcreteiraService = {
           brita19: Number(custosPorMaterial.brita19.toFixed(2)),
           po_pedra: Number(custosPorMaterial.po_pedra.toFixed(2)),
           agua: Number(custosPorMaterial.agua.toFixed(2)),
+        },
+        densidades: {
+          areia: densidadeAreia,
+          brita12: densidadeBrita12,
+          brita19: densidadeBrita19,
         },
         porTraco,
       }

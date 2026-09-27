@@ -301,6 +301,11 @@ export interface ComparativoUnidade {
     po_pedra: number
     agua: number
   }
+  densidades?: {
+    areia: number
+    brita12: number
+    brita19: number
+  }
   porTraco: Array<{
     tracoNome: string
     volume: number

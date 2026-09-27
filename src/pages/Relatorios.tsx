@@ -1371,7 +1371,7 @@ export default function Relatorios() {
                       <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
                         Consumo & Custo por Insumo
                       </span>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                         <div className="p-2 rounded bg-muted/20 border border-border/20">
                           <span
                             className="text-muted-foreground block text-[10px] truncate"
@@ -1388,7 +1388,10 @@ export default function Relatorios() {
                             R${' '}
                             {u.custosPorMaterial.cimento.toLocaleString(
                               'pt-BR',
-                              { maximumFractionDigits: 2 },
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              },
                             )}
                           </span>
                         </div>
@@ -1400,38 +1403,92 @@ export default function Relatorios() {
                             R${' '}
                             {u.custosPorMaterial.aditivo.toLocaleString(
                               'pt-BR',
-                              { maximumFractionDigits: 2 },
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              },
                             )}
                           </span>
                         </div>
                         <div className="p-2 rounded bg-muted/20 border border-border/20">
                           <span className="text-muted-foreground block text-[10px]">
-                            Areia: {(u.consumos.areia / 1000).toFixed(1)} t
+                            Água: {u.consumos.agua.toLocaleString('pt-BR')} L
                           </span>
                           <span className="font-mono font-semibold">
                             R${' '}
-                            {u.custosPorMaterial.areia.toLocaleString('pt-BR', {
+                            {u.custosPorMaterial.agua.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
                           </span>
                         </div>
                         <div className="p-2 rounded bg-muted/20 border border-border/20">
                           <span className="text-muted-foreground block text-[10px]">
-                            Britas 12+19:{' '}
+                            Areia:{' '}
                             {(
-                              (u.consumos.brita12 + u.consumos.brita19) /
-                              1000
-                            ).toFixed(1)}{' '}
-                            t
+                              u.consumos.areia /
+                              ((u.densidades?.areia || 1.5) * 1000)
+                            ).toFixed(2)}{' '}
+                            m³
                           </span>
                           <span className="font-mono font-semibold">
                             R${' '}
-                            {(
-                              u.custosPorMaterial.brita12 +
-                              u.custosPorMaterial.brita19
-                            ).toLocaleString('pt-BR', {
+                            {u.custosPorMaterial.areia.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
+                          </span>
+                          <span className="block text-[9px] text-muted-foreground">
+                            {(u.consumos.areia / 1000).toFixed(1)} t •{' '}
+                            {(u.densidades?.areia || 1.5).toFixed(2)} kg/L
+                          </span>
+                        </div>
+                        <div className="p-2 rounded bg-muted/20 border border-border/20">
+                          <span className="text-muted-foreground block text-[10px]">
+                            Brita 12:{' '}
+                            {(
+                              u.consumos.brita12 /
+                              ((u.densidades?.brita12 || 1.38) * 1000)
+                            ).toFixed(2)}{' '}
+                            m³
+                          </span>
+                          <span className="font-mono font-semibold">
+                            R${' '}
+                            {u.custosPorMaterial.brita12.toLocaleString(
+                              'pt-BR',
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              },
+                            )}
+                          </span>
+                          <span className="block text-[9px] text-muted-foreground">
+                            {(u.consumos.brita12 / 1000).toFixed(1)} t •{' '}
+                            {(u.densidades?.brita12 || 1.38).toFixed(2)} kg/L
+                          </span>
+                        </div>
+                        <div className="p-2 rounded bg-muted/20 border border-border/20">
+                          <span className="text-muted-foreground block text-[10px]">
+                            Brita 19:{' '}
+                            {(
+                              u.consumos.brita19 /
+                              ((u.densidades?.brita19 || 1.44) * 1000)
+                            ).toFixed(2)}{' '}
+                            m³
+                          </span>
+                          <span className="font-mono font-semibold">
+                            R${' '}
+                            {u.custosPorMaterial.brita19.toLocaleString(
+                              'pt-BR',
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              },
+                            )}
+                          </span>
+                          <span className="block text-[9px] text-muted-foreground">
+                            {(u.consumos.brita19 / 1000).toFixed(1)} t •{' '}
+                            {(u.densidades?.brita19 || 1.44).toFixed(2)} kg/L
                           </span>
                         </div>
                       </div>
@@ -1660,6 +1717,304 @@ export default function Relatorios() {
                           ) / 1000
                         ).toFixed(1)}{' '}
                         m³)
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 px-3 font-medium">
+                        <div>Consumo de Areia</div>
+                        <div className="text-[10px] text-muted-foreground font-normal">
+                          Densidade cadastrada (t/m³)
+                        </div>
+                      </td>
+                      {dadosComparativo.unidades.map((u) => {
+                        const dens = u.densidades?.areia || 1.5
+                        const volM3 = u.consumos.areia / (dens * 1000)
+                        return (
+                          <td
+                            key={u.empresaId}
+                            className="py-2.5 px-3 text-right font-mono"
+                          >
+                            <div className="font-semibold text-foreground">
+                              {volM3.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}{' '}
+                              m³
+                            </div>
+                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                              R${' '}
+                              {u.custosPorMaterial.areia.toLocaleString(
+                                'pt-BR',
+                                {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                },
+                              )}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              (
+                              {(u.consumos.areia / 1000).toLocaleString(
+                                'pt-BR',
+                                {
+                                  minimumFractionDigits: 1,
+                                  maximumFractionDigits: 1,
+                                },
+                              )}{' '}
+                              t • {dens.toFixed(2)} kg/L)
+                            </div>
+                          </td>
+                        )
+                      })}
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-primary">
+                        <div>
+                          {dadosComparativo.unidades
+                            .reduce(
+                              (a, b) =>
+                                a +
+                                b.consumos.areia /
+                                  ((b.densidades?.areia || 1.5) * 1000),
+                              0,
+                            )
+                            .toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}{' '}
+                          m³
+                        </div>
+                        <div className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                          R${' '}
+                          {dadosComparativo.unidades
+                            .reduce((a, b) => a + b.custosPorMaterial.areia, 0)
+                            .toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 px-3 font-medium">
+                        <div>Consumo de Brita 12</div>
+                        <div className="text-[10px] text-muted-foreground font-normal">
+                          Densidade cadastrada (t/m³)
+                        </div>
+                      </td>
+                      {dadosComparativo.unidades.map((u) => {
+                        const dens = u.densidades?.brita12 || 1.38
+                        const volM3 = u.consumos.brita12 / (dens * 1000)
+                        return (
+                          <td
+                            key={u.empresaId}
+                            className="py-2.5 px-3 text-right font-mono"
+                          >
+                            <div className="font-semibold text-foreground">
+                              {volM3.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}{' '}
+                              m³
+                            </div>
+                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                              R${' '}
+                              {u.custosPorMaterial.brita12.toLocaleString(
+                                'pt-BR',
+                                {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                },
+                              )}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              (
+                              {(u.consumos.brita12 / 1000).toLocaleString(
+                                'pt-BR',
+                                {
+                                  minimumFractionDigits: 1,
+                                  maximumFractionDigits: 1,
+                                },
+                              )}{' '}
+                              t • {dens.toFixed(2)} kg/L)
+                            </div>
+                          </td>
+                        )
+                      })}
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-primary">
+                        <div>
+                          {dadosComparativo.unidades
+                            .reduce(
+                              (a, b) =>
+                                a +
+                                b.consumos.brita12 /
+                                  ((b.densidades?.brita12 || 1.38) * 1000),
+                              0,
+                            )
+                            .toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}{' '}
+                          m³
+                        </div>
+                        <div className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                          R${' '}
+                          {dadosComparativo.unidades
+                            .reduce(
+                              (a, b) => a + b.custosPorMaterial.brita12,
+                              0,
+                            )
+                            .toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 px-3 font-medium">
+                        <div>Consumo de Brita 19</div>
+                        <div className="text-[10px] text-muted-foreground font-normal">
+                          Densidade cadastrada (t/m³)
+                        </div>
+                      </td>
+                      {dadosComparativo.unidades.map((u) => {
+                        const dens = u.densidades?.brita19 || 1.44
+                        const volM3 = u.consumos.brita19 / (dens * 1000)
+                        return (
+                          <td
+                            key={u.empresaId}
+                            className="py-2.5 px-3 text-right font-mono"
+                          >
+                            <div className="font-semibold text-foreground">
+                              {volM3.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}{' '}
+                              m³
+                            </div>
+                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                              R${' '}
+                              {u.custosPorMaterial.brita19.toLocaleString(
+                                'pt-BR',
+                                {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                },
+                              )}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              (
+                              {(u.consumos.brita19 / 1000).toLocaleString(
+                                'pt-BR',
+                                {
+                                  minimumFractionDigits: 1,
+                                  maximumFractionDigits: 1,
+                                },
+                              )}{' '}
+                              t • {dens.toFixed(2)} kg/L)
+                            </div>
+                          </td>
+                        )
+                      })}
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-primary">
+                        <div>
+                          {dadosComparativo.unidades
+                            .reduce(
+                              (a, b) =>
+                                a +
+                                b.consumos.brita19 /
+                                  ((b.densidades?.brita19 || 1.44) * 1000),
+                              0,
+                            )
+                            .toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}{' '}
+                          m³
+                        </div>
+                        <div className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                          R${' '}
+                          {dadosComparativo.unidades
+                            .reduce(
+                              (a, b) => a + b.custosPorMaterial.brita19,
+                              0,
+                            )
+                            .toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                        </div>
+                      </td>
+                    </tr>
+                    <tr className="bg-muted/10 font-semibold">
+                      <td className="py-2.5 px-3">
+                        <div>Total Britas Consumidas (12 + 19)</div>
+                        <div className="text-[10px] text-muted-foreground font-normal">
+                          Volume e valor combinado
+                        </div>
+                      </td>
+                      {dadosComparativo.unidades.map((u) => {
+                        const d12 = u.densidades?.brita12 || 1.38
+                        const d19 = u.densidades?.brita19 || 1.44
+                        const vol12 = u.consumos.brita12 / (d12 * 1000)
+                        const vol19 = u.consumos.brita19 / (d19 * 1000)
+                        const volTotal = vol12 + vol19
+                        const custoTotalBritas =
+                          u.custosPorMaterial.brita12 +
+                          u.custosPorMaterial.brita19
+                        return (
+                          <td
+                            key={u.empresaId}
+                            className="py-2.5 px-3 text-right font-mono"
+                          >
+                            <div className="font-bold text-foreground">
+                              {volTotal.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}{' '}
+                              m³
+                            </div>
+                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                              R${' '}
+                              {custoTotalBritas.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </div>
+                          </td>
+                        )
+                      })}
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-primary">
+                        <div>
+                          {dadosComparativo.unidades
+                            .reduce(
+                              (a, b) =>
+                                a +
+                                b.consumos.brita12 /
+                                  ((b.densidades?.brita12 || 1.38) * 1000) +
+                                b.consumos.brita19 /
+                                  ((b.densidades?.brita19 || 1.44) * 1000),
+                              0,
+                            )
+                            .toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}{' '}
+                          m³
+                        </div>
+                        <div className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          R${' '}
+                          {dadosComparativo.unidades
+                            .reduce(
+                              (a, b) =>
+                                a +
+                                b.custosPorMaterial.brita12 +
+                                b.custosPorMaterial.brita19,
+                              0,
+                            )
+                            .toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                        </div>
                       </td>
                     </tr>
                   </tbody>
