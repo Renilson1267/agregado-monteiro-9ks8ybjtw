@@ -7,8 +7,9 @@ export type TipoExame =
   | 'toxicologico'
   | 'rx'
   | 'ecg'
+  | 'demissional'
 
-export type StatusExame = 'VENCIDO' | 'NO_PRAZO' | 'PENDENTE'
+export type StatusExame = 'VENCIDO' | 'NO_PRAZO' | 'PENDENTE' | 'NA_RESCISAO'
 
 export interface DefinicaoTipoExame {
   tipo: TipoExame
@@ -83,6 +84,14 @@ export const TIPOS_EXAME_CATALOGO: DefinicaoTipoExame[] = [
     normaReferencia: 'NR-7 / NR-35 / NR-12',
     descricaoNorma:
       'Avaliação cardiovascular anual para motoristas de veículos pesados, operadores e atividades críticas.',
+  },
+  {
+    tipo: 'demissional',
+    nome: 'Exame Demissional',
+    validadePadraoMeses: 0,
+    normaReferencia: 'Art. 168 §4º CLT — exame na rescisão (até 10 dias após)',
+    descricaoNorma:
+      'Realizado obrigatoriamente no término do contrato de trabalho (até 10 dias após a rescisão). Validade não se aplica automaticamente.',
   },
 ]
 

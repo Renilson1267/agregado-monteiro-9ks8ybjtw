@@ -67,6 +67,7 @@ import {
 } from '@/types/exames'
 import { ModalImportarExamesCSV } from '@/components/ModalImportarExamesCSV'
 import { AbaConfigurarPrazos } from '@/components/AbaConfigurarPrazos'
+import { AbaFuncionarios } from '@/components/AbaFuncionarios'
 import { formatarCpfCnpj, limparMascara, validarCPF } from '@/lib/documentos'
 
 export default function ControleExames() {
@@ -86,6 +87,7 @@ export default function ControleExames() {
     toxicologico: 30,
     rx: 12,
     ecg: 12,
+    demissional: 0,
   })
 
   const [loading, setLoading] = useState(true)
@@ -119,6 +121,7 @@ export default function ControleExames() {
     toxicologico: { data: '', validadeMeses: 30 },
     rx: { data: '', validadeMeses: 12 },
     ecg: { data: '', validadeMeses: 12 },
+    demissional: { data: '', validadeMeses: 0 },
   })
   const [salvando, setSalvando] = useState(false)
 
@@ -261,6 +264,13 @@ export default function ControleExames() {
       },
       rx: { data: '', validadeMeses: prazosConfigurados.rx || 12 },
       ecg: { data: '', validadeMeses: prazosConfigurados.ecg || 12 },
+      demissional: {
+        data: '',
+        validadeMeses:
+          prazosConfigurados.demissional !== undefined
+            ? prazosConfigurados.demissional
+            : 0,
+      },
     }
     setFormExames(inicialExames)
     setModalFuncionarioOpen(true)
@@ -329,6 +339,15 @@ export default function ControleExames() {
         validadeMeses:
           func.exames.ecg?.validadeMeses || prazosConfigurados.ecg || 12,
       },
+      demissional: {
+        data: func.exames.demissional?.dataRealizacao || '',
+        validadeMeses:
+          func.exames.demissional?.validadeMeses !== undefined
+            ? func.exames.demissional.validadeMeses
+            : prazosConfigurados.demissional !== undefined
+              ? prazosConfigurados.demissional
+              : 0,
+      },
     }
 
     setFormExames(examesValores)
@@ -382,9 +401,12 @@ export default function ControleExames() {
         tipo_exame: tipo,
         data_realizacao: val.data || null,
         validade_meses:
-          Number(val.validadeMeses) || prazosConfigurados[tipo] || 12,
+          tipo === 'demissional'
+            ? isNaN(Number(val.validadeMeses))
+              ? 0
+              : Number(val.validadeMeses)
+            : Number(val.validadeMeses) || prazosConfigurados[tipo] || 12,
       }))
-
       await ExamesService.salvarMultiplosExames(
         empresaAtiva.id,
         funcSalvo.id,
@@ -460,6 +482,7 @@ export default function ControleExames() {
       'Toxicologico',
       'RX',
       'ECG',
+      'Demissional',
       'Status Geral',
     ].join(';')
 
@@ -483,6 +506,7 @@ export default function ControleExames() {
         formatarData(f.exames.toxicologico?.dataRealizacao),
         formatarData(f.exames.rx?.dataRealizacao),
         formatarData(f.exames.ecg?.dataRealizacao),
+        formatarData(f.exames.demissional?.dataRealizacao),
         f.statusGeralAso,
       ].join(';')
     })
@@ -589,6 +613,19 @@ export default function ControleExames() {
                 {totalVencidos}
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger
+            value="funcionarios"
+            className="text-xs gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground font-medium"
+          >
+            <UserCheck className="w-4 h-4" />
+            <span>Funcionários</span>
+            <Badge
+              variant="outline"
+              className="h-4 px-1.5 text-[10px] font-mono leading-none bg-primary/10 text-primary border-primary/20"
+            >
+              {totalFuncionarios}
+            </Badge>
           </TabsTrigger>
           <TabsTrigger
             value="configurar_prazos"
@@ -1003,6 +1040,12 @@ export default function ControleExames() {
                         >
                           ECG
                         </th>
+                        <th
+                          className="py-3 px-2 text-center"
+                          title="Exame Demissional (Art. 168 §4º CLT — exame na rescisão)"
+                        >
+                          Demissional
+                        </th>
                         <th className="py-3 px-3 text-right">Ações</th>
                       </tr>
                     </thead>
@@ -1070,6 +1113,9 @@ export default function ControleExames() {
                           </td>
                           <td className="py-2.5 px-2 text-center">
                             <CelulaExame exame={f.exames.ecg} />
+                          </td>
+                          <td className="py-2.5 px-2 text-center">
+                            <CelulaExame exame={f.exames.demissional} />
                           </td>
 
                           {/* Ações */}
@@ -1142,7 +1188,20 @@ export default function ControleExames() {
           </div>
         </TabsContent>
 
-        {/* Conteúdo da Aba 2: Configurar Prazos */}
+        {/* Conteúdo da Aba 2: Cadastro de Funcionários */}
+        <TabsContent value="funcionarios" className="mt-0">
+          <AbaFuncionarios
+            funcionarios={funcionarios}
+            loading={loading}
+            onAtualizar={() => carregarDados()}
+            onVerExames={(func) => {
+              setBusca(func.nome)
+              setAbaAtiva('controle')
+            }}
+          />
+        </TabsContent>
+
+        {/* Conteúdo da Aba 3: Configurar Prazos */}
         <TabsContent value="configurar_prazos" className="mt-0">
           <AbaConfigurarPrazos onPrazosAtualizados={() => carregarDados()} />
         </TabsContent>
@@ -1413,6 +1472,17 @@ function CelulaExame({ exame }: { exame?: any }) {
   const [ano, mes, dia] = exame.dataRealizacao.split('-')
   const dataFormatada = `${dia}/${mes}/${ano}`
 
+  if (exame.status === 'NA_RESCISAO' || exame.tipo === 'demissional') {
+    return (
+      <span
+        className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium text-sky-700 dark:text-sky-400 bg-sky-500/15 border border-sky-500/30"
+        title="Exame na Rescisão (Art. 168 §4º CLT - sem validade automática)"
+      >
+        {dataFormatada}
+      </span>
+    )
+  }
+
   if (exame.status === 'VENCIDO') {
     return (
       <span
@@ -1447,6 +1517,16 @@ function CelulaExame({ exame }: { exame?: any }) {
 }
 
 function BadgeStatusGeral({ status }: { status: StatusExame }) {
+  if (status === 'NA_RESCISAO') {
+    return (
+      <Badge
+        variant="outline"
+        className="text-[10px] uppercase font-semibold text-sky-700 dark:text-sky-400 border-sky-500/40 bg-sky-500/10"
+      >
+        Na Rescisão
+      </Badge>
+    )
+  }
   if (status === 'VENCIDO') {
     return (
       <Badge

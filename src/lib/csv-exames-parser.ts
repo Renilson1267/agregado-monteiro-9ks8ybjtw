@@ -64,6 +64,7 @@ interface MapaColunasExames {
   toxicologico?: number
   rx?: number
   ecg?: number
+  demissional?: number
 }
 
 function identificarColunas(cabecalho: string[]): MapaColunasExames {
@@ -124,6 +125,12 @@ function identificarColunas(cabecalho: string[]): MapaColunasExames {
       col.includes('cardio')
     ) {
       if (mapa.ecg === undefined) mapa.ecg = idx
+    } else if (
+      col.includes('demiss') ||
+      col.includes('rescis') ||
+      col.includes('demissional')
+    ) {
+      if (mapa.demissional === undefined) mapa.demissional = idx
     }
   })
 
@@ -321,10 +328,11 @@ export function parseControleExamesCSV(
     const tox = parseDataExame(colunas, mapaColunas.toxicologico)
     const rx = parseDataExame(colunas, mapaColunas.rx)
     const ecg = parseDataExame(colunas, mapaColunas.ecg)
+    const demissional = parseDataExame(colunas, mapaColunas.demissional)
 
     const getValidadeTipo = (tipo: TipoExame, padrao: number): number => {
       const v = prazosConfigurados?.[tipo]
-      return v && v > 0 ? v : padrao
+      return v !== undefined && v !== null ? v : padrao
     }
 
     const valAdm = getValidadeTipo('admissional', 12)
@@ -335,6 +343,7 @@ export function parseControleExamesCSV(
     const valTox = getValidadeTipo('toxicologico', 30)
     const valRx = getValidadeTipo('rx', 12)
     const valEcg = getValidadeTipo('ecg', 12)
+    const valDemissional = getValidadeTipo('demissional', 0)
 
     const exames: Record<
       TipoExame,
@@ -392,6 +401,16 @@ export function parseControleExamesCSV(
         dataBr: ecg.dataBr,
         status: calcularStatusExame(ecg.dataIso, valEcg).status,
         validadeMeses: valEcg,
+      },
+      demissional: {
+        dataIso: demissional.dataIso,
+        dataBr: demissional.dataBr,
+        status: calcularStatusExame(
+          demissional.dataIso,
+          valDemissional,
+          'demissional',
+        ).status,
+        validadeMeses: valDemissional,
       },
     }
 

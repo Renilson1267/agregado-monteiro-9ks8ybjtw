@@ -521,9 +521,17 @@ function BadgeStatus({
   status,
   dataBr,
 }: {
-  status: 'VENCIDO' | 'NO_PRAZO' | 'PENDENTE'
+  status: 'VENCIDO' | 'NO_PRAZO' | 'PENDENTE' | 'NA_RESCISAO'
   dataBr: string | null
 }) {
+  if (status === 'NA_RESCISAO') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-sky-700 dark:text-sky-400 bg-sky-500/15 px-1.5 py-0.5 rounded border border-sky-500/30">
+        <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+        {dataBr || 'Na Rescisão'}
+      </span>
+    )
+  }
   if (status === 'VENCIDO') {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded border border-destructive/20">
@@ -550,8 +558,18 @@ function BadgeStatus({
 function BadgeStatusGeral({
   status,
 }: {
-  status: 'VENCIDO' | 'NO_PRAZO' | 'PENDENTE'
+  status: 'VENCIDO' | 'NO_PRAZO' | 'PENDENTE' | 'NA_RESCISAO'
 }) {
+  if (status === 'NA_RESCISAO') {
+    return (
+      <Badge
+        variant="outline"
+        className="text-[10px] uppercase font-semibold text-sky-700 dark:text-sky-400 border-sky-500/40 bg-sky-500/10"
+      >
+        Na Rescisão
+      </Badge>
+    )
+  }
   if (status === 'VENCIDO') {
     return (
       <Badge

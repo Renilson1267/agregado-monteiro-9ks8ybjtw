@@ -56,6 +56,7 @@ export function AbaConfigurarPrazos({
     toxicologico: 30,
     rx: 12,
     ecg: 12,
+    demissional: 0,
   })
 
   // Carregar dados de prazos da empresa
@@ -77,10 +78,15 @@ export function AbaConfigurarPrazos({
         toxicologico: 30,
         rx: 12,
         ecg: 12,
+        demissional: 0,
       }
       lista.forEach((p) => {
-        if (p.tipo_exame && p.validade_padrao_meses > 0) {
-          mapa[p.tipo_exame] = p.validade_padrao_meses
+        if (
+          p.tipo_exame !== undefined &&
+          p.validade_padrao_meses !== null &&
+          p.validade_padrao_meses !== undefined
+        ) {
+          mapa[p.tipo_exame] = Number(p.validade_padrao_meses)
         }
       })
       setValoresMeses(mapa)
@@ -121,9 +127,9 @@ export function AbaConfigurarPrazos({
 
     if (!empresaAtiva) return
 
-    // Validar se todos são maiores que zero
+    // Validar se todos (exceto demissional) são maiores que zero
     for (const [tipo, meses] of Object.entries(valoresMeses)) {
-      if (!meses || meses <= 0) {
+      if (tipo !== 'demissional' && (!meses || meses <= 0)) {
         const item = TIPOS_EXAME_CATALOGO.find((c) => c.tipo === tipo)
         toast({
           title: 'Prazo inválido',
@@ -138,7 +144,10 @@ export function AbaConfigurarPrazos({
     try {
       const listaParaSalvar = prazos.map((p) => ({
         tipo_exame: p.tipo_exame,
-        validade_padrao_meses: valoresMeses[p.tipo_exame] || 12,
+        validade_padrao_meses:
+          p.tipo_exame === 'demissional'
+            ? (valoresMeses[p.tipo_exame] ?? 0)
+            : valoresMeses[p.tipo_exame] || 12,
         norma_referencia: p.norma_referencia,
         descricao_norma: p.descricao_norma,
       }))
@@ -300,8 +309,13 @@ export function AbaConfigurarPrazos({
       {/* Grid com os 8 Tipos de Exame do Catálogo */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {prazos.map((item) => {
-          const meses = valoresMeses[item.tipo_exame] ?? 12
-          const anosEquiv = (meses / 12).toFixed(1).replace('.0', '')
+          const meses =
+            valoresMeses[item.tipo_exame] ??
+            (item.tipo_exame === 'demissional' ? 0 : 12)
+          const isDemissional = item.tipo_exame === 'demissional'
+          const anosEquiv = isDemissional
+            ? '0'
+            : (meses / 12).toFixed(1).replace('.0', '')
           const defPadrao = TIPOS_EXAME_CATALOGO.find(
             (c) => c.tipo === item.tipo_exame,
           )
@@ -309,7 +323,9 @@ export function AbaConfigurarPrazos({
           return (
             <Card
               key={item.tipo_exame}
-              className="border-border/40 bg-card/70 hover:border-primary/40 transition-colors shadow-sm"
+              className={`border-border/40 bg-card/70 hover:border-primary/40 transition-colors shadow-sm ${
+                isDemissional ? 'border-sky-500/30 bg-sky-500/[0.02]' : ''
+              }`}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
@@ -317,6 +333,14 @@ export function AbaConfigurarPrazos({
                     <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
                       <Clock className="w-4 h-4 text-primary" />
                       {item.nome_exame}
+                      {isDemissional && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30"
+                        >
+                          Rescisão CLT
+                        </Badge>
+                      )}
                     </CardTitle>
                     <CardDescription className="text-xs mt-1 leading-relaxed">
                       {item.descricao_norma || defPadrao?.descricaoNorma}
@@ -325,10 +349,15 @@ export function AbaConfigurarPrazos({
 
                   <Badge
                     variant="outline"
-                    className="font-mono text-xs px-2 py-0.5 bg-primary/10 text-primary border-primary/20 shrink-0"
+                    className={`font-mono text-xs px-2 py-0.5 shrink-0 ${
+                      isDemissional
+                        ? 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30'
+                        : 'bg-primary/10 text-primary border-primary/20'
+                    }`}
                   >
-                    {meses} meses ({anosEquiv}{' '}
-                    {anosEquiv === '1' ? 'ano' : 'anos'})
+                    {isDemissional
+                      ? 'Na Rescisão'
+                      : `${meses} meses (${anosEquiv} ${anosEquiv === '1' ? 'ano' : 'anos'})`}
                   </Badge>
                 </div>
               </CardHeader>
@@ -342,16 +371,18 @@ export function AbaConfigurarPrazos({
                     >
                       Validade padrão (meses)
                       <span className="text-[10px] text-muted-foreground font-normal">
-                        (editável)
+                        {isDemissional
+                          ? '(0 = sem vencimento periódico / na rescisão)'
+                          : '(editável)'}
                       </span>
                     </Label>
                     <div className="flex items-center gap-2">
                       <Input
                         id={`prazo-${item.tipo_exame}`}
                         type="number"
-                        min={1}
+                        min={isDemissional ? 0 : 1}
                         max={120}
-                        value={meses || ''}
+                        value={meses !== undefined ? meses : ''}
                         disabled={!isAdministrador || loading || salvando}
                         onChange={(e) =>
                           handleMudarMeses(item.tipo_exame, e.target.value)
@@ -359,13 +390,15 @@ export function AbaConfigurarPrazos({
                         className="h-9 text-xs font-mono font-bold w-28"
                       />
                       <span className="text-xs text-muted-foreground">
-                        meses de validade
+                        {isDemissional
+                          ? 'meses (0 = exame na rescisão)'
+                          : 'meses de validade'}
                       </span>
                     </div>
                   </div>
 
                   {/* Atalhos rápidos para prazos comuns */}
-                  {isAdministrador && (
+                  {isAdministrador && !isDemissional && (
                     <div className="flex items-center gap-1 sm:justify-end">
                       <Button
                         type="button"
@@ -422,6 +455,25 @@ export function AbaConfigurarPrazos({
                         title="30 meses (2,5 anos - Motoristas)"
                       >
                         30m
+                      </Button>
+                    </div>
+                  )}
+
+                  {isAdministrador && isDemissional && (
+                    <div className="flex items-center gap-1 sm:justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleMudarMeses(item.tipo_exame, '0')}
+                        className={`h-7 px-2.5 text-[11px] font-mono ${
+                          meses === 0
+                            ? 'bg-sky-500/20 text-sky-700 dark:text-sky-400 font-bold'
+                            : ''
+                        }`}
+                        title="Sem validade periódica (exame demissional na rescisão)"
+                      >
+                        0m (Rescisão)
                       </Button>
                     </div>
                   )}

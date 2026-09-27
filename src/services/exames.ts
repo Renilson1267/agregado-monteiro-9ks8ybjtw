@@ -57,6 +57,7 @@ export function calcularDiasAteValidade(dataValidade: string): number {
 export function calcularStatusExame(
   dataRealizacao: string | null,
   validadeMeses: number,
+  tipoExame?: TipoExame,
 ): {
   status: StatusExame
   dataValidade: string | null
@@ -65,6 +66,16 @@ export function calcularStatusExame(
   if (!dataRealizacao) {
     return {
       status: 'PENDENTE',
+      dataValidade: null,
+      diasParaVencer: null,
+    }
+  }
+
+  // Se validade_meses for 0 ou null, ou se for exame demissional
+  // Não vence: exibe status NA_RESCISAO (badge neutro/azul)
+  if (!validadeMeses || validadeMeses <= 0 || tipoExame === 'demissional') {
+    return {
+      status: 'NA_RESCISAO',
       dataValidade: null,
       diasParaVencer: null,
     }
@@ -111,19 +122,29 @@ export function processarFuncionarioComExames(
         : prazosConfigurados?.[tipoDef.tipo]
 
     // Hierarquia de prioridade do cálculo:
-    // 1. Validade informada no exame individual (se existir e for > 0)
+    // 1. Validade informada no exame individual (se existir)
     // 2. Prazo configurado para o tipo de exame na empresa
     // 3. Validade padrão geral da norma/catálogo
-    const validadeMeses =
-      reg?.validade_meses && reg.validade_meses > 0
-        ? reg.validade_meses
-        : prazoEmpresa && prazoEmpresa > 0
-          ? prazoEmpresa
-          : tipoDef.validadePadraoMeses
+    let validadeMeses: number
+    if (tipoDef.tipo === 'demissional') {
+      validadeMeses =
+        reg?.validade_meses ?? (prazoEmpresa !== undefined ? prazoEmpresa : 0)
+    } else {
+      validadeMeses =
+        reg?.validade_meses && reg.validade_meses > 0
+          ? reg.validade_meses
+          : prazoEmpresa !== undefined && prazoEmpresa !== null
+            ? prazoEmpresa
+            : tipoDef.validadePadraoMeses
+    }
 
     const dataRealizacao = reg?.data_realizacao ?? null
 
-    const calc = calcularStatusExame(dataRealizacao, validadeMeses)
+    const calc = calcularStatusExame(
+      dataRealizacao,
+      validadeMeses,
+      tipoDef.tipo,
+    )
 
     const exameCalc: ExameCalculado = {
       tipo: tipoDef.tipo,
@@ -194,6 +215,7 @@ export const ExamesService = {
       toxicologico: 30,
       rx: 12,
       ecg: 12,
+      demissional: 0,
     }
 
     if (!empresaId) return mapaPadrao
@@ -217,7 +239,11 @@ export const ExamesService = {
       }
 
       data.forEach((p: any) => {
-        if (p.tipo_exame && p.validade_padrao_meses > 0) {
+        if (
+          p.tipo_exame !== undefined &&
+          p.validade_padrao_meses !== null &&
+          p.validade_padrao_meses !== undefined
+        ) {
           mapaPadrao[p.tipo_exame as TipoExame] = Number(
             p.validade_padrao_meses,
           )
@@ -305,10 +331,10 @@ export const ExamesService = {
         empresa_id: empresaId,
         tipo_exame: p.tipo_exame,
         nome_exame: def?.nome || p.tipo_exame,
-        validade_padrao_meses: Math.max(
-          1,
-          Math.round(Number(p.validade_padrao_meses) || 12),
-        ),
+        validade_padrao_meses:
+          p.tipo_exame === 'demissional'
+            ? Math.max(0, Math.round(Number(p.validade_padrao_meses) || 0))
+            : Math.max(1, Math.round(Number(p.validade_padrao_meses) || 12)),
         norma_referencia: p.norma_referencia ?? def?.normaReferencia ?? null,
         descricao_norma: p.descricao_norma ?? def?.descricaoNorma ?? null,
         updated_at: new Date().toISOString(),
@@ -545,8 +571,54 @@ export const ExamesService = {
     if (error) throw error
   },
 
-  // 6. Excluir funcionário (cascateia os exames automaticamente no banco)
+  // 6. Verificar se o funcionário possui exames com data ou registros vinculados
+  async verificarExamesVinculados(funcionarioId: string): Promise<number> {
+    const { count, error } = await (supabase as any)
+      .from('exames_funcionario')
+      .select('id', { count: 'exact', head: true })
+      .eq('funcionario_id', funcionarioId)
+      .not('data_realizacao', 'is', null)
+
+    if (error) throw error
+    return count || 0
+  },
+
+  // 7. Alternar status ativo/inativo do funcionário
+  async alternarStatusFuncionario(
+    id: string,
+    ativo: boolean,
+    empresaId?: string,
+  ): Promise<Funcionario> {
+    let query = (supabase as any)
+      .from('funcionarios')
+      .update({ ativo, updated_at: new Date().toISOString() })
+      .eq('id', id)
+
+    if (empresaId) {
+      query = query.eq('empresa_id', empresaId)
+    }
+
+    const { data, error } = await query.select().single()
+    if (error) throw error
+    return data
+  },
+
+  // 8. Excluir funcionário (com bloqueio se houver exames com datas vinculados)
   async excluirFuncionario(id: string, empresaId?: string): Promise<void> {
+    // 1. Verificar se existem exames realizados vinculados
+    const countExames = await this.verificarExamesVinculados(id)
+    if (countExames > 0) {
+      throw new Error(
+        `Não é possível excluir este colaborador porque existem ${countExames} exame(s) com data de realização registrado(s). Para preservar o histórico médico ocupacional da empresa e cumprimento da NR-7, desative o colaborador em vez de excluir.`,
+      )
+    }
+
+    // 2. Se não tem exames com data, remove os registros em branco da exames_funcionario e o funcionário
+    await (supabase as any)
+      .from('exames_funcionario')
+      .delete()
+      .eq('funcionario_id', id)
+
     let query = (supabase as any).from('funcionarios').delete().eq('id', id)
     if (empresaId) {
       query = query.eq('empresa_id', empresaId)

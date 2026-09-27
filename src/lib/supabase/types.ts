@@ -740,6 +740,50 @@ export type Database = {
           },
         ]
       }
+      prazos_exame_por_empresa: {
+        Row: {
+          created_at: string
+          descricao_norma: string | null
+          empresa_id: string
+          id: string
+          nome_exame: string
+          norma_referencia: string | null
+          tipo_exame: string
+          updated_at: string
+          validade_padrao_meses: number
+        }
+        Insert: {
+          created_at?: string
+          descricao_norma?: string | null
+          empresa_id: string
+          id?: string
+          nome_exame: string
+          norma_referencia?: string | null
+          tipo_exame: string
+          updated_at?: string
+          validade_padrao_meses: number
+        }
+        Update: {
+          created_at?: string
+          descricao_norma?: string | null
+          empresa_id?: string
+          id?: string
+          nome_exame?: string
+          norma_referencia?: string | null
+          tipo_exame?: string
+          updated_at?: string
+          validade_padrao_meses?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'prazos_exame_por_empresa_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: false
+            referencedRelation: 'empresas'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       precos_material: {
         Row: {
           created_at: string
