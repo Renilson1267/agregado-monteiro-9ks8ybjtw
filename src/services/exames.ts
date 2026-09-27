@@ -7,6 +7,7 @@ import {
   ExameCalculado,
   FuncionarioComExames,
   ResumoExamesEmpresa,
+  PrazoExameEmpresa,
   TIPOS_EXAME_CATALOGO,
 } from '@/types/exames'
 
@@ -93,6 +94,7 @@ export function calcularStatusExame(
 export function processarFuncionarioComExames(
   funcionario: Funcionario,
   examesRegistrados: ExameFuncionario[],
+  prazosConfigurados?: Record<TipoExame, number> | Map<TipoExame, number>,
 ): FuncionarioComExames {
   const examesMapa: Partial<Record<TipoExame, ExameCalculado>> = {}
   const examesAVencer30Dias: ExameCalculado[] = []
@@ -103,7 +105,22 @@ export function processarFuncionarioComExames(
 
   TIPOS_EXAME_CATALOGO.forEach((tipoDef) => {
     const reg = examesRegistrados.find((e) => e.tipo_exame === tipoDef.tipo)
-    const validadeMeses = reg?.validade_meses ?? tipoDef.validadePadraoMeses
+    const prazoEmpresa =
+      prazosConfigurados instanceof Map
+        ? prazosConfigurados.get(tipoDef.tipo)
+        : prazosConfigurados?.[tipoDef.tipo]
+
+    // Hierarquia de prioridade do cálculo:
+    // 1. Validade informada no exame individual (se existir e for > 0)
+    // 2. Prazo configurado para o tipo de exame na empresa
+    // 3. Validade padrão geral da norma/catálogo
+    const validadeMeses =
+      reg?.validade_meses && reg.validade_meses > 0
+        ? reg.validade_meses
+        : prazoEmpresa && prazoEmpresa > 0
+          ? prazoEmpresa
+          : tipoDef.validadePadraoMeses
+
     const dataRealizacao = reg?.data_realizacao ?? null
 
     const calc = calcularStatusExame(dataRealizacao, validadeMeses)
@@ -164,9 +181,171 @@ export function processarFuncionarioComExames(
 }
 
 export const ExamesService = {
-  // 1. Listar funcionários com exames da empresa ativa
+  // 1. Obter mapa de prazos configurados por empresa (ou defaults)
+  async getPrazosEmpresa(
+    empresaId?: string,
+  ): Promise<Record<TipoExame, number>> {
+    const mapaPadrao: Record<TipoExame, number> = {
+      admissional: 12,
+      aso: 12,
+      acuidade_visual: 12,
+      audiometria: 12,
+      avaliacao_clinica: 12,
+      toxicologico: 30,
+      rx: 12,
+      ecg: 12,
+    }
+
+    if (!empresaId) return mapaPadrao
+
+    try {
+      const { data, error } = await (supabase as any)
+        .from('prazos_exame_por_empresa')
+        .select('*')
+        .eq('empresa_id', empresaId)
+
+      if (error) {
+        console.warn(
+          'Erro ao carregar prazos da empresa, usando fallback:',
+          error,
+        )
+        return mapaPadrao
+      }
+
+      if (!data || data.length === 0) {
+        return mapaPadrao
+      }
+
+      data.forEach((p: any) => {
+        if (p.tipo_exame && p.validade_padrao_meses > 0) {
+          mapaPadrao[p.tipo_exame as TipoExame] = Number(
+            p.validade_padrao_meses,
+          )
+        }
+      })
+
+      return mapaPadrao
+    } catch (err) {
+      console.warn('Falha na consulta de prazos_exame_por_empresa:', err)
+      return mapaPadrao
+    }
+  },
+
+  // 1.1 Listar registros completos da tabela prazos_exame_por_empresa com referências legais
+  async listarPrazosCompletosEmpresa(
+    empresaId: string,
+  ): Promise<PrazoExameEmpresa[]> {
+    if (!empresaId) return []
+
+    const { data, error } = await (supabase as any)
+      .from('prazos_exame_por_empresa')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .order('tipo_exame', { ascending: true })
+
+    if (error) throw error
+
+    // Se a empresa ainda não tiver registros (ex.: empresa nova), inicializa com o catálogo padrão
+    if (!data || data.length === 0) {
+      return TIPOS_EXAME_CATALOGO.map((item) => ({
+        empresa_id: empresaId,
+        tipo_exame: item.tipo,
+        nome_exame: item.nome,
+        validade_padrao_meses: item.validadePadraoMeses,
+        norma_referencia: item.normaReferencia || null,
+        descricao_norma: item.descricaoNorma || null,
+      }))
+    }
+
+    // Mescla garantindo que todos os 8 tipos estejam presentes e com a descrição/norma
+    return TIPOS_EXAME_CATALOGO.map((cat) => {
+      const encontrado = data.find((d: any) => d.tipo_exame === cat.tipo)
+      if (encontrado) {
+        return {
+          id: encontrado.id,
+          empresa_id: encontrado.empresa_id,
+          tipo_exame: encontrado.tipo_exame as TipoExame,
+          nome_exame: encontrado.nome_exame || cat.nome,
+          validade_padrao_meses:
+            Number(encontrado.validade_padrao_meses) || cat.validadePadraoMeses,
+          norma_referencia:
+            encontrado.norma_referencia || cat.normaReferencia || null,
+          descricao_norma:
+            encontrado.descricao_norma || cat.descricaoNorma || null,
+          created_at: encontrado.created_at,
+          updated_at: encontrado.updated_at,
+        }
+      }
+      return {
+        empresa_id: empresaId,
+        tipo_exame: cat.tipo,
+        nome_exame: cat.nome,
+        validade_padrao_meses: cat.validadePadraoMeses,
+        norma_referencia: cat.normaReferencia || null,
+        descricao_norma: cat.descricaoNorma || null,
+      }
+    })
+  },
+
+  // 1.2 Salvar / atualizar prazos de validade para a empresa ativa
+  async salvarPrazosEmpresa(
+    empresaId: string,
+    prazos: Array<{
+      tipo_exame: TipoExame
+      validade_padrao_meses: number
+      norma_referencia?: string | null
+      descricao_norma?: string | null
+    }>,
+  ): Promise<void> {
+    if (!empresaId || !prazos || prazos.length === 0) return
+
+    const rows = prazos.map((p) => {
+      const def = TIPOS_EXAME_CATALOGO.find((c) => c.tipo === p.tipo_exame)
+      return {
+        empresa_id: empresaId,
+        tipo_exame: p.tipo_exame,
+        nome_exame: def?.nome || p.tipo_exame,
+        validade_padrao_meses: Math.max(
+          1,
+          Math.round(Number(p.validade_padrao_meses) || 12),
+        ),
+        norma_referencia: p.norma_referencia ?? def?.normaReferencia ?? null,
+        descricao_norma: p.descricao_norma ?? def?.descricaoNorma ?? null,
+        updated_at: new Date().toISOString(),
+      }
+    })
+
+    const { error } = await (supabase as any)
+      .from('prazos_exame_por_empresa')
+      .upsert(rows, { onConflict: 'empresa_id,tipo_exame' })
+
+    if (error) throw error
+  },
+
+  // 1.3 Restaurar prazos da empresa aos valores oficiais do Ministério do Trabalho / CLT
+  async restaurarPrazosPadroesNormativos(empresaId: string): Promise<void> {
+    if (!empresaId) return
+    const defaults = TIPOS_EXAME_CATALOGO.map((cat) => ({
+      empresa_id: empresaId,
+      tipo_exame: cat.tipo,
+      nome_exame: cat.nome,
+      validade_padrao_meses: cat.validadePadraoMeses,
+      norma_referencia: cat.normaReferencia || null,
+      descricao_norma: cat.descricaoNorma || null,
+      updated_at: new Date().toISOString(),
+    }))
+
+    const { error } = await (supabase as any)
+      .from('prazos_exame_por_empresa')
+      .upsert(defaults, { onConflict: 'empresa_id,tipo_exame' })
+
+    if (error) throw error
+  },
+
+  // 1.4 Listar funcionários com exames da empresa ativa (aplicando prazos da empresa como fallback)
   async getFuncionariosComExames(
     empresaId?: string,
+    prazosPreCarregados?: Record<TipoExame, number>,
   ): Promise<FuncionarioComExames[]> {
     let queryFunc = (supabase as any)
       .from('funcionarios')
@@ -183,16 +362,22 @@ export const ExamesService = {
 
     const funcionarioIds = funcs.map((f: any) => f.id)
 
-    // Buscar exames de todos esses funcionários
-    const { data: exames, error: examesErr } = await (supabase as any)
-      .from('exames_funcionario')
-      .select('*')
-      .in('funcionario_id', funcionarioIds)
+    // Buscar exames de todos esses funcionários e os prazos configurados em paralelo
+    const [examesResult, prazosEmpresa] = await Promise.all([
+      (supabase as any)
+        .from('exames_funcionario')
+        .select('*')
+        .in('funcionario_id', funcionarioIds),
+      prazosPreCarregados
+        ? Promise.resolve(prazosPreCarregados)
+        : this.getPrazosEmpresa(empresaId),
+    ])
 
-    if (examesErr) throw examesErr
+    if (examesResult.error) throw examesResult.error
+    const exames = examesResult.data || []
 
     const examesPorFuncionario = new Map<string, ExameFuncionario[]>()
-    ;(exames || []).forEach((e: ExameFuncionario) => {
+    exames.forEach((e: ExameFuncionario) => {
       const lista = examesPorFuncionario.get(e.funcionario_id) || []
       lista.push(e)
       examesPorFuncionario.set(e.funcionario_id, lista)
@@ -200,7 +385,7 @@ export const ExamesService = {
 
     return funcs.map((f: Funcionario) => {
       const regs = examesPorFuncionario.get(f.id) || []
-      return processarFuncionarioComExames(f, regs)
+      return processarFuncionarioComExames(f, regs, prazosEmpresa)
     })
   },
 

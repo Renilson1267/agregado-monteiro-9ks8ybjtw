@@ -140,6 +140,7 @@ function identificarColunas(cabecalho: string[]): MapaColunasExames {
 export function parseControleExamesCSV(
   conteudoCsv: string,
   cpfsJaCadastradosNoBanco: Set<string> = new Set(),
+  prazosConfigurados?: Record<TipoExame, number>,
 ): PreviewImportacaoExamesCSV {
   const avisos: string[] = []
   const erros: string[] = []
@@ -321,6 +322,20 @@ export function parseControleExamesCSV(
     const rx = parseDataExame(colunas, mapaColunas.rx)
     const ecg = parseDataExame(colunas, mapaColunas.ecg)
 
+    const getValidadeTipo = (tipo: TipoExame, padrao: number): number => {
+      const v = prazosConfigurados?.[tipo]
+      return v && v > 0 ? v : padrao
+    }
+
+    const valAdm = getValidadeTipo('admissional', 12)
+    const valAso = getValidadeTipo('aso', 12)
+    const valAcuidade = getValidadeTipo('acuidade_visual', 12)
+    const valAudio = getValidadeTipo('audiometria', 12)
+    const valClinica = getValidadeTipo('avaliacao_clinica', 12)
+    const valTox = getValidadeTipo('toxicologico', 30)
+    const valRx = getValidadeTipo('rx', 12)
+    const valEcg = getValidadeTipo('ecg', 12)
+
     const exames: Record<
       TipoExame,
       {
@@ -333,50 +348,50 @@ export function parseControleExamesCSV(
       admissional: {
         dataIso: adm.dataIso,
         dataBr: adm.dataBr,
-        status: calcularStatusExame(adm.dataIso, 12).status,
-        validadeMeses: 12,
+        status: calcularStatusExame(adm.dataIso, valAdm).status,
+        validadeMeses: valAdm,
       },
       aso: {
         dataIso: aso.dataIso,
         dataBr: aso.dataBr,
-        status: calcularStatusExame(aso.dataIso, 12).status,
-        validadeMeses: 12,
+        status: calcularStatusExame(aso.dataIso, valAso).status,
+        validadeMeses: valAso,
       },
       acuidade_visual: {
         dataIso: acuidade.dataIso,
         dataBr: acuidade.dataBr,
-        status: calcularStatusExame(acuidade.dataIso, 12).status,
-        validadeMeses: 12,
+        status: calcularStatusExame(acuidade.dataIso, valAcuidade).status,
+        validadeMeses: valAcuidade,
       },
       audiometria: {
         dataIso: audio.dataIso,
         dataBr: audio.dataBr,
-        status: calcularStatusExame(audio.dataIso, 12).status,
-        validadeMeses: 12,
+        status: calcularStatusExame(audio.dataIso, valAudio).status,
+        validadeMeses: valAudio,
       },
       avaliacao_clinica: {
         dataIso: clinica.dataIso,
         dataBr: clinica.dataBr,
-        status: calcularStatusExame(clinica.dataIso, 12).status,
-        validadeMeses: 12,
+        status: calcularStatusExame(clinica.dataIso, valClinica).status,
+        validadeMeses: valClinica,
       },
       toxicologico: {
         dataIso: tox.dataIso,
         dataBr: tox.dataBr,
-        status: calcularStatusExame(tox.dataIso, 30).status,
-        validadeMeses: 30,
+        status: calcularStatusExame(tox.dataIso, valTox).status,
+        validadeMeses: valTox,
       },
       rx: {
         dataIso: rx.dataIso,
         dataBr: rx.dataBr,
-        status: calcularStatusExame(rx.dataIso, 12).status,
-        validadeMeses: 12,
+        status: calcularStatusExame(rx.dataIso, valRx).status,
+        validadeMeses: valRx,
       },
       ecg: {
         dataIso: ecg.dataIso,
         dataBr: ecg.dataBr,
-        status: calcularStatusExame(ecg.dataIso, 12).status,
-        validadeMeses: 12,
+        status: calcularStatusExame(ecg.dataIso, valEcg).status,
+        validadeMeses: valEcg,
       },
     }
 

@@ -277,6 +277,107 @@ export type Database = {
         }
         Relationships: []
       }
+      exames_funcionario: {
+        Row: {
+          created_at: string
+          data_realizacao: string | null
+          empresa_id: string | null
+          funcionario_id: string
+          id: string
+          nome_exame: string
+          observacao: string | null
+          tipo_exame: string
+          updated_at: string
+          validade_meses: number
+        }
+        Insert: {
+          created_at?: string
+          data_realizacao?: string | null
+          empresa_id?: string | null
+          funcionario_id: string
+          id?: string
+          nome_exame: string
+          observacao?: string | null
+          tipo_exame: string
+          updated_at?: string
+          validade_meses?: number
+        }
+        Update: {
+          created_at?: string
+          data_realizacao?: string | null
+          empresa_id?: string | null
+          funcionario_id?: string
+          id?: string
+          nome_exame?: string
+          observacao?: string | null
+          tipo_exame?: string
+          updated_at?: string
+          validade_meses?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'exames_funcionario_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: false
+            referencedRelation: 'empresas'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'exames_funcionario_funcionario_id_fkey'
+            columns: ['funcionario_id']
+            isOneToOne: false
+            referencedRelation: 'funcionarios'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      funcionarios: {
+        Row: {
+          ativo: boolean
+          cpf: string | null
+          created_at: string
+          data_admissao: string | null
+          empresa_id: string | null
+          funcao: string
+          id: string
+          nome: string
+          observacoes: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cpf?: string | null
+          created_at?: string
+          data_admissao?: string | null
+          empresa_id?: string | null
+          funcao?: string
+          id?: string
+          nome: string
+          observacoes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cpf?: string | null
+          created_at?: string
+          data_admissao?: string | null
+          empresa_id?: string | null
+          funcao?: string
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'funcionarios_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: false
+            referencedRelation: 'empresas'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       materiais: {
         Row: {
           codigo: string

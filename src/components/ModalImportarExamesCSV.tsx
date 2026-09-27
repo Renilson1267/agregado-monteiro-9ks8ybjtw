@@ -35,6 +35,7 @@ interface ModalImportarExamesCSVProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   funcionariosAtuais: FuncionarioComExames[]
+  prazosConfigurados?: Record<TipoExame, number>
   onImportadoSucesso: () => void
 }
 
@@ -42,6 +43,7 @@ export function ModalImportarExamesCSV({
   open,
   onOpenChange,
   funcionariosAtuais,
+  prazosConfigurados,
   onImportadoSucesso,
 }: ModalImportarExamesCSVProps) {
   const { toast } = useToast()
@@ -82,11 +84,19 @@ export function ModalImportarExamesCSV({
     setProcessandoPreview(true)
 
     const reader = new FileReader()
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const text = (event.target?.result as string) || ''
         setConteudoCsv(text)
-        const resultado = parseControleExamesCSV(text, cpfsCadastrados)
+        // Se prazosConfigurados não tiver sido passado, busca da empresa ativa
+        const prazosAtivos =
+          prazosConfigurados ||
+          (await ExamesService.getPrazosEmpresa(empresaAtiva?.id))
+        const resultado = parseControleExamesCSV(
+          text,
+          cpfsCadastrados,
+          prazosAtivos,
+        )
         setPreview(resultado)
 
         if (resultado.totalFuncionariosValidos === 0) {

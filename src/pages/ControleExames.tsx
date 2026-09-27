@@ -15,6 +15,8 @@ import {
   Clock,
   ShieldCheck,
   Download,
+  Settings,
+  ClipboardList,
 } from 'lucide-react'
 import {
   Card,
@@ -27,6 +29,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
   SelectContent,
@@ -63,12 +66,27 @@ import {
   TIPOS_EXAME_CATALOGO,
 } from '@/types/exames'
 import { ModalImportarExamesCSV } from '@/components/ModalImportarExamesCSV'
+import { AbaConfigurarPrazos } from '@/components/AbaConfigurarPrazos'
 import { formatarCpfCnpj, limparMascara, validarCPF } from '@/lib/documentos'
 
 export default function ControleExames() {
   const { toast } = useToast()
   const { empresaAtiva } = useEmpresa()
   const { isAdministrador } = useUsuario()
+
+  const [abaAtiva, setAbaAtiva] = useState<string>('controle')
+  const [prazosConfigurados, setPrazosConfigurados] = useState<
+    Record<TipoExame, number>
+  >({
+    admissional: 12,
+    aso: 12,
+    acuidade_visual: 12,
+    audiometria: 12,
+    avaliacao_clinica: 12,
+    toxicologico: 30,
+    rx: 12,
+    ecg: 12,
+  })
 
   const [loading, setLoading] = useState(true)
   const [funcionarios, setFuncionarios] = useState<FuncionarioComExames[]>([])
@@ -115,10 +133,12 @@ export default function ControleExames() {
     if (!empresaAtiva) return
     setLoading(true)
     try {
-      const lista = await ExamesService.getFuncionariosComExames(
-        empresaAtiva.id,
-      )
+      const [lista, prazosMap] = await Promise.all([
+        ExamesService.getFuncionariosComExames(empresaAtiva.id),
+        ExamesService.getPrazosEmpresa(empresaAtiva.id),
+      ])
       setFuncionarios(lista)
+      setPrazosConfigurados(prazosMap)
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar exames',
@@ -218,14 +238,29 @@ export default function ControleExames() {
       TipoExame,
       { data: string; validadeMeses: number }
     > = {
-      admissional: { data: '', validadeMeses: 12 },
-      aso: { data: '', validadeMeses: 12 },
-      acuidade_visual: { data: '', validadeMeses: 12 },
-      audiometria: { data: '', validadeMeses: 12 },
-      avaliacao_clinica: { data: '', validadeMeses: 12 },
-      toxicologico: { data: '', validadeMeses: 30 },
-      rx: { data: '', validadeMeses: 12 },
-      ecg: { data: '', validadeMeses: 12 },
+      admissional: {
+        data: '',
+        validadeMeses: prazosConfigurados.admissional || 12,
+      },
+      aso: { data: '', validadeMeses: prazosConfigurados.aso || 12 },
+      acuidade_visual: {
+        data: '',
+        validadeMeses: prazosConfigurados.acuidade_visual || 12,
+      },
+      audiometria: {
+        data: '',
+        validadeMeses: prazosConfigurados.audiometria || 12,
+      },
+      avaliacao_clinica: {
+        data: '',
+        validadeMeses: prazosConfigurados.avaliacao_clinica || 12,
+      },
+      toxicologico: {
+        data: '',
+        validadeMeses: prazosConfigurados.toxicologico || 30,
+      },
+      rx: { data: '', validadeMeses: prazosConfigurados.rx || 12 },
+      ecg: { data: '', validadeMeses: prazosConfigurados.ecg || 12 },
     }
     setFormExames(inicialExames)
     setModalFuncionarioOpen(true)
@@ -246,35 +281,53 @@ export default function ControleExames() {
     > = {
       admissional: {
         data: func.exames.admissional?.dataRealizacao || '',
-        validadeMeses: func.exames.admissional?.validadeMeses || 12,
+        validadeMeses:
+          func.exames.admissional?.validadeMeses ||
+          prazosConfigurados.admissional ||
+          12,
       },
       aso: {
         data: func.exames.aso?.dataRealizacao || '',
-        validadeMeses: func.exames.aso?.validadeMeses || 12,
+        validadeMeses:
+          func.exames.aso?.validadeMeses || prazosConfigurados.aso || 12,
       },
       acuidade_visual: {
         data: func.exames.acuidade_visual?.dataRealizacao || '',
-        validadeMeses: func.exames.acuidade_visual?.validadeMeses || 12,
+        validadeMeses:
+          func.exames.acuidade_visual?.validadeMeses ||
+          prazosConfigurados.acuidade_visual ||
+          12,
       },
       audiometria: {
         data: func.exames.audiometria?.dataRealizacao || '',
-        validadeMeses: func.exames.audiometria?.validadeMeses || 12,
+        validadeMeses:
+          func.exames.audiometria?.validadeMeses ||
+          prazosConfigurados.audiometria ||
+          12,
       },
       avaliacao_clinica: {
         data: func.exames.avaliacao_clinica?.dataRealizacao || '',
-        validadeMeses: func.exames.avaliacao_clinica?.validadeMeses || 12,
+        validadeMeses:
+          func.exames.avaliacao_clinica?.validadeMeses ||
+          prazosConfigurados.avaliacao_clinica ||
+          12,
       },
       toxicologico: {
         data: func.exames.toxicologico?.dataRealizacao || '',
-        validadeMeses: func.exames.toxicologico?.validadeMeses || 30,
+        validadeMeses:
+          func.exames.toxicologico?.validadeMeses ||
+          prazosConfigurados.toxicologico ||
+          30,
       },
       rx: {
         data: func.exames.rx?.dataRealizacao || '',
-        validadeMeses: func.exames.rx?.validadeMeses || 12,
+        validadeMeses:
+          func.exames.rx?.validadeMeses || prazosConfigurados.rx || 12,
       },
       ecg: {
         data: func.exames.ecg?.dataRealizacao || '',
-        validadeMeses: func.exames.ecg?.validadeMeses || 12,
+        validadeMeses:
+          func.exames.ecg?.validadeMeses || prazosConfigurados.ecg || 12,
       },
     }
 
@@ -328,7 +381,8 @@ export default function ControleExames() {
       ).map(([tipo, val]) => ({
         tipo_exame: tipo,
         data_realizacao: val.data || null,
-        validade_meses: Number(val.validadeMeses) || 12,
+        validade_meses:
+          Number(val.validadeMeses) || prazosConfigurados[tipo] || 12,
       }))
 
       await ExamesService.salvarMultiplosExames(
@@ -470,36 +524,40 @@ export default function ControleExames() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportarParaCsv}
-            className="text-xs gap-1.5 h-9"
-            title="Exportar listagem atual para CSV"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Exportar CSV</span>
-          </Button>
+          {abaAtiva === 'controle' && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportarParaCsv}
+                className="text-xs gap-1.5 h-9"
+                title="Exportar listagem atual para CSV"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Exportar CSV</span>
+              </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setModalImportarOpen(true)}
-            className="text-xs gap-1.5 h-9 border-primary/30 text-primary hover:bg-primary/10"
-            title="Importar planilha CSV de controle de exames"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Importar CSV</span>
-          </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setModalImportarOpen(true)}
+                className="text-xs gap-1.5 h-9 border-primary/30 text-primary hover:bg-primary/10"
+                title="Importar planilha CSV de controle de exames"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Importar CSV</span>
+              </Button>
 
-          <Button
-            size="sm"
-            onClick={handleNovoFuncionario}
-            className="text-xs gap-1.5 h-9 bg-primary text-primary-foreground font-semibold shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Novo Colaborador</span>
-          </Button>
+              <Button
+                size="sm"
+                onClick={handleNovoFuncionario}
+                className="text-xs gap-1.5 h-9 bg-primary text-primary-foreground font-semibold shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Novo Colaborador</span>
+              </Button>
+            </>
+          )}
 
           <Button
             variant="ghost"
@@ -514,535 +572,588 @@ export default function ControleExames() {
         </div>
       </div>
 
-      {/* Alerta de Exames Vencidos na Unidade */}
-      {funcionariosComVencidos.length > 0 && (
-        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 flex items-start gap-3 text-destructive animate-in fade-in">
-          <AlertCircle className="w-5 h-5 mt-0.5 shrink-0 text-destructive" />
-          <div className="flex-1">
-            <h4 className="font-bold text-sm flex items-center gap-2">
-              Atenção: Exames Vencidos na Unidade {empresaAtiva?.nome}
-              <Badge variant="destructive" className="font-mono text-xs">
-                {totalVencidos} exame(s) vencido(s)
-              </Badge>
-            </h4>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Há colaboradores com exames admissionais, periódicos ou
-              toxicológicos fora da validade. Providencie a renovação imediata
-              para cumprimento das NRs.
-            </p>
-            <div className="flex flex-wrap gap-1.5 mt-2.5">
-              {funcionariosComVencidos.slice(0, 6).map((f) => (
-                <Badge
-                  key={f.id}
-                  variant="outline"
-                  className="text-[11px] bg-background/80 border-destructive/40 text-destructive font-medium cursor-pointer hover:bg-destructive/20"
-                  onClick={() => {
-                    setBusca(f.nome)
-                    setFiltroStatus('VENCIDO')
-                  }}
-                >
-                  {f.nome} ({f.funcao}): {f.totalVencidos} vencido(s)
-                </Badge>
-              ))}
-              {funcionariosComVencidos.length > 6 && (
-                <span className="text-[11px] text-muted-foreground self-center">
-                  +{funcionariosComVencidos.length - 6} outros colaboradores
-                </span>
-              )}
-            </div>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setFiltroStatus('VENCIDO')}
-            className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 text-xs h-8"
+      {/* Abas / Tabs do Módulo: Controle de Exames vs Configurar Prazos */}
+      <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="space-y-6">
+        <TabsList className="bg-muted/60 p-1 border border-border/40">
+          <TabsTrigger
+            value="controle"
+            className="text-xs gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground font-medium"
           >
-            Filtrar Vencidos
-          </Button>
-        </div>
-      )}
-
-      {/* Alerta de Exames Vencendo nos Próximos 30 Dias (Requisito 4) */}
-      {funcionariosComVencimentoProximo.length > 0 && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3 text-amber-700 dark:text-amber-400">
-          <Clock className="w-5 h-5 mt-0.5 shrink-0" />
-          <div className="flex-1">
-            <h4 className="font-bold text-sm flex items-center gap-2">
-              Alerta de Prazos: Exames Vencendo nos Próximos 30 Dias
+            <ClipboardList className="w-4 h-4" />
+            <span>Controle de Exames</span>
+            {totalVencidos > 0 && (
               <Badge
-                variant="outline"
-                className="font-mono text-xs border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/5"
+                variant="destructive"
+                className="h-4 px-1.5 text-[10px] font-mono leading-none"
               >
-                {funcionariosComVencimentoProximo.reduce(
-                  (acc, f) => acc + f.examesAVencer30Dias.length,
-                  0,
-                )}{' '}
-                a vencer
+                {totalVencidos}
               </Badge>
-            </h4>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Agende antecipadamente as consultas e coletas para os seguintes
-              funcionários para evitar interdição ou multas:
-            </p>
-            <div className="flex flex-wrap gap-1.5 mt-2.5">
-              {funcionariosComVencimentoProximo.slice(0, 5).map((f) => (
-                <Badge
-                  key={f.id}
-                  variant="outline"
-                  className="text-[11px] bg-background/80 border-amber-500/40 text-amber-600 dark:text-amber-400 font-medium cursor-pointer"
-                  onClick={() => {
-                    setBusca(f.nome)
-                    setFiltroStatus('VENCENDO_30')
-                  }}
-                >
-                  {f.nome} (
-                  {f.examesAVencer30Dias
-                    .map((e) => `${e.nome} em ${e.diasParaVencer}d`)
-                    .join(', ')}
-                  )
-                </Badge>
-              ))}
-            </div>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setFiltroStatus('VENCENDO_30')}
-            className="shrink-0 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 text-xs h-8"
+            )}
+          </TabsTrigger>
+          <TabsTrigger
+            value="configurar_prazos"
+            className="text-xs gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground font-medium"
           >
-            Ver Próximos 30 Dias
-          </Button>
-        </div>
-      )}
+            <Settings className="w-4 h-4" />
+            <span>Configurar Prazos</span>
+            <Badge
+              variant="outline"
+              className="h-4 px-1.5 text-[10px] font-mono leading-none bg-primary/10 text-primary border-primary/20"
+            >
+              NR-7
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Grid de Cards de Estatísticas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Total de Colaboradores */}
-        <Card className="bg-card/70 border-border/40 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Total de Colaboradores
-            </CardTitle>
-            <UserCheck className="w-4 h-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-foreground">
-              {totalFuncionarios}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Unidade ativa: {empresaAtiva?.nome || '—'}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* KPI 2: Exames Vencidos */}
-        <Card
-          className={`border-border/40 shadow-sm cursor-pointer transition-all hover:scale-[1.01] ${
-            totalVencidos > 0
-              ? 'bg-destructive/10 border-destructive/30'
-              : 'bg-card/70'
-          }`}
-          onClick={() =>
-            setFiltroStatus(filtroStatus === 'VENCIDO' ? 'TODOS' : 'VENCIDO')
-          }
-        >
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-destructive uppercase tracking-wider">
-              Exames Vencidos
-            </CardTitle>
-            <AlertCircle className="w-4 h-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-destructive">
-              {totalVencidos}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {funcionariosComVencidos.length} colaboradores afetados
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* KPI 3: Vencendo em 30 Dias */}
-        <Card
-          className="bg-card/70 border-border/40 shadow-sm cursor-pointer transition-all hover:scale-[1.01]"
-          onClick={() =>
-            setFiltroStatus(
-              filtroStatus === 'VENCENDO_30' ? 'TODOS' : 'VENCENDO_30',
-            )
-          }
-        >
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-              Vencendo em 30 Dias
-            </CardTitle>
-            <Clock className="w-4 h-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">
-              {funcionarios.reduce(
-                (acc, f) => acc + f.examesAVencer30Dias.length,
-                0,
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Exames a renovar este mês
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* KPI 4: No Prazo / Em Dia */}
-        <Card
-          className="bg-card/70 border-border/40 shadow-sm cursor-pointer transition-all hover:scale-[1.01]"
-          onClick={() =>
-            setFiltroStatus(filtroStatus === 'NO_PRAZO' ? 'TODOS' : 'NO_PRAZO')
-          }
-        >
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-              ASO em Dia
-            </CardTitle>
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">
-              {totalNoPrazoGeral}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {totalPendentesGeral} colaboradores com pendências
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Barra de Filtros e Busca */}
-      <Card className="border-border/40 bg-card/60">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Campo de Busca */}
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
-              <Input
-                placeholder="Buscar funcionário, CPF ou função..."
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                className="pl-9 h-10 text-xs"
-              />
-            </div>
-
-            {/* Filtro por Status */}
-            <div>
-              <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-                <SelectTrigger className="h-10 text-xs">
-                  <div className="flex items-center gap-2">
-                    <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-                    <SelectValue placeholder="Status Geral" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TODOS" className="text-xs">
-                    Todos os Status
-                  </SelectItem>
-                  <SelectItem
-                    value="VENCIDO"
-                    className="text-xs text-destructive font-semibold"
-                  >
-                    🔴 Vencidos ({funcionariosComVencidos.length})
-                  </SelectItem>
-                  <SelectItem
-                    value="VENCENDO_30"
-                    className="text-xs text-amber-600 font-semibold"
-                  >
-                    🟡 Vencendo em 30 dias
-                  </SelectItem>
-                  <SelectItem
-                    value="NO_PRAZO"
-                    className="text-xs text-emerald-600 font-semibold"
-                  >
-                    🟢 No Prazo ({totalNoPrazoGeral})
-                  </SelectItem>
-                  <SelectItem
-                    value="PENDENTE"
-                    className="text-xs text-muted-foreground"
-                  >
-                    ⚪ Pendentes ({totalPendentesGeral})
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Filtro por Função */}
-            <div>
-              <Select value={filtroFuncao} onValueChange={setFiltroFuncao}>
-                <SelectTrigger className="h-10 text-xs">
-                  <SelectValue placeholder="Filtrar por Função" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TODAS" className="text-xs">
-                    Todas as Funções
-                  </SelectItem>
-                  {funcoesDisponiveis.map((f) => (
-                    <SelectItem key={f} value={f} className="text-xs">
-                      {f}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Resetar Filtros */}
-            <div className="flex items-center justify-end gap-2">
-              {(busca ||
-                filtroStatus !== 'TODOS' ||
-                filtroFuncao !== 'TODAS') && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setBusca('')
-                    setFiltroStatus('TODOS')
-                    setFiltroFuncao('TODAS')
-                  }}
-                  className="text-xs text-muted-foreground hover:text-foreground h-10"
-                >
-                  Limpar Filtros
-                </Button>
-              )}
-              <span className="text-xs font-mono text-muted-foreground">
-                {funcionariosFiltrados.length} listados
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabela Principal de Controle de Exames */}
-      <Card className="border-border/40 bg-card/70">
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-base font-semibold">
-              Listagem Completa de Colaboradores e Exames
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Status calculados automaticamente pela data de hoje: Vermelho =
-              Vencido, Verde = No Prazo, Cinza = Pendente.
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="py-12 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
-              <RefreshCw className="w-5 h-5 animate-spin text-primary" />
-              <span>Carregando exames da unidade {empresaAtiva?.nome}...</span>
-            </div>
-          ) : funcionariosFiltrados.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground text-xs italic">
-              Nenhum colaborador encontrado com os filtros selecionados.{' '}
-              <button
-                type="button"
-                onClick={handleNovoFuncionario}
-                className="text-primary underline ml-1 font-semibold"
-              >
-                Cadastrar agora
-              </button>{' '}
-              ou use o botão "Importar CSV" para carregar a planilha.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border/40 sticky top-0 bg-background/95 backdrop-blur z-10">
-                  <tr>
-                    <th className="py-3 px-3">Status</th>
-                    <th className="py-3 px-3">Colaborador</th>
-                    <th className="py-3 px-3">Função</th>
-                    <th className="py-3 px-3">CPF</th>
-                    <th className="py-3 px-3">Admissão</th>
-                    <th
-                      className="py-3 px-2 text-center"
-                      title="Exame Admissional (Validade: 12 meses)"
-                    >
-                      Admissional
-                    </th>
-                    <th
-                      className="py-3 px-2 text-center"
-                      title="ASO Periódico (Validade: 12 meses)"
-                    >
-                      ASO
-                    </th>
-                    <th
-                      className="py-3 px-2 text-center"
-                      title="Acuidade Visual (Validade: 12 meses)"
-                    >
-                      Acuidade
-                    </th>
-                    <th
-                      className="py-3 px-2 text-center"
-                      title="Audiometria (Validade: 12 meses)"
-                    >
-                      Audiometria
-                    </th>
-                    <th
-                      className="py-3 px-2 text-center"
-                      title="Avaliação Clínica (Validade: 12 meses)"
-                    >
-                      Av. Clínica
-                    </th>
-                    <th
-                      className="py-3 px-2 text-center"
-                      title="Exame Toxicológico (Validade: 30 meses)"
-                    >
-                      Toxicológico
-                    </th>
-                    <th
-                      className="py-3 px-2 text-center"
-                      title="Raio-X (RX) (Validade: 12 meses)"
-                    >
-                      RX
-                    </th>
-                    <th
-                      className="py-3 px-2 text-center"
-                      title="Eletrocardiograma (ECG) (Validade: 12 meses)"
-                    >
-                      ECG
-                    </th>
-                    <th className="py-3 px-3 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/20">
-                  {funcionariosFiltrados.map((f) => (
-                    <tr
+        {/* Conteúdo da Aba 1: Controle de Exames */}
+        <TabsContent value="controle" className="space-y-6 mt-0">
+          {/* Alerta de Exames Vencidos na Unidade */}
+          {funcionariosComVencidos.length > 0 && (
+            <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 flex items-start gap-3 text-destructive animate-in fade-in">
+              <AlertCircle className="w-5 h-5 mt-0.5 shrink-0 text-destructive" />
+              <div className="flex-1">
+                <h4 className="font-bold text-sm flex items-center gap-2">
+                  Atenção: Exames Vencidos na Unidade {empresaAtiva?.nome}
+                  <Badge variant="destructive" className="font-mono text-xs">
+                    {totalVencidos} exame(s) vencido(s)
+                  </Badge>
+                </h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Há colaboradores com exames admissionais, periódicos ou
+                  toxicológicos fora da validade. Providencie a renovação
+                  imediata para cumprimento das NRs.
+                </p>
+                <div className="flex flex-wrap gap-1.5 mt-2.5">
+                  {funcionariosComVencidos.slice(0, 6).map((f) => (
+                    <Badge
                       key={f.id}
-                      className="hover:bg-muted/20 transition-colors group"
+                      variant="outline"
+                      className="text-[11px] bg-background/80 border-destructive/40 text-destructive font-medium cursor-pointer hover:bg-destructive/20"
+                      onClick={() => {
+                        setBusca(f.nome)
+                        setFiltroStatus('VENCIDO')
+                      }}
                     >
-                      {/* Status Geral */}
-                      <td className="py-2.5 px-3 whitespace-nowrap">
-                        <BadgeStatusGeral status={f.statusGeralAso} />
-                      </td>
-
-                      {/* Nome */}
-                      <td className="py-2.5 px-3">
-                        <span className="font-semibold text-foreground block whitespace-nowrap">
-                          {f.nome}
-                        </span>
-                        {f.observacoes && (
-                          <span className="text-[10px] text-muted-foreground block truncate max-w-[180px]">
-                            {f.observacoes}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Função */}
-                      <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded-md bg-muted/60 text-[11px] font-medium text-foreground">
-                          {f.funcao}
-                        </span>
-                      </td>
-
-                      {/* CPF */}
-                      <td className="py-2.5 px-3 font-mono text-muted-foreground whitespace-nowrap">
-                        {f.cpf ? formatarCpfCnpj(f.cpf) : '—'}
-                      </td>
-
-                      {/* Data Admissão */}
-                      <td className="py-2.5 px-3 font-mono text-muted-foreground whitespace-nowrap">
-                        {formatarDataParaExibicao(f.data_admissao)}
-                      </td>
-
-                      {/* Exames */}
-                      <td className="py-2.5 px-2 text-center">
-                        <CelulaExame exame={f.exames.admissional} />
-                      </td>
-                      <td className="py-2.5 px-2 text-center">
-                        <CelulaExame exame={f.exames.aso} />
-                      </td>
-                      <td className="py-2.5 px-2 text-center">
-                        <CelulaExame exame={f.exames.acuidade_visual} />
-                      </td>
-                      <td className="py-2.5 px-2 text-center">
-                        <CelulaExame exame={f.exames.audiometria} />
-                      </td>
-                      <td className="py-2.5 px-2 text-center">
-                        <CelulaExame exame={f.exames.avaliacao_clinica} />
-                      </td>
-                      <td className="py-2.5 px-2 text-center">
-                        <CelulaExame exame={f.exames.toxicologico} />
-                      </td>
-                      <td className="py-2.5 px-2 text-center">
-                        <CelulaExame exame={f.exames.rx} />
-                      </td>
-                      <td className="py-2.5 px-2 text-center">
-                        <CelulaExame exame={f.exames.ecg} />
-                      </td>
-
-                      {/* Ações */}
-                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditarFuncionario(f)}
-                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                            title="Editar colaborador e exames"
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </Button>
-
-                          {/* Exclusão permitida apenas para Administrador */}
-                          {isAdministrador && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setFuncionarioParaExcluir(f)
-                                setDialogExclusaoOpen(true)
-                              }}
-                              className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                              title="Excluir colaborador"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                      {f.nome} ({f.funcao}): {f.totalVencidos} vencido(s)
+                    </Badge>
                   ))}
-                </tbody>
-              </table>
+                  {funcionariosComVencidos.length > 6 && (
+                    <span className="text-[11px] text-muted-foreground self-center">
+                      +{funcionariosComVencidos.length - 6} outros colaboradores
+                    </span>
+                  )}
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setFiltroStatus('VENCIDO')}
+                className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 text-xs h-8"
+              >
+                Filtrar Vencidos
+              </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
 
-      {/* Legenda de Cores */}
-      <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground p-3 bg-muted/20 rounded-xl border border-border/30">
-        <span className="font-semibold text-foreground">
-          Legenda dos Exames:
-        </span>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-destructive" />
-          <span className="text-destructive font-medium">VENCIDO:</span> data de
-          validade expirada
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-          <span className="text-amber-500 font-medium">ATENÇÃO:</span> vence nos
-          próximos 30 dias
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-          <span className="text-emerald-500 font-medium">NO PRAZO:</span> exame
-          válido
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40" />
-          <span>PENDENTE: sem exame registrado</span>
-        </div>
-      </div>
+          {/* Alerta de Exames Vencendo nos Próximos 30 Dias (Requisito 4) */}
+          {funcionariosComVencimentoProximo.length > 0 && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3 text-amber-700 dark:text-amber-400">
+              <Clock className="w-5 h-5 mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <h4 className="font-bold text-sm flex items-center gap-2">
+                  Alerta de Prazos: Exames Vencendo nos Próximos 30 Dias
+                  <Badge
+                    variant="outline"
+                    className="font-mono text-xs border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/5"
+                  >
+                    {funcionariosComVencimentoProximo.reduce(
+                      (acc, f) => acc + f.examesAVencer30Dias.length,
+                      0,
+                    )}{' '}
+                    a vencer
+                  </Badge>
+                </h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Agende antecipadamente as consultas e coletas para os
+                  seguintes funcionários para evitar interdição ou multas:
+                </p>
+                <div className="flex flex-wrap gap-1.5 mt-2.5">
+                  {funcionariosComVencimentoProximo.slice(0, 5).map((f) => (
+                    <Badge
+                      key={f.id}
+                      variant="outline"
+                      className="text-[11px] bg-background/80 border-amber-500/40 text-amber-600 dark:text-amber-400 font-medium cursor-pointer"
+                      onClick={() => {
+                        setBusca(f.nome)
+                        setFiltroStatus('VENCENDO_30')
+                      }}
+                    >
+                      {f.nome} (
+                      {f.examesAVencer30Dias
+                        .map((e) => `${e.nome} em ${e.diasParaVencer}d`)
+                        .join(', ')}
+                      )
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setFiltroStatus('VENCENDO_30')}
+                className="shrink-0 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 text-xs h-8"
+              >
+                Ver Próximos 30 Dias
+              </Button>
+            </div>
+          )}
+
+          {/* Grid de Cards de Estatísticas */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* KPI 1: Total de Colaboradores */}
+            <Card className="bg-card/70 border-border/40 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Total de Colaboradores
+                </CardTitle>
+                <UserCheck className="w-4 h-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-extrabold text-foreground">
+                  {totalFuncionarios}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Unidade ativa: {empresaAtiva?.nome || '—'}
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* KPI 2: Exames Vencidos */}
+            <Card
+              className={`border-border/40 shadow-sm cursor-pointer transition-all hover:scale-[1.01] ${
+                totalVencidos > 0
+                  ? 'bg-destructive/10 border-destructive/30'
+                  : 'bg-card/70'
+              }`}
+              onClick={() =>
+                setFiltroStatus(
+                  filtroStatus === 'VENCIDO' ? 'TODOS' : 'VENCIDO',
+                )
+              }
+            >
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-medium text-destructive uppercase tracking-wider">
+                  Exames Vencidos
+                </CardTitle>
+                <AlertCircle className="w-4 h-4 text-destructive" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-extrabold text-destructive">
+                  {totalVencidos}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {funcionariosComVencidos.length} colaboradores afetados
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* KPI 3: Vencendo em 30 Dias */}
+            <Card
+              className="bg-card/70 border-border/40 shadow-sm cursor-pointer transition-all hover:scale-[1.01]"
+              onClick={() =>
+                setFiltroStatus(
+                  filtroStatus === 'VENCENDO_30' ? 'TODOS' : 'VENCENDO_30',
+                )
+              }
+            >
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                  Vencendo em 30 Dias
+                </CardTitle>
+                <Clock className="w-4 h-4 text-amber-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">
+                  {funcionarios.reduce(
+                    (acc, f) => acc + f.examesAVencer30Dias.length,
+                    0,
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Exames a renovar este mês
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* KPI 4: No Prazo / Em Dia */}
+            <Card
+              className="bg-card/70 border-border/40 shadow-sm cursor-pointer transition-all hover:scale-[1.01]"
+              onClick={() =>
+                setFiltroStatus(
+                  filtroStatus === 'NO_PRAZO' ? 'TODOS' : 'NO_PRAZO',
+                )
+              }
+            >
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                  ASO em Dia
+                </CardTitle>
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">
+                  {totalNoPrazoGeral}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {totalPendentesGeral} colaboradores com pendências
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Barra de Filtros e Busca */}
+          <Card className="border-border/40 bg-card/60">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Campo de Busca */}
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar funcionário, CPF ou função..."
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    className="pl-9 h-10 text-xs"
+                  />
+                </div>
+
+                {/* Filtro por Status */}
+                <div>
+                  <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+                    <SelectTrigger className="h-10 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+                        <SelectValue placeholder="Status Geral" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TODOS" className="text-xs">
+                        Todos os Status
+                      </SelectItem>
+                      <SelectItem
+                        value="VENCIDO"
+                        className="text-xs text-destructive font-semibold"
+                      >
+                        🔴 Vencidos ({funcionariosComVencidos.length})
+                      </SelectItem>
+                      <SelectItem
+                        value="VENCENDO_30"
+                        className="text-xs text-amber-600 font-semibold"
+                      >
+                        🟡 Vencendo em 30 dias
+                      </SelectItem>
+                      <SelectItem
+                        value="NO_PRAZO"
+                        className="text-xs text-emerald-600 font-semibold"
+                      >
+                        🟢 No Prazo ({totalNoPrazoGeral})
+                      </SelectItem>
+                      <SelectItem
+                        value="PENDENTE"
+                        className="text-xs text-muted-foreground"
+                      >
+                        ⚪ Pendentes ({totalPendentesGeral})
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Filtro por Função */}
+                <div>
+                  <Select value={filtroFuncao} onValueChange={setFiltroFuncao}>
+                    <SelectTrigger className="h-10 text-xs">
+                      <SelectValue placeholder="Filtrar por Função" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TODAS" className="text-xs">
+                        Todas as Funções
+                      </SelectItem>
+                      {funcoesDisponiveis.map((f) => (
+                        <SelectItem key={f} value={f} className="text-xs">
+                          {f}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Resetar Filtros */}
+                <div className="flex items-center justify-end gap-2">
+                  {(busca ||
+                    filtroStatus !== 'TODOS' ||
+                    filtroFuncao !== 'TODAS') && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setBusca('')
+                        setFiltroStatus('TODOS')
+                        setFiltroFuncao('TODAS')
+                      }}
+                      className="text-xs text-muted-foreground hover:text-foreground h-10"
+                    >
+                      Limpar Filtros
+                    </Button>
+                  )}
+                  <span className="text-xs font-mono text-muted-foreground">
+                    {funcionariosFiltrados.length} listados
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tabela Principal de Controle de Exames */}
+          <Card className="border-border/40 bg-card/70">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold">
+                  Listagem Completa de Colaboradores e Exames
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Status calculados automaticamente pela data de hoje: Vermelho
+                  = Vencido, Verde = No Prazo, Cinza = Pendente.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="py-12 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
+                  <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+                  <span>
+                    Carregando exames da unidade {empresaAtiva?.nome}...
+                  </span>
+                </div>
+              ) : funcionariosFiltrados.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground text-xs italic">
+                  Nenhum colaborador encontrado com os filtros selecionados.{' '}
+                  <button
+                    type="button"
+                    onClick={handleNovoFuncionario}
+                    className="text-primary underline ml-1 font-semibold"
+                  >
+                    Cadastrar agora
+                  </button>{' '}
+                  ou use o botão "Importar CSV" para carregar a planilha.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border/40 sticky top-0 bg-background/95 backdrop-blur z-10">
+                      <tr>
+                        <th className="py-3 px-3">Status</th>
+                        <th className="py-3 px-3">Colaborador</th>
+                        <th className="py-3 px-3">Função</th>
+                        <th className="py-3 px-3">CPF</th>
+                        <th className="py-3 px-3">Admissão</th>
+                        <th
+                          className="py-3 px-2 text-center"
+                          title="Exame Admissional (Validade: 12 meses)"
+                        >
+                          Admissional
+                        </th>
+                        <th
+                          className="py-3 px-2 text-center"
+                          title="ASO Periódico (Validade: 12 meses)"
+                        >
+                          ASO
+                        </th>
+                        <th
+                          className="py-3 px-2 text-center"
+                          title="Acuidade Visual (Validade: 12 meses)"
+                        >
+                          Acuidade
+                        </th>
+                        <th
+                          className="py-3 px-2 text-center"
+                          title="Audiometria (Validade: 12 meses)"
+                        >
+                          Audiometria
+                        </th>
+                        <th
+                          className="py-3 px-2 text-center"
+                          title="Avaliação Clínica (Validade: 12 meses)"
+                        >
+                          Av. Clínica
+                        </th>
+                        <th
+                          className="py-3 px-2 text-center"
+                          title="Exame Toxicológico (Validade: 30 meses)"
+                        >
+                          Toxicológico
+                        </th>
+                        <th
+                          className="py-3 px-2 text-center"
+                          title="Raio-X (RX) (Validade: 12 meses)"
+                        >
+                          RX
+                        </th>
+                        <th
+                          className="py-3 px-2 text-center"
+                          title="Eletrocardiograma (ECG) (Validade: 12 meses)"
+                        >
+                          ECG
+                        </th>
+                        <th className="py-3 px-3 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/20">
+                      {funcionariosFiltrados.map((f) => (
+                        <tr
+                          key={f.id}
+                          className="hover:bg-muted/20 transition-colors group"
+                        >
+                          {/* Status Geral */}
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <BadgeStatusGeral status={f.statusGeralAso} />
+                          </td>
+
+                          {/* Nome */}
+                          <td className="py-2.5 px-3">
+                            <span className="font-semibold text-foreground block whitespace-nowrap">
+                              {f.nome}
+                            </span>
+                            {f.observacoes && (
+                              <span className="text-[10px] text-muted-foreground block truncate max-w-[180px]">
+                                {f.observacoes}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Função */}
+                          <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-md bg-muted/60 text-[11px] font-medium text-foreground">
+                              {f.funcao}
+                            </span>
+                          </td>
+
+                          {/* CPF */}
+                          <td className="py-2.5 px-3 font-mono text-muted-foreground whitespace-nowrap">
+                            {f.cpf ? formatarCpfCnpj(f.cpf) : '—'}
+                          </td>
+
+                          {/* Data Admissão */}
+                          <td className="py-2.5 px-3 font-mono text-muted-foreground whitespace-nowrap">
+                            {formatarDataParaExibicao(f.data_admissao)}
+                          </td>
+
+                          {/* Exames */}
+                          <td className="py-2.5 px-2 text-center">
+                            <CelulaExame exame={f.exames.admissional} />
+                          </td>
+                          <td className="py-2.5 px-2 text-center">
+                            <CelulaExame exame={f.exames.aso} />
+                          </td>
+                          <td className="py-2.5 px-2 text-center">
+                            <CelulaExame exame={f.exames.acuidade_visual} />
+                          </td>
+                          <td className="py-2.5 px-2 text-center">
+                            <CelulaExame exame={f.exames.audiometria} />
+                          </td>
+                          <td className="py-2.5 px-2 text-center">
+                            <CelulaExame exame={f.exames.avaliacao_clinica} />
+                          </td>
+                          <td className="py-2.5 px-2 text-center">
+                            <CelulaExame exame={f.exames.toxicologico} />
+                          </td>
+                          <td className="py-2.5 px-2 text-center">
+                            <CelulaExame exame={f.exames.rx} />
+                          </td>
+                          <td className="py-2.5 px-2 text-center">
+                            <CelulaExame exame={f.exames.ecg} />
+                          </td>
+
+                          {/* Ações */}
+                          <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditarFuncionario(f)}
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                title="Editar colaborador e exames"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </Button>
+
+                              {/* Exclusão permitida apenas para Administrador */}
+                              {isAdministrador && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setFuncionarioParaExcluir(f)
+                                    setDialogExclusaoOpen(true)
+                                  }}
+                                  className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                  title="Excluir colaborador"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Legenda de Cores */}
+          <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground p-3 bg-muted/20 rounded-xl border border-border/30">
+            <span className="font-semibold text-foreground">
+              Legenda dos Exames:
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-destructive" />
+              <span className="text-destructive font-medium">
+                VENCIDO:
+              </span>{' '}
+              data de validade expirada
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              <span className="text-amber-500 font-medium">ATENÇÃO:</span> vence
+              nos próximos 30 dias
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <span className="text-emerald-500 font-medium">
+                NO PRAZO:
+              </span>{' '}
+              exame válido
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40" />
+              <span>PENDENTE: sem exame registrado</span>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Conteúdo da Aba 2: Configurar Prazos */}
+        <TabsContent value="configurar_prazos" className="mt-0">
+          <AbaConfigurarPrazos onPrazosAtualizados={() => carregarDados()} />
+        </TabsContent>
+      </Tabs>
 
       {/* Modal Importador de CSV */}
       <ModalImportarExamesCSV
         open={modalImportarOpen}
         onOpenChange={setModalImportarOpen}
         funcionariosAtuais={funcionarios}
+        prazosConfigurados={prazosConfigurados}
         onImportadoSucesso={() => carregarDados()}
       />
 
@@ -1170,39 +1281,49 @@ export default function ControleExames() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {TIPOS_EXAME_CATALOGO.map((item) => (
-                  <div
-                    key={item.tipo}
-                    className="p-2.5 rounded-lg border border-border/40 bg-background/50 space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span
-                        className="font-semibold text-foreground truncate"
-                        title={item.nome}
-                      >
-                        {item.nome}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground font-mono">
-                        {item.validadePadraoMeses}m
-                      </span>
-                    </div>
+                {TIPOS_EXAME_CATALOGO.map((item) => {
+                  const prazoVigente =
+                    formExames[item.tipo]?.validadeMeses ||
+                    prazosConfigurados[item.tipo] ||
+                    item.validadePadraoMeses
 
-                    <Input
-                      type="date"
-                      value={formExames[item.tipo]?.data || ''}
-                      onChange={(e) =>
-                        setFormExames((prev) => ({
-                          ...prev,
-                          [item.tipo]: {
-                            ...prev[item.tipo],
-                            data: e.target.value,
-                          },
-                        }))
-                      }
-                      className="h-8 text-xs font-mono"
-                    />
-                  </div>
-                ))}
+                  return (
+                    <div
+                      key={item.tipo}
+                      className="p-2.5 rounded-lg border border-border/40 bg-background/50 space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span
+                          className="font-semibold text-foreground truncate"
+                          title={item.nome}
+                        >
+                          {item.nome}
+                        </span>
+                        <span
+                          className="text-[10px] text-primary font-mono font-semibold"
+                          title="Prazo configurado para a unidade ativa"
+                        >
+                          {prazoVigente}m
+                        </span>
+                      </div>
+
+                      <Input
+                        type="date"
+                        value={formExames[item.tipo]?.data || ''}
+                        onChange={(e) =>
+                          setFormExames((prev) => ({
+                            ...prev,
+                            [item.tipo]: {
+                              ...prev[item.tipo],
+                              data: e.target.value,
+                            },
+                          }))
+                        }
+                        className="h-8 text-xs font-mono"
+                      />
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
