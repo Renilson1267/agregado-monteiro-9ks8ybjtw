@@ -37,6 +37,7 @@ import {
   Target,
   CheckCircle2,
   Clock,
+  Pencil,
 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import type { MetaProducao } from '@/types/concreteira'
@@ -80,7 +81,7 @@ import { useUsuario } from '@/hooks/use-usuario'
 
 export default function Index() {
   const navigate = useNavigate()
-  const { isBalanceiro } = useUsuario()
+  const { isBalanceiro, isAdministrador } = useUsuario()
   const { empresaAtiva } = useEmpresa()
 
   // Se o perfil for Balanceiro, cai direto na expedição (/lancamentos)
@@ -1679,13 +1680,16 @@ export default function Index() {
                   <th className="py-2.5 px-3">Motorista / Placa</th>
                   <th className="py-2.5 px-3">Destino</th>
                   <th className="py-2.5 px-3 text-right">Status</th>
+                  {isAdministrador && (
+                    <th className="py-2.5 px-3 text-center w-14">Ações</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/20">
                 {cargasFiltradas.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={12}
+                      colSpan={isAdministrador ? 13 : 12}
                       className="py-6 text-center text-muted-foreground italic"
                     >
                       Nenhuma carga encontrada para o período selecionado.
@@ -1779,6 +1783,22 @@ export default function Index() {
                           </Badge>
                         )}
                       </td>
+                      {isAdministrador && (
+                        <td className="py-2.5 px-3 text-center">
+                          <Button
+                            asChild
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-500/10"
+                            title="Editar lançamento de carga (Administrador)"
+                          >
+                            <Link to={`/lancamentos?editar=${c.id}`}>
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span className="sr-only">Editar carga</span>
+                            </Link>
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}

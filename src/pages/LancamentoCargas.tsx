@@ -31,6 +31,7 @@ import type {
   Material,
   Cliente,
   OrdemServico,
+  Carga,
 } from '@/types/concreteira'
 import {
   Truck,
@@ -54,7 +55,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -76,8 +77,10 @@ import {
 
 export default function LancamentoCargas() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const editarCargaId = searchParams.get('editar')
   const { empresaAtiva } = useEmpresa()
-  const { isBalanceiro } = useUsuario()
+  const { isBalanceiro, isAdministrador } = useUsuario()
   const [tracos, setTracos] = useState<Traco[]>([])
   const [precos, setPrecos] = useState<PrecoMaterial[]>([])
   const [motoristas, setMotoristas] = useState<Motorista[]>([])
@@ -86,6 +89,12 @@ export default function LancamentoCargas() {
   const [materiais, setMateriais] = useState<Material[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [salvando, setSalvando] = useState(false)
+
+  // Estado para controle de edição de carga gravada
+  const [cargaOriginal, setCargaOriginal] = useState<Carga | null>(null)
+  const [carregandoCargaEdicao, setCarregandoCargaEdicao] = useState(false)
+  const [modalConfirmarEdicaoAberta, setModalConfirmarEdicaoAberta] =
+    useState(false)
 
   // Modo de dosagem: 'automatico' (por traço) ou 'manual' (digitação dos insumos).
   // Se o operador for Balanceiro, inicia diretamente em 'manual' com campos liberados para digitação.
@@ -244,7 +253,7 @@ export default function LancamentoCargas() {
         if (tr.length > 0) {
           setTracoSelecionadoId(tr[0].id)
           // Se for balanceiro, garante modo manual e zera insumos
-          if (isBalanceiro) {
+          if (isBalanceiro && !editarCargaId) {
             setModoDosagem('manual')
             setCimento(0)
             setBrita12(0)
@@ -267,7 +276,148 @@ export default function LancamentoCargas() {
     }
     init()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empresaAtiva?.id])
+  }, [empresaAtiva?.id, editarCargaId])
+
+  // Efeito para carregar dados da carga quando em modo de edição
+  useEffect(() => {
+    async function carregarCargaParaEdicao() {
+      if (!editarCargaId) {
+        setCargaOriginal(null)
+        return
+      }
+
+      // Se o usuário logado for balanceiro, não tem permissão para editar carga gravada
+      if (isBalanceiro) {
+        toast({
+          title: 'Acesso restrito',
+          description:
+            'Apenas Administradores têm permissão para editar lançamentos de carga gravados.',
+          variant: 'destructive',
+        })
+        navigate('/lancamentos')
+        return
+      }
+
+      setCarregandoCargaEdicao(true)
+      try {
+        const c = await ConcreteiraService.getCargaPorId(editarCargaId)
+        if (!c) {
+          toast({
+            title: 'Carga não encontrada',
+            description: 'A carga solicitada para edição não foi localizada.',
+            variant: 'destructive',
+          })
+          navigate('/lancamentos')
+          return
+        }
+
+        setCargaOriginal(c)
+        setDataCarga(c.data)
+        const vol = Number(c.volume_m3) || 1
+        setVolume(vol)
+        setCargaZerada(Boolean(c.carga_zerada))
+        setMotoristaNome(c.motorista_nome || '')
+        setVeiculoPlaca(c.veiculo_placa || '')
+        setCidadeNome(c.cidade_nome || '')
+        setObservacao(c.observacao || '')
+
+        // Se tiver traço vinculado ou por nome
+        if (c.traco_id) {
+          setTracoSelecionadoId(c.traco_id)
+        } else if (c.traco_nome) {
+          const tEncontrado = tracos.find(
+            (t) => t.nome.toLowerCase() === c.traco_nome?.toLowerCase(),
+          )
+          if (tEncontrado) setTracoSelecionadoId(tEncontrado.id)
+        }
+
+        // Modo sempre manual na edição para refletir com exatidão as dosagens gravadas na carga
+        setModoDosagem('manual')
+
+        // Calcular dosagens por m³ a partir do consumo total e volume
+        const dosCimento =
+          vol > 0
+            ? Math.round(Number(c.consumo_cimento || 0) / vol)
+            : Number(c.consumo_cimento || 0)
+        const dosBrita12 =
+          vol > 0
+            ? Math.round(Number(c.consumo_brita12 || 0) / vol)
+            : Number(c.consumo_brita12 || 0)
+        const dosBrita19 =
+          vol > 0
+            ? Math.round(Number(c.consumo_brita19 || 0) / vol)
+            : Number(c.consumo_brita19 || 0)
+        const dosAreia =
+          vol > 0
+            ? Math.round(Number(c.consumo_areia || 0) / vol)
+            : Number(c.consumo_areia || 0)
+        const dosPoPedra =
+          vol > 0
+            ? Math.round(Number(c.consumo_po_pedra || 0) / vol)
+            : Number(c.consumo_po_pedra || 0)
+
+        setCimento(dosCimento)
+        setBrita12(dosBrita12)
+        setBrita19(dosBrita19)
+        setAreia(dosAreia)
+        setPoPedra(dosPoPedra)
+
+        // No modo manual, aditivo e água são mantidos como totais em litros
+        setAditivo(Number(c.consumo_aditivo || 0))
+        setAditivoBruto(Number(c.consumo_aditivo || 0))
+        setAditivoEditadoManualmente(true)
+
+        setAgua(Number(c.consumo_agua || 0))
+        setAguaBruta(Number(c.consumo_agua || 0))
+        setAguaEditadaManualmente(true)
+
+        // Se houver OS vinculada, preenche os campos do bloco de entrega
+        if (c.ordem_servico) {
+          const os = c.ordem_servico
+          if (os.cliente_id) setClienteSelecionadoId(os.cliente_id)
+          setDestinatarioNome(os.destinatario_nome || '')
+          setDestinatarioCpfCnpj(os.destinatario_cpf_cnpj || '')
+          setDestinatarioTelefone(os.destinatario_telefone || '')
+          setDestinatarioEndereco(os.destinatario_endereco || '')
+          setDestinatarioBairro(os.destinatario_bairro || '')
+          setDestinatarioCidade(os.destinatario_cidade || '')
+          setDestinatarioUf(os.destinatario_uf || 'PB')
+          setDestinatarioCep(os.destinatario_cep || '')
+          setNomeObra(os.nome_obra || '')
+          setLocalDescarga(os.local_descarga || '')
+          if (os.itens && os.itens[0]?.discriminacao) {
+            setDiscriminacaoProduto(os.itens[0].discriminacao)
+          }
+          setSlumpCentralMedido(os.slump_central_medido || '')
+          setSlumpCentralSaida(os.slump_central_saida || '')
+          setSlumpTolerancia(os.slump_tolerancia || '+-2')
+          setLacre(os.lacre || '')
+          setKmInicial(os.km_inicial != null ? String(os.km_inicial) : '')
+          setKmFinal(os.km_final != null ? String(os.km_final) : '')
+          setHoraCarga(os.hora_carga || '')
+          setHoraSaidaCentral(os.hora_saida_central || '')
+          setHoraChegadaObra(os.hora_chegada_obra || '')
+          setHoraInicioDescarga(os.hora_inicio_descarga || '')
+          setHoraFimDescarga(os.hora_fim_descarga || '')
+          setHoraSaidaObra(os.hora_saida_obra || '')
+          setVistoObra(os.visto_obra || '')
+          setObservacoesEntrega(os.observacoes || '')
+          setExibirInsumosNaOs(os.exibir_insumos_os !== false)
+        }
+      } catch (err: any) {
+        console.error('Erro ao carregar carga para edição:', err)
+        toast({
+          title: 'Erro ao carregar carga',
+          description: err.message || 'Falha ao buscar carga.',
+          variant: 'destructive',
+        })
+      } finally {
+        setCarregandoCargaEdicao(false)
+      }
+    }
+
+    carregarCargaParaEdicao()
+  }, [editarCargaId, isBalanceiro, navigate, tracos])
 
   // Preenche dados quando um cliente é selecionado
   const selecionarCliente = (cli: Cliente) => {
@@ -542,16 +692,14 @@ export default function LancamentoCargas() {
     agua: modoDosagem === 'manual' ? Math.round(agua) : Math.round(agua),
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
+  const validarFormulario = (): boolean => {
     if (!dataCarga) {
       toast({
         title: 'Atenção',
         description: 'Informe a data da carga',
         variant: 'destructive',
       })
-      return
+      return false
     }
     if (volume <= 0) {
       toast({
@@ -559,10 +707,9 @@ export default function LancamentoCargas() {
         description: 'O volume deve ser maior que zero',
         variant: 'destructive',
       })
-      return
+      return false
     }
 
-    // Validação no modo manual: se não for carga zerada, exigir pelo menos um insumo com dosagem > 0
     if (modoDosagem === 'manual' && !cargaZerada) {
       const somaDosagens =
         brita12 + brita19 + areia + poPedra + cimento + aditivo
@@ -573,8 +720,71 @@ export default function LancamentoCargas() {
             'No modo manual, informe a dosagem (kg/m³) de pelo menos um dos insumos ou marque a carga como cancelada/zerada.',
           variant: 'destructive',
         })
-        return
+        return false
       }
+    }
+    return true
+  }
+
+  const executarSalvarEdicao = async () => {
+    if (!editarCargaId) return
+    const traco = tracos.find((t) => t.id === tracoSelecionadoId)
+    let nomeTracoGravado = traco?.nome || 'Traço manual'
+    if (modoDosagem === 'manual') {
+      nomeTracoGravado = traco ? `${traco.nome} (Manual)` : 'Dosagem Manual'
+    }
+
+    setSalvando(true)
+    try {
+      await ConcreteiraService.atualizarCarga(editarCargaId, {
+        data: dataCarga,
+        volume_m3: volume,
+        traco_id: traco?.id,
+        traco_nome: nomeTracoGravado,
+        motorista_nome: motoristaNome || null,
+        veiculo_placa: veiculoPlaca || null,
+        cidade_nome: cidadeNome || null,
+        consumo_brita12: consumoReal.brita12,
+        consumo_brita19: consumoReal.brita19,
+        consumo_areia: consumoReal.areia,
+        consumo_po_pedra: consumoReal.poPedra,
+        consumo_cimento: consumoReal.cimento,
+        consumo_aditivo: consumoReal.aditivo,
+        consumo_agua: consumoReal.agua,
+        observacao: observacao || null,
+        carga_zerada: cargaZerada,
+      })
+
+      setModalConfirmarEdicaoAberta(false)
+
+      toast({
+        title: 'Carga alterada com sucesso!',
+        description:
+          'Movimentações de estoque recalculadas e integridade do saldo mantida.',
+      })
+
+      navigate('/')
+    } catch (err: any) {
+      console.error('Erro ao atualizar carga:', err)
+      toast({
+        title: 'Erro ao atualizar carga',
+        description: err.message || 'Falha ao salvar alterações no banco.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!validarFormulario()) return
+
+    // Se estiver em modo de edição, abre o modal de confirmação com resumo das alterações
+    if (editarCargaId) {
+      setModalConfirmarEdicaoAberta(true)
+      return
     }
 
     const traco = tracos.find((t) => t.id === tracoSelecionadoId)
@@ -834,7 +1044,22 @@ export default function LancamentoCargas() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              Lançamento Rápido de Carga
+              {editarCargaId ? (
+                <>
+                  Editar Carga #
+                  {cargaOriginal
+                    ? String(cargaOriginal.numero_carga).padStart(4, '0')
+                    : ''}
+                  <Badge
+                    variant="outline"
+                    className="border-amber-500/50 bg-amber-500/10 text-amber-500 text-xs font-semibold uppercase"
+                  >
+                    Modo Edição (Administrador)
+                  </Badge>
+                </>
+              ) : (
+                'Lançamento Rápido de Carga'
+              )}
               {empresaAtiva && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-normal">
                   {empresaAtiva.nome}
@@ -842,8 +1067,9 @@ export default function LancamentoCargas() {
               )}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Registro de despacho na balança com dosagem e baixa automática no
-              estoque da unidade {empresaAtiva?.nome || ''}
+              {editarCargaId
+                ? 'Corrija os dados da carga já lançada. Ao salvar, os movimentos de estoque anteriores serão estornados e recalculados.'
+                : `Registro de despacho na balança com dosagem e baixa automática no estoque da unidade ${empresaAtiva?.nome || ''}`}
             </p>
           </div>
         </div>
@@ -2565,39 +2791,60 @@ export default function LancamentoCargas() {
             <Link to="/">Cancelar</Link>
           </Button>
 
-          {/* Botão Secundário: Registrar carga apenas */}
-          <Button
-            type="submit"
-            variant="secondary"
-            disabled={salvando}
-            className="w-full sm:w-auto gap-2"
-          >
-            {salvando ? (
-              'Salvando...'
-            ) : (
-              <>
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                Apenas Lançar Carga
-              </>
-            )}
-          </Button>
+          {/* Botão de Gravação / Alteração */}
+          {editarCargaId ? (
+            <Button
+              type="submit"
+              variant="default"
+              disabled={salvando || carregandoCargaEdicao}
+              className="w-full sm:w-auto gap-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-md px-6"
+            >
+              {salvando ? (
+                'Salvando alteração...'
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  Salvar Alteração da Carga
+                </>
+              )}
+            </Button>
+          ) : (
+            <>
+              {/* Botão Secundário: Registrar carga apenas */}
+              <Button
+                type="submit"
+                variant="secondary"
+                disabled={salvando}
+                className="w-full sm:w-auto gap-2"
+              >
+                {salvando ? (
+                  'Salvando...'
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    Apenas Lançar Carga
+                  </>
+                )}
+              </Button>
 
-          {/* Botão Principal: Salvar e gerar OS com impressão automática */}
-          <Button
-            type="button"
-            onClick={handleSalvarEGerarOS}
-            disabled={salvando}
-            className="w-full sm:w-auto gap-2 bg-primary text-primary-foreground font-semibold shadow-md px-6 hover:brightness-105"
-          >
-            {salvando ? (
-              'Processando OS...'
-            ) : (
-              <>
-                <Printer className="w-4 h-4" />
-                Salvar e gerar OS
-              </>
-            )}
-          </Button>
+              {/* Botão Principal: Salvar e gerar OS com impressão automática */}
+              <Button
+                type="button"
+                onClick={handleSalvarEGerarOS}
+                disabled={salvando}
+                className="w-full sm:w-auto gap-2 bg-primary text-primary-foreground font-semibold shadow-md px-6 hover:brightness-105"
+              >
+                {salvando ? (
+                  'Processando OS...'
+                ) : (
+                  <>
+                    <Printer className="w-4 h-4" />
+                    Salvar e gerar OS
+                  </>
+                )}
+              </Button>
+            </>
+          )}
         </div>
       </form>
 
@@ -2881,6 +3128,296 @@ export default function LancamentoCargas() {
             >
               <Printer className="w-4 h-4" />
               Imprimir Recibo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação com Resumo do que Muda na Edição */}
+      <Dialog
+        open={modalConfirmarEdicaoAberta}
+        onOpenChange={setModalConfirmarEdicaoAberta}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base text-amber-500 font-bold">
+              <CheckCircle2 className="w-5 h-5 text-amber-500" />
+              Confirmar alteração do lançamento #
+              {cargaOriginal
+                ? String(cargaOriginal.numero_carga).padStart(4, '0')
+                : ''}
+              ?
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Confira abaixo o resumo das alterações antes de gravar. O estoque
+              de cimento e aditivo será estornado e recalculado com os novos
+              consumos.
+            </DialogDescription>
+          </DialogHeader>
+
+          {cargaOriginal && (
+            <div className="space-y-3 py-2 text-xs">
+              <div className="rounded-lg border border-border/50 overflow-hidden bg-background">
+                <table className="w-full text-left">
+                  <thead className="bg-muted/40 border-b border-border/40 text-[11px] uppercase text-muted-foreground">
+                    <tr>
+                      <th className="py-2 px-3">Campo</th>
+                      <th className="py-2 px-3 text-muted-foreground">
+                        Antes (Original)
+                      </th>
+                      <th className="py-2 px-3 text-amber-600 dark:text-amber-400 font-bold">
+                        Depois (Novo)
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/20">
+                    <tr
+                      className={
+                        cargaOriginal.data !== dataCarga
+                          ? 'bg-amber-500/10'
+                          : ''
+                      }
+                    >
+                      <td className="py-1.5 px-3 font-semibold text-muted-foreground">
+                        Data
+                      </td>
+                      <td className="py-1.5 px-3 font-mono">
+                        {cargaOriginal.data.split('-').reverse().join('/')}
+                      </td>
+                      <td className="py-1.5 px-3 font-mono font-bold text-foreground">
+                        {dataCarga.split('-').reverse().join('/')}
+                      </td>
+                    </tr>
+                    <tr
+                      className={
+                        Number(cargaOriginal.volume_m3) !== Number(volume)
+                          ? 'bg-amber-500/10'
+                          : ''
+                      }
+                    >
+                      <td className="py-1.5 px-3 font-semibold text-muted-foreground">
+                        Volume
+                      </td>
+                      <td className="py-1.5 px-3 font-mono">
+                        {Number(cargaOriginal.volume_m3).toFixed(1)} m³
+                      </td>
+                      <td className="py-1.5 px-3 font-mono font-bold text-foreground">
+                        {Number(volume).toFixed(1)} m³
+                      </td>
+                    </tr>
+                    <tr
+                      className={
+                        Boolean(cargaOriginal.carga_zerada) !==
+                        Boolean(cargaZerada)
+                          ? 'bg-amber-500/10'
+                          : ''
+                      }
+                    >
+                      <td className="py-1.5 px-3 font-semibold text-muted-foreground">
+                        Status Carga
+                      </td>
+                      <td className="py-1.5 px-3">
+                        {cargaOriginal.carga_zerada
+                          ? 'Zerada / Cancelada'
+                          : 'Entregue / Válida'}
+                      </td>
+                      <td className="py-1.5 px-3 font-bold">
+                        {cargaZerada
+                          ? 'Zerada / Cancelada'
+                          : 'Entregue / Válida'}
+                      </td>
+                    </tr>
+                    <tr
+                      className={
+                        Number(cargaOriginal.consumo_cimento) !==
+                        Number(consumoReal.cimento)
+                          ? 'bg-amber-500/10'
+                          : ''
+                      }
+                    >
+                      <td className="py-1.5 px-3 font-semibold text-muted-foreground">
+                        Cimento (kg)
+                      </td>
+                      <td className="py-1.5 px-3 font-mono">
+                        {Number(cargaOriginal.consumo_cimento).toLocaleString(
+                          'pt-BR',
+                        )}{' '}
+                        kg
+                      </td>
+                      <td className="py-1.5 px-3 font-mono font-bold text-primary">
+                        {Number(consumoReal.cimento).toLocaleString('pt-BR')} kg
+                      </td>
+                    </tr>
+                    <tr
+                      className={
+                        Number(cargaOriginal.consumo_aditivo) !==
+                        Number(consumoReal.aditivo)
+                          ? 'bg-amber-500/10'
+                          : ''
+                      }
+                    >
+                      <td className="py-1.5 px-3 font-semibold text-muted-foreground">
+                        Aditivo (L)
+                      </td>
+                      <td className="py-1.5 px-3 font-mono">
+                        {Number(cargaOriginal.consumo_aditivo).toLocaleString(
+                          'pt-BR',
+                        )}{' '}
+                        L
+                      </td>
+                      <td className="py-1.5 px-3 font-mono font-bold text-primary">
+                        {Number(consumoReal.aditivo).toLocaleString('pt-BR')} L
+                      </td>
+                    </tr>
+                    <tr
+                      className={
+                        Number(cargaOriginal.consumo_agua || 0) !==
+                        Number(consumoReal.agua)
+                          ? 'bg-amber-500/10'
+                          : ''
+                      }
+                    >
+                      <td className="py-1.5 px-3 font-semibold text-muted-foreground">
+                        Água (L)
+                      </td>
+                      <td className="py-1.5 px-3 font-mono">
+                        {Number(cargaOriginal.consumo_agua || 0).toLocaleString(
+                          'pt-BR',
+                        )}{' '}
+                        L
+                      </td>
+                      <td className="py-1.5 px-3 font-mono font-bold text-cyan-600 dark:text-cyan-400">
+                        {Number(consumoReal.agua).toLocaleString('pt-BR')} L
+                      </td>
+                    </tr>
+                    <tr
+                      className={
+                        Number(cargaOriginal.consumo_areia) !==
+                        Number(consumoReal.areia)
+                          ? 'bg-amber-500/10'
+                          : ''
+                      }
+                    >
+                      <td className="py-1.5 px-3 font-semibold text-muted-foreground">
+                        Areia (kg)
+                      </td>
+                      <td className="py-1.5 px-3 font-mono">
+                        {Number(cargaOriginal.consumo_areia).toLocaleString(
+                          'pt-BR',
+                        )}{' '}
+                        kg
+                      </td>
+                      <td className="py-1.5 px-3 font-mono font-bold">
+                        {Number(consumoReal.areia).toLocaleString('pt-BR')} kg
+                      </td>
+                    </tr>
+                    <tr
+                      className={
+                        Number(cargaOriginal.consumo_brita12) !==
+                          Number(consumoReal.brita12) ||
+                        Number(cargaOriginal.consumo_brita19) !==
+                          Number(consumoReal.brita19)
+                          ? 'bg-amber-500/10'
+                          : ''
+                      }
+                    >
+                      <td className="py-1.5 px-3 font-semibold text-muted-foreground">
+                        Britas 12 / 19
+                      </td>
+                      <td className="py-1.5 px-3 font-mono">
+                        {Number(cargaOriginal.consumo_brita12)} /{' '}
+                        {Number(cargaOriginal.consumo_brita19)} kg
+                      </td>
+                      <td className="py-1.5 px-3 font-mono font-bold">
+                        {Number(consumoReal.brita12)} /{' '}
+                        {Number(consumoReal.brita19)} kg
+                      </td>
+                    </tr>
+                    <tr
+                      className={
+                        cargaOriginal.motorista_nome !== motoristaNome
+                          ? 'bg-amber-500/10'
+                          : ''
+                      }
+                    >
+                      <td className="py-1.5 px-3 font-semibold text-muted-foreground">
+                        Motorista
+                      </td>
+                      <td className="py-1.5 px-3">
+                        {cargaOriginal.motorista_nome || '—'}
+                      </td>
+                      <td className="py-1.5 px-3 font-bold">
+                        {motoristaNome || '—'}
+                      </td>
+                    </tr>
+                    <tr
+                      className={
+                        cargaOriginal.veiculo_placa !== veiculoPlaca
+                          ? 'bg-amber-500/10'
+                          : ''
+                      }
+                    >
+                      <td className="py-1.5 px-3 font-semibold text-muted-foreground">
+                        Placa Veículo
+                      </td>
+                      <td className="py-1.5 px-3 font-mono">
+                        {cargaOriginal.veiculo_placa || '—'}
+                      </td>
+                      <td className="py-1.5 px-3 font-mono font-bold">
+                        {veiculoPlaca || '—'}
+                      </td>
+                    </tr>
+                    <tr
+                      className={
+                        cargaOriginal.cidade_nome !== cidadeNome
+                          ? 'bg-amber-500/10'
+                          : ''
+                      }
+                    >
+                      <td className="py-1.5 px-3 font-semibold text-muted-foreground">
+                        Cidade / Destino
+                      </td>
+                      <td className="py-1.5 px-3">
+                        {cargaOriginal.cidade_nome || '—'}
+                      </td>
+                      <td className="py-1.5 px-3 font-bold">
+                        {cidadeNome || '—'}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="p-2.5 rounded bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300">
+                ⚠️ <strong>Atenção:</strong> Ao confirmar, o sistema
+                cancelará/estornará as baixas de estoque de cimento (
+                {cargaOriginal.consumo_cimento} kg) e aditivo (
+                {cargaOriginal.consumo_aditivo} L) gravadas anteriormente para
+                esta carga e lançará as novas movimentações (
+                {consumoReal.cimento} kg de cimento e {consumoReal.aditivo} L de
+                aditivo), recalculando os custos automaticamente.
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={salvando}
+              onClick={() => setModalConfirmarEdicaoAberta(false)}
+            >
+              Voltar e Revisar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={salvando}
+              onClick={executarSalvarEdicao}
+              className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+            >
+              {salvando ? 'Salvando...' : 'Sim, Confirmar e Salvar'}
             </Button>
           </DialogFooter>
         </DialogContent>

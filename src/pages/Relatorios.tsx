@@ -19,8 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Link } from 'react-router-dom'
 import { ConcreteiraService } from '@/services/concreteira'
 import { useEmpresa } from '@/hooks/use-empresa'
+import { useUsuario } from '@/hooks/use-usuario'
 import type {
   Carga,
   Cidade,
@@ -43,6 +45,7 @@ import {
   Layers,
   ArrowUpDown,
   Calendar,
+  Pencil,
 } from 'lucide-react'
 import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from '@/assets/logos'
 import {
@@ -58,6 +61,7 @@ import {
 
 export default function Relatorios() {
   const { empresaAtiva } = useEmpresa()
+  const { isAdministrador } = useUsuario()
   const [abaAtiva, setAbaAtiva] = useState<'operacional' | 'comparativo'>(
     'operacional',
   )
@@ -1031,6 +1035,11 @@ export default function Relatorios() {
                       <th className="py-2.5 px-3">Placa</th>
                       <th className="py-2.5 px-3">Destino</th>
                       <th className="py-2.5 px-3 text-right">Status</th>
+                      {isAdministrador && (
+                        <th className="py-2.5 px-3 text-center no-print w-12">
+                          Ações
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/20">
@@ -1106,6 +1115,22 @@ export default function Relatorios() {
                             </Badge>
                           )}
                         </td>
+                        {isAdministrador && (
+                          <td className="py-2 px-3 text-center no-print">
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-500/10"
+                              title="Editar carga (Administrador)"
+                            >
+                              <Link to={`/lancamentos?editar=${c.id}`}>
+                                <Pencil className="w-3.5 h-3.5" />
+                                <span className="sr-only">Editar carga</span>
+                              </Link>
+                            </Button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

@@ -330,6 +330,44 @@ export type Database = {
           },
         ]
       }
+      metas_producao: {
+        Row: {
+          created_at: string
+          empresa_id: string
+          id: string
+          meta_diaria_m3: number
+          meta_mensal_m3: number
+          observacao: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          empresa_id: string
+          id?: string
+          meta_diaria_m3?: number
+          meta_mensal_m3?: number
+          observacao?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          meta_diaria_m3?: number
+          meta_mensal_m3?: number
+          observacao?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'metas_producao_empresa_id_fkey'
+            columns: ['empresa_id']
+            isOneToOne: true
+            referencedRelation: 'empresas'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       motoristas: {
         Row: {
           ativo: boolean

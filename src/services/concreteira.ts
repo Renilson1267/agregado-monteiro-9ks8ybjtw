@@ -738,6 +738,212 @@ export const ConcreteiraService = {
     return 1
   },
 
+  async getCargaPorId(id: string): Promise<Carga | null> {
+    const { data: carga, error } = await (supabase as any)
+      .from('cargas')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error || !carga) return null
+
+    const [precos, { data: osData }] = await Promise.all([
+      this.getPrecosMaterial(carga.empresa_id),
+      (supabase as any)
+        .from('ordens_servico')
+        .select('*')
+        .eq('carga_id', id)
+        .maybeSingle(),
+    ])
+
+    const custo = this.calcularCustoCarga(carga, precos)
+    const osVinculada = (osData as OrdemServico) || null
+
+    return {
+      ...carga,
+      custo,
+      ordem_servico: osVinculada,
+      numero_os: osVinculada ? osVinculada.numero_os : null,
+      ordem_servico_id: osVinculada ? osVinculada.id : null,
+    }
+  },
+
+  async atualizarCarga(
+    id: string,
+    payload: {
+      data: string
+      volume_m3: number
+      traco_id?: string | null
+      traco_nome?: string | null
+      motorista_nome?: string | null
+      veiculo_placa?: string | null
+      cidade_nome?: string | null
+      consumo_brita12: number
+      consumo_brita19: number
+      consumo_areia: number
+      consumo_po_pedra: number
+      consumo_cimento: number
+      consumo_aditivo: number
+      consumo_agua?: number
+      observacao?: string | null
+      carga_zerada?: boolean
+    },
+  ): Promise<Carga> {
+    // 1. Atualiza registro na tabela cargas
+    const { data: cargaAtualizada, error: cargaErr } = await (supabase as any)
+      .from('cargas')
+      .update({
+        data: payload.data,
+        volume_m3: payload.volume_m3,
+        traco_id: payload.traco_id || null,
+        traco_nome: payload.traco_nome || null,
+        motorista_nome: payload.motorista_nome || null,
+        veiculo_placa: payload.veiculo_placa || null,
+        cidade_nome: payload.cidade_nome || null,
+        consumo_brita12: payload.consumo_brita12,
+        consumo_brita19: payload.consumo_brita19,
+        consumo_areia: payload.consumo_areia,
+        consumo_po_pedra: payload.consumo_po_pedra,
+        consumo_cimento: payload.consumo_cimento,
+        consumo_aditivo: payload.consumo_aditivo,
+        consumo_agua: payload.consumo_agua || 0,
+        observacao: payload.observacao || null,
+        carga_zerada: payload.carga_zerada || false,
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (cargaErr) throw cargaErr
+
+    // 2. Estorna TODAS as movimentações de estoque antigas vinculadas a esta carga
+    const { error: delErr } = await (supabase as any)
+      .from('movimentacoes_estoque')
+      .delete()
+      .eq('carga_id', id)
+
+    if (delErr) {
+      console.error('Erro ao estornar movimentações antigas da carga:', delErr)
+    }
+
+    // 3. Se a carga atualizada NÃO for zerada, grava as novas movimentações recalculadas (apenas cimento e aditivo)
+    if (!payload.carga_zerada) {
+      const empresaId = cargaAtualizada.empresa_id
+      const materiais = await this.getMateriais(empresaId)
+      const docName = `CARGA-${String(cargaAtualizada.numero_carga).padStart(5, '0')}`
+      const saídas: any[] = []
+
+      const matCimento = materiais.find(
+        (m) => m.codigo === 'cimento' && m.controla_estoque !== false,
+      )
+      const matAditivo = materiais.find(
+        (m) => m.codigo === 'aditivo' && m.controla_estoque !== false,
+      )
+
+      if (payload.consumo_cimento > 0 && matCimento) {
+        saídas.push({
+          empresa_id: empresaId || null,
+          material_id: matCimento.id,
+          tipo: 'SAIDA',
+          quantidade: payload.consumo_cimento,
+          data: payload.data,
+          carga_id: id,
+          documento: docName,
+          observacao: `Consumo na carga de ${payload.volume_m3}m³ (recalculado após edição)`,
+        })
+      }
+      if (payload.consumo_aditivo > 0 && matAditivo) {
+        saídas.push({
+          empresa_id: empresaId || null,
+          material_id: matAditivo.id,
+          tipo: 'SAIDA',
+          quantidade: payload.consumo_aditivo,
+          data: payload.data,
+          carga_id: id,
+          documento: docName,
+          observacao: `Consumo na carga de ${payload.volume_m3}m³ (recalculado após edição)`,
+        })
+      }
+
+      if (saídas.length > 0) {
+        await (supabase as any).from('movimentacoes_estoque').insert(saídas)
+      }
+    }
+
+    // 4. Se houver Ordem de Serviço vinculada a essa carga, sincroniza seus itens e insumos detalhados
+    const { data: osVinculada } = await (supabase as any)
+      .from('ordens_servico')
+      .select('*')
+      .eq('carga_id', id)
+      .maybeSingle()
+
+    if (osVinculada) {
+      const discriminacao =
+        payload.traco_nome ||
+        (osVinculada.itens && osVinculada.itens[0]?.discriminacao) ||
+        'CONCRETO USINADO'
+
+      const itensAtualizados = [
+        {
+          quantidade: Number(payload.volume_m3) || 8.0,
+          unidade: 'm3',
+          discriminacao,
+        },
+      ]
+
+      const insumosDetalhados = [
+        {
+          material: 'Cimento',
+          quantidade: payload.consumo_cimento,
+          unidade: 'kg',
+        },
+        {
+          material: 'Aditivo',
+          quantidade: payload.consumo_aditivo,
+          unidade: 'L',
+        },
+        {
+          material: 'Água',
+          quantidade: payload.consumo_agua || 0,
+          unidade: 'L',
+        },
+        {
+          material: 'Areia',
+          quantidade: payload.consumo_areia,
+          unidade: 'kg',
+        },
+        {
+          material: 'Brita 12',
+          quantidade: payload.consumo_brita12,
+          unidade: 'kg',
+        },
+        {
+          material: 'Brita 19',
+          quantidade: payload.consumo_brita19,
+          unidade: 'kg',
+        },
+        {
+          material: 'Pó de Pedra',
+          quantidade: payload.consumo_po_pedra,
+          unidade: 'kg',
+        },
+      ].filter((ins) => ins.quantidade > 0)
+
+      await (supabase as any)
+        .from('ordens_servico')
+        .update({
+          data_emissao: payload.data,
+          itens: itensAtualizados,
+          insumos_detalhados: insumosDetalhados,
+          motorista_nome: payload.motorista_nome || osVinculada.motorista_nome,
+          veiculo_placa: payload.veiculo_placa || osVinculada.veiculo_placa,
+        })
+        .eq('id', osVinculada.id)
+    }
+
+    return cargaAtualizada
+  },
+
   async criarCarga(payload: {
     empresa_id?: string
     data: string
