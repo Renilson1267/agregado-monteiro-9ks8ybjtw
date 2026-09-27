@@ -1258,14 +1258,31 @@ export default function Ordens() {
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs">
-                  Texto Completo de Observações (impresso no recibo)
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">
+                    Texto Completo de Observações (impresso no recibo)
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setObservacoes(
+                        'Cuidado com a cura do concreto para evitar frisuras',
+                      )
+                    }
+                    className="h-6 px-2 text-[10px] text-primary hover:text-primary gap-1 font-medium hover:bg-primary/10"
+                    title="Preenche com o texto objetivo: Cuidado com a cura do concreto para evitar frisuras"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    Sugestão: Aviso de Cura
+                  </Button>
+                </div>
                 <Textarea
                   rows={3}
                   value={observacoes}
                   onChange={(e) => setObservacoes(e.target.value)}
-                  placeholder="FOLGA DE ÁGUA: 15L/m3 PED 002009/26 VENDEDOR: ... CONTRATANTE: ... - BOMBA ESTACIONÁRIA: ..."
+                  placeholder="Cuidado com a cura do concreto para evitar frisuras"
                   className="text-xs font-mono uppercase"
                 />
               </div>

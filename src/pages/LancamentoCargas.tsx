@@ -187,6 +187,8 @@ export default function LancamentoCargas() {
   const [horaFimDescarga, setHoraFimDescarga] = useState<string>('')
   const [horaSaidaObra, setHoraSaidaObra] = useState<string>('')
   const [vistoObra, setVistoObra] = useState<string>('')
+  const TEXTO_OBSERVACOES_PADRAO =
+    'Cuidado com a cura do concreto para evitar frisuras'
   const [observacoesEntrega, setObservacoesEntrega] = useState<string>('')
 
   // Interruptor de Insumos na OS (inicia com padrão do cliente, mas pode ser invertido)
@@ -393,10 +395,12 @@ export default function LancamentoCargas() {
     }
   }
 
-  // Quando o perfil for Balanceiro, garante que o modo de operação é manual
+  // Quando o perfil for Balanceiro, inicia por padrão no modo manual
+  // O operador pode alternar livremente para "traço automático" se desejar dosagem pré-preenchida
   useEffect(() => {
     if (isBalanceiro) {
-      setModoDosagem('manual')
+      // Inicia em modo manual se os campos estiverem todos zerados
+      // mas não aprisiona o usuário: ele pode clicar em "Traço automático"
     }
   }, [isBalanceiro])
 
@@ -921,11 +925,9 @@ export default function LancamentoCargas() {
                       )
                     }
 
-                    if (isBalanceiro) {
-                      // REGRA BALANCEIRO:
-                      // Seleciona o traço normalmente, PORÉM NÃO SOBE as quantidades dos insumos!
-                      // Deixa todos os campos liberados para digitação manual, zerados/em branco
-                      setModoDosagem('manual')
+                    if (isBalanceiro && modoDosagem === 'manual') {
+                      // REGRA BALANCEIRO no modo manual:
+                      // Seleciona o traço como referência, mas mantém campos em branco para digitação na balança
                       setCimento(0)
                       setBrita12(0)
                       setBrita19(0)
@@ -938,10 +940,8 @@ export default function LancamentoCargas() {
                       setAditivoEditadoManualmente(false)
                       setAguaEditadaManualmente(false)
                     } else {
-                      // Perfil Administrador ou padrão: pré-preenche com as dosagens do traço
-                      if (modoDosagem === 'manual') {
-                        aplicarDosagemTraco(val, volume)
-                      }
+                      // Se estiver no modo automático (ou modo manual de admin): aplica a dosagem do traço
+                      aplicarDosagemTraco(val, volume)
                     }
                   }}
                   disabled={cargaZerada}
@@ -1001,39 +1001,38 @@ export default function LancamentoCargas() {
 
               {/* Seletor de Modo: Traço automático vs Insumos manuais */}
               <div className="flex items-center gap-2">
-                {isBalanceiro ? (
+                <Tabs
+                  value={modoDosagem}
+                  onValueChange={(val) =>
+                    handleTrocaModo(val as 'automatico' | 'manual')
+                  }
+                  className="w-auto"
+                >
+                  <TabsList className="h-9 p-1 bg-muted/60">
+                    <TabsTrigger
+                      value="automatico"
+                      className="text-xs px-3 py-1 gap-1.5 data-[state=active]:bg-background data-[state=active]:text-primary font-medium"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Traço automático
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="manual"
+                      className="text-xs px-3 py-1 gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-medium"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      Insumos manuais
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                {isBalanceiro && (
                   <Badge
                     variant="outline"
-                    className="h-8 px-2.5 text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 gap-1.5"
+                    className="hidden sm:inline-flex h-8 px-2 text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 gap-1"
+                    title="No perfil Balanceiro, o modo manual mantém os campos em branco para digitação"
                   >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    Modo Balanceiro: Digitação Manual Liberada
+                    Balanceiro
                   </Badge>
-                ) : (
-                  <Tabs
-                    value={modoDosagem}
-                    onValueChange={(val) =>
-                      handleTrocaModo(val as 'automatico' | 'manual')
-                    }
-                    className="w-auto"
-                  >
-                    <TabsList className="h-9 p-1 bg-muted/60">
-                      <TabsTrigger
-                        value="automatico"
-                        className="text-xs px-3 py-1 gap-1.5 data-[state=active]:bg-background data-[state=active]:text-primary"
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        Traço automático
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="manual"
-                        className="text-xs px-3 py-1 gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-medium"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        Insumos manuais
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
                 )}
               </div>
             </div>
@@ -1327,36 +1326,49 @@ export default function LancamentoCargas() {
 
                       {/* Select com opções rápidas (0,005 a 0,010) */}
                       <Select
-                        value={String(fatorAditivoManual)}
+                        value={
+                          OPCOES_FATOR_ADITIVO.some(
+                            (o) => o.valor === fatorAditivoManual,
+                          )
+                            ? String(fatorAditivoManual)
+                            : 'custom'
+                        }
                         onValueChange={(val) => {
-                          setFatorAditivoManual(Number(val))
-                          setAditivoEditadoManualmente(false)
+                          if (val !== 'custom') {
+                            setFatorAditivoManual(Number(val))
+                            setAditivoEditadoManualmente(false)
+                          }
                         }}
                         disabled={cargaZerada}
                       >
                         <SelectTrigger
                           id="fator-aditivo-select"
-                          className="h-7 text-xs font-mono font-medium flex-1 px-2 bg-background border-border/60"
+                          className="h-8 text-xs font-mono font-medium flex-1 px-2 bg-background border-border/70 shadow-sm"
                         >
-                          <SelectValue placeholder="Selecione o fator" />
+                          <SelectValue placeholder="Selecione o fator">
+                            {OPCOES_FATOR_ADITIVO.some(
+                              (o) => o.valor === fatorAditivoManual,
+                            )
+                              ? String(fatorAditivoManual).replace('.', ',')
+                              : `${String(fatorAditivoManual).replace('.', ',')} (outro)`}
+                          </SelectValue>
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="z-50 bg-popover text-popover-foreground">
                           {OPCOES_FATOR_ADITIVO.map((op) => (
                             <SelectItem
                               key={op.valor}
                               value={String(op.valor)}
-                              className="font-mono text-xs"
+                              className="font-mono text-xs cursor-pointer"
                             >
-                              {op.rotulo}
+                              Fator {op.rotulo}
                             </SelectItem>
                           ))}
-                          {/* Se o valor atual for personalizado e não estiver na lista */}
                           {!OPCOES_FATOR_ADITIVO.some(
                             (o) => o.valor === fatorAditivoManual,
                           ) && (
                             <SelectItem
-                              value={String(fatorAditivoManual)}
-                              className="font-mono text-xs"
+                              value="custom"
+                              className="font-mono text-xs cursor-pointer"
                             >
                               {String(fatorAditivoManual).replace('.', ',')}{' '}
                               (Personalizado)
@@ -1372,7 +1384,7 @@ export default function LancamentoCargas() {
                         step="0.0005"
                         min="0.001"
                         max="0.05"
-                        value={fatorAditivoManual}
+                        value={fatorAditivoManual || ''}
                         onChange={(e) => {
                           const val =
                             e.target.value === '' ? 0 : Number(e.target.value)
@@ -1380,8 +1392,9 @@ export default function LancamentoCargas() {
                           setAditivoEditadoManualmente(false)
                         }}
                         disabled={cargaZerada}
-                        className="h-7 w-20 text-xs font-mono text-center px-1 bg-background"
-                        title="Ou digite manualmente o fator"
+                        className="h-8 w-20 text-xs font-mono font-medium text-center px-1 bg-background border-border/70"
+                        title="Ou digite manualmente o fator de aditivo"
+                        placeholder="0.006"
                       />
                     </div>
                     {/* Legenda com o valor bruto e arredondamento */}
@@ -1508,36 +1521,49 @@ export default function LancamentoCargas() {
 
                     {/* Select com opções rápidas (0,45 a 0,80) */}
                     <Select
-                      value={String(fatorAguaManual)}
+                      value={
+                        OPCOES_FATOR_AGUA.some(
+                          (o) => o.valor === fatorAguaManual,
+                        )
+                          ? String(fatorAguaManual)
+                          : 'custom'
+                      }
                       onValueChange={(val) => {
-                        setFatorAguaManual(Number(val))
-                        setAguaEditadaManualmente(false)
+                        if (val !== 'custom') {
+                          setFatorAguaManual(Number(val))
+                          setAguaEditadaManualmente(false)
+                        }
                       }}
                       disabled={cargaZerada}
                     >
                       <SelectTrigger
                         id="fator-agua-select"
-                        className="h-7 text-xs font-mono font-medium flex-1 px-2 bg-background border-border/60"
+                        className="h-8 text-xs font-mono font-medium flex-1 px-2 bg-background border-border/70 shadow-sm"
                       >
-                        <SelectValue placeholder="Selecione o fator" />
+                        <SelectValue placeholder="Selecione o fator">
+                          {OPCOES_FATOR_AGUA.some(
+                            (o) => o.valor === fatorAguaManual,
+                          )
+                            ? String(fatorAguaManual).replace('.', ',')
+                            : `${String(fatorAguaManual).replace('.', ',')} (outro)`}
+                        </SelectValue>
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-50 bg-popover text-popover-foreground">
                         {OPCOES_FATOR_AGUA.map((op) => (
                           <SelectItem
                             key={op.valor}
                             value={String(op.valor)}
-                            className="font-mono text-xs"
+                            className="font-mono text-xs cursor-pointer"
                           >
-                            {op.rotulo}
+                            Fator {op.rotulo}
                           </SelectItem>
                         ))}
-                        {/* Se o valor atual for personalizado e não estiver na lista */}
                         {!OPCOES_FATOR_AGUA.some(
                           (o) => o.valor === fatorAguaManual,
                         ) && (
                           <SelectItem
-                            value={String(fatorAguaManual)}
-                            className="font-mono text-xs"
+                            value="custom"
+                            className="font-mono text-xs cursor-pointer"
                           >
                             {String(fatorAguaManual).replace('.', ',')}{' '}
                             (Personalizado)
@@ -1553,7 +1579,7 @@ export default function LancamentoCargas() {
                       step="0.01"
                       min="0.30"
                       max="1.20"
-                      value={fatorAguaManual}
+                      value={fatorAguaManual || ''}
                       onChange={(e) => {
                         const val =
                           e.target.value === '' ? 0 : Number(e.target.value)
@@ -1561,8 +1587,9 @@ export default function LancamentoCargas() {
                         setAguaEditadaManualmente(false)
                       }}
                       disabled={cargaZerada}
-                      className="h-7 w-20 text-xs font-mono text-center px-1 bg-background"
+                      className="h-8 w-20 text-xs font-mono font-medium text-center px-1 bg-background border-border/70"
                       title="Ou digite manualmente o fator de água"
+                      placeholder="0.55"
                     />
                   </div>
 
@@ -2488,12 +2515,28 @@ export default function LancamentoCargas() {
                 </div>
 
                 <div className="space-y-1 sm:col-span-3">
-                  <Label htmlFor="obsEntrega" className="text-xs">
-                    Observações da OS
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="obsEntrega" className="text-xs">
+                      Observações da OS
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setObservacoesEntrega(TEXTO_OBSERVACOES_PADRAO)
+                        if (!observacao) setObservacao(TEXTO_OBSERVACOES_PADRAO)
+                      }}
+                      className="h-6 px-2 text-[10px] text-primary hover:text-primary gap-1 font-medium hover:bg-primary/10"
+                      title="Preenche com o texto objetivo sugerido: Cuidado com a cura do concreto para evitar frisuras"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Sugestão: Aviso de Cura
+                    </Button>
+                  </div>
                   <Input
                     id="obsEntrega"
-                    placeholder="Avisos sobre a entrega, dosagem ou restrições..."
+                    placeholder="Cuidado com a cura do concreto para evitar frisuras"
                     value={observacoesEntrega}
                     onChange={(e) => {
                       setObservacoesEntrega(e.target.value)
@@ -2501,6 +2544,10 @@ export default function LancamentoCargas() {
                     }}
                     className="text-xs"
                   />
+                  <p className="text-[10px] text-muted-foreground">
+                    Texto curto e objetivo para a entrega. Clique em
+                    &quot;Sugestão: Aviso de Cura&quot; para preencher rápido.
+                  </p>
                 </div>
               </div>
             </div>

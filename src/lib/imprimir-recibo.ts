@@ -78,7 +78,7 @@ export async function printElementInIsolatedIframe(
     <style>
       @page {
         size: A4 portrait;
-        margin: 5mm 7mm 5mm 7mm;
+        margin: 3mm 5mm 3mm 5mm;
       }
       * {
         box-sizing: border-box;
@@ -92,7 +92,8 @@ export async function printElementInIsolatedIframe(
         background-color: #ffffff !important;
         color: #000000 !important;
         font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-        font-size: 10pt !important;
+        font-size: 8pt !important;
+        line-height: 1.15 !important;
         width: 100% !important;
         min-height: 0 !important;
         height: auto !important;
