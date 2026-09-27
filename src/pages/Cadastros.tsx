@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { useSearchParams } from 'react-router-dom'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PainelUsuarios } from '@/components/PainelUsuarios'
 import { UserCog } from 'lucide-react'
@@ -97,6 +98,19 @@ import { toast } from '@/hooks/use-toast'
 export default function Cadastros() {
   const { empresaAtiva } = useEmpresa()
   const { isAdministrador } = useUsuario()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const abaUrl = searchParams.get('tab')
+  const [abaAtiva, setAbaAtiva] = useState<string>(() => {
+    const permitidas = ['usuarios', 'metas', 'clientes', 'insumos', 'motoristas', 'veiculos', 'cidades']
+    return abaUrl && permitidas.includes(abaUrl) ? abaUrl : 'usuarios'
+  })
+
+  useEffect(() => {
+    const permitidas = ['usuarios', 'metas', 'clientes', 'insumos', 'motoristas', 'veiculos', 'cidades']
+    if (abaUrl && permitidas.includes(abaUrl) && abaUrl !== abaAtiva) {
+      setAbaAtiva(abaUrl)
+    }
+  }, [abaUrl, abaAtiva])
   const [motoristas, setMotoristas] = useState<Motorista[]>([])
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [cidades, setCidades] = useState<Cidade[]>([])
@@ -790,7 +804,14 @@ export default function Cadastros() {
         </div>
       </div>
 
-      <Tabs defaultValue="usuarios" className="w-full">
+      <Tabs
+        value={abaAtiva}
+        onValueChange={(val) => {
+          setAbaAtiva(val)
+          setSearchParams({ tab: val }, { replace: true })
+        }}
+        className="w-full"
+      >
         <TabsList className="grid grid-cols-7 w-full max-w-4xl">
           <TabsTrigger value="usuarios" className="gap-1.5 text-xs">
             <UserCog className="w-4 h-4" />

@@ -1,18 +1,19 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { cn } from '@/lib/utils'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
-  Menu,
   Building2,
   ChevronDown,
   Plus,
   Scale,
   ShieldCheck,
   Download,
+  LogOut,
+  Sun,
+  Moon,
+  Menu,
 } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { usePwaInstall } from '@/hooks/use-pwa-install'
-import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from '@/assets/logos'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -26,13 +27,22 @@ import { useAuth } from '@/hooks/use-auth'
 import { useEmpresa } from '@/hooks/use-empresa'
 import { useUsuario } from '@/hooks/use-usuario'
 import { ModalGerenciarEmpresas } from '@/components/ModalGerenciarEmpresas'
-import { useNavigate } from 'react-router-dom'
-import { LogOut } from 'lucide-react'
 
-export function Header() {
+interface HeaderProps {
+  onOpenMobileMenu?: () => void
+  sidebarCollapsed?: boolean
+  onToggleSidebar?: () => void
+}
+
+export function Header({
+  onOpenMobileMenu,
+  sidebarCollapsed = false,
+  onToggleSidebar,
+}: HeaderProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { signOut } = useAuth()
+  const { theme, setTheme } = useTheme()
   const { empresas, empresaAtiva, selecionarEmpresa } = useEmpresa()
   const { isInstallable, installApp } = usePwaInstall()
   const {
@@ -49,26 +59,27 @@ export function Header() {
 
   const nomeEmpresa = empresaAtiva?.nome || 'Selecione'
 
-  // Links visíveis no cabeçalho conforme o perfil
-  const navLinks = isBalanceiro
-    ? [
-        { label: 'Dashboard Operacional', path: '/' },
-        { label: 'Lançar Cargas', path: '/lancamentos' },
-        { label: 'Estoque de Insumos', path: '/estoque' },
-        { label: 'Ordens & Recibos', path: '/ordens' },
-        { label: 'Exames (ASO)', path: '/exames' },
-      ]
-    : [
-        { label: 'Dashboard', path: '/' },
-        { label: 'Lançar Cargas', path: '/lancamentos' },
-        { label: 'Estoque', path: '/estoque' },
-        { label: 'Traços / Dosagens', path: '/tracos' },
-        { label: 'Cadastros', path: '/cadastros' },
-        { label: 'Ordens & Recibos', path: '/ordens' },
-        { label: 'Exames (ASO)', path: '/exames' },
-        { label: 'Folha', path: '/folha' },
-        { label: 'Relatórios', path: '/relatorios' },
-      ]
+  // Mapeamento do título da página atual
+  const getPageTitle = () => {
+    const path = location.pathname
+    const search = location.search
+    if (path === '/') {
+      return isBalanceiro ? 'Dashboard Operacional' : 'Dashboard de Produção'
+    }
+    if (path === '/lancamentos') return 'Lançamento de Cargas'
+    if (path === '/ordens') return 'Ordens de Serviço & Recibos'
+    if (path === '/estoque') return 'Estoque de Insumos'
+    if (path === '/tracos') return 'Traços & Dosagens'
+    if (path === '/exames') return 'Controle de Exames (ASO)'
+    if (path === '/folha') return 'Folha de Pagamento'
+    if (path === '/relatorios') return 'Relatórios de Produção'
+    if (path === '/cadastros') {
+      const params = new URLSearchParams(search)
+      if (params.get('tab') === 'usuarios') return 'Gestão de Usuários'
+      return 'Cadastros Operacionais'
+    }
+    return 'GC MIX Concreto Usinado'
+  }
 
   const handleLogout = async () => {
     await signOut()
@@ -77,202 +88,94 @@ export function Header() {
 
   return (
     <>
-      <header className="flex items-center justify-between px-4 sm:px-6 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40 w-full border-b border-border/20 md:pl-24">
-        {/* Mobile Menu & Nome da Empresa */}
-        <div className="md:hidden flex items-center gap-2">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent
-              side="left"
-              className="w-[260px] bg-card border-r-border/30"
-            >
-              <div className="flex items-center gap-2 mb-6 mt-2">
-                <div className="w-9 h-9 p-0.5 rounded-xl bg-white dark:bg-slate-900 border border-border/60 flex items-center justify-center shrink-0">
-                  <img
-                    src={LOGO_GC_MIX_QUADRADA}
-                    alt={LOGO_ALT_TEXT}
-                    className="w-full h-full object-contain rounded-lg"
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="block font-bold text-foreground text-sm truncate leading-tight">
-                    GC MIX
-                  </span>
-                  <span className="block text-[10px] text-muted-foreground truncate">
-                    {nomeEmpresa}
-                  </span>
-                </div>
-              </div>
-              <nav className="flex flex-col gap-2">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.path}
-                    to={link.path}
-                    className={cn(
-                      'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                      location.pathname === link.path
-                        ? 'text-primary bg-primary/10'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/40',
-                    )}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </nav>
-            </SheetContent>
-          </Sheet>
+      <header className="no-print flex items-center justify-between px-3 sm:px-6 h-14 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 sticky top-0 z-30 w-full border-b border-border/30">
+        {/* Esquerda: Botão Mobile Hambúrguer ou Toggle Desktop + Título da Página Atual */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {/* Botão Hambúrguer Mobile */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenMobileMenu}
+            className="md:hidden h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+            aria-label="Abrir menu de navegação"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
 
-          {/* Seletor Mobile de Empresa */}
-          {podeTrocarEmpresa ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1.5 px-2.5 font-bold text-xs bg-card"
-                >
-                  <Building2 className="w-3.5 h-3.5 text-primary" />
-                  <span className="truncate max-w-[120px]">{nomeEmpresa}</span>
-                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                <DropdownMenuLabel className="text-xs">
-                  Trocar Empresa
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {empresas.map((emp) => (
-                  <DropdownMenuItem
-                    key={emp.id}
-                    onClick={() => selecionarEmpresa(emp.id)}
-                    className="flex items-center justify-between text-xs"
-                  >
-                    <span
-                      className={
-                        empresaAtiva?.id === emp.id
-                          ? 'font-bold text-primary'
-                          : ''
-                      }
-                    >
-                      {emp.nome}
-                    </span>
-                    {empresaAtiva?.id === emp.id && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
-                {isAdministrador && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => setModalEmpresasOpen(true)}
-                      className="text-xs text-primary gap-1.5"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Gerenciar Empresas
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <div className="h-8 gap-1.5 px-2.5 rounded-md border border-border/40 bg-card flex items-center font-bold text-xs">
-              <Building2 className="w-3.5 h-3.5 text-primary" />
-              <span className="truncate max-w-[120px]">{nomeEmpresa}</span>
-            </div>
+          {/* Botão de Toggle da Sidebar em Desktop (quando visível) */}
+          {onToggleSidebar && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleSidebar}
+              className="hidden md:flex h-8 w-8 text-muted-foreground hover:text-foreground shrink-0 rounded-lg"
+              title={sidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+            >
+              <Menu className="h-4 w-4" />
+              <span className="sr-only">Alternar menu</span>
+            </Button>
           )}
+
+          {/* Título da tela atual */}
+          <div className="min-w-0 flex items-center gap-2">
+            <h1 className="text-sm sm:text-base font-bold text-foreground truncate tracking-tight">
+              {getPageTitle()}
+            </h1>
+            <span className="hidden lg:inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {nomeEmpresa}
+            </span>
+          </div>
         </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-6">
-          {navLinks.map((link) => {
-            const isActive = location.pathname === link.path
-            return (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={cn(
-                  'relative text-sm font-medium transition-colors hover:text-foreground py-1.5',
-                  isActive
-                    ? 'text-primary font-semibold'
-                    : 'text-muted-foreground',
-                )}
-              >
-                {link.label}
-                {isActive && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-primary" />
-                )}
-              </Link>
-            )
-          })}
-        </nav>
-
-        {/* Seletor Desktop de Empresa, Perfil e Usuário/Logout */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Botão de Instalar como PWA (exibido quando suportado pelo navegador) */}
+        {/* Direita: Seletor de Empresa, PWA, Tema, Perfil e Menu do Usuário */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          {/* Botão de Instalação PWA (se suportado e não instalado) */}
           {isInstallable && (
             <Button
               variant="outline"
               size="sm"
               onClick={installApp}
-              className="h-9 px-3 gap-1.5 border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary font-bold shadow-sm transition-all animate-in fade-in"
-              title="Instalar GC MIX como aplicativo no computador ou celular"
+              className="h-8 px-2.5 gap-1.5 border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs shadow-2xs transition-all"
+              title="Instalar GC MIX no computador ou smartphone"
             >
-              <Download className="w-4 h-4 text-primary animate-bounce" />
+              <Download className="w-3.5 h-3.5 text-primary animate-bounce shrink-0" />
               <span className="hidden sm:inline">Instalar App</span>
             </Button>
-          )}{' '}
-          {/* Badge de Perfil (Vinculado ao cadastro do usuário) */}
-          <div
-            className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs bg-card ${
-              isBalanceiro
-                ? 'border-amber-500/40 bg-amber-500/5 text-amber-600 dark:text-amber-400'
-                : 'border-primary/40 bg-primary/5 text-primary'
-            }`}
+          )}
+
+          {/* Alternador de Tema Claro/Escuro */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-lg"
+            title="Alternar entre modo claro e escuro"
           >
-            {isBalanceiro ? (
-              <Scale className="w-3.5 h-3.5" />
-            ) : (
-              <ShieldCheck className="w-3.5 h-3.5" />
-            )}
-            <div className="text-left">
-              <span className="block font-bold leading-tight">
-                {nomePerfil}
-              </span>
-              <span className="block text-[9px] text-muted-foreground leading-none">
-                {isBalanceiro ? 'Expedição & OS' : 'Controle Total'}
-              </span>
-            </div>
-          </div>
-          {/* Seletor Desktop de Empresa e Status */}
+            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">Alternar tema</span>
+          </Button>
+
+          {/* Seletor Rápido de Empresa (visível em tablet/desktop no Header para conveniência) */}
           {podeTrocarEmpresa ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="hidden sm:flex items-center gap-2 h-9 px-3 bg-card border-border/50 hover:border-primary/40 transition-colors shadow-sm"
+                  className="h-8 gap-1.5 px-2.5 font-bold text-xs bg-card border-border/50 hover:border-primary/40 shadow-2xs"
                 >
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <Building2 className="w-4 h-4 text-primary" />
-                  <div className="text-left">
-                    <span className="block text-xs font-bold leading-tight">
-                      {nomeEmpresa}
-                    </span>
-                    <span className="block text-[10px] text-muted-foreground leading-none">
-                      Unidade Ativa
-                    </span>
-                  </div>
-                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-1" />
+                  <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                  <span className="truncate max-w-[90px] sm:max-w-[140px] font-semibold">
+                    {nomeEmpresa}
+                  </span>
+                  <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel className="text-xs">
-                  Unidades Operacionais
+                  Trocar Unidade Operacional
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {empresas.map((emp) => {
@@ -281,33 +184,13 @@ export function Header() {
                     <DropdownMenuItem
                       key={emp.id}
                       onClick={() => selecionarEmpresa(emp.id)}
-                      className="flex items-center justify-between cursor-pointer py-2"
+                      className="flex items-center justify-between cursor-pointer py-1.5 text-xs"
                     >
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-6 h-6 rounded flex items-center justify-center font-bold text-xs ${
-                            isAtiva
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted text-muted-foreground'
-                          }`}
-                        >
-                          {emp.nome.slice(0, 1).toUpperCase()}
-                        </div>
-                        <div>
-                          <span
-                            className={`text-xs block ${isAtiva ? 'font-bold text-primary' : ''}`}
-                          >
-                            {emp.nome}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            slug: {emp.slug}
-                          </span>
-                        </div>
-                      </div>
+                      <span className={isAtiva ? 'font-bold text-primary' : ''}>
+                        {emp.nome}
+                      </span>
                       {isAtiva && (
-                        <span className="text-[10px] font-semibold text-primary px-1.5 py-0.5 bg-primary/10 rounded">
-                          Ativa
-                        </span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                       )}
                     </DropdownMenuItem>
                   )
@@ -320,46 +203,50 @@ export function Header() {
                       className="text-xs text-primary gap-1.5 cursor-pointer font-medium"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      Gerenciar / Cadastrar Unidade
+                      Gerenciar Unidades
                     </DropdownMenuItem>
                   </>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <div className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-md border border-border/50 bg-card shadow-sm">
-              <div className="w-2 h-2 rounded-full bg-emerald-500" />
-              <Building2 className="w-4 h-4 text-primary" />
-              <div className="text-left">
-                <span className="block text-xs font-bold leading-tight">
-                  {nomeEmpresa}
-                </span>
-                <span className="block text-[10px] text-muted-foreground leading-none">
-                  Unidade Fixa
-                </span>
-              </div>
+            <div className="h-8 gap-1.5 px-2.5 rounded-md border border-border/40 bg-card hidden sm:flex items-center font-bold text-xs">
+              <Building2 className="w-3.5 h-3.5 text-primary" />
+              <span className="truncate max-w-[120px]">{nomeEmpresa}</span>
             </div>
           )}
+
+          {/* Badge de Perfil do Usuário */}
+          <div
+            className={`hidden md:flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-semibold bg-card ${
+              isBalanceiro
+                ? 'border-amber-500/40 bg-amber-500/5 text-amber-600 dark:text-amber-400'
+                : 'border-primary/40 bg-primary/5 text-primary'
+            }`}
+          >
+            {isBalanceiro ? (
+              <Scale className="w-3 h-3 shrink-0" />
+            ) : (
+              <ShieldCheck className="w-3 h-3 shrink-0" />
+            )}
+            <span>{nomePerfil}</span>
+          </div>
+
           {/* Menu do Usuário Logado & Logout */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9 px-2.5 sm:px-3 text-xs gap-2 bg-card border-border/50 hover:border-primary/40 shadow-sm"
+                className="h-8 px-2 sm:px-2.5 text-xs gap-1.5 bg-card border-border/50 hover:border-primary/40 shadow-2xs"
               >
-                <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">
+                <div className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[11px] shrink-0">
                   {nomeUsuario.slice(0, 1).toUpperCase()}
                 </div>
-                <div className="text-left hidden md:block max-w-[120px]">
-                  <span className="block font-bold leading-tight truncate">
-                    {nomeUsuario}
-                  </span>
-                  <span className="block text-[9px] text-muted-foreground leading-none truncate">
-                    {emailUsuario}
-                  </span>
-                </div>
-                <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                <span className="font-semibold text-foreground truncate max-w-[80px] hidden sm:inline">
+                  {nomeUsuario.split(' ')[0]}
+                </span>
+                <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -376,7 +263,7 @@ export function Header() {
                     {perfil}
                   </span>
                   {empresaVinculadaNome && (
-                    <span>• {empresaVinculadaNome}</span>
+                    <span className="truncate">• {empresaVinculadaNome}</span>
                   )}
                 </div>
               </div>

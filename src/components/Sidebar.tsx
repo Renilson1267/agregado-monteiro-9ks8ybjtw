@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
@@ -15,56 +15,176 @@ import {
   FileSpreadsheet,
   HeartPulse,
   Briefcase,
+  UserCog,
+  ChevronDown,
+  Plus,
+  Scale,
+  ShieldCheck,
+  Download,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from 'lucide-react'
 import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from '@/assets/logos'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useAuth } from '@/hooks/use-auth'
 import { useEmpresa } from '@/hooks/use-empresa'
 import { useUsuario } from '@/hooks/use-usuario'
+import { usePwaInstall } from '@/hooks/use-pwa-install'
 import { ModalGerenciarEmpresas } from '@/components/ModalGerenciarEmpresas'
-import { LogOut } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 
-export function Sidebar() {
+interface SidebarProps {
+  collapsed?: boolean
+  onToggleCollapse?: () => void
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+}
+
+interface NavItemDef {
+  icon: typeof LayoutDashboard
+  label: string
+  path: string
+  badge?: string
+  section?: 'operacional' | 'gestao' | 'sistema'
+}
+
+export function Sidebar({
+  collapsed = false,
+  onToggleCollapse,
+  mobileOpen = false,
+  onMobileClose,
+}: SidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { signOut } = useAuth()
   const { theme, setTheme } = useTheme()
-  const { empresaAtiva } = useEmpresa()
-  const { isBalanceiro, isAdministrador, podeTrocarEmpresa } = useUsuario()
+  const { empresas, empresaAtiva, selecionarEmpresa } = useEmpresa()
+  const {
+    perfil,
+    isBalanceiro,
+    isAdministrador,
+    nomePerfil,
+    nomeUsuario,
+    emailUsuario,
+    podeTrocarEmpresa,
+    empresaVinculadaNome,
+  } = useUsuario()
+  const { isInstallable, installApp } = usePwaInstall()
+
   const [modalEmpresasOpen, setModalEmpresasOpen] = useState(false)
 
-  const navItems = isBalanceiro
+  // Itens de navegação estritamente filtrados pelo perfil do usuário
+  // Balanceiro: APENAS itens operacionais permitidos, NUNCA valores ou itens de gestão/admin
+  const navItems: NavItemDef[] = isBalanceiro
     ? [
-        { icon: LayoutDashboard, label: 'Dashboard Operacional', path: '/' },
-        { icon: Truck, label: 'Lançar Cargas', path: '/lancamentos' },
-        { icon: Boxes, label: 'Estoque de Insumos', path: '/estoque' },
-        { icon: FileText, label: 'Ordens & Recibos', path: '/ordens' },
+        {
+          icon: LayoutDashboard,
+          label: 'Dashboard Operacional',
+          path: '/',
+          section: 'operacional',
+        },
+        {
+          icon: Truck,
+          label: 'Lançar Cargas',
+          path: '/lancamentos',
+          section: 'operacional',
+        },
+        {
+          icon: FileText,
+          label: 'Ordens & Recibos',
+          path: '/ordens',
+          section: 'operacional',
+        },
+        {
+          icon: Boxes,
+          label: 'Estoque de Insumos',
+          path: '/estoque',
+          section: 'operacional',
+        },
         {
           icon: HeartPulse,
           label: 'Controle de Exames (ASO)',
           path: '/exames',
+          section: 'operacional',
         },
       ]
     : [
-        { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-        { icon: Truck, label: 'Lançar Cargas', path: '/lancamentos' },
-        { icon: Boxes, label: 'Estoque', path: '/estoque' },
-        { icon: FlaskConical, label: 'Traços / Dosagens', path: '/tracos' },
-        { icon: Users, label: 'Cadastros', path: '/cadastros' },
-        { icon: FileText, label: 'Ordens & Recibos', path: '/ordens' },
+        {
+          icon: LayoutDashboard,
+          label: 'Dashboard',
+          path: '/',
+          section: 'operacional',
+        },
+        {
+          icon: Truck,
+          label: 'Lançar Cargas',
+          path: '/lancamentos',
+          section: 'operacional',
+        },
+        {
+          icon: FileText,
+          label: 'Ordens & Recibos',
+          path: '/ordens',
+          section: 'operacional',
+        },
+        {
+          icon: Boxes,
+          label: 'Estoque de Insumos',
+          path: '/estoque',
+          section: 'operacional',
+        },
+        {
+          icon: FlaskConical,
+          label: 'Traços / Dosagens',
+          path: '/tracos',
+          section: 'operacional',
+        },
         {
           icon: HeartPulse,
           label: 'Controle de Exames (ASO)',
           path: '/exames',
+          section: 'operacional',
+        },
+        {
+          icon: FileSpreadsheet,
+          label: 'Relatórios',
+          path: '/relatorios',
+          section: 'gestao',
+        },
+        {
+          icon: Users,
+          label: 'Cadastros',
+          path: '/cadastros',
+          section: 'gestao',
         },
         {
           icon: Briefcase,
           label: 'Folha de Pagamento',
           path: '/folha',
+          section: 'gestao',
         },
-        { icon: FileSpreadsheet, label: 'Relatórios', path: '/relatorios' },
+        {
+          icon: UserCog,
+          label: 'Usuários',
+          path: '/cadastros?tab=usuarios',
+          section: 'sistema',
+        },
       ]
 
   const handleLogout = async () => {
@@ -72,113 +192,532 @@ export function Sidebar() {
     navigate('/login', { replace: true })
   }
 
+  const isItemActive = (path: string) => {
+    if (path.includes('?')) {
+      const [basePath, search] = path.split('?')
+      const params = new URLSearchParams(search)
+      const tab = params.get('tab')
+      const currentParams = new URLSearchParams(location.search)
+      return location.pathname === basePath && currentParams.get('tab') === tab
+    }
+    // Caso especial de /cadastros sem ?tab=usuarios
+    if (path === '/cadastros' && location.pathname === '/cadastros') {
+      const currentParams = new URLSearchParams(location.search)
+      return currentParams.get('tab') !== 'usuarios'
+    }
+    return location.pathname === path
+  }
+
+  // Renderiza a lista de itens da navegação
+  const renderNavList = (isMobileView = false) => {
+    let currentSection: string | undefined = undefined
+
+    return (
+      <nav className="flex flex-col gap-1 w-full px-2">
+        {navItems.map((item) => {
+          const active = isItemActive(item.path)
+          const showSectionDivider =
+            !isMobileView &&
+            !collapsed &&
+            item.section &&
+            item.section !== currentSection
+          currentSection = item.section
+
+          const linkContent = (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={() => {
+                if (isMobileView && onMobileClose) onMobileClose()
+              }}
+              className={cn(
+                'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150',
+                collapsed && !isMobileView ? 'justify-center px-0 w-11 h-11 mx-auto' : 'w-full',
+                active
+                  ? 'bg-primary text-primary-foreground shadow-sm font-semibold'
+                  : 'text-muted-foreground hover:bg-accent/70 hover:text-foreground',
+              )}
+            >
+              <item.icon
+                className={cn(
+                  'shrink-0 transition-transform duration-150 group-hover:scale-105',
+                  collapsed && !isMobileView ? 'w-5 h-5' : 'w-4 h-4',
+                  active ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground',
+                )}
+              />
+
+              {(!collapsed || isMobileView) && (
+                <span className="truncate flex-1 text-left">{item.label}</span>
+              )}
+
+              {active && collapsed && !isMobileView && (
+                <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-l-full bg-primary" />
+              )}
+            </Link>
+          )
+
+          if (collapsed && !isMobileView) {
+            return (
+              <Tooltip key={item.path} delayDuration={100}>
+                <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+                <TooltipContent side="right" className="font-medium text-xs">
+                  {item.label}
+                </TooltipContent>
+              </Tooltip>
+            )
+          }
+
+          return (
+            <div key={item.path} className="w-full">
+              {showSectionDivider && (
+                <div className="pt-3 pb-1 px-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                    {item.section === 'operacional'
+                      ? 'Operação'
+                      : item.section === 'gestao'
+                        ? 'Gestão & Controle'
+                        : 'Administração'}
+                  </span>
+                </div>
+              )}
+              {linkContent}
+            </div>
+          )
+        })}
+      </nav>
+    )
+  }
+
   return (
     <>
+      {/* SIDEBAR FIXA DESKTOP */}
       <aside
-        id="sidebar"
-        className="hidden md:flex flex-col items-center w-20 py-6 bg-background border-r border-border/20 h-screen fixed left-0 top-0 z-50 transition-colors duration-300"
+        id="app-sidebar"
+        aria-label="Menu Principal"
+        className={cn(
+          'no-print hidden md:flex flex-col h-screen fixed left-0 top-0 z-40 bg-card border-r border-border/40 shadow-sm transition-all duration-300 ease-in-out',
+          collapsed ? 'w-18' : 'w-64',
+        )}
       >
-        <div className="mb-4">
+        {/* TOPO: Logo e Marca GC MIX */}
+        <div
+          className={cn(
+            'flex items-center gap-3 px-3.5 py-4 border-b border-border/30 h-16 shrink-0',
+            collapsed ? 'justify-center px-2' : 'justify-between',
+          )}
+        >
           <Link
             to="/"
-            className="flex items-center justify-center w-13 h-13 p-1 rounded-2xl bg-white dark:bg-slate-900 border border-border/60 shadow-md hover:scale-105 transition-all overflow-hidden"
-            title={`GC MIX Concreto Usinado & Pedreira Cordeiro — ${empresaAtiva?.nome || 'Sistema'}`}
+            className={cn(
+              'flex items-center gap-2.5 overflow-hidden group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg',
+              collapsed && 'justify-center',
+            )}
+            title="GC MIX Concreto Usinado"
           >
-            <img
-              src={LOGO_GC_MIX_QUADRADA}
-              alt={LOGO_ALT_TEXT}
-              className="w-full h-full object-contain rounded-xl"
-            />
+            <div className="w-9 h-9 p-0.5 rounded-xl bg-white dark:bg-slate-900 border border-border/60 shadow-xs flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <img
+                src={LOGO_GC_MIX_QUADRADA}
+                alt={LOGO_ALT_TEXT}
+                className="w-full h-full object-contain rounded-lg"
+              />
+            </div>
+            {!collapsed && (
+              <div className="min-w-0 flex flex-col leading-tight">
+                <span className="font-extrabold text-sm tracking-tight text-foreground truncate flex items-center gap-1.5">
+                  GC MIX
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20">
+                    ERP
+                  </span>
+                </span>
+                <span className="text-[10px] text-muted-foreground truncate">
+                  Concreto & Pedreira
+                </span>
+              </div>
+            )}
           </Link>
-        </div>
 
-        {/* Badge da Empresa Atual / Botão para Gerenciar */}
-        <div className="mb-6 flex flex-col items-center">
-          <button
-            type="button"
-            onClick={() => {
-              if (podeTrocarEmpresa && isAdministrador) {
-                setModalEmpresasOpen(true)
-              }
-            }}
-            disabled={!podeTrocarEmpresa || !isAdministrador}
-            className={`w-12 py-1.5 px-1 rounded-xl bg-primary/10 text-primary border border-primary/20 flex flex-col items-center gap-0.5 transition-all text-center group ${
-              podeTrocarEmpresa && isAdministrador
-                ? 'hover:bg-primary/20 cursor-pointer'
-                : 'cursor-default opacity-80'
-            }`}
-            title={`Unidade: ${empresaAtiva?.nome || 'Trocar'}`}
-          >
-            <Building2 className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-bold tracking-tight uppercase truncate max-w-[42px] leading-none">
-              {empresaAtiva?.slug?.toUpperCase() || 'UNID'}
-            </span>
-          </button>
-        </div>
-
-        <nav className="flex flex-col gap-4 w-full items-center">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  'relative flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-200 group',
-                  isActive
-                    ? 'text-primary bg-primary/10 shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/60',
-                )}
-                title={item.label}
-              >
-                <item.icon className="w-5 h-5" />
-                {isActive && (
-                  <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-6 rounded-l-full bg-primary" />
-                )}
-              </Link>
-            )
-          })}
-        </nav>
-
-        <div className="mt-auto flex flex-col items-center gap-2">
-          {isAdministrador && (
+          {/* Botão de recolher/expandir sidebar */}
+          {onToggleCollapse && !collapsed && (
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setModalEmpresasOpen(true)}
-              className="w-12 h-12 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              title="Gerenciar Empresas / Unidades"
+              onClick={onToggleCollapse}
+              className="h-7 w-7 text-muted-foreground hover:text-foreground shrink-0 rounded-lg"
+              title="Recolher menu lateral"
             >
-              <Settings className="h-5 w-5" />
-              <span className="sr-only">Configurações de Empresas</span>
+              <ChevronLeft className="h-4 w-4" />
+              <span className="sr-only">Recolher menu</span>
+            </Button>
+          )}
+        </div>
+
+        {/* SELETOR DE EMPRESA / UNIDADE */}
+        <div className={cn('p-2.5 border-b border-border/30 shrink-0', collapsed && 'p-2')}>
+          {podeTrocarEmpresa ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                {collapsed ? (
+                  <button
+                    type="button"
+                    className="w-11 h-11 mx-auto rounded-xl bg-primary/10 text-primary border border-primary/25 flex flex-col items-center justify-center gap-0.5 hover:bg-primary/20 transition-all cursor-pointer shadow-2xs"
+                    title={`Unidade: ${empresaAtiva?.nome || 'Trocar'} (clique para alternar)`}
+                  >
+                    <Building2 className="w-4 h-4" />
+                    <span className="text-[9px] font-black uppercase tracking-tight leading-none truncate max-w-[36px]">
+                      {empresaAtiva?.slug?.toUpperCase() || 'UNID'}
+                    </span>
+                  </button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between h-auto py-2 px-2.5 bg-background/50 hover:bg-accent/60 border-border/60 text-left rounded-xl transition-all shadow-2xs group"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 group-hover:scale-105 transition-transform">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 text-left">
+                        <span className="block text-[11px] font-semibold text-foreground truncate leading-tight">
+                          {empresaAtiva?.nome || 'Selecionar Unidade'}
+                        </span>
+                        <span className="block text-[10px] text-muted-foreground truncate leading-none">
+                          {empresaAtiva?.cidade
+                            ? `${empresaAtiva.cidade} - ${empresaAtiva.uf || 'PB'}`
+                            : 'Unidade Operacional'}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0 ml-1" />
+                  </Button>
+                )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align={collapsed ? 'start' : 'center'} className="w-56">
+                <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">
+                  Unidades Operacionais
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {empresas.map((emp) => {
+                  const isAtiva = empresaAtiva?.id === emp.id
+                  return (
+                    <DropdownMenuItem
+                      key={emp.id}
+                      onClick={() => selecionarEmpresa(emp.id)}
+                      className="flex items-center justify-between cursor-pointer py-2 text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={cn(
+                            'w-6 h-6 rounded flex items-center justify-center font-bold text-xs shrink-0',
+                            isAtiva
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted text-muted-foreground',
+                          )}
+                        >
+                          {emp.nome.slice(0, 1).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <span
+                            className={cn('block truncate', isAtiva ? 'font-bold text-primary' : '')}
+                          >
+                            {emp.nome}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground block truncate">
+                            {emp.cidade ? `${emp.cidade} - ${emp.uf || 'PB'}` : emp.slug}
+                          </span>
+                        </div>
+                      </div>
+                      {isAtiva && (
+                        <span className="text-[10px] font-semibold text-primary px-1.5 py-0.5 bg-primary/10 rounded shrink-0">
+                          Ativa
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+                  )
+                })}
+                {isAdministrador && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setModalEmpresasOpen(true)}
+                      className="text-xs text-primary gap-2 cursor-pointer font-medium"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Gerenciar Unidades
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <div
+              className={cn(
+                'rounded-xl border border-border/40 bg-background/50 flex items-center',
+                collapsed
+                  ? 'w-11 h-11 mx-auto justify-center flex-col gap-0.5'
+                  : 'p-2 gap-2',
+              )}
+              title={`Unidade Fixa: ${empresaAtiva?.nome || ''}`}
+            >
+              <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
+                <Building2 className="w-4 h-4" />
+              </div>
+              {!collapsed && (
+                <div className="min-w-0 text-left">
+                  <span className="block text-[11px] font-bold text-foreground truncate leading-tight">
+                    {empresaAtiva?.nome || 'Unidade'}
+                  </span>
+                  <span className="block text-[10px] text-muted-foreground truncate leading-none">
+                    Unidade Vinculada
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* NAVEGAÇÃO PRINCIPAL (Scrollable) */}
+        <div className="flex-1 overflow-y-auto py-3 scrollbar-thin scrollbar-thumb-border/40">
+          {renderNavList(false)}
+        </div>
+
+        {/* RODAPÉ: Botão Expandir (se collapsed), Instalar PWA, Perfil e Ações */}
+        <div className="p-2.5 border-t border-border/30 bg-muted/20 shrink-0 flex flex-col gap-2">
+          {/* Botão de Expandir se a sidebar estiver recolhida */}
+          {collapsed && onToggleCollapse && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleCollapse}
+              className="w-11 h-9 mx-auto rounded-lg text-muted-foreground hover:text-foreground"
+              title="Expandir menu lateral"
+            >
+              <ChevronRight className="h-4 w-4" />
+              <span className="sr-only">Expandir menu</span>
             </Button>
           )}
 
-          <Button
-            id="theme-toggle"
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="w-12 h-12 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            title="Alternar Tema"
-          >
-            <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            <span className="sr-only">Alternar tema</span>
-          </Button>
+          {/* Botão de Instalação PWA */}
+          {isInstallable && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={installApp}
+              className={cn(
+                'border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary font-bold shadow-2xs transition-all',
+                collapsed ? 'w-11 h-11 p-0 mx-auto justify-center' : 'w-full justify-start gap-2 h-9 text-xs',
+              )}
+              title="Instalar GC MIX como aplicativo no dispositivo"
+            >
+              <Download className="w-4 h-4 text-primary shrink-0 animate-bounce" />
+              {!collapsed && <span>Instalar Aplicativo</span>}
+            </Button>
+          )}
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleLogout}
-            className="w-12 h-12 rounded-xl text-destructive hover:bg-destructive/10 transition-colors"
-            title="Sair do Sistema"
-          >
-            <LogOut className="h-5 w-5" />
-            <span className="sr-only">Sair</span>
-          </Button>
+          {/* Card do Usuário Logado & Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  'rounded-xl border border-border/40 bg-card hover:bg-accent/60 transition-colors text-left flex items-center cursor-pointer shadow-2xs group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                  collapsed
+                    ? 'w-11 h-11 mx-auto justify-center p-0'
+                    : 'w-full p-2 gap-2.5 justify-between',
+                )}
+                title={`Usuário: ${nomeUsuario} (${nomePerfil})`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center font-black text-xs shrink-0 border border-primary/25">
+                    {nomeUsuario.slice(0, 1).toUpperCase()}
+                  </div>
+                  {!collapsed && (
+                    <div className="min-w-0 text-left">
+                      <span className="block text-xs font-bold text-foreground truncate leading-tight">
+                        {nomeUsuario}
+                      </span>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        {isBalanceiro ? (
+                          <Scale className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                        ) : (
+                          <ShieldCheck className="w-2.5 h-2.5 text-primary shrink-0" />
+                        )}
+                        <span className="text-[10px] text-muted-foreground truncate leading-none">
+                          {nomePerfil}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {!collapsed && (
+                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side={collapsed ? 'right' : 'top'}
+              align={collapsed ? 'end' : 'center'}
+              className="w-56"
+            >
+              <DropdownMenuLabel className="text-xs">
+                Conta Conectada
+              </DropdownMenuLabel>
+              <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                <p className="font-semibold text-foreground truncate">
+                  {nomeUsuario}
+                </p>
+                <p className="text-[11px] truncate">{emailUsuario}</p>
+                <div className="mt-1 flex items-center gap-1 text-[10px]">
+                  <span className="font-semibold text-primary capitalize">
+                    {perfil}
+                  </span>
+                  {empresaVinculadaNome && (
+                    <span className="truncate">• {empresaVinculadaNome}</span>
+                  )}
+                </div>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="text-xs cursor-pointer gap-2"
+              >
+                {theme === 'dark' ? (
+                  <>
+                    <Sun className="w-4 h-4 text-amber-500" />
+                    <span>Tema Claro</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="w-4 h-4 text-blue-500" />
+                    <span>Tema Escuro</span>
+                  </>
+                )}
+              </DropdownMenuItem>
+              {isAdministrador && (
+                <DropdownMenuItem
+                  onClick={() => setModalEmpresasOpen(true)}
+                  className="text-xs cursor-pointer gap-2"
+                >
+                  <Settings className="w-4 h-4 text-muted-foreground" />
+                  <span>Gerenciar Empresas</span>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="text-xs text-destructive focus:text-destructive cursor-pointer gap-2 py-2"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sair do Sistema</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
+
+      {/* GAVETA MOBILE (SHEET) PARA TELAS PEQUENAS */}
+      <Sheet open={mobileOpen} onOpenChange={(open) => !open && onMobileClose && onMobileClose()}>
+        <SheetContent
+          side="left"
+          className="no-print w-[280px] p-0 bg-card border-r-border/40 flex flex-col h-full"
+        >
+          {/* TOPO MOBILE */}
+          <div className="flex items-center justify-between p-4 border-b border-border/30">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 p-0.5 rounded-xl bg-white dark:bg-slate-900 border border-border/60 shadow-xs flex items-center justify-center shrink-0">
+                <img
+                  src={LOGO_GC_MIX_QUADRADA}
+                  alt={LOGO_ALT_TEXT}
+                  className="w-full h-full object-contain rounded-lg"
+                />
+              </div>
+              <div className="min-w-0">
+                <span className="block font-extrabold text-sm text-foreground truncate">
+                  GC MIX ERP
+                </span>
+                <span className="block text-[10px] text-muted-foreground truncate">
+                  {empresaAtiva?.nome || 'Concreto Usinado'}
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onMobileClose}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* SELETOR MOBILE DENTRO DA GAVETA */}
+          {podeTrocarEmpresa && (
+            <div className="p-3 border-b border-border/30 bg-muted/20">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">
+                Unidade Ativa
+              </label>
+              <select
+                value={empresaAtiva?.id || ''}
+                onChange={(e) => {
+                  selecionarEmpresa(e.target.value)
+                  if (onMobileClose) onMobileClose()
+                }}
+                className="w-full h-9 rounded-lg bg-background border border-border/60 text-xs px-2.5 font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                {empresas.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.nome} ({emp.slug.toUpperCase()})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* LINKS DE NAVEGAÇÃO */}
+          <div className="flex-1 overflow-y-auto py-3">
+            {renderNavList(true)}
+          </div>
+
+          {/* RODAPÉ MOBILE */}
+          <div className="p-3 border-t border-border/30 bg-muted/20 flex flex-col gap-2">
+            <div className="flex items-center justify-between text-xs px-1">
+              <div className="min-w-0">
+                <span className="block font-bold text-foreground truncate">
+                  {nomeUsuario}
+                </span>
+                <span className="block text-[10px] text-muted-foreground truncate">
+                  {nomePerfil}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="h-8 w-8 rounded-lg"
+                title="Alternar Tema"
+              >
+                {theme === 'dark' ? (
+                  <Sun className="h-4 w-4 text-amber-500" />
+                ) : (
+                  <Moon className="h-4 w-4 text-blue-500" />
+                )}
+              </Button>
+            </div>
+
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                if (onMobileClose) onMobileClose()
+                handleLogout()
+              }}
+              className="w-full justify-center gap-2 h-9 text-xs"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sair do Sistema</span>
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <ModalGerenciarEmpresas
         open={modalEmpresasOpen}
