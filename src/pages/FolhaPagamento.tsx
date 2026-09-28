@@ -103,7 +103,7 @@ export function FolhaPagamento() {
   const [carregando, setCarregando] = useState(false)
   const [abaAtiva, setAbaAtiva] = useState<string>("geral")
 
-  // Cabeçalho editável da competência
+  // Cabeçalho editável da competência (fix tsc trigger)
   const [dataCompetencia, setDataCompetencia] = useState<string>("15/09/2026")
   const [percentualQuinzena, setPercentualQuinzena] = useState<number>(0.4)
   const [salvandoConfigComp, setSalvandoConfigComp] = useState(false)
