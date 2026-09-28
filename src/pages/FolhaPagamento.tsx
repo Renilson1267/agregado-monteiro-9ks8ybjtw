@@ -381,7 +381,15 @@ export function FolhaPagamento() {
       const inssFinal = Number(l.inss ?? inssCalc ?? 0)
       const familiaFinal = Number(l.familia ?? familiaCalc ?? 0)
       const irrfFinal = Number(l.ir ?? irrfCalc ?? 0)
-      const quinzenaFinal = Number(l.quinzena ?? quinzenaCalc)
+      // Quinzena: se modo_calculo for 'Digitado' e houver valor digitado pelo usuário, respeita;
+      // caso contrário (modo_calculo <> 'Digitado'), sempre calcula automaticamente (bruto × % da competência)
+      const quinzenaFinal =
+        l.modo_calculo === "Digitado" &&
+        l.quinzena !== undefined &&
+        l.quinzena !== null &&
+        Number(l.quinzena) > 0
+          ? Number(l.quinzena)
+          : quinzenaCalc
 
       // Extras que compõem o líquido
       const obras = Number(l.obras || 0)
@@ -440,6 +448,7 @@ export function FolhaPagamento() {
         Math.abs(irrfFinal - irrfCalc) > 0.05 &&
         irrfFinal > 0
       const isQuinzenaSobrescrita =
+        l.modo_calculo === "Digitado" &&
         Math.abs(quinzenaFinal - quinzenaCalc) > 0.05
       const isMensalSobrescrito = Math.abs(mensalFinal - mensalCalc) > 0.05
 
@@ -478,7 +487,14 @@ export function FolhaPagamento() {
   const terceirosProcessados = useMemo(() => {
     return terceirosFiltrados.map((t) => {
       const valorMes = Number(t.salario_liquido || t.bruto || 0)
-      const quinzena = Math.round(valorMes * percentualQuinzena * 100) / 100
+      const quinzenaAuto = Math.round(valorMes * percentualQuinzena * 100) / 100
+      const quinzena =
+        t.modo_calculo === "Digitado" &&
+        t.quinzena !== undefined &&
+        t.quinzena !== null &&
+        Number(t.quinzena) > 0
+          ? Number(t.quinzena)
+          : quinzenaAuto
       const mensal = Math.round((valorMes - quinzena) * 100) / 100
       return {
         ...t,
@@ -668,11 +684,32 @@ export function FolhaPagamento() {
   ) => {
     if (linha) {
       setLinhaEmEdicao({ ...linha })
-      setInssManual(Boolean(linha.inss && linha.inss > 0))
-      setFamiliaManual(Boolean(linha.familia && linha.familia > 0))
-      setIrManual(Boolean(linha.ir && linha.ir > 0))
-      setQuinzenaManual(Boolean(linha.quinzena && linha.quinzena > 0))
-      setMensalManual(Boolean(linha.mensal_liquido && linha.mensal_liquido > 0))
+      setInssManual(
+        Boolean(
+          linha.inss && linha.inss > 0 && linha.modo_calculo === "Digitado",
+        ),
+      )
+      setFamiliaManual(
+        Boolean(
+          linha.familia &&
+            linha.familia > 0 &&
+            linha.modo_calculo === "Digitado",
+        ),
+      )
+      setIrManual(
+        Boolean(linha.ir && linha.ir > 0 && linha.modo_calculo === "Digitado"),
+      )
+      setQuinzenaManual(
+        linha.modo_calculo === "Digitado" &&
+          Boolean(linha.quinzena && linha.quinzena > 0),
+      )
+      setMensalManual(
+        Boolean(
+          linha.mensal_liquido &&
+            linha.mensal_liquido > 0 &&
+            linha.modo_calculo === "Digitado",
+        ),
+      )
       setComissaoManual(linha.modo_calculo === "Digitado")
     } else {
       const tipo = tipoForcado || "Funcionario"
@@ -870,7 +907,15 @@ export function FolhaPagamento() {
         pix: linhaEmEdicao.pix || "",
         chave_pix: linhaEmEdicao.pix || "",
         observacao_linha: linhaEmEdicao.observacao_linha || null,
-        modo_calculo: comissaoManual ? "Digitado" : "Calculado",
+        modo_calculo:
+          comissaoManual ||
+          quinzenaManual ||
+          inssManual ||
+          familiaManual ||
+          irManual ||
+          mensalManual
+            ? "Digitado"
+            : "Calculado",
         oculto: Boolean(linhaEmEdicao.oculto),
         inativo: Boolean(linhaEmEdicao.inativo),
       }
