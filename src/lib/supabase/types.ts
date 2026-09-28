@@ -404,8 +404,10 @@ export type Database = {
           base_fgts: number
           base_inss: number
           base_irrf: number
+          bruto: number
           cargo: string
           chave_pix: string | null
+          comissao: number
           comissoes: number
           competencia: string
           competencia_id: string
@@ -417,25 +419,38 @@ export type Database = {
           dsr: number
           empresa_id: string
           faltas_atrasos: number
+          familia: number
           fgts_mes: number
+          filhos: number
+          funcao: string
           funcionario_id: string | null
+          gratificacao: number
           gratificacoes: number
           horas_extras: number
           horas_normais: number
           id: string
+          inss: number
           inss_retido: number
+          ir: number
           irrf_retido: number
           itens_discriminados: Json | null
           matricula: string | null
+          mensal_liquido: number
+          modo_calculo: string
           nome: string
           observacoes: string | null
           outros_descontos: number
           outros_proventos: number
+          pix: string
           plano_saude: number
+          producao: number
+          quinzena: number
           salario_base: number
           salario_liquido: number
+          tipo: string
           total_descontos: number
           total_proventos: number
+          unidade: string
           updated_at: string
           vale_refeicao: number
           vale_transporte: number
@@ -451,8 +466,10 @@ export type Database = {
           base_fgts?: number
           base_inss?: number
           base_irrf?: number
+          bruto?: number
           cargo?: string
           chave_pix?: string | null
+          comissao?: number
           comissoes?: number
           competencia: string
           competencia_id: string
@@ -464,25 +481,38 @@ export type Database = {
           dsr?: number
           empresa_id: string
           faltas_atrasos?: number
+          familia?: number
           fgts_mes?: number
+          filhos?: number
+          funcao?: string
           funcionario_id?: string | null
+          gratificacao?: number
           gratificacoes?: number
           horas_extras?: number
           horas_normais?: number
           id?: string
+          inss?: number
           inss_retido?: number
+          ir?: number
           irrf_retido?: number
           itens_discriminados?: Json | null
           matricula?: string | null
+          mensal_liquido?: number
+          modo_calculo?: string
           nome: string
           observacoes?: string | null
           outros_descontos?: number
           outros_proventos?: number
+          pix?: string
           plano_saude?: number
+          producao?: number
+          quinzena?: number
           salario_base?: number
           salario_liquido?: number
+          tipo?: string
           total_descontos?: number
           total_proventos?: number
+          unidade?: string
           updated_at?: string
           vale_refeicao?: number
           vale_transporte?: number
@@ -498,8 +528,10 @@ export type Database = {
           base_fgts?: number
           base_inss?: number
           base_irrf?: number
+          bruto?: number
           cargo?: string
           chave_pix?: string | null
+          comissao?: number
           comissoes?: number
           competencia?: string
           competencia_id?: string
@@ -511,25 +543,38 @@ export type Database = {
           dsr?: number
           empresa_id?: string
           faltas_atrasos?: number
+          familia?: number
           fgts_mes?: number
+          filhos?: number
+          funcao?: string
           funcionario_id?: string | null
+          gratificacao?: number
           gratificacoes?: number
           horas_extras?: number
           horas_normais?: number
           id?: string
+          inss?: number
           inss_retido?: number
+          ir?: number
           irrf_retido?: number
           itens_discriminados?: Json | null
           matricula?: string | null
+          mensal_liquido?: number
+          modo_calculo?: string
           nome?: string
           observacoes?: string | null
           outros_descontos?: number
           outros_proventos?: number
+          pix?: string
           plano_saude?: number
+          producao?: number
+          quinzena?: number
           salario_base?: number
           salario_liquido?: number
+          tipo?: string
           total_descontos?: number
           total_proventos?: number
+          unidade?: string
           updated_at?: string
           vale_refeicao?: number
           vale_transporte?: number
