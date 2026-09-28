@@ -32,6 +32,7 @@ import {
   FolhaPagamentoLinha,
   FolhaCompetencia,
   FolhaTabelaOficial,
+  calcularMensalLiquido,
 } from "@/types/folha"
 import {
   calcularInssProgressivo,
@@ -321,7 +322,7 @@ export function FolhaPagamento() {
       if (busca.trim()) {
         const termo = busca.toLowerCase()
         const nomeOk = l.nome?.toLowerCase().includes(termo)
-        const obsOk = (l.observacao_linha || l.observacoes || "")
+        const obsOk = (l.observacao_linha || "")
           .toLowerCase()
           .includes(termo)
         const pixOk = (l.pix || l.chave_pix || "").toLowerCase().includes(termo)
@@ -1508,7 +1509,7 @@ export function FolhaPagamento() {
                                 {l.pix || l.chave_pix || "-"}
                               </td>
                               <td className="py-2 px-3 text-muted-foreground text-[11px] truncate max-w-[150px]">
-                                {l.observacao_linha || l.observacoes || "-"}
+                                {l.observacao_linha || "-"}
                               </td>
 
                               <td
@@ -2073,10 +2074,7 @@ export function FolhaPagamento() {
                               {t.pix || "-"}
                             </td>
                             <td className="py-2 px-3 text-muted-foreground text-[11px]">
-                              {t.observacao_linha ||
-                                t.obs ||
-                                t.observacoes ||
-                                "-"}
+                              {t.observacao_linha || "-"}
                             </td>
                             <td className="py-2 px-2 text-center print:hidden">
                               <div className="flex items-center justify-center gap-1">
@@ -2271,7 +2269,7 @@ export function FolhaPagamento() {
                               {t.pix || t.chave_pix || "-"}
                             </td>
                             <td className="py-2 px-3 text-muted-foreground text-[11px]">
-                              {t.observacao_linha || t.observacoes || "-"}
+                              {t.observacao_linha || "-"}
                             </td>
                           </tr>
                         ))}
@@ -3575,7 +3573,7 @@ export function FolhaPagamento() {
                           {t.pix || t.chave_pix || "-"}
                         </td>
                         <td className="border p-1 text-[9px]">
-                          {t.observacao_linha || t.observacoes || "-"}
+                          {t.observacao_linha || "-"}
                         </td>
                         <td className="border p-1"></td>
                       </tr>
