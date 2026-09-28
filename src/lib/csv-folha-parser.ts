@@ -539,7 +539,9 @@ export function parseFolhaPagamentoCSV(
       acc.totalMensalLiquido += l.mensal_liquido
       acc.totalProducao += l.producao
       acc.totalComissao += l.comissao
-      acc.totalGeralLiquidoAReceber += l.mensal_liquido + (l.tipo === "Terceiro" ? 0 : l.producao)      return acc
+      acc.totalGeralLiquidoAReceber +=
+        l.mensal_liquido + (l.tipo === "Terceiro" ? 0 : l.producao)
+      return acc
     },
     {
       totalRegistros: 0,

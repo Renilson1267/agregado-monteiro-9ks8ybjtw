@@ -32,14 +32,12 @@ import {
   FolhaPagamentoLinha,
   FolhaCompetencia,
   FolhaTabelaOficial,
-  calcularMensalLiquido,
 } from "@/types/folha"
 import {
   calcularInssProgressivo,
   calcularSalarioFamilia,
   calcularIrrf,
   calcularQuinzena,
-  calcularMensalGeral,
   calcularMensalSemProducao,
   calcularProducaoTotal,
   calcularAPagarProducao,
