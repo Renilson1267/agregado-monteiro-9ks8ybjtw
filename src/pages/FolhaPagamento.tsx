@@ -322,9 +322,7 @@ export function FolhaPagamento() {
       if (busca.trim()) {
         const termo = busca.toLowerCase()
         const nomeOk = l.nome?.toLowerCase().includes(termo)
-        const obsOk = (l.observacao_linha || "")
-          .toLowerCase()
-          .includes(termo)
+        const obsOk = (l.observacao_linha || "").toLowerCase().includes(termo)
         const pixOk = (l.pix || l.chave_pix || "").toLowerCase().includes(termo)
         if (!nomeOk && !obsOk && !pixOk) return false
       }
