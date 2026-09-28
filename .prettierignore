@@ -1,6 +1,9 @@
-# Ignore artifacts:
+node_modules
 dist
-build
-coverage
+.env
+.env.*
+*.local
 pnpm-lock.yaml
-pnpm-workspace.yaml
+bun.lockb
+public
+supabase/.temp
