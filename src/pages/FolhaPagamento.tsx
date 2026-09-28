@@ -2201,7 +2201,7 @@ export function FolhaPagamento() {
                     <tr>
                       <td className="py-2.5 px-2 text-center">-</td>
                       <td className="py-2.5 px-3 sticky left-0 bg-muted z-10 border-r">
-                        TOTAL ({linhasGeralProcessadas.length})
+                        TOTAL FUNCIONÁRIOS ({linhasGeralProcessadas.length})
                       </td>
                       <td className="py-2.5 px-2">-</td>
                       <td className="py-2.5 px-2 text-right font-mono text-blue-600 bg-blue-50/50 dark:bg-blue-950/20">
@@ -2209,6 +2209,25 @@ export function FolhaPagamento() {
                       </td>
                       <td className="py-2.5 px-3" colSpan={2}></td>
                     </tr>
+                    {terceirosProcessados.length > 0 && (
+                      <tr className="border-t border-border/60 bg-muted/70 text-xs">
+                        <td className="py-2 px-2 text-center">-</td>
+                        <td className="py-2 px-3 sticky left-0 bg-muted/95 z-10 border-r font-semibold">
+                          TOTAL GERAL (FUNCIONÁRIOS + TERCEIROS)
+                        </td>
+                        <td className="py-2 px-2 text-muted-foreground">
+                          {linhasGeralProcessadas.length +
+                            terceirosProcessados.length}{" "}
+                          pessoas
+                        </td>
+                        <td className="py-2 px-2 text-right font-mono font-bold text-blue-700 dark:text-blue-400 bg-blue-100/60 dark:bg-blue-950/40">
+                          {fmtMoeda(
+                            totaisGeral.quinzena + totaisTerceiros.quinzena,
+                          )}
+                        </td>
+                        <td className="py-2 px-3" colSpan={2}></td>
+                      </tr>
+                    )}
                   </tfoot>
                 </table>
               </div>
@@ -3471,58 +3490,113 @@ export function FolhaPagamento() {
         </div>
 
         {tipoImpressaoA4 === "quinzena" && (
-          <table className="w-full border-collapse border text-[10px]">
-            <thead className="bg-gray-100 text-gray-800 font-bold uppercase">
-              <tr>
-                <th className="border p-1.5 text-center w-6">Nº</th>
-                <th className="border p-1.5 text-left">NOME</th>
-                <th className="border p-1.5 text-left">FUNÇÃO</th>
-                <th className="border p-1.5 text-right">TOTAL BRUTO</th>
-                <th className="border p-1.5 text-right font-bold">QUINZENA</th>
-                <th className="border p-1.5 text-left">AGÊNCIA / C/C</th>
-                <th className="border p-1.5 text-left">PIX</th>
-                <th className="border p-1.5 text-center w-36">ASSINATURA</th>
-              </tr>
-            </thead>
-            <tbody>
-              {linhasGeralProcessadas.map((l, idx) => (
-                <tr key={l.id}>
-                  <td className="border p-1 text-center font-mono">
-                    {idx + 1}
-                  </td>
-                  <td className="border p-1 font-semibold">{l.nome}</td>
-                  <td className="border p-1">{l.funcao}</td>
-                  <td className="border p-1 text-right font-mono">
-                    {fmtMoeda(l.bruto)}
-                  </td>
-                  <td className="border p-1 text-right font-mono font-bold">
-                    {fmtMoeda(l.quinzenaFinal)}
-                  </td>
-                  <td className="border p-1 font-mono text-[9px]">
-                    {l.conta || "-"}
-                  </td>
-                  <td className="border p-1 font-mono text-[9px]">
-                    {l.pix || l.chave_pix || "-"}
-                  </td>
-                  <td className="border p-1"></td>
+          <div className="space-y-4">
+            <table className="w-full border-collapse border text-[10px]">
+              <thead className="bg-gray-100 text-gray-800 font-bold uppercase">
+                <tr>
+                  <th className="border p-1.5 text-center w-6">Nº</th>
+                  <th className="border p-1.5 text-left">NOME</th>
+                  <th className="border p-1.5 text-left">FUNÇÃO</th>
+                  <th className="border p-1.5 text-right font-bold">
+                    QUINZENA ({Math.round(percentualQuinzena * 100)}%)
+                  </th>
+                  <th className="border p-1.5 text-left">AGÊNCIA / C/C</th>
+                  <th className="border p-1.5 text-left">PIX</th>
+                  <th className="border p-1.5 text-center w-36">ASSINATURA</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot className="bg-gray-100 font-bold">
-              <tr>
-                <td className="border p-1.5 text-center">-</td>
-                <td className="border p-1.5">TOTAL</td>
-                <td className="border p-1.5">-</td>
-                <td className="border p-1.5 text-right font-mono">
-                  {fmtMoeda(totaisGeral.bruto)}
-                </td>
-                <td className="border p-1.5 text-right font-mono">
-                  {fmtMoeda(totaisGeral.quinzena)}
-                </td>
-                <td className="border p-1.5" colSpan={3}></td>
-              </tr>
-            </tfoot>
-          </table>
+              </thead>
+              <tbody>
+                {linhasGeralProcessadas.map((l, idx) => (
+                  <tr key={l.id}>
+                    <td className="border p-1 text-center font-mono">
+                      {idx + 1}
+                    </td>
+                    <td className="border p-1 font-semibold">{l.nome}</td>
+                    <td className="border p-1">{l.funcao}</td>
+                    <td className="border p-1 text-right font-mono font-bold">
+                      {fmtMoeda(l.quinzenaFinal)}
+                    </td>
+                    <td className="border p-1 font-mono text-[9px]">
+                      {l.conta || "-"}
+                    </td>
+                    <td className="border p-1 font-mono text-[9px]">
+                      {l.pix || l.chave_pix || "-"}
+                    </td>
+                    <td className="border p-1"></td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-100 font-bold">
+                <tr>
+                  <td className="border p-1.5 text-center">-</td>
+                  <td className="border p-1.5">
+                    TOTAL FUNCIONÁRIOS ({linhasGeralProcessadas.length})
+                  </td>
+                  <td className="border p-1.5">-</td>
+                  <td className="border p-1.5 text-right font-mono">
+                    {fmtMoeda(totaisGeral.quinzena)}
+                  </td>
+                  <td className="border p-1.5" colSpan={3}></td>
+                </tr>
+              </tfoot>
+            </table>
+
+            {terceirosProcessados.length > 0 && (
+              <div className="space-y-1.5 pt-2">
+                <h4 className="text-[11px] font-bold uppercase text-gray-800">
+                  QUINZENA TERCEIROS ({Math.round(percentualQuinzena * 100)}%)
+                </h4>
+                <table className="w-full border-collapse border text-[10px]">
+                  <thead className="bg-gray-100 text-gray-800 font-bold uppercase">
+                    <tr>
+                      <th className="border p-1.5 text-center w-6">Nº</th>
+                      <th className="border p-1.5 text-left">NOME</th>
+                      <th className="border p-1.5 text-right font-bold">
+                        QUINZENA ({Math.round(percentualQuinzena * 100)}%)
+                      </th>
+                      <th className="border p-1.5 text-left">PIX</th>
+                      <th className="border p-1.5 text-left">OBS</th>
+                      <th className="border p-1.5 text-center w-36">
+                        ASSINATURA
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {terceirosProcessados.map((t, idx) => (
+                      <tr key={t.id}>
+                        <td className="border p-1 text-center font-mono">
+                          {idx + 1}
+                        </td>
+                        <td className="border p-1 font-semibold">{t.nome}</td>
+                        <td className="border p-1 text-right font-mono font-bold">
+                          {fmtMoeda(t.quinzena)}
+                        </td>
+                        <td className="border p-1 font-mono text-[9px]">
+                          {t.pix || t.chave_pix || "-"}
+                        </td>
+                        <td className="border p-1 text-[9px]">
+                          {t.observacao_linha || t.observacoes || "-"}
+                        </td>
+                        <td className="border p-1"></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-100 font-bold">
+                    <tr>
+                      <td className="border p-1.5 text-center">-</td>
+                      <td className="border p-1.5">
+                        TOTAL TERCEIROS ({terceirosProcessados.length})
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(totaisTerceiros.quinzena)}
+                      </td>
+                      <td className="border p-1.5" colSpan={3}></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
         )}
 
         {tipoImpressaoA4 === "mensal" && (

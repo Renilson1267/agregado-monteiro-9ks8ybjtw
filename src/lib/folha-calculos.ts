@@ -129,15 +129,16 @@ export function calcularIrrf(
 }
 
 /**
- * Calcula o valor padrão da Quinzena (ex.: 40% do total bruto).
+ * Calcula o valor padrão da Quinzena (ex.: 40% da base mensal).
+ * Na regra operacional da folha: 40% do mensal líquido ou bruto base.
  */
 export function calcularQuinzena(
-  bruto: number,
+  base: number,
   percentual: number = 0.4,
 ): number {
-  const b = Number(bruto || 0)
-  if (b <= 0) return 0
-  return Math.round(b * percentual * 100) / 100
+  const v = Number(base || 0)
+  if (v <= 0) return 0
+  return Math.round(v * percentual * 100) / 100
 }
 
 /**
