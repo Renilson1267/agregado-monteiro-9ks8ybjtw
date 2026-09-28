@@ -68,11 +68,13 @@ async function run() {
       cpfLimpo: f.doc ? f.doc.replace(/[^\d]/g, '') : null,
     }
 
+    const cpfLimpo = f.doc ? f.doc.replace(/[^\d]/g, '') : null
+    const nomeUpper = f.nome.trim().toUpperCase()
     const payload = {
       empresa_id: empresaId,
-      nome: f.nome.trim().toUpperCase(),
+      nome: nomeUpper,
       funcao: (f.funcao || 'Geral').trim().toUpperCase(),
-      cpf: f.doc ? f.doc.replace(/[^\d]/g, '') : null,
+      cpf: cpfLimpo,
       data_admissao: f.admissao || null,
       ativo: !fFolha.inativo,
       observacoes: fFolha.obs || null,
@@ -87,12 +89,49 @@ async function run() {
       unidade: unidade.includes('MONTEIRO') ? 'MONTEIRO' : 'SJE',
     }
 
-    const { error } = await supabase
-      .from('funcionarios')
-      .upsert(payload, { onConflict: 'empresa_id,nome' })
+    if (cpfLimpo) {
+      // Tenta upsert pelo índice único (empresa_id, cpf)
+      const { error } = await supabase
+        .from('funcionarios')
+        .upsert(payload, { onConflict: 'empresa_id,cpf' })
 
-    if (error) {
-      console.warn(`Aviso upsert funcionario ${f.nome}:`, error.message)
+      if (error) {
+        console.warn(`Aviso upsert funcionario ${f.nome} (por cpf):`, error.message)
+        // Fallback: busca por nome caso a empresa_id ou cpf tenha divergido
+        const { data: existing } = await supabase
+          .from('funcionarios')
+          .select('id')
+          .ilike('nome', nomeUpper)
+          .maybeSingle()
+        if (existing) {
+          await supabase.from('funcionarios').update(payload).eq('id', existing.id)
+        }
+      }
+    } else {
+      // Sem CPF: busca por empresa_id e nome
+      const { data: existing } = await supabase
+        .from('funcionarios')
+        .select('id')
+        .eq('empresa_id', empresaId)
+        .ilike('nome', nomeUpper)
+        .maybeSingle()
+
+      if (existing) {
+        const { error } = await supabase
+          .from('funcionarios')
+          .update(payload)
+          .eq('id', existing.id)
+        if (error) {
+          console.warn(`Aviso update funcionario sem cpf ${f.nome}:`, error.message)
+        }
+      } else {
+        const { error } = await supabase
+          .from('funcionarios')
+          .insert(payload)
+        if (error) {
+          console.warn(`Aviso insert funcionario sem cpf ${f.nome}:`, error.message)
+        }
+      }
     }
   }
 
@@ -101,9 +140,10 @@ async function run() {
     const unidade = (t.unidade || 'SJE').toUpperCase()
     const empresaId = unidade.includes('MONTEIRO') ? MONTEIRO_ID : SJE_ID
 
+    const nomeUpper = t.nome.trim().toUpperCase()
     const payload = {
       empresa_id: empresaId,
-      nome: t.nome.trim().toUpperCase(),
+      nome: nomeUpper,
       bruto: Number(t.bruto || 0),
       conta: t.conta || '',
       pix: t.pix || '',
@@ -112,12 +152,28 @@ async function run() {
       ativo: true,
     }
 
-    const { error } = await supabase
+    const { data: existingTerc } = await supabase
       .from('folha_terceiros')
-      .upsert(payload, { onConflict: 'empresa_id,nome' })
+      .select('id')
+      .eq('empresa_id', empresaId)
+      .ilike('nome', nomeUpper)
+      .maybeSingle()
 
-    if (error) {
-      console.warn(`Aviso upsert terceiro ${t.nome}:`, error.message)
+    if (existingTerc) {
+      const { error } = await supabase
+        .from('folha_terceiros')
+        .update(payload)
+        .eq('id', existingTerc.id)
+      if (error) {
+        console.warn(`Aviso update terceiro ${t.nome}:`, error.message)
+      }
+    } else {
+      const { error } = await supabase
+        .from('folha_terceiros')
+        .insert(payload)
+      if (error) {
+        console.warn(`Aviso insert terceiro ${t.nome}:`, error.message)
+      }
     }
   }
 
@@ -249,7 +305,10 @@ async function run() {
         if (t.empresaId !== empId) continue
         const tL = tercLanc[t.backupKey] || {}
         const vendObra = Number(tL.vendObra || 0)
-        const comissao = Number(tL.vendCom || 0)
+        let comissao = Number(tL.vendCom || 0)
+        if (comissao === 0 && vendObra > 0) {
+          comissao = Math.round(vendObra * 0.005 * 100) / 100
+        }
         const vendAjuda = Number(tL.vendAjuda || 0)
         const ajudaCusto = vendAjuda
         const bruto = t.bruto
@@ -295,13 +354,55 @@ async function run() {
       }
 
       if (linhasParaInserir.length > 0) {
-        const { error: upsertErr } = await supabase
+        for (const linha of linhasParaInserir) {
+          const { data: existingLinha } = await supabase
+            .from('folha_pagamento_linhas')
+            .select('id')
+            .eq('empresa_id', linha.empresa_id)
+            .eq('competencia', linha.competencia)
+            .ilike('nome', linha.nome)
+            .maybeSingle()
+
+          if (existingLinha) {
+            const { error: updateErr } = await supabase
+              .from('folha_pagamento_linhas')
+              .update(linha)
+              .eq('id', existingLinha.id)
+            if (updateErr) {
+              console.warn(`Erro update linha ${linha.nome} comp ${comp}:`, updateErr.message)
+            }
+          } else {
+            const { error: insertErr } = await supabase
+              .from('folha_pagamento_linhas')
+              .insert(linha)
+            if (insertErr) {
+              console.warn(`Erro insert linha ${linha.nome} comp ${comp}:`, insertErr.message)
+            }
+          }
+        }
+
+        // Recalcular totais da competência
+        const { data: linhasComp } = await supabase
           .from('folha_pagamento_linhas')
-          .upsert(linhasParaInserir, {
-            onConflict: 'empresa_id,competencia,nome',
-          })
-        if (upsertErr) {
-          console.warn(`Erro linhas comp ${comp} (${empId}):`, upsertErr.message)
+          .select('total_proventos, total_descontos, mensal_liquido')
+          .eq('competencia_id', compId)
+
+        if (linhasComp) {
+          const totalColab = linhasComp.length
+          const totalProv = linhasComp.reduce((acc, l) => acc + (Number(l.total_proventos) || 0), 0)
+          const totalDesc = linhasComp.reduce((acc, l) => acc + (Number(l.total_descontos) || 0), 0)
+          const totalLiq = linhasComp.reduce((acc, l) => acc + (Number(l.mensal_liquido) || 0), 0)
+
+          await supabase
+            .from('folha_competencias')
+            .update({
+              total_colaboradores: totalColab,
+              total_proventos: totalProv,
+              total_descontos: totalDesc,
+              total_liquido: totalLiq,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', compId)
         }
       }
     }
