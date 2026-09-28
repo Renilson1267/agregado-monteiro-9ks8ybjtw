@@ -23,10 +23,36 @@ if (!backupPath) {
 
 const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'))
 
+function loadEnvLocal() {
+  const envCandidates = ['.env.local', '.env']
+  for (const f of envCandidates) {
+    const p = path.resolve(f)
+    if (fs.existsSync(p)) {
+      const content = fs.readFileSync(p, 'utf8')
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith('#')) continue
+        const eqIdx = trimmed.indexOf('=')
+        if (eqIdx > 0) {
+          const key = trimmed.slice(0, eqIdx).trim()
+          let val = trimmed.slice(eqIdx + 1).trim()
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1)
+          }
+          if (!process.env[key]) {
+            process.env[key] = val
+          }
+        }
+      }
+    }
+  }
+}
+loadEnvLocal()
+
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
   process.env.VITE_SUPABASE_URL ||
-  'https://sje-concreteira.supabase.co'
+  'https://saovgdnepweivuzzsvqr.supabase.co'
 const SUPABASE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.SUPABASE_ANON_KEY ||
@@ -90,12 +116,28 @@ async function run() {
     }
 
     if (cpfLimpo) {
-      const { error } = await supabase
+      const { data: existingFunc } = await supabase
         .from('funcionarios')
-        .upsert(payload, { onConflict: 'empresa_id,cpf' })
+        .select('id')
+        .eq('empresa_id', empresaId)
+        .eq('cpf', cpfLimpo)
+        .maybeSingle()
 
-      if (error) {
-        console.warn(`Aviso upsert funcionario ${f.nome} (por cpf):`, error.message)
+      if (existingFunc) {
+        const { error } = await supabase
+          .from('funcionarios')
+          .update(payload)
+          .eq('id', existingFunc.id)
+        if (error) {
+          console.warn(`Aviso update funcionario ${f.nome}:`, error.message)
+        }
+      } else {
+        const { error } = await supabase
+          .from('funcionarios')
+          .insert(payload)
+        if (error) {
+          console.warn(`Aviso insert funcionario ${f.nome}:`, error.message)
+        }
       }
     } else {
       const { data: existing } = await supabase
@@ -275,13 +317,16 @@ async function run() {
           comissao = Math.round(vendObra * 0.005 * 100) / 100
         }
         const vendAjuda = Number(tL.vendAjuda || 0)
+        const adiant = Number(tL.adiant || 0)
+        const gratif = Number(tL.gratif || 0)
         const ajudaCusto = vendAjuda
         const bruto = t.bruto
         const comissaoCalculada = Math.round(vendObra * 0.005 * 100) / 100
         const modoCalculo = (vendObra > 0 && Math.abs(comissao - comissaoCalculada) > 0.01) ? 'Digitado' : 'Calculado'
 
-        const totalProventos = bruto + comissao + ajudaCusto
-        const liquido = totalProventos
+        const totalProventos = bruto + comissao + ajudaCusto + gratif
+        const totalDescontos = adiant
+        const liquido = totalProventos - totalDescontos
 
         linhasParaInserir.push({
           empresa_id: empId,
@@ -307,14 +352,14 @@ async function run() {
           vendas_obra: vendObra,
           comissao,
           vendas_ajuda: vendAjuda,
-          adiantamento: 0,
-          gratificacao: 0,
+          adiantamento: adiant,
+          gratificacao: gratif,
           inss: 0,
           ir: 0,
           familia: 0,
           quinzena: 0,
           total_proventos: totalProventos,
-          total_descontos: 0,
+          total_descontos: totalDescontos,
           salario_liquido: liquido,
           mensal_liquido: liquido,
           modo_calculo: modoCalculo,
