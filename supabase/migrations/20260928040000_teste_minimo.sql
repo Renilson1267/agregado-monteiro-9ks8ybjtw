@@ -1,2 +1,2 @@
--- Migration 20260928040000_teste_minimo
+-- Migration de teste mínimo mantida para consistência de versão
 SELECT 1;
