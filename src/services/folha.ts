@@ -540,31 +540,37 @@ export class FolhaService {
   static calcularTotais(linhas: FolhaPagamentoLinha[]): FolhaTotaisCalculados {
     return linhas.reduce(
       (acc, l) => {
+        const isTerceiro =
+          l.tipo === "Terceiro" ||
+          (l.nome &&
+            (l.nome.includes("RAIMUNDO MARIANO") ||
+              l.nome.includes("MARCIO LUAN")))
         acc.totalRegistros += 1
-        if (l.tipo === "Terceiro") {
+        if (isTerceiro) {
           acc.totalTerceiros += 1
         } else {
           acc.totalFuncionarios += 1
         }
         acc.totalBruto += Number(l.bruto || 0)
-        acc.totalFilhos += Number(l.filhos || 0)
-        acc.totalInss += Number(l.inss || 0)
-        acc.totalFamilia += Number(l.familia || 0)
-        acc.totalIr += Number(l.ir || 0)
+        acc.totalFilhos += isTerceiro ? 0 : Number(l.filhos || 0)
+        acc.totalInss += isTerceiro ? 0 : Number(l.inss || 0)
+        acc.totalFamilia += isTerceiro ? 0 : Number(l.familia || 0)
+        acc.totalIr += isTerceiro ? 0 : Number(l.ir || 0)
         acc.totalQuinzena += Number(l.quinzena || 0)
         acc.totalQuinzena2 += Number(l.quinzena_2 || 0)
-        acc.totalAdiantamento += Number(l.adiantamento || 0)
+        acc.totalAdiantamento += isTerceiro ? 0 : Number(l.adiantamento || 0)
         acc.totalGratificacao += Number(l.gratificacao || 0)
-        acc.totalObras += Number(l.obras || 0)
-        acc.totalProducao += Number(l.producao || 0)
+        acc.totalObras += isTerceiro ? 0 : Number(l.obras || 0)
+        acc.totalProducao += isTerceiro ? 0 : Number(l.producao || 0)
         acc.totalLimpeza += Number(l.limpeza || 0)
         acc.totalSabado += Number(l.sabado || 0)
         acc.totalFeriado = (acc.totalFeriado || 0) + Number(l.feriado || 0)
         acc.totalFerias += Number(l.ferias || 0)
         acc.totalAjudaCusto += Number(l.ajuda_custo || 0)
-        acc.totalVendas += Number(l.vendas_obra || 0)
-        acc.totalComissao += Number(l.comissao || 0)
-        acc.totalVendasAjuda += Number(l.vendas_ajuda || 0)
+        // Vendas e comissão são exclusivas de funcionários
+        acc.totalVendas += isTerceiro ? 0 : Number(l.vendas_obra || 0)
+        acc.totalComissao += isTerceiro ? 0 : Number(l.comissao || 0)
+        acc.totalVendasAjuda += isTerceiro ? 0 : Number(l.vendas_ajuda || 0)
         acc.totalMensalLiquido += Number(l.mensal_liquido || 0)
         acc.totalGeralLiquidoAReceber += Number(l.mensal_liquido || 0)
         return acc
