@@ -6,6 +6,8 @@ import {
   EyeOff,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Plus,
   Edit2,
   Trash2,
@@ -20,6 +22,7 @@ import {
   Percent,
   CheckCircle2,
   Award,
+  Calculator,
 } from "lucide-react"
 import { useEmpresa } from "@/hooks/use-empresa"
 import { useUsuario } from "@/hooks/use-usuario"
@@ -104,9 +107,29 @@ export function FolhaPagamento() {
   const [percentualQuinzena, setPercentualQuinzena] = useState<number>(0.4)
   const [salvandoConfigComp, setSalvandoConfigComp] = useState(false)
 
-  // Filtros
+  // Filtros & Visualização
   const [busca, setBusca] = useState("")
   const [mostrarOcultos, setMostrarOcultos] = useState(false)
+  const [linhasExpandidas, setLinhasExpandidas] =
+    useState<Record<string, boolean>>({})
+  const [todasExpandidas, setTodasExpandidas] = useState(false)
+
+  const toggleLinhaExpandida = (id: string) => {
+    setLinhasExpandidas((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }))
+  }
+
+  const toggleTodasLinhas = () => {
+    const novo = !todasExpandidas
+    setTodasExpandidas(novo)
+    const mapa: Record<string, boolean> = {}
+    linhasGeralProcessadas.forEach((l) => {
+      mapa[l.id] = novo
+    })
+    setLinhasExpandidas(mapa)
+  }
 
   // Modal Edição / Criação
   const [modalAberto, setModalAberto] = useState(false)
@@ -310,7 +333,10 @@ export function FolhaPagamento() {
 
   // CÁLCULOS DINÂMICOS PARA CADA FUNCIONÁRIO (seguindo as regras da planilha modelo)
   // Se houver tabela oficial, calcula os valores recomendados; senão, mantém null ou digitado
-  interface LinhaGeralProcessada extends FolhaPagamentoLinha {
+  interface LinhaGeralProcessada
+    extends FolhaPagamentoLinha {
+    // Componentes discriminados do líquido
+    // Líquido decomposto calculado que fecha 100% com a fórmula
     inssCalculado: number | null
     familiaCalculado: number | null
     irrfCalculado: number | null
@@ -326,6 +352,16 @@ export function FolhaPagamento() {
     isIrrfSobrescrito: boolean
     isQuinzenaSobrescrita: boolean
     isMensalSobrescrito: boolean
+    producaoTotal: number
+    limpezaTotal: number
+    sabadoTotal: number
+    feriasTotal: number
+    ajudaTotal: number
+    gratificacaoTotal: number
+    comissaoTotal: number
+    vendasAjudaTotal: number
+    adiantamentoTotal: number
+    liquidoComposto: number
   }
 
   const linhasGeralProcessadas = useMemo<LinhaGeralProcessada[]>(() => {
@@ -342,20 +378,57 @@ export function FolhaPagamento() {
       )
       const quinzenaCalc = calcularQuinzena(bruto, percentualQuinzena)
 
-      // Valores finais: se digitado pelo usuário ou se tabela não disponível
+      // Valores finais fiscais e adiantamento
       const inssFinal = Number(l.inss ?? inssCalc ?? 0)
       const familiaFinal = Number(l.familia ?? familiaCalc ?? 0)
       const irrfFinal = Number(l.ir ?? irrfCalc ?? 0)
       const quinzenaFinal = Number(l.quinzena ?? quinzenaCalc)
 
-      const mensalCalc = calcularMensalGeral(
+      // Extras que compõem o líquido
+      const obras = Number(l.obras || 0)
+      const valorObra = Number(l.valor_obra ?? 20)
+      const producaoTotal =
+        l.producao !== undefined && Number(l.producao) > 0
+          ? Number(l.producao)
+          : obras * valorObra
+      const limpezaTotal = Number(l.limpeza || 0)
+      const sabadoTotal = Number(l.sabado || 0)
+      const feriasTotal = Number(l.ferias || 0)
+      const ajudaTotal = Number(l.ajuda_custo || 0)
+      const gratificacaoTotal = Number(l.gratificacao || 0)
+      const comissaoTotal = Number(l.comissao || 0)
+      const vendasAjudaTotal = Number(l.vendas_ajuda || 0)
+      const adiantamentoTotal = Number(l.adiantamento || 0)
+
+      // Cálculo completo do líquido usando todas as variáveis
+      const liquidoComposto = calcularMensalLiquido({
+        ...l,
         bruto,
-        inssFinal,
-        familiaFinal,
-        irrfFinal,
-        quinzenaFinal,
-      )
-      const mensalFinal = Number(l.mensal_liquido ?? mensalCalc)
+        inss: inssFinal,
+        ir: irrfFinal,
+        familia: familiaFinal,
+        quinzena: quinzenaFinal,
+        producao: producaoTotal,
+        limpeza: limpezaTotal,
+        sabado: sabadoTotal,
+        ferias: feriasTotal,
+        ajuda_custo: ajudaTotal,
+        gratificacao: gratificacaoTotal,
+        comissao: comissaoTotal,
+        vendas_ajuda: vendasAjudaTotal,
+        adiantamento: adiantamentoTotal,
+      })
+
+      // Se a linha tem mensal_liquido gravado e válido, respeita-o;
+      // se não tiver ou estiver zerado com extras presentes, usa o líquido composto
+      const mensalFinal =
+        l.mensal_liquido !== undefined &&
+        l.mensal_liquido !== null &&
+        Number(l.mensal_liquido) !== 0
+          ? Number(l.mensal_liquido)
+          : liquidoComposto
+
+      const mensalCalc = liquidoComposto
 
       const isInssSobrescrito =
         inssCalc !== null &&
@@ -388,14 +461,24 @@ export function FolhaPagamento() {
         isIrrfSobrescrito,
         isQuinzenaSobrescrita,
         isMensalSobrescrito,
+        producaoTotal,
+        limpezaTotal,
+        sabadoTotal,
+        feriasTotal,
+        ajudaTotal,
+        gratificacaoTotal,
+        comissaoTotal,
+        vendasAjudaTotal,
+        adiantamentoTotal,
+        liquidoComposto,
       }
     })
   }, [funcionariosFiltrados, tabelaOficial, percentualQuinzena])
 
-  // Processamento de Terceiros (Folha à parte: sem desconto, quinzena 40%, mensal 60%)
+  // Processamento de Terceiros (Folha à parte: sem desconto, quinzena 40% automática pelo % da competência, mensal 60%)
   const terceirosProcessados = useMemo(() => {
     return terceirosFiltrados.map((t) => {
-      const valorMes = Number(t.bruto || 0)
+      const valorMes = Number(t.salario_liquido || t.bruto || 0)
       const quinzena = Math.round(valorMes * percentualQuinzena * 100) / 100
       const mensal = Math.round((valorMes - quinzena) * 100) / 100
       return {
@@ -446,7 +529,7 @@ export function FolhaPagamento() {
     })
   }, [linhas])
 
-  // TOTAIS DA ABA GERAL (FUNCIONÁRIOS)
+  // TOTAIS DA ABA GERAL (FUNCIONÁRIOS) COM DISCRIMINAÇÃO COMPLETA
   const totaisGeral = useMemo(() => {
     return linhasGeralProcessadas.reduce(
       (acc, l) => {
@@ -456,6 +539,15 @@ export function FolhaPagamento() {
         acc.familia += l.familiaFinal
         acc.irrf += l.irrfFinal
         acc.quinzena += l.quinzenaFinal
+        acc.producao += l.producaoTotal
+        acc.limpeza += l.limpezaTotal
+        acc.sabado += l.sabadoTotal
+        acc.ferias += l.feriasTotal
+        acc.ajuda_custo += l.ajudaTotal
+        acc.gratificacao += l.gratificacaoTotal
+        acc.comissao += l.comissaoTotal
+        acc.vendas_ajuda += l.vendasAjudaTotal
+        acc.adiantamento += l.adiantamentoTotal
         acc.mensal += l.mensalFinal
         return acc
       },
@@ -466,6 +558,15 @@ export function FolhaPagamento() {
         familia: 0,
         irrf: 0,
         quinzena: 0,
+        producao: 0,
+        limpeza: 0,
+        sabado: 0,
+        ferias: 0,
+        ajuda_custo: 0,
+        gratificacao: 0,
+        comissao: 0,
+        vendas_ajuda: 0,
+        adiantamento: 0,
         mensal: 0,
       },
     )
@@ -686,6 +787,21 @@ export function FolhaPagamento() {
           familia,
           irrf,
           quinzena,
+          {
+            obras: updated.obras,
+            valor_obra: updated.valor_obra,
+            producao: updated.producao,
+            limpeza: updated.limpeza,
+            sabado: updated.sabado,
+            feriado: updated.feriado,
+            ferias: updated.ferias,
+            ajuda_custo: updated.ajuda_custo,
+            gratificacao: updated.gratificacao,
+            adiantamento: updated.adiantamento,
+            quinzena_2: updated.quinzena_2,
+            comissao: updated.comissao,
+            vendas_ajuda: updated.vendas_ajuda,
+          },
         )
       }
 
@@ -1079,6 +1195,16 @@ export function FolhaPagamento() {
                 <div className="flex items-center gap-2">
                   <Button
                     size="sm"
+                    variant="secondary"
+                    className="h-8 gap-1.5 text-xs font-semibold"
+                    onClick={toggleTodasLinhas}
+                    title="Expandir/recolher discriminação de todas as linhas"
+                  >
+                    <Calculator className="h-3.5 w-3.5 text-primary" />
+                    {todasExpandidas ? "Ocultar Detalhes" : "Discriminar Todos"}
+                  </Button>
+                  <Button
+                    size="sm"
                     variant="outline"
                     className="h-8 gap-1.5 text-xs"
                     onClick={() => abrirModalEdicao()}
@@ -1089,22 +1215,46 @@ export function FolhaPagamento() {
                 </div>
               </div>
 
-              {/* LEGENDA IDÊNTICA AO EXCEL */}
-              <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded text-amber-900 dark:text-amber-200">
-                <span className="font-bold">🟡 AMARELO = você digita</span>
-                <span>·</span>
-                <span className="font-bold">⚪ CINZA = calculado sozinho</span>
-                <span>(não mexa; só sobrescreva num caso especial)</span>
+              {/* LEGENDA E FÓRMULA DISCRIMINADA */}
+              <div className="space-y-2 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded text-amber-900 dark:text-amber-200">
+                <div className="text-[11px] flex flex-wrap items-center gap-2">
+                  <span className="font-bold">🟡 AMARELO = você digita</span>
+                  <span>·</span>
+                  <span className="font-bold">
+                    ⚪ CINZA = calculado sozinho
+                  </span>
+                  <span>·</span>
+                  <span className="font-semibold text-primary">
+                    🔍 Clique na linha ou no botão da coluna DETALHE para ver
+                    toda a composição que forma o Líquido
+                  </span>
+                </div>
+                <div className="text-[11px] font-mono bg-background/80 p-2 rounded border border-amber-500/30 text-foreground flex items-center gap-2 overflow-x-auto whitespace-nowrap">
+                  <span className="font-bold text-primary">
+                    FÓRMULA DO LÍQUIDO:
+                  </span>
+                  <span>
+                    Líquido = Bruto − INSS − IRRF + Família + Gratificação −
+                    Quinzena − Adiantamento + Produção(Obras×Valor) + Limpeza +
+                    Sábado + Férias + Ajuda + Comissão
+                  </span>
+                </div>
               </div>
             </CardHeader>
 
             <CardContent className="p-0">
-              {/* TABELA DE FUNCIONÁRIOS GERAL */}
+              {/* TABELA DE FUNCIONÁRIOS GERAL COM DISCRIMINAÇÃO COMPLETA */}
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left border-collapse">
                   <thead className="bg-muted/80 text-muted-foreground uppercase font-semibold border-b">
                     <tr>
                       <th className="py-2.5 px-2 text-center w-8">Nº</th>
+                      <th
+                        className="py-2.5 px-2 text-center w-8 print:hidden"
+                        title="Expandir/recolher detalhamento"
+                      >
+                        DET.
+                      </th>
                       <th className="py-2.5 px-3 sticky left-0 bg-muted/95 z-10">
                         NOME
                       </th>
@@ -1113,15 +1263,33 @@ export function FolhaPagamento() {
                         TOTAL BRUTO
                       </th>
                       <th className="py-2.5 px-2 text-center bg-amber-100/50 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200">
-                        FILHOS (ATÉ 14)
+                        FILHOS
                       </th>
-                      <th className="py-2.5 px-2 text-right">INSS</th>
-                      <th className="py-2.5 px-2 text-right">FAMÍLIA</th>
-                      <th className="py-2.5 px-2 text-right">IRRF</th>
-                      <th className="py-2.5 px-2 text-right font-semibold text-blue-600">
-                        QUINZENA ({Math.round(percentualQuinzena * 100)}%)
+                      <th
+                        className="py-2.5 px-2 text-right text-red-600"
+                        title="Desconto INSS"
+                      >
+                        INSS (−)
                       </th>
-                      <th className="py-2.5 px-2 text-right font-bold text-primary bg-primary/5">
+                      <th
+                        className="py-2.5 px-2 text-right text-emerald-600"
+                        title="Salário Família"
+                      >
+                        FAMÍLIA (+)
+                      </th>
+                      <th
+                        className="py-2.5 px-2 text-right text-red-600"
+                        title="Desconto IRRF"
+                      >
+                        IRRF (−)
+                      </th>
+                      <th
+                        className="py-2.5 px-2 text-right text-blue-600 font-semibold"
+                        title="Adiantamento de Quinzena"
+                      >
+                        QUINZENA (−)
+                      </th>
+                      <th className="py-2.5 px-2 text-right font-bold text-primary bg-primary/10">
                         MENSAL (LÍQUIDO)
                       </th>
                       <th className="py-2.5 px-3">AGÊNCIA / C/C</th>
@@ -1136,7 +1304,7 @@ export function FolhaPagamento() {
                     {linhasGeralProcessadas.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={14}
+                          colSpan={15}
                           className="text-center py-8 text-muted-foreground"
                         >
                           {carregando
@@ -1145,179 +1313,568 @@ export function FolhaPagamento() {
                         </td>
                       </tr>
                     ) : (
-                      linhasGeralProcessadas.map((l, index) => (
-                        <tr
-                          key={l.id}
-                          className={`hover:bg-muted/40 transition-colors ${
-                            l.oculto ? "bg-amber-500/5 opacity-80" : ""
-                          }`}
-                        >
-                          <td className="py-2 px-2 text-center font-mono text-muted-foreground">
-                            {index + 1}
-                          </td>
-                          <td className="py-2 px-3 font-semibold text-foreground sticky left-0 bg-background z-10 border-r whitespace-nowrap">
-                            <div className="flex items-center gap-1.5">
-                              <span>{l.nome}</span>
-                              {l.oculto && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[9px] px-1 py-0 h-4 text-amber-600 border-amber-300"
-                                >
-                                  Oculto
-                                </Badge>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-2 px-2 text-muted-foreground whitespace-nowrap">
-                            {l.funcao}
-                          </td>
-                          <td className="py-2 px-2 text-right font-mono font-medium whitespace-nowrap bg-amber-50/40 dark:bg-amber-950/10">
-                            {fmtMoeda(l.bruto)}
-                          </td>
-                          <td className="py-2 px-2 text-center font-mono bg-amber-50/40 dark:bg-amber-950/10">
-                            {l.filhos > 0 ? l.filhos : 0}
-                          </td>
+                      linhasGeralProcessadas.map((l, index) => {
+                        const isExpandida = Boolean(linhasExpandidas[l.id])
+                        const temExtras =
+                          l.producaoTotal > 0 ||
+                          l.limpezaTotal > 0 ||
+                          l.sabadoTotal > 0 ||
+                          l.feriasTotal > 0 ||
+                          l.ajudaTotal > 0 ||
+                          l.gratificacaoTotal > 0 ||
+                          l.comissaoTotal > 0 ||
+                          l.vendasAjudaTotal > 0 ||
+                          l.adiantamentoTotal > 0
 
-                          {/* INSS com badge Calculado / Digitado */}
-                          <td className="py-2 px-2 text-right font-mono whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1">
-                              <span>{fmtMoeda(l.inssFinal)}</span>
-                              <Badge
-                                variant="outline"
-                                className={`text-[8px] px-1 py-0 h-3.5 ${
-                                  l.isInssSobrescrito
-                                    ? "border-amber-400 text-amber-700 bg-amber-50"
-                                    : "border-muted text-muted-foreground"
-                                }`}
+                        return (
+                          <>
+                            <tr
+                              key={l.id}
+                              className={`hover:bg-muted/40 transition-colors cursor-pointer ${
+                                l.oculto ? "bg-amber-500/5 opacity-80" : ""
+                              } ${isExpandida ? "bg-muted/30" : ""}`}
+                              onClick={() => toggleLinhaExpandida(l.id)}
+                            >
+                              <td className="py-2 px-2 text-center font-mono text-muted-foreground">
+                                {index + 1}
+                              </td>
+                              <td className="py-2 px-1 text-center print:hidden">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    toggleLinhaExpandida(l.id)
+                                  }}
+                                  title={
+                                    isExpandida
+                                      ? "Recolher composição"
+                                      : "Ver discriminação completa"
+                                  }
+                                >
+                                  {isExpandida ? (
+                                    <ChevronUp className="h-4 w-4 text-primary" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </td>
+                              <td className="py-2 px-3 font-semibold text-foreground sticky left-0 bg-background z-10 border-r whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <span>{l.nome}</span>
+                                  {l.oculto && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[9px] px-1 py-0 h-4 text-amber-600 border-amber-300"
+                                    >
+                                      Oculto
+                                    </Badge>
+                                  )}
+                                  {temExtras && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-[9px] px-1 py-0 h-4 font-mono font-normal text-emerald-700 bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-300"
+                                      title="Contém produção, ajuda ou gratificação adicionados ao líquido"
+                                    >
+                                      +Extras
+                                    </Badge>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-2 px-2 text-muted-foreground whitespace-nowrap">
+                                {l.funcao}
+                              </td>
+                              <td className="py-2 px-2 text-right font-mono font-medium whitespace-nowrap bg-amber-50/40 dark:bg-amber-950/10">
+                                {fmtMoeda(l.bruto)}
+                              </td>
+                              <td className="py-2 px-2 text-center font-mono bg-amber-50/40 dark:bg-amber-950/10">
+                                {l.filhos > 0 ? l.filhos : 0}
+                              </td>
+
+                              {/* INSS com badge Calculado / Digitado */}
+                              <td className="py-2 px-2 text-right font-mono whitespace-nowrap text-red-600">
+                                <div className="flex items-center justify-end gap-1">
+                                  <span>
+                                    {l.inssFinal > 0
+                                      ? `−${fmtMoeda(l.inssFinal)}`
+                                      : fmtMoeda(0)}
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[8px] px-1 py-0 h-3.5 ${
+                                      l.isInssSobrescrito
+                                        ? "border-amber-400 text-amber-700 bg-amber-50"
+                                        : "border-muted text-muted-foreground"
+                                    }`}
+                                  >
+                                    {l.isInssSobrescrito
+                                      ? "Digitado"
+                                      : "Calculado"}
+                                  </Badge>
+                                </div>
+                              </td>
+
+                              {/* FAMÍLIA */}
+                              <td className="py-2 px-2 text-right font-mono whitespace-nowrap text-emerald-600">
+                                <div className="flex items-center justify-end gap-1">
+                                  <span>
+                                    {l.familiaFinal > 0
+                                      ? `+${fmtMoeda(l.familiaFinal)}`
+                                      : "-"}
+                                  </span>
+                                  {l.familiaFinal > 0 && (
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-[8px] px-1 py-0 h-3.5 ${
+                                        l.isFamiliaSobrescrito
+                                          ? "border-amber-400 text-amber-700 bg-amber-50"
+                                          : "border-muted text-muted-foreground"
+                                      }`}
+                                    >
+                                      {l.isFamiliaSobrescrito
+                                        ? "Digitado"
+                                        : "Calculado"}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* IRRF */}
+                              <td className="py-2 px-2 text-right font-mono whitespace-nowrap text-red-600">
+                                <div className="flex items-center justify-end gap-1">
+                                  <span>
+                                    {l.irrfFinal > 0
+                                      ? `−${fmtMoeda(l.irrfFinal)}`
+                                      : "-"}
+                                  </span>
+                                  {l.irrfFinal > 0 && (
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-[8px] px-1 py-0 h-3.5 ${
+                                        l.isIrrfSobrescrito
+                                          ? "border-amber-400 text-amber-700 bg-amber-50"
+                                          : "border-muted text-muted-foreground"
+                                      }`}
+                                    >
+                                      {l.isIrrfSobrescrito
+                                        ? "Digitado"
+                                        : "Calculado"}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* QUINZENA */}
+                              <td className="py-2 px-2 text-right font-mono text-blue-600 whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1">
+                                  <span>
+                                    {l.quinzenaFinal > 0
+                                      ? `−${fmtMoeda(l.quinzenaFinal)}`
+                                      : fmtMoeda(0)}
+                                  </span>
+                                  {l.isQuinzenaSobrescrita && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[8px] px-1 py-0 h-3.5 border-amber-400 text-amber-700 bg-amber-50"
+                                    >
+                                      Digitado
+                                    </Badge>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* MENSAL (LÍQUIDO) */}
+                              <td className="py-2 px-2 text-right font-mono font-bold text-primary bg-primary/10 whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1">
+                                  <span className="text-sm">
+                                    {fmtMoeda(l.mensalFinal)}
+                                  </span>
+                                  {l.isMensalSobrescrito && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[8px] px-1 py-0 h-3.5 border-amber-400 text-amber-700 bg-amber-50"
+                                    >
+                                      Digitado
+                                    </Badge>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td className="py-2 px-3 text-muted-foreground font-mono text-[11px] truncate max-w-[140px]">
+                                {l.conta || "-"}
+                              </td>
+                              <td className="py-2 px-3 text-muted-foreground font-mono text-[11px] truncate max-w-[140px]">
+                                {l.pix || l.chave_pix || "-"}
+                              </td>
+                              <td className="py-2 px-3 text-muted-foreground text-[11px] truncate max-w-[150px]">
+                                {l.observacao_linha || l.observacoes || "-"}
+                              </td>
+
+                              <td
+                                className="py-2 px-2 text-center whitespace-nowrap print:hidden"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                {l.isInssSobrescrito ? "Digitado" : "Calculado"}
-                              </Badge>
-                            </div>
-                          </td>
+                                <div className="flex items-center justify-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                    onClick={() => abrirModalEdicao(l)}
+                                    title="Editar"
+                                  >
+                                    <Edit2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                    onClick={() => solicitarExclusao(l)}
+                                    title={
+                                      isAdministrador
+                                        ? "Excluir"
+                                        : "Exclusão permitida apenas para Administrador"
+                                    }
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
 
-                          {/* FAMÍLIA */}
-                          <td className="py-2 px-2 text-right font-mono whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1">
-                              <span>
-                                {l.familiaFinal > 0
-                                  ? fmtMoeda(l.familiaFinal)
-                                  : "-"}
-                              </span>
-                              {l.familiaFinal > 0 && (
-                                <Badge
-                                  variant="outline"
-                                  className={`text-[8px] px-1 py-0 h-3.5 ${
-                                    l.isFamiliaSobrescrito
-                                      ? "border-amber-400 text-amber-700 bg-amber-50"
-                                      : "border-muted text-muted-foreground"
-                                  }`}
-                                >
-                                  {l.isFamiliaSobrescrito
-                                    ? "Digitado"
-                                    : "Calculado"}
-                                </Badge>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* IRRF */}
-                          <td className="py-2 px-2 text-right font-mono whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1">
-                              <span>
-                                {l.irrfFinal > 0 ? fmtMoeda(l.irrfFinal) : "-"}
-                              </span>
-                              {l.irrfFinal > 0 && (
-                                <Badge
-                                  variant="outline"
-                                  className={`text-[8px] px-1 py-0 h-3.5 ${
-                                    l.isIrrfSobrescrito
-                                      ? "border-amber-400 text-amber-700 bg-amber-50"
-                                      : "border-muted text-muted-foreground"
-                                  }`}
-                                >
-                                  {l.isIrrfSobrescrito
-                                    ? "Digitado"
-                                    : "Calculado"}
-                                </Badge>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* QUINZENA */}
-                          <td className="py-2 px-2 text-right font-mono text-blue-600 whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1">
-                              <span>{fmtMoeda(l.quinzenaFinal)}</span>
-                              {l.isQuinzenaSobrescrita && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[8px] px-1 py-0 h-3.5 border-amber-400 text-amber-700 bg-amber-50"
-                                >
-                                  Digitado
-                                </Badge>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* MENSAL (LÍQUIDO) */}
-                          <td className="py-2 px-2 text-right font-mono font-bold text-primary bg-primary/5 whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1">
-                              <span>{fmtMoeda(l.mensalFinal)}</span>
-                              {l.isMensalSobrescrito && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[8px] px-1 py-0 h-3.5 border-amber-400 text-amber-700 bg-amber-50"
-                                >
-                                  Digitado
-                                </Badge>
-                              )}
-                            </div>
-                          </td>
-
-                          <td className="py-2 px-3 text-muted-foreground font-mono text-[11px] truncate max-w-[140px]">
-                            {l.conta || "-"}
-                          </td>
-                          <td className="py-2 px-3 text-muted-foreground font-mono text-[11px] truncate max-w-[140px]">
-                            {l.pix || l.chave_pix || "-"}
-                          </td>
-                          <td className="py-2 px-3 text-muted-foreground text-[11px] truncate max-w-[150px]">
-                            {l.observacao_linha || l.observacoes || "-"}
-                          </td>
-
-                          <td className="py-2 px-2 text-center whitespace-nowrap print:hidden">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                onClick={() => abrirModalEdicao(l)}
-                                title="Editar"
+                            {/* LINHA DISCRIMINADA EXPANSÍVEL: MOSTRA CADA COMPONENTE QUE GERA O LÍQUIDO */}
+                            {isExpandida && (
+                              <tr
+                                key={`${l.id}-detalhe`}
+                                className="bg-muted/20 border-b border-primary/20"
                               >
-                                <Edit2 className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                onClick={() => solicitarExclusao(l)}
-                                title={
-                                  isAdministrador
-                                    ? "Excluir"
-                                    : "Exclusão permitida apenas para Administrador"
-                                }
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                                <td colSpan={15} className="p-3 pl-8">
+                                  <div className="rounded-lg border bg-card p-3 shadow-sm space-y-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+                                      <div className="flex items-center gap-2">
+                                        <Calculator className="h-4 w-4 text-primary" />
+                                        <span className="font-bold text-xs uppercase tracking-wide text-foreground">
+                                          Discriminação Completa do Líquido —{" "}
+                                          {l.nome}
+                                        </span>
+                                      </div>
+                                      <div className="text-xs font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/30">
+                                        Total Líquido: {fmtMoeda(l.mensalFinal)}
+                                      </div>
+                                    </div>
+
+                                    {/* Grid de todos os componentes */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
+                                      {/* Bruto */}
+                                      <div className="bg-muted/50 p-2 rounded border">
+                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                          Salário Bruto (+)
+                                        </div>
+                                        <div className="font-mono font-bold text-foreground text-sm">
+                                          {fmtMoeda(l.bruto)}
+                                        </div>
+                                      </div>
+
+                                      {/* INSS */}
+                                      <div className="bg-red-50/50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-900/30">
+                                        <div className="text-[10px] text-red-700 dark:text-red-300 uppercase font-semibold">
+                                          INSS (−)
+                                        </div>
+                                        <div className="font-mono font-bold text-red-600 dark:text-red-400 text-sm">
+                                          {l.inssFinal > 0
+                                            ? `−${fmtMoeda(l.inssFinal)}`
+                                            : fmtMoeda(0)}
+                                        </div>
+                                      </div>
+
+                                      {/* IRRF */}
+                                      <div className="bg-red-50/50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-900/30">
+                                        <div className="text-[10px] text-red-700 dark:text-red-300 uppercase font-semibold">
+                                          IRRF (−)
+                                        </div>
+                                        <div className="font-mono font-bold text-red-600 dark:text-red-400 text-sm">
+                                          {l.irrfFinal > 0
+                                            ? `−${fmtMoeda(l.irrfFinal)}`
+                                            : fmtMoeda(0)}
+                                        </div>
+                                      </div>
+
+                                      {/* Família */}
+                                      <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded border border-emerald-200 dark:border-emerald-900/30">
+                                        <div className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-semibold">
+                                          Salário Família (+)
+                                        </div>
+                                        <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                                          {l.familiaFinal > 0
+                                            ? `+${fmtMoeda(l.familiaFinal)}`
+                                            : fmtMoeda(0)}
+                                        </div>
+                                      </div>
+
+                                      {/* Quinzena */}
+                                      <div className="bg-blue-50/50 dark:bg-blue-950/20 p-2 rounded border border-blue-200 dark:border-blue-900/30">
+                                        <div className="text-[10px] text-blue-700 dark:text-blue-300 uppercase font-semibold">
+                                          Quinzena (−)
+                                        </div>
+                                        <div className="font-mono font-bold text-blue-600 dark:text-blue-400 text-sm">
+                                          {l.quinzenaFinal > 0
+                                            ? `−${fmtMoeda(l.quinzenaFinal)}`
+                                            : fmtMoeda(0)}
+                                        </div>
+                                      </div>
+
+                                      {/* Adiantamento */}
+                                      <div className="bg-red-50/50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-900/30">
+                                        <div className="text-[10px] text-red-700 dark:text-red-300 uppercase font-semibold">
+                                          Adiantamento (−)
+                                        </div>
+                                        <div className="font-mono font-bold text-red-600 dark:text-red-400 text-sm">
+                                          {l.adiantamentoTotal > 0
+                                            ? `−${fmtMoeda(l.adiantamentoTotal)}`
+                                            : fmtMoeda(0)}
+                                        </div>
+                                      </div>
+
+                                      {/* Produção (Obras x Valor) */}
+                                      <div
+                                        className={`p-2 rounded border ${
+                                          l.producaoTotal > 0
+                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300"
+                                            : "bg-muted/40"
+                                        }`}
+                                      >
+                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                          Produção (+){" "}
+                                          {l.obras > 0
+                                            ? `(${l.obras}×${fmtMoeda(l.valor_obra || 20)})`
+                                            : ""}
+                                        </div>
+                                        <div className="font-mono font-bold text-foreground text-sm">
+                                          {l.producaoTotal > 0
+                                            ? `+${fmtMoeda(l.producaoTotal)}`
+                                            : fmtMoeda(0)}
+                                        </div>
+                                      </div>
+
+                                      {/* Limpeza */}
+                                      <div
+                                        className={`p-2 rounded border ${
+                                          l.limpezaTotal > 0
+                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300"
+                                            : "bg-muted/40"
+                                        }`}
+                                      >
+                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                          Limpeza/Lubrif. (+)
+                                        </div>
+                                        <div className="font-mono font-bold text-foreground text-sm">
+                                          {l.limpezaTotal > 0
+                                            ? `+${fmtMoeda(l.limpezaTotal)}`
+                                            : fmtMoeda(0)}
+                                        </div>
+                                      </div>
+
+                                      {/* Sábado */}
+                                      <div
+                                        className={`p-2 rounded border ${
+                                          l.sabadoTotal > 0
+                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300"
+                                            : "bg-muted/40"
+                                        }`}
+                                      >
+                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                          Sábado (+)
+                                        </div>
+                                        <div className="font-mono font-bold text-foreground text-sm">
+                                          {l.sabadoTotal > 0
+                                            ? `+${fmtMoeda(l.sabadoTotal)}`
+                                            : fmtMoeda(0)}
+                                        </div>
+                                      </div>
+
+                                      {/* Férias */}
+                                      <div
+                                        className={`p-2 rounded border ${
+                                          l.feriasTotal > 0
+                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300"
+                                            : "bg-muted/40"
+                                        }`}
+                                      >
+                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                          Férias (+)
+                                        </div>
+                                        <div className="font-mono font-bold text-foreground text-sm">
+                                          {l.feriasTotal > 0
+                                            ? `+${fmtMoeda(l.feriasTotal)}`
+                                            : fmtMoeda(0)}
+                                        </div>
+                                      </div>
+
+                                      {/* Ajuda de Custo */}
+                                      <div
+                                        className={`p-2 rounded border ${
+                                          l.ajudaTotal > 0
+                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300"
+                                            : "bg-muted/40"
+                                        }`}
+                                      >
+                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                          Ajuda de Custo (+)
+                                        </div>
+                                        <div className="font-mono font-bold text-foreground text-sm">
+                                          {l.ajudaTotal > 0
+                                            ? `+${fmtMoeda(l.ajudaTotal)}`
+                                            : fmtMoeda(0)}
+                                        </div>
+                                      </div>
+
+                                      {/* Gratificação */}
+                                      <div
+                                        className={`p-2 rounded border ${
+                                          l.gratificacaoTotal > 0
+                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300"
+                                            : "bg-muted/40"
+                                        }`}
+                                      >
+                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                          Gratificação (+)
+                                        </div>
+                                        <div className="font-mono font-bold text-foreground text-sm">
+                                          {l.gratificacaoTotal > 0
+                                            ? `+${fmtMoeda(l.gratificacaoTotal)}`
+                                            : fmtMoeda(0)}
+                                        </div>
+                                      </div>
+
+                                      {/* Comissão Vendas */}
+                                      <div
+                                        className={`p-2 rounded border ${
+                                          l.comissaoTotal > 0
+                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300"
+                                            : "bg-muted/40"
+                                        }`}
+                                      >
+                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                          Comissão Vendas (+)
+                                        </div>
+                                        <div className="font-mono font-bold text-foreground text-sm">
+                                          {l.comissaoTotal > 0
+                                            ? `+${fmtMoeda(l.comissaoTotal)}`
+                                            : fmtMoeda(0)}
+                                        </div>
+                                      </div>
+
+                                      {/* Vendas Ajuda */}
+                                      {l.vendasAjudaTotal > 0 && (
+                                        <div className="p-2 rounded border bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300">
+                                          <div className="text-[10px] text-muted-foreground uppercase font-semibold">
+                                            Vendas Ajuda (+)
+                                          </div>
+                                          <div className="font-mono font-bold text-foreground text-sm">
+                                            +{fmtMoeda(l.vendasAjudaTotal)}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Resumo da Equação em Linha */}
+                                    <div className="bg-muted/40 p-2 rounded text-[11px] font-mono text-muted-foreground flex flex-wrap items-center gap-1">
+                                      <span className="font-bold text-foreground">
+                                        Soma discriminada:
+                                      </span>
+                                      <span>{fmtMoeda(l.bruto)} (Bruto)</span>
+                                      {l.inssFinal > 0 && (
+                                        <span>
+                                          − {fmtMoeda(l.inssFinal)} (INSS)
+                                        </span>
+                                      )}
+                                      {l.irrfFinal > 0 && (
+                                        <span>
+                                          − {fmtMoeda(l.irrfFinal)} (IRRF)
+                                        </span>
+                                      )}
+                                      {l.familiaFinal > 0 && (
+                                        <span>
+                                          + {fmtMoeda(l.familiaFinal)} (Família)
+                                        </span>
+                                      )}
+                                      {l.quinzenaFinal > 0 && (
+                                        <span>
+                                          − {fmtMoeda(l.quinzenaFinal)}{" "}
+                                          (Quinzena)
+                                        </span>
+                                      )}
+                                      {l.adiantamentoTotal > 0 && (
+                                        <span>
+                                          − {fmtMoeda(l.adiantamentoTotal)}{" "}
+                                          (Adiant.)
+                                        </span>
+                                      )}
+                                      {l.producaoTotal > 0 && (
+                                        <span>
+                                          + {fmtMoeda(l.producaoTotal)}{" "}
+                                          (Produção)
+                                        </span>
+                                      )}
+                                      {l.limpezaTotal > 0 && (
+                                        <span>
+                                          + {fmtMoeda(l.limpezaTotal)} (Limpeza)
+                                        </span>
+                                      )}
+                                      {l.sabadoTotal > 0 && (
+                                        <span>
+                                          + {fmtMoeda(l.sabadoTotal)} (Sábado)
+                                        </span>
+                                      )}
+                                      {l.feriasTotal > 0 && (
+                                        <span>
+                                          + {fmtMoeda(l.feriasTotal)} (Férias)
+                                        </span>
+                                      )}
+                                      {l.ajudaTotal > 0 && (
+                                        <span>
+                                          + {fmtMoeda(l.ajudaTotal)} (Ajuda)
+                                        </span>
+                                      )}
+                                      {l.gratificacaoTotal > 0 && (
+                                        <span>
+                                          + {fmtMoeda(l.gratificacaoTotal)}{" "}
+                                          (Gratif.)
+                                        </span>
+                                      )}
+                                      {l.comissaoTotal > 0 && (
+                                        <span>
+                                          + {fmtMoeda(l.comissaoTotal)}{" "}
+                                          (Comissão)
+                                        </span>
+                                      )}
+                                      {l.vendasAjudaTotal > 0 && (
+                                        <span>
+                                          + {fmtMoeda(l.vendasAjudaTotal)}{" "}
+                                          (Vendas Ajuda)
+                                        </span>
+                                      )}
+                                      <span className="font-bold text-primary ml-1">
+                                        = {fmtMoeda(l.mensalFinal)} (LÍQUIDO)
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        )
+                      })
                     )}
                   </tbody>
 
-                  {/* TOTAL RODAPÉ FUNCIONÁRIOS */}
+                  {/* TOTAL RODAPÉ FUNCIONÁRIOS DISCRIMINADO */}
                   <tfoot className="bg-muted font-bold text-foreground border-t-2 border-border">
                     <tr>
                       <td className="py-2.5 px-2 text-center">-</td>
+                      <td className="py-2.5 px-1 text-center print:hidden">
+                        -
+                      </td>
                       <td className="py-2.5 px-3 sticky left-0 bg-muted z-10 border-r">
                         TOTAL ({linhasGeralProcessadas.length})
                       </td>
@@ -1328,27 +1885,115 @@ export function FolhaPagamento() {
                       <td className="py-2.5 px-2 text-center font-mono bg-amber-50/40 dark:bg-amber-950/10">
                         {totaisGeral.filhos}
                       </td>
-                      <td className="py-2.5 px-2 text-right font-mono">
-                        {fmtMoeda(totaisGeral.inss)}
+                      <td className="py-2.5 px-2 text-right font-mono text-red-600">
+                        {totaisGeral.inss > 0
+                          ? `−${fmtMoeda(totaisGeral.inss)}`
+                          : fmtMoeda(0)}
                       </td>
-                      <td className="py-2.5 px-2 text-right font-mono">
-                        {fmtMoeda(totaisGeral.familia)}
+                      <td className="py-2.5 px-2 text-right font-mono text-emerald-600">
+                        {totaisGeral.familia > 0
+                          ? `+${fmtMoeda(totaisGeral.familia)}`
+                          : fmtMoeda(0)}
                       </td>
-                      <td className="py-2.5 px-2 text-right font-mono">
-                        {fmtMoeda(totaisGeral.irrf)}
+                      <td className="py-2.5 px-2 text-right font-mono text-red-600">
+                        {totaisGeral.irrf > 0
+                          ? `−${fmtMoeda(totaisGeral.irrf)}`
+                          : fmtMoeda(0)}
                       </td>
                       <td className="py-2.5 px-2 text-right font-mono text-blue-600">
-                        {fmtMoeda(totaisGeral.quinzena)}
+                        {totaisGeral.quinzena > 0
+                          ? `−${fmtMoeda(totaisGeral.quinzena)}`
+                          : fmtMoeda(0)}
                       </td>
-                      <td className="py-2.5 px-2 text-right font-mono text-primary bg-primary/10">
+                      <td className="py-2.5 px-2 text-right font-mono text-primary bg-primary/20 text-sm">
                         {fmtMoeda(totaisGeral.mensal)}
                       </td>
                       <td className="py-2.5 px-3" colSpan={4}></td>
                     </tr>
+                    {/* Linha adicional no rodapé detalhando totais dos componentes extras */}
+                    <tr className="bg-muted/60 text-[11px] border-t border-border font-normal">
+                      <td colSpan={15} className="py-2 px-4">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground font-mono">
+                          <span className="font-bold text-foreground">
+                            Discriminação dos totais:
+                          </span>
+                          <span>Bruto: {fmtMoeda(totaisGeral.bruto)}</span>
+                          {totaisGeral.inss > 0 && (
+                            <span className="text-red-600">
+                              INSS: −{fmtMoeda(totaisGeral.inss)}
+                            </span>
+                          )}
+                          {totaisGeral.irrf > 0 && (
+                            <span className="text-red-600">
+                              IRRF: −{fmtMoeda(totaisGeral.irrf)}
+                            </span>
+                          )}
+                          {totaisGeral.familia > 0 && (
+                            <span className="text-emerald-600">
+                              Família: +{fmtMoeda(totaisGeral.familia)}
+                            </span>
+                          )}
+                          {totaisGeral.quinzena > 0 && (
+                            <span className="text-blue-600">
+                              Quinzena: −{fmtMoeda(totaisGeral.quinzena)}
+                            </span>
+                          )}
+                          {totaisGeral.producao > 0 && (
+                            <span className="text-emerald-600">
+                              Produção: +{fmtMoeda(totaisGeral.producao)}
+                            </span>
+                          )}
+                          {totaisGeral.limpeza > 0 && (
+                            <span className="text-emerald-600">
+                              Limpeza: +{fmtMoeda(totaisGeral.limpeza)}
+                            </span>
+                          )}
+                          {totaisGeral.sabado > 0 && (
+                            <span className="text-emerald-600">
+                              Sábado: +{fmtMoeda(totaisGeral.sabado)}
+                            </span>
+                          )}
+                          {totaisGeral.ferias > 0 && (
+                            <span className="text-emerald-600">
+                              Férias: +{fmtMoeda(totaisGeral.ferias)}
+                            </span>
+                          )}
+                          {totaisGeral.ajuda_custo > 0 && (
+                            <span className="text-emerald-600">
+                              Ajuda: +{fmtMoeda(totaisGeral.ajuda_custo)}
+                            </span>
+                          )}
+                          {totaisGeral.gratificacao > 0 && (
+                            <span className="text-emerald-600">
+                              Gratif.: +{fmtMoeda(totaisGeral.gratificacao)}
+                            </span>
+                          )}
+                          {totaisGeral.comissao > 0 && (
+                            <span className="text-emerald-600">
+                              Comissão: +{fmtMoeda(totaisGeral.comissao)}
+                            </span>
+                          )}
+                          {totaisGeral.vendas_ajuda > 0 && (
+                            <span className="text-emerald-600">
+                              Vendas Ajuda: +
+                              {fmtMoeda(totaisGeral.vendas_ajuda)}
+                            </span>
+                          )}
+                          {totaisGeral.adiantamento > 0 && (
+                            <span className="text-red-600">
+                              Adiantamento: −
+                              {fmtMoeda(totaisGeral.adiantamento)}
+                            </span>
+                          )}
+                          <span className="font-bold text-primary ml-auto">
+                            = Total Líquido {fmtMoeda(totaisGeral.mensal)}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
                   </tfoot>
                 </table>
               </div>
-
               {/* SEÇÃO SEPARADA EMBAIXO: TERCEIROS — FOLHA À PARTE (SEM DESCONTO) */}
               <div className="border-t-4 border-t-muted p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -1484,7 +2129,7 @@ export function FolhaPagamento() {
         </TabsContent>
 
         {/* =========================================================================
-            ABA 2: QUINZENA (FOLHA DE PAGAMENTO DA QUINZENA + IMPRESSÃO A4)
+            ABA 2: QUINZENA (CÁLCULO AUTOMÁTICO 40% SEM VALOR BRUTO + IMPRESSÃO A4)
         ========================================================================== */}
         <TabsContent value="quinzena" className="space-y-4">
           <Card>
@@ -1494,9 +2139,10 @@ export function FolhaPagamento() {
                   Folha de Pagamento — Quinzena
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Valores adiantados da 1ª quinzena (
-                  {Math.round(percentualQuinzena * 100)}% do bruto) para a
-                  competência {rotuloCompetenciaMesAno}.
+                  Cálculo automático de adiantamento da quinzena (
+                  {Math.round(percentualQuinzena * 100)}% definido no cabeçalho
+                  da competência {rotuloCompetenciaMesAno}), sem digitação
+                  manual e sem exibição de bruto.
                 </CardDescription>
               </div>
               <Button
@@ -1519,9 +2165,9 @@ export function FolhaPagamento() {
                         NOME
                       </th>
                       <th className="py-2.5 px-2">FUNÇÃO</th>
-                      <th className="py-2.5 px-2 text-right">TOTAL BRUTO</th>
-                      <th className="py-2.5 px-2 text-right font-bold text-blue-600">
-                        QUINZENA
+                      <th className="py-2.5 px-2 text-right font-bold text-blue-600 bg-blue-50/50 dark:bg-blue-950/20">
+                        QUINZENA ({Math.round(percentualQuinzena * 100)}%
+                        AUTOMÁTICO)
                       </th>
                       <th className="py-2.5 px-3">AGÊNCIA / C/C</th>
                       <th className="py-2.5 px-3">PIX</th>
@@ -1539,10 +2185,7 @@ export function FolhaPagamento() {
                         <td className="py-2 px-2 text-muted-foreground">
                           {l.funcao}
                         </td>
-                        <td className="py-2 px-2 text-right font-mono">
-                          {fmtMoeda(l.bruto)}
-                        </td>
-                        <td className="py-2 px-2 text-right font-mono font-bold text-blue-600">
+                        <td className="py-2 px-2 text-right font-mono font-bold text-blue-600 bg-blue-50/30 dark:bg-blue-950/10">
                           {fmtMoeda(l.quinzenaFinal)}
                         </td>
                         <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
@@ -1558,13 +2201,10 @@ export function FolhaPagamento() {
                     <tr>
                       <td className="py-2.5 px-2 text-center">-</td>
                       <td className="py-2.5 px-3 sticky left-0 bg-muted z-10 border-r">
-                        TOTAL
+                        TOTAL ({linhasGeralProcessadas.length})
                       </td>
                       <td className="py-2.5 px-2">-</td>
-                      <td className="py-2.5 px-2 text-right font-mono">
-                        {fmtMoeda(totaisGeral.bruto)}
-                      </td>
-                      <td className="py-2.5 px-2 text-right font-mono text-blue-600">
+                      <td className="py-2.5 px-2 text-right font-mono text-blue-600 bg-blue-50/50 dark:bg-blue-950/20">
                         {fmtMoeda(totaisGeral.quinzena)}
                       </td>
                       <td className="py-2.5 px-3" colSpan={2}></td>
@@ -1572,6 +2212,67 @@ export function FolhaPagamento() {
                   </tfoot>
                 </table>
               </div>
+
+              {/* TABELA DE TERCEIROS NA ABA QUINZENA (SEM BRUTO, 40% AUTOMÁTICO) */}
+              {terceirosProcessados.length > 0 && (
+                <div className="border-t p-4 space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-purple-900 dark:text-purple-300 flex items-center gap-2">
+                    <Badge className="bg-purple-600 text-white hover:bg-purple-700 text-[10px]">
+                      TERCEIROS
+                    </Badge>
+                    QUINZENA TERCEIROS ({Math.round(percentualQuinzena * 100)}%
+                    AUTOMÁTICO)
+                  </h4>
+                  <div className="overflow-x-auto border rounded">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead className="bg-purple-50 dark:bg-purple-950/30 text-purple-900 dark:text-purple-200 uppercase font-semibold border-b">
+                        <tr>
+                          <th className="py-2 px-2 text-center w-8">Nº</th>
+                          <th className="py-2 px-3">NOME</th>
+                          <th className="py-2 px-2 text-right font-bold text-blue-600">
+                            QUINZENA ({Math.round(percentualQuinzena * 100)}%)
+                          </th>
+                          <th className="py-2 px-3">PIX</th>
+                          <th className="py-2 px-3">OBS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {terceirosProcessados.map((t, idx) => (
+                          <tr key={t.id} className="hover:bg-muted/30">
+                            <td className="py-2 px-2 text-center font-mono text-muted-foreground">
+                              {idx + 1}
+                            </td>
+                            <td className="py-2 px-3 font-semibold text-foreground">
+                              {t.nome}
+                            </td>
+                            <td className="py-2 px-2 text-right font-mono font-bold text-blue-600">
+                              {fmtMoeda(t.quinzena)}
+                            </td>
+                            <td className="py-2 px-3 font-mono text-muted-foreground text-[11px]">
+                              {t.pix || t.chave_pix || "-"}
+                            </td>
+                            <td className="py-2 px-3 text-muted-foreground text-[11px]">
+                              {t.observacao_linha || t.observacoes || "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-purple-100/50 dark:bg-purple-950/40 font-bold border-t">
+                        <tr>
+                          <td className="py-2 px-2 text-center">-</td>
+                          <td className="py-2 px-3">
+                            TOTAL TERCEIROS ({terceirosProcessados.length})
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono text-blue-600">
+                            {fmtMoeda(totaisTerceiros.quinzena)}
+                          </td>
+                          <td className="py-2 px-3" colSpan={2}></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* SEÇÃO PROTOCOLO DE RECEBIMENTO — ASSINATURAS */}
               <div className="p-6 border-t bg-muted/10 space-y-4">
