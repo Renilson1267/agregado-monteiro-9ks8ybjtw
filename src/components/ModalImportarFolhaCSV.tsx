@@ -22,10 +22,10 @@ import {
   Calendar,
   HelpCircle,
   RefreshCw,
-  DollarSign,
-  TrendingUp,
   TrendingDown,
   Layers,
+  Briefcase,
+  UserCheck,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useEmpresa } from '@/hooks/use-empresa'
@@ -57,38 +57,39 @@ export function ModalImportarFolhaCSV({
 
   const [arquivoNome, setArquivoNome] = useState<string | null>(null)
   const [conteudoCsv, setConteudoCsv] = useState<string>('')
-  const [competenciaSelecionada, setCompetenciaSelecionada] =
-    useState<string>(competenciaAtiva || '2026-09')
+  const [competenciaSelecionada, setCompetenciaSelecionada] = useState<string>(
+    competenciaAtiva || '2026-09',
+  )
   const [preview, setPreview] = useState<PreviewImportacaoFolhaCSV | null>(null)
-  const [processandoPreview, setProcessandoPreview] = useState(false)
   const [salvando, setSalvando] = useState(false)
 
-  // Conjunto de CPFs atuais no banco para indicar se serão atualizados ou novos
-  const cpfsCadastrados = new Set(
-    linhasAtuais
-      .map((l) => l.cpf)
-      .filter((cpf): cpf is string => Boolean(cpf)),
+  // Nomes cadastrados no banco para indicar atualização
+  const nomesCadastrados = new Set(
+    linhasAtuais.map((l) => l.nome.trim().toUpperCase()),
   )
 
   const resetar = () => {
     setArquivoNome(null)
     setConteudoCsv('')
     setPreview(null)
-    setProcessandoPreview(false)
     setSalvando(false)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
   }
 
-  const handleProcessarArquivo = (text: string, nome: string, compOverride?: string) => {
+  const handleProcessarArquivo = (
+    text: string,
+    nome: string,
+    compOverride?: string,
+  ) => {
     try {
       const compAlvo = compOverride || competenciaSelecionada
       const resultado = parseFolhaPagamentoCSV(
         text,
         nome,
         compAlvo,
-        cpfsCadastrados,
+        nomesCadastrados,
       )
       setPreview(resultado)
       if (resultado.competenciaSugerida && !compOverride) {
@@ -99,13 +100,13 @@ export function ModalImportarFolhaCSV({
         toast({
           title: 'Nenhum colaborador identificado',
           description:
-            'Verifique se o arquivo possui colunas com Nome e valores salariais.',
+            'Verifique se o arquivo possui colunas com Tipo, Nome e valores salariais.',
           variant: 'destructive',
         })
       } else {
         toast({
-          title: 'Arquivo de folha processado!',
-          description: `${resultado.totalColaboradoresValidos} colaboradores identificados para competência ${compAlvo}.`,
+          title: 'Arquivo da folha processado com sucesso!',
+          description: `${resultado.totalFuncionarios} funcionários e ${resultado.totalTerceiros} terceiros na prévia (${compAlvo}).`,
         })
       }
     } catch (err: any) {
@@ -114,8 +115,6 @@ export function ModalImportarFolhaCSV({
         description: err.message,
         variant: 'destructive',
       })
-    } finally {
-      setProcessandoPreview(false)
     }
   }
 
@@ -124,7 +123,6 @@ export function ModalImportarFolhaCSV({
     if (!file) return
 
     setArquivoNome(file.name)
-    setProcessandoPreview(true)
 
     const reader = new FileReader()
     reader.onload = async (event) => {
@@ -139,10 +137,9 @@ export function ModalImportarFolhaCSV({
         description: 'Não foi possível ler o arquivo selecionado.',
         variant: 'destructive',
       })
-      setProcessandoPreview(false)
     }
 
-    reader.readAsText(file, 'ISO-8859-1')
+    reader.readAsText(file, 'UTF-8')
   }
 
   const handleCompetenciaChange = (novaComp: string) => {
@@ -164,8 +161,8 @@ export function ModalImportarFolhaCSV({
       )
 
       toast({
-        title: 'Folha de pagamento importada com sucesso!',
-        description: `${res.totalInseridos} colaboradores inseridos e ${res.totalAtualizados} atualizados na competência ${competenciaSelecionada} (${empresaAtiva.nome}).`,
+        title: 'Folha gravada com sucesso!',
+        description: `${res.totalInseridos} inseridos e ${res.totalAtualizados} atualizados na empresa ativa (${empresaAtiva.nome}).`,
       })
 
       onImportadoSucesso(competenciaSelecionada)
@@ -173,7 +170,7 @@ export function ModalImportarFolhaCSV({
       resetar()
     } catch (err: any) {
       toast({
-        title: 'Erro ao salvar folha',
+        title: 'Erro ao salvar folha no banco',
         description: err.message,
         variant: 'destructive',
       })
@@ -206,20 +203,21 @@ export function ModalImportarFolhaCSV({
                     variant="outline"
                     className="text-xs bg-primary/10 text-primary border-primary/30"
                   >
-                    {empresaAtiva.nome}
+                    Empresa Ativa: {empresaAtiva.nome}
                   </Badge>
                 )}
               </DialogTitle>
               <DialogDescription className="text-xs">
-                Carregue o CSV da folha mensal. O sistema deduplica por CPF ou
-                matrícula, discrimina bases e calcula proventos e descontos.
+                Carregue o CSV da folha mensal. Aceita o padrão real GC MIX (com
+                distinção de Funcionário e Terceiro). A Unidade do CSV é
+                informativa; a gravação ocorre na <strong>Empresa Ativa</strong>.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-1">
-          {/* Campo de Competência */}
+          {/* Seletor de Competência */}
           <div className="p-3 bg-card/60 rounded-xl border border-border/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-primary" />
@@ -240,7 +238,7 @@ export function ModalImportarFolhaCSV({
             </div>
           </div>
 
-          {/* Caixa de Upload */}
+          {/* Área de Seleção de Arquivo */}
           {!preview ? (
             <div className="space-y-4">
               <div
@@ -255,8 +253,8 @@ export function ModalImportarFolhaCSV({
                     Clique para selecionar o arquivo CSV da folha ou arraste aqui
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Compatível com o modelo "folha-2026-09.csv", exportações de ERP
-                    ou planilhas com separadores vírgula e ponto-e-vírgula.
+                    Formato aceito: CSV com separador ponto-e-vírgula (;) ou
+                    vírgula (,), números brasileiros ou decimais comuns.
                   </p>
                 </div>
                 <input
@@ -268,36 +266,30 @@ export function ModalImportarFolhaCSV({
                 />
               </div>
 
-              {/* Instruções */}
+              {/* Informações sobre o cabeçalho oficial */}
               <Alert className="bg-primary/5 border-primary/20">
                 <HelpCircle className="h-4 w-4 text-primary" />
                 <AlertTitle className="text-xs font-semibold text-primary">
-                  Regras e Colunas Reconhecidas
+                  Estrutura Oficial do Cabeçalho
                 </AlertTitle>
-                <AlertDescription className="text-[11px] text-muted-foreground space-y-1 mt-1">
-                  <p>
-                    • <strong>Identificação:</strong> Nome, CPF, Matrícula, Cargo/Função,
-                    Setor/Departamento, Data de Admissão.
+                <AlertDescription className="text-[11px] text-muted-foreground space-y-1.5 mt-1 font-mono">
+                  <p className="p-1.5 bg-background/60 rounded border border-border/40 text-[10px] break-all">
+                    Tipo;Nome;Funcao;Unidade;Bruto;Filhos;INSS;Familia;IR;Quinzena;Adiantamento;Gratificacao;MensalLiquido;Producao;Comissao;Conta;PIX
                   </p>
-                  <p>
-                    • <strong>Proventos:</strong> Salário Base, Horas Extras,
-                    Periculosidade, Insalubridade, Noturno, Gratificações, DSR.
+                  <p className="font-sans text-[11px]">
+                    • <strong>Tipo:</strong> Funcionario ou Terceiro (Terceiros não
+                    possuem Bruto/INSS).
                   </p>
-                  <p>
-                    • <strong>Descontos:</strong> INSS, IRRF, Vale Transporte,
-                    Vale Refeição, Adiantamentos/Vales, Faltas.
-                  </p>
-                  <p>
-                    • <strong>Deduplicação Inteligente:</strong> Ao importar a
-                    mesma competência novamente, colaboradores existentes têm seus
-                    valores atualizados sem duplicação de registros.
+                  <p className="font-sans text-[11px]">
+                    • <strong>Deduplicação Inteligente:</strong> Ao reimportar,
+                    registros com mesmo nome na mesma competência são atualizados.
                   </p>
                 </AlertDescription>
               </Alert>
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Resumo do Arquivo Carregado */}
+              {/* Header do preview com arquivo lido */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 bg-muted/40 rounded-xl border border-border/40">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold">
@@ -309,7 +301,9 @@ export function ModalImportarFolhaCSV({
                     </h4>
                     <p className="text-[11px] text-muted-foreground">
                       Competência: <strong>{competenciaSelecionada}</strong> •{' '}
-                      {preview.totalColaboradoresValidos} colaboradores lidos
+                      {preview.totalColaboradoresValidos} colaboradores (
+                      {preview.totalFuncionarios} funcionários +{' '}
+                      {preview.totalTerceiros} terceiros)
                     </p>
                   </div>
                 </div>
@@ -325,7 +319,7 @@ export function ModalImportarFolhaCSV({
                 </Button>
               </div>
 
-              {/* Cards de Métricas Financeiras do Preview */}
+              {/* Cards de Métricas da Prévia */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Card className="bg-card/70 border-border/40">
                   <CardContent className="p-3">
@@ -337,75 +331,79 @@ export function ModalImportarFolhaCSV({
                       {preview.totalColaboradoresValidos}
                     </div>
                     <span className="text-[10px] text-muted-foreground">
-                      {preview.cargosDetectados.length} cargos distintos
+                      {preview.totalFuncionarios} Func. | {preview.totalTerceiros}{' '}
+                      Terc.
                     </span>
                   </CardContent>
                 </Card>
 
                 <Card className="bg-card/70 border-border/40">
                   <CardContent className="p-3">
-                    <div className="text-[10px] font-semibold text-muted-foreground uppercase flex items-center gap-1">
-                      <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-                      Total Proventos
+                    <div className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1">
+                      <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
+                      Total Bruto
                     </div>
                     <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
                       R${' '}
-                      {preview.totais.totalProventos.toLocaleString('pt-BR', {
+                      {preview.totais.totalBruto.toLocaleString('pt-BR', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
                     </div>
                     <span className="text-[10px] text-muted-foreground">
-                      Salários + adicionais
+                      Salários Brutos
                     </span>
                   </CardContent>
                 </Card>
 
                 <Card className="bg-card/70 border-border/40">
                   <CardContent className="p-3">
-                    <div className="text-[10px] font-semibold text-muted-foreground uppercase flex items-center gap-1">
+                    <div className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 uppercase flex items-center gap-1">
                       <TrendingDown className="w-3.5 h-3.5 text-rose-500" />
-                      Total Descontos
+                      INSS + IR
                     </div>
                     <div className="text-xl font-bold font-mono text-rose-600 dark:text-rose-400 mt-1">
                       R${' '}
-                      {preview.totais.totalDescontos.toLocaleString('pt-BR', {
+                      {(
+                        preview.totais.totalInss + preview.totais.totalIr
+                      ).toLocaleString('pt-BR', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
                     </div>
                     <span className="text-[10px] text-muted-foreground">
-                      INSS, IRRF e adiantamentos
+                      INSS: R$ {preview.totais.totalInss.toFixed(2)} | IR: R${' '}
+                      {preview.totais.totalIr.toFixed(2)}
                     </span>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-card/70 border-border/40">
+                <Card className="bg-card/70 border-primary/40 bg-primary/5">
                   <CardContent className="p-3">
-                    <div className="text-[10px] font-semibold text-muted-foreground uppercase flex items-center gap-1">
-                      <DollarSign className="w-3.5 h-3.5 text-cyan-500" />
-                      Total Líquido
+                    <div className="text-[10px] font-semibold text-primary uppercase flex items-center gap-1">
+                      <Briefcase className="w-3.5 h-3.5 text-primary" />
+                      Líquido a Pagar
                     </div>
-                    <div className="text-xl font-bold font-mono text-cyan-600 dark:text-cyan-400 mt-1">
+                    <div className="text-xl font-black font-mono text-foreground mt-1">
                       R${' '}
-                      {preview.totais.totalLiquido.toLocaleString('pt-BR', {
+                      {preview.totais.totalMensalLiquido.toLocaleString('pt-BR', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
                     </div>
                     <span className="text-[10px] text-muted-foreground">
-                      Líquido a pagar
+                      Total somatório final
                     </span>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Avisos de Deduplicação se houver */}
+              {/* Avisos */}
               {preview.avisos.length > 0 && (
                 <Alert className="bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                   <AlertTitle className="text-xs font-semibold">
-                    Avisos de Deduplicação na Planilha ({preview.avisos.length})
+                    Avisos de Validação ({preview.avisos.length})
                   </AlertTitle>
                   <AlertDescription className="text-[11px] mt-1 max-h-24 overflow-y-auto space-y-1">
                     {preview.avisos.map((av, idx) => (
@@ -415,12 +413,12 @@ export function ModalImportarFolhaCSV({
                 </Alert>
               )}
 
-              {/* Tabela de Prévia das Linhas Identificadas */}
+              {/* Tabela de Prévia */}
               <div className="border border-border/40 rounded-xl overflow-hidden">
                 <div className="bg-muted/40 px-3 py-2 border-b border-border/40 flex items-center justify-between">
                   <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                     <Layers className="w-3.5 h-3.5 text-primary" />
-                    Prévia dos Colaboradores ({preview.linhas.length})
+                    Prévia dos Registros a Gravar ({preview.linhas.length})
                   </span>
                   <span className="text-[10px] text-muted-foreground">
                     {preview.totalNovos} novos •{' '}
@@ -431,70 +429,65 @@ export function ModalImportarFolhaCSV({
                   <table className="w-full text-xs text-left">
                     <thead className="bg-muted/20 text-[10px] uppercase font-bold text-muted-foreground sticky top-0">
                       <tr>
-                        <th className="py-2 px-3">#</th>
-                        <th className="py-2 px-3">Nome / Cargo</th>
-                        <th className="py-2 px-3">CPF</th>
-                        <th className="py-2 px-3 text-right">Sal. Base</th>
-                        <th className="py-2 px-3 text-right">Proventos</th>
-                        <th className="py-2 px-3 text-right">Descontos</th>
-                        <th className="py-2 px-3 text-right">Líquido</th>
-                        <th className="py-2 px-3 text-right">FGTS Mês</th>
+                        <th className="py-2 px-2.5">Tipo</th>
+                        <th className="py-2 px-2.5">Nome</th>
+                        <th className="py-2 px-2.5">Função</th>
+                        <th className="py-2 px-2.5 text-right">Bruto</th>
+                        <th className="py-2 px-2.5 text-right">INSS</th>
+                        <th className="py-2 px-2.5 text-right">Quinzena</th>
+                        <th className="py-2 px-2.5 text-right">Produção</th>
+                        <th className="py-2 px-2.5 text-right font-bold text-foreground">
+                          Líquido
+                        </th>
+                        <th className="py-2 px-2.5">PIX / Conta</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border/20">
+                    <tbody className="divide-y divide-border/20 font-mono text-[11px]">
                       {preview.linhas.map((l) => (
                         <tr
                           key={l.linhaIndex}
                           className="hover:bg-muted/20 transition-colors"
                         >
-                          <td className="py-2 px-3 text-[11px] font-mono text-muted-foreground">
-                            {l.linhaIndex}
+                          <td className="py-2 px-2.5 font-sans">
+                            {l.tipo === 'Terceiro' ? (
+                              <Badge
+                                variant="outline"
+                                className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-bold"
+                              >
+                                Terceiro
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 text-[10px]"
+                              >
+                                Func.
+                              </Badge>
+                            )}
                           </td>
-                          <td className="py-2 px-3">
-                            <span className="font-semibold text-foreground block">
-                              {l.nome}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {l.cargo}
-                            </span>
+                          <td className="py-2 px-2.5 font-sans font-semibold text-foreground">
+                            {l.nome}
                           </td>
-                          <td className="py-2 px-3 font-mono text-[11px] text-muted-foreground">
-                            {l.cpfFormatado || '—'}
+                          <td className="py-2 px-2.5 font-sans text-muted-foreground text-[10px]">
+                            {l.funcao}
                           </td>
-                          <td className="py-2 px-3 text-right font-mono text-muted-foreground">
-                            R${' '}
-                            {l.salario_base.toLocaleString('pt-BR', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                          <td className="py-2 px-2.5 text-right">
+                            {l.bruto > 0 ? l.bruto.toFixed(2) : '—'}
                           </td>
-                          <td className="py-2 px-3 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                            R${' '}
-                            {l.total_proventos.toLocaleString('pt-BR', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                          <td className="py-2 px-2.5 text-right text-rose-500">
+                            {l.inss > 0 ? l.inss.toFixed(2) : '—'}
                           </td>
-                          <td className="py-2 px-3 text-right font-mono font-semibold text-rose-600 dark:text-rose-400">
-                            R${' '}
-                            {l.total_descontos.toLocaleString('pt-BR', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                          <td className="py-2 px-2.5 text-right text-muted-foreground">
+                            {l.quinzena > 0 ? l.quinzena.toFixed(2) : '—'}
                           </td>
-                          <td className="py-2 px-3 text-right font-mono font-bold text-foreground">
-                            R${' '}
-                            {l.salario_liquido.toLocaleString('pt-BR', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                          <td className="py-2 px-2.5 text-right text-emerald-600 dark:text-emerald-400">
+                            {l.producao > 0 ? l.producao.toFixed(2) : '—'}
                           </td>
-                          <td className="py-2 px-3 text-right font-mono text-muted-foreground text-[11px]">
-                            R${' '}
-                            {l.fgts_mes.toLocaleString('pt-BR', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                          <td className="py-2 px-2.5 text-right font-bold text-foreground">
+                            {l.mensal_liquido.toFixed(2)}
+                          </td>
+                          <td className="py-2 px-2.5 text-[10px] text-muted-foreground truncate max-w-[120px]">
+                            {l.pix || l.conta || '—'}
                           </td>
                         </tr>
                       ))}
@@ -510,14 +503,9 @@ export function ModalImportarFolhaCSV({
           <div className="text-xs text-muted-foreground">
             {preview && (
               <span>
-                Total a gravar:{' '}
-                <strong className="text-foreground">
-                  {preview.linhas.length} colaboradores
-                </strong>{' '}
-                na competência{' '}
-                <strong className="text-primary">
-                  {competenciaSelecionada}
-                </strong>
+                Total a gravar na empresa{' '}
+                <strong className="text-foreground">{empresaAtiva?.nome}</strong>
+                : <strong>{preview.linhas.length} colaboradores</strong>
               </span>
             )}
           </div>
@@ -549,7 +537,7 @@ export function ModalImportarFolhaCSV({
                 ) : (
                   <>
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    Gravar Folha no Sistema
+                    Gravar Folha ({competenciaSelecionada})
                   </>
                 )}
               </Button>

@@ -2,9 +2,36 @@ import { supabase } from '@/lib/supabase/client'
 import {
   FolhaCompetencia,
   FolhaPagamentoLinha,
-  FolhaResumoTotais,
+  FolhaTotaisCalculados,
+  calcularMensalLiquido,
 } from '@/types/folha'
-import { LinhaFolhaParsed } from '@/lib/csv-folha-parser'
+
+export interface SalvarLinhaFolhaPayload {
+  id?: string
+  empresa_id: string
+  competencia: string
+  tipo: 'Funcionario' | 'Terceiro'
+  nome: string
+  funcao: string
+  unidade: string
+  bruto: number
+  filhos: number
+  inss: number
+  familia: number
+  ir: number
+  quinzena: number
+  adiantamento: number
+  gratificacao: number
+  mensal_liquido: number
+  producao: number
+  comissao: number
+  conta: string
+  pix: string
+  modo_calculo?: 'Calculado' | 'Digitado'
+  funcionario_id?: string | null
+  cpf?: string | null
+  matricula?: string | null
+}
 
 export class FolhaService {
   /**
@@ -83,7 +110,7 @@ export class FolhaService {
   }
 
   /**
-   * Lista as linhas de folha de pagamento de uma competência
+   * Lista as linhas de folha de pagamento de uma competência na empresa
    */
   static async getLinhasCompetencia(
     empresaId: string,
@@ -101,18 +128,134 @@ export class FolhaService {
       throw error
     }
 
-    return (data || []) as FolhaPagamentoLinha[]
+    // Normaliza tipos numéricos e strings caso o retorno venha como string/null
+    return (data || []).map((l: any) => ({
+      ...l,
+      tipo: l.tipo === 'Terceiro' ? 'Terceiro' : 'Funcionario',
+      nome: l.nome || '',
+      funcao: l.funcao || 'Geral',
+      unidade: l.unidade || 'SJE',
+      bruto: Number(l.bruto || 0),
+      filhos: parseInt(String(l.filhos || 0), 10) || 0,
+      inss: Number(l.inss || 0),
+      familia: Number(l.familia || 0),
+      ir: Number(l.ir || 0),
+      quinzena: Number(l.quinzena || 0),
+      adiantamento: Number(l.adiantamento || 0),
+      gratificacao: Number(l.gratificacao || 0),
+      mensal_liquido: Number(l.mensal_liquido || 0),
+      producao: Number(l.producao || 0),
+      comissao: Number(l.comissao || 0),
+      conta: l.conta || '',
+      pix: l.pix || '',
+      modo_calculo: l.modo_calculo || 'Calculado',
+    })) as FolhaPagamentoLinha[]
+  }
+
+  /**
+   * Salva (cria ou edita) uma única linha de folha
+   */
+  static async salvarLinha(
+    payload: SalvarLinhaFolhaPayload,
+  ): Promise<FolhaPagamentoLinha> {
+    const comp = await this.obterOuCriarCompetencia(
+      payload.empresa_id,
+      payload.competencia,
+    )
+
+    const dados = {
+      empresa_id: payload.empresa_id,
+      competencia_id: comp.id,
+      competencia: payload.competencia,
+      tipo: payload.tipo === 'Terceiro' ? 'Terceiro' : 'Funcionario',
+      nome: payload.nome.trim().toUpperCase(),
+      funcao: payload.funcao.trim().toUpperCase(),
+      unidade: payload.unidade.trim().toUpperCase() || 'SJE',
+      bruto: Number(payload.bruto || 0),
+      filhos: parseInt(String(payload.filhos || 0), 10) || 0,
+      inss: Number(payload.inss || 0),
+      familia: Number(payload.familia || 0),
+      ir: Number(payload.ir || 0),
+      quinzena: Number(payload.quinzena || 0),
+      adiantamento: Number(payload.adiantamento || 0),
+      gratificacao: Number(payload.gratificacao || 0),
+      mensal_liquido: Number(payload.mensal_liquido || 0),
+      producao: Number(payload.producao || 0),
+      comissao: Number(payload.comissao || 0),
+      conta: payload.conta || '',
+      pix: payload.pix || '',
+      modo_calculo: payload.modo_calculo || 'Calculado',
+      funcionario_id: payload.funcionario_id || null,
+      cpf: payload.cpf || null,
+      matricula: payload.matricula || null,
+      updated_at: new Date().toISOString(),
+    }
+
+    let resultado: FolhaPagamentoLinha
+
+    if (payload.id) {
+      const { data, error } = await (supabase as any)
+        .from('folha_pagamento_linhas')
+        .update(dados)
+        .eq('id', payload.id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Erro ao atualizar linha da folha:', error)
+        throw error
+      }
+      resultado = data as FolhaPagamentoLinha
+    } else {
+      const { data, error } = await (supabase as any)
+        .from('folha_pagamento_linhas')
+        .insert(dados)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Erro ao inserir linha da folha:', error)
+        throw error
+      }
+      resultado = data as FolhaPagamentoLinha
+    }
+
+    // Atualiza totais na competência
+    await this.atualizarTotaisCompetencia(payload.empresa_id, payload.competencia)
+
+    return resultado
+  }
+
+  /**
+   * Exclui uma linha da folha
+   */
+  static async excluirLinha(
+    id: string,
+    empresaId: string,
+    competencia: string,
+  ): Promise<void> {
+    const { error } = await (supabase as any)
+      .from('folha_pagamento_linhas')
+      .delete()
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+
+    if (error) {
+      console.error('Erro ao excluir linha da folha:', error)
+      throw error
+    }
+
+    await this.atualizarTotaisCompetencia(empresaId, competencia)
   }
 
   /**
    * Importa e salva uma folha completa (cria/atualiza competência e suas linhas)
-   * Realiza deduplicação por CPF ou matrícula, atualizando existentes ou inserindo novos
-   * Também vincula levemente ao cadastro de funcionários da empresa por CPF/Nome
+   * Deduplica estritamente por (empresa_id, competencia, nome_normalizado)
    */
   static async salvarImportacaoFolha(
     empresaId: string,
     competencia: string,
-    linhas: LinhaFolhaParsed[],
+    linhas: Array<Omit<FolhaPagamentoLinha, 'id' | 'empresa_id'>>,
   ): Promise<{
     competencia: FolhaCompetencia
     totalInseridos: number
@@ -125,85 +268,46 @@ export class FolhaService {
     // 1. Obter ou criar competência
     const comp = await this.obterOuCriarCompetencia(empresaId, competencia)
 
-    // 2. Buscar funcionários cadastrados para vínculo leve (por CPF ou Nome)
-    const { data: funcs } = await supabase
-      .from('funcionarios')
-      .select('id, cpf, nome')
-      .eq('empresa_id', empresaId)
-
-    const mapFuncPorCpf = new Map<string, string>()
-    const mapFuncPorNome = new Map<string, string>()
-    ;(funcs || []).forEach((f) => {
-      if (f.cpf) mapFuncPorCpf.set(f.cpf, f.id)
-      if (f.nome) mapFuncPorNome.set(f.nome.trim().toUpperCase(), f.id)
-    })
-
-    // 3. Buscar linhas atuais já gravadas nessa competência
+    // 2. Buscar linhas atuais já gravadas nessa competência para deduplicação
     const linhasAtuais = await this.getLinhasCompetencia(empresaId, competencia)
-    const mapLinhasAtuaisCpf = new Map<string, FolhaPagamentoLinha>()
-    const mapLinhasAtuaisNome = new Map<string, FolhaPagamentoLinha>()
+    const mapLinhasAtuaisPorNome = new Map<string, FolhaPagamentoLinha>()
     linhasAtuais.forEach((l) => {
-      if (l.cpf) mapLinhasAtuaisCpf.set(l.cpf, l)
-      mapLinhasAtuaisNome.set(l.nome.trim().toUpperCase(), l)
+      mapLinhasAtuaisPorNome.set(l.nome.trim().toUpperCase(), l)
     })
 
     let totalInseridos = 0
     let totalAtualizados = 0
 
-    // 4. Salvar cada linha (update ou insert)
+    // 3. Salvar cada linha (update se já existe por nome, ou insert se for nova)
     for (const l of linhas) {
-      const funcionarioId =
-        (l.cpf && mapFuncPorCpf.get(l.cpf)) ||
-        mapFuncPorNome.get(l.nome.trim().toUpperCase()) ||
-        null
-
-      // Procura linha existente
-      const existente =
-        (l.cpf && mapLinhasAtuaisCpf.get(l.cpf)) ||
-        mapLinhasAtuaisNome.get(l.nome.trim().toUpperCase())
+      const nomeUpper = l.nome.trim().toUpperCase()
+      const existente = mapLinhasAtuaisPorNome.get(nomeUpper)
 
       const payload = {
         empresa_id: empresaId,
         competencia_id: comp.id,
         competencia,
-        funcionario_id: funcionarioId,
-        matricula: l.matricula,
-        cpf: l.cpf,
-        nome: l.nome,
-        cargo: l.cargo,
-        departamento: l.departamento,
-        data_admissao: l.data_admissao,
-        salario_base: l.salario_base,
-        horas_normais: l.horas_normais,
-        horas_extras: l.horas_extras,
-        valor_horas_extras: l.valor_horas_extras,
-        adicional_periculosidade: l.adicional_periculosidade,
-        adicional_insalubridade: l.adicional_insalubridade,
-        adicional_noturno: l.adicional_noturno,
-        gratificacoes: l.gratificacoes,
-        comissoes: l.comissoes,
-        dsr: l.dsr,
-        outros_proventos: l.outros_proventos,
-        total_proventos: l.total_proventos,
-        inss_retido: l.inss_retido,
-        irrf_retido: l.irrf_retido,
-        vale_transporte: l.vale_transporte,
-        vale_refeicao: l.vale_refeicao,
-        adiantamento: l.adiantamento,
-        faltas_atrasos: l.faltas_atrasos,
-        plano_saude: l.plano_saude,
-        outros_descontos: l.outros_descontos,
-        total_descontos: l.total_descontos,
-        salario_liquido: l.salario_liquido,
-        base_inss: l.base_inss,
-        base_fgts: l.base_fgts,
-        base_irrf: l.base_irrf,
-        fgts_mes: l.fgts_mes,
-        banco: l.banco,
-        agencia: l.agencia,
-        conta: l.conta,
-        chave_pix: l.chave_pix,
-        itens_discriminados: l.itens_discriminados || [],
+        tipo: l.tipo === 'Terceiro' ? 'Terceiro' : 'Funcionario',
+        nome: nomeUpper,
+        funcao: (l.funcao || 'Geral').trim().toUpperCase(),
+        unidade: (l.unidade || 'SJE').trim().toUpperCase(),
+        bruto: Number(l.bruto || 0),
+        filhos: parseInt(String(l.filhos || 0), 10) || 0,
+        inss: Number(l.inss || 0),
+        familia: Number(l.familia || 0),
+        ir: Number(l.ir || 0),
+        quinzena: Number(l.quinzena || 0),
+        adiantamento: Number(l.adiantamento || 0),
+        gratificacao: Number(l.gratificacao || 0),
+        mensal_liquido: Number(l.mensal_liquido || 0),
+        producao: Number(l.producao || 0),
+        comissao: Number(l.comissao || 0),
+        conta: l.conta || '',
+        pix: l.pix || '',
+        modo_calculo: l.modo_calculo || 'Calculado',
+        funcionario_id: l.funcionario_id || null,
+        cpf: l.cpf || null,
+        matricula: l.matricula || null,
         updated_at: new Date().toISOString(),
       }
 
@@ -223,43 +327,54 @@ export class FolhaService {
       }
     }
 
-    // 5. Recalcular e consolidar totais da competência
-    const todasLinhasAtualizadas = await this.getLinhasCompetencia(
+    // 4. Recalcula totais na competência
+    const compAtualizada = await this.atualizarTotaisCompetencia(
       empresaId,
       competencia,
     )
-    const somas = todasLinhasAtualizadas.reduce(
-      (acc, curr) => {
-        acc.proventos += Number(curr.total_proventos || 0)
-        acc.descontos += Number(curr.total_descontos || 0)
-        acc.liquido += Number(curr.salario_liquido || 0)
-        acc.fgts += Number(curr.fgts_mes || 0)
-        return acc
-      },
-      { proventos: 0, descontos: 0, liquido: 0, fgts: 0 },
-    )
 
-    const { data: compAtualizada, error: errComp } = await (supabase as any)
+    return {
+      competencia: compAtualizada,
+      totalInseridos,
+      totalAtualizados,
+    }
+  }
+
+  /**
+   * Recalcula e consolida os totais da competência a partir das linhas gravadas
+   */
+  static async atualizarTotaisCompetencia(
+    empresaId: string,
+    competencia: string,
+  ): Promise<FolhaCompetencia> {
+    const comp = await this.obterOuCriarCompetencia(empresaId, competencia)
+    const linhas = await this.getLinhasCompetencia(empresaId, competencia)
+    const totais = this.calcularTotais(linhas)
+
+    const { data, error } = await (supabase as any)
       .from('folha_competencias')
       .update({
-        total_colaboradores: todasLinhasAtualizadas.length,
-        total_proventos: somas.proventos,
-        total_descontos: somas.descontos,
-        total_liquido: somas.liquido,
-        total_fgts: somas.fgts,
+        total_colaboradores: linhas.length,
+        total_proventos:
+          totais.totalBruto +
+          totais.totalGratificacao +
+          totais.totalProducao +
+          totais.totalComissao +
+          totais.totalFamilia,
+        total_descontos:
+          totais.totalInss +
+          totais.totalIr +
+          totais.totalQuinzena +
+          totais.totalAdiantamento,
+        total_liquido: totais.totalMensalLiquido,
         updated_at: new Date().toISOString(),
       })
       .eq('id', comp.id)
       .select()
       .single()
 
-    if (errComp) throw errComp
-
-    return {
-      competencia: compAtualizada as FolhaCompetencia,
-      totalInseridos,
-      totalAtualizados,
-    }
+    if (error) throw error
+    return data as FolhaCompetencia
   }
 
   /**
@@ -282,34 +397,47 @@ export class FolhaService {
   }
 
   /**
-   * Calcula resumo consolidado dos totais
+   * Calcula somatório consolidado de todas as colunas reais da Folha GC MIX
    */
-  static calcularResumo(linhas: FolhaPagamentoLinha[]): FolhaResumoTotais {
+  static calcularTotais(linhas: FolhaPagamentoLinha[]): FolhaTotaisCalculados {
     return linhas.reduce(
       (acc, l) => {
-        acc.totalColaboradores += 1
-        acc.totalSalarioBase += Number(l.salario_base || 0)
-        acc.totalProventos += Number(l.total_proventos || 0)
-        acc.totalDescontos += Number(l.total_descontos || 0)
-        acc.totalLiquido += Number(l.salario_liquido || 0)
-        acc.totalFgts += Number(l.fgts_mes || 0)
-        acc.totalInssRetido += Number(l.inss_retido || 0)
-        acc.totalIrrfRetido += Number(l.irrf_retido || 0)
-        acc.totalAdiantamentos += Number(l.adiantamento || 0)
-        acc.totalHorasExtras += Number(l.valor_horas_extras || 0)
+        acc.totalRegistros += 1
+        if (l.tipo === 'Terceiro') {
+          acc.totalTerceiros += 1
+        } else {
+          acc.totalFuncionarios += 1
+        }
+        acc.totalBruto += Number(l.bruto || 0)
+        acc.totalFilhos += Number(l.filhos || 0)
+        acc.totalInss += Number(l.inss || 0)
+        acc.totalFamilia += Number(l.familia || 0)
+        acc.totalIr += Number(l.ir || 0)
+        acc.totalQuinzena += Number(l.quinzena || 0)
+        acc.totalAdiantamento += Number(l.adiantamento || 0)
+        acc.totalGratificacao += Number(l.gratificacao || 0)
+        acc.totalMensalLiquido += Number(l.mensal_liquido || 0)
+        acc.totalProducao += Number(l.producao || 0)
+        acc.totalComissao += Number(l.comissao || 0)
+        acc.totalGeralLiquidoAReceber += Number(l.mensal_liquido || 0)
         return acc
       },
       {
-        totalColaboradores: 0,
-        totalSalarioBase: 0,
-        totalProventos: 0,
-        totalDescontos: 0,
-        totalLiquido: 0,
-        totalFgts: 0,
-        totalInssRetido: 0,
-        totalIrrfRetido: 0,
-        totalAdiantamentos: 0,
-        totalHorasExtras: 0,
+        totalRegistros: 0,
+        totalFuncionarios: 0,
+        totalTerceiros: 0,
+        totalBruto: 0,
+        totalFilhos: 0,
+        totalInss: 0,
+        totalFamilia: 0,
+        totalIr: 0,
+        totalQuinzena: 0,
+        totalAdiantamento: 0,
+        totalGratificacao: 0,
+        totalMensalLiquido: 0,
+        totalProducao: 0,
+        totalComissao: 0,
+        totalGeralLiquidoAReceber: 0,
       },
     )
   }

@@ -1,38 +1,36 @@
-import { limparMascara, formatarCpfCnpj } from '@/lib/documentos'
-import { parseDataBrParaIso, splitCsvLine } from '@/lib/csv-cargas-parser'
-import { FolhaPagamentoLinha, FolhaItemDiscriminado } from '@/types/folha'
+import { splitCsvLine } from '@/lib/csv-cargas-parser'
+import {
+  FolhaPagamentoLinha,
+  TipoColaboradorFolha,
+  FolhaTotaisCalculados,
+  calcularMensalLiquido,
+} from '@/types/folha'
 
-export interface LinhaFolhaParsed extends Omit<FolhaPagamentoLinha, 'id' | 'empresa_id' | 'competencia_id'> {
+export interface LinhaFolhaParsed extends Omit<FolhaPagamentoLinha, 'id' | 'empresa_id'> {
   linhaIndex: number
-  cpfFormatado: string | null
   erros: string[]
   avisos: string[]
+  diferencaCalculo?: number // se o MensalLiquido do CSV for diferente da fórmula
 }
 
 export interface PreviewImportacaoFolhaCSV {
   competenciaSugerida: string // 'YYYY-MM'
   totalLinhasLidas: number
   totalColaboradoresValidos: number
+  totalFuncionarios: number
+  totalTerceiros: number
   totalDuplicadosPlanilha: number
   totalExistentesAtualizados: number
   totalNovos: number
-  totais: {
-    totalSalarioBase: number
-    totalProventos: number
-    totalDescontos: number
-    totalLiquido: number
-    totalFgts: number
-    totalInss: number
-    totalIrrf: number
-  }
+  totais: FolhaTotaisCalculados
   linhas: LinhaFolhaParsed[]
   avisos: string[]
   erros: string[]
-  cargosDetectados: string[]
+  funcoesDetectadas: string[]
 }
 
 function normalizarTexto(txt: string): string {
-  return txt
+  return (txt || '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -40,7 +38,8 @@ function normalizarTexto(txt: string): string {
 }
 
 /**
- * Converte string monetária flexível brasileira para número (ex: "R$ 2.500,50", "2500.50", "(150,00)")
+ * Converte string flexível brasileira/inglesa para número
+ * Suporta: "2410", "192.58", "1.253,42", "1253,42", "R$ 1.253,42", "", "-", "—"
  */
 export function parseMoedaBr(val: any): number {
   if (val === null || val === undefined) return 0
@@ -49,7 +48,6 @@ export function parseMoedaBr(val: any): number {
   let str = String(val).trim()
   if (!str || str === '-' || str === '—' || str === 'null') return 0
 
-  // Trata formato contábil negativo: (120,50) -> -120.50
   let negativo = false
   if (str.startsWith('(') && str.endsWith(')')) {
     negativo = true
@@ -59,16 +57,17 @@ export function parseMoedaBr(val: any): number {
     str = str.slice(1).trim()
   }
 
-  // Remove R$, espaços e símbolos
+  // Remove "R$" e espaços
   str = str.replace(/[R$\s]/gi, '')
 
-  // Se tiver vírgula e ponto, ex: "1.234,56"
-  if (str.includes(',') && str.includes('.')) {
+  // Se tem ponto e vírgula (ex: "1.253,42")
+  if (str.includes('.') && str.includes(',')) {
     str = str.replace(/\./g, '').replace(',', '.')
   } else if (str.includes(',')) {
-    // Ex: "1234,56"
+    // Ex: "1253,42"
     str = str.replace(',', '.')
   }
+  // Se só tem ponto (ex: "192.58" ou "2410"), o parseFloat nativo já interpreta como decimal correto
 
   const num = parseFloat(str)
   if (isNaN(num)) return 0
@@ -76,17 +75,14 @@ export function parseMoedaBr(val: any): number {
 }
 
 /**
- * Tenta inferir competência 'YYYY-MM' do nome do arquivo (ex: "folha-2026-09 (2).csv" -> "2026-09")
- * ou da data corrente caso não encontre
+ * Tenta inferir competência 'YYYY-MM' do nome do arquivo (ex: "folha-2026-09 (4)-73533.csv" -> "2026-09")
  */
 export function extrairCompetenciaDoNomeArquivo(nomeArquivo?: string): string {
   if (nomeArquivo) {
-    // Procura padrão 202X-XX ou 202X_XX
     const matchIso = nomeArquivo.match(/(202\d)[-_](\d{2})/)
     if (matchIso) {
       return `${matchIso[1]}-${matchIso[2]}`
     }
-    // Procura padrão XX-202X ou XX_202X
     const matchBr = nomeArquivo.match(/(\d{2})[-_](202\d)/)
     if (matchBr) {
       return `${matchBr[2]}-${matchBr[1]}`
@@ -100,200 +96,151 @@ export function extrairCompetenciaDoNomeArquivo(nomeArquivo?: string): string {
 }
 
 /**
- * Mapeia os índices de colunas de uma planilha de folha de pagamento
+ * Mapeamento das colunas da folha real
+ * Cabeçalho do anexo:
+ * Tipo;Nome;Funcao;Unidade;Bruto;Filhos;INSS;Familia;IR;Quinzena;Adiantamento;Gratificacao;MensalLiquido;Producao;Comissao;Conta;PIX
  */
-interface MapaColunasFolha {
-  matricula?: number
-  cpf?: number
+interface MapaColunasFolhaReal {
+  tipo?: number
   nome?: number
-  cargo?: number
-  departamento?: number
-  admissao?: number
-  salario_base?: number
-  horas_normais?: number
-  horas_extras?: number
-  valor_horas_extras?: number
-  periculosidade?: number
-  insalubridade?: number
-  adicional_noturno?: number
-  gratificacoes?: number
-  comissoes?: number
-  dsr?: number
-  outros_proventos?: number
-  total_proventos?: number
+  funcao?: number
+  unidade?: number
+  bruto?: number
+  filhos?: number
   inss?: number
-  irrf?: number
-  vale_transporte?: number
-  vale_refeicao?: number
+  familia?: number
+  ir?: number
+  quinzena?: number
   adiantamento?: number
-  faltas?: number
-  plano_saude?: number
-  outros_descontos?: number
-  total_descontos?: number
-  salario_liquido?: number
-  base_inss?: number
-  base_fgts?: number
-  base_irrf?: number
-  fgts_mes?: number
-  banco?: number
-  agencia?: number
+  gratificacao?: number
+  mensalliquido?: number
+  producao?: number
+  comissao?: number
   conta?: number
-  chave_pix?: number
+  pix?: number
 }
 
-function identificarColunasFolha(cabecalho: string[]): {
-  mapa: MapaColunasFolha
-  colunasRestantes: { indice: number; rotulo: string }[]
-} {
-  const mapa: MapaColunasFolha = {}
-  const colunasRestantes: { indice: number; rotulo: string }[] = []
+function identificarColunasFolhaReal(cabecalho: string[]): MapaColunasFolhaReal {
+  const mapa: MapaColunasFolhaReal = {}
 
   cabecalho.forEach((colCrua, idx) => {
-    const col = normalizarTexto(colCrua)
-    if (!col) return
+    const col = normalizarTexto(colCrua).replace(/[\s_-]/g, '')
 
-    let identificada = true
-
-    if (col === 'matricula' || col === 'matr' || col === 'cod' || col === 'codigo') {
-      if (mapa.matricula === undefined) mapa.matricula = idx
-    } else if (col === 'cpf' || col.includes('cpf') || col === 'documento') {
-      if (mapa.cpf === undefined) mapa.cpf = idx
+    if (col === 'tipo' || col === 'tipocolaborador') {
+      if (mapa.tipo === undefined) mapa.tipo = idx
     } else if (
       col === 'nome' ||
-      col === 'funcionario' ||
       col === 'colaborador' ||
-      col === 'empregado' ||
-      col.includes('nome do') ||
-      col.includes('nome func')
+      col === 'funcionario' ||
+      col === 'empregado'
     ) {
       if (mapa.nome === undefined) mapa.nome = idx
+    } else if (col === 'funcao' || col === 'cargo' || col === 'ocupacao') {
+      if (mapa.funcao === undefined) mapa.funcao = idx
+    } else if (col === 'unidade' || col === 'empresa' || col === 'filial') {
+      if (mapa.unidade === undefined) mapa.unidade = idx
     } else if (
-      col === 'funcao' ||
-      col === 'cargo' ||
-      col === 'ocupacao' ||
-      col.includes('cargo')
+      col === 'bruto' ||
+      col === 'salariobruto' ||
+      col === 'salariobase' ||
+      col === 'salario'
     ) {
-      if (mapa.cargo === undefined) mapa.cargo = idx
-    } else if (
-      col === 'departamento' ||
-      col === 'depto' ||
-      col === 'setor' ||
-      col === 'lotacao' ||
-      col.includes('setor')
-    ) {
-      if (mapa.departamento === undefined) mapa.departamento = idx
-    } else if (
-      col === 'admissao' ||
-      col.includes('data adm') ||
-      col.includes('dt adm') ||
-      col.includes('admiss')
-    ) {
-      if (mapa.admissao === undefined) mapa.admissao = idx
-    } else if (
-      col === 'salario base' ||
-      col === 'salario' ||
-      col === 'sal base' ||
-      col === 'vencimento' ||
-      col === 'remuneracao' ||
-      col.includes('salario contratual') ||
-      col.includes('salario base')
-    ) {
-      if (mapa.salario_base === undefined) mapa.salario_base = idx
-    } else if (
-      col.includes('hora extra') && (col.includes('qtd') || col.includes('horas') || col.includes('hr'))
-    ) {
-      if (mapa.horas_extras === undefined) mapa.horas_extras = idx
-    } else if (
-      col.includes('hora extra') || col.includes('he 50') || col.includes('he 100') || col.includes('valor he')
-    ) {
-      if (mapa.valor_horas_extras === undefined) mapa.valor_horas_extras = idx
-    } else if (col.includes('periculosidade') || col === 'peric') {
-      if (mapa.periculosidade === undefined) mapa.periculosidade = idx
-    } else if (col.includes('insalubridade') || col === 'insalub') {
-      if (mapa.insalubridade === undefined) mapa.insalubridade = idx
-    } else if (col.includes('noturno') || col === 'adic noturno') {
-      if (mapa.adicional_noturno === undefined) mapa.adicional_noturno = idx
-    } else if (col.includes('gratific') || col.includes('premio')) {
-      if (mapa.gratificacoes === undefined) mapa.gratificacoes = idx
-    } else if (col.includes('comissao') || col.includes('comissoes')) {
-      if (mapa.comissoes === undefined) mapa.comissoes = idx
-    } else if (col === 'dsr' || col.includes('dsr')) {
-      if (mapa.dsr === undefined) mapa.dsr = idx
-    } else if (
-      col === 'total proventos' ||
-      col === 'proventos' ||
-      col === 'vencimentos' ||
-      col === 'total vencimentos' ||
-      col.includes('tot prov') ||
-      col.includes('total de prov')
-    ) {
-      if (mapa.total_proventos === undefined) mapa.total_proventos = idx
-    } else if (col === 'inss' || col.includes('inss desc') || col.includes('desc inss')) {
+      if (mapa.bruto === undefined) mapa.bruto = idx
+    } else if (col === 'filhos' || col === 'dependentes' || col === 'qtdfilhos') {
+      if (mapa.filhos === undefined) mapa.filhos = idx
+    } else if (col === 'inss' || col === 'inssretido') {
       if (mapa.inss === undefined) mapa.inss = idx
-    } else if (col === 'irrf' || col === 'ir' || col.includes('imposto de renda') || col.includes('desc irrf')) {
-      if (mapa.irrf === undefined) mapa.irrf = idx
-    } else if (col.includes('transporte') || col === 'vt' || col.includes('vale transp')) {
-      if (mapa.vale_transporte === undefined) mapa.vale_transporte = idx
-    } else if (col.includes('refeicao') || col === 'vr' || col === 'va' || col.includes('alimentacao')) {
-      if (mapa.vale_refeicao === undefined) mapa.vale_refeicao = idx
-    } else if (col.includes('adiantamento') || col === 'vale' || col.includes('adiant')) {
+    } else if (
+      col === 'familia' ||
+      col === 'salariofamilia' ||
+      col === 'salfamilia'
+    ) {
+      if (mapa.familia === undefined) mapa.familia = idx
+    } else if (
+      col === 'ir' ||
+      col === 'irrf' ||
+      col === 'impostoderenda' ||
+      col === 'irretido'
+    ) {
+      if (mapa.ir === undefined) mapa.ir = idx
+    } else if (
+      col === 'quinzena' ||
+      col === '1quinzena' ||
+      col === 'primeiraquinzena'
+    ) {
+      if (mapa.quinzena === undefined) mapa.quinzena = idx
+    } else if (
+      col === 'adiantamento' ||
+      col === 'vale' ||
+      col === 'adiantamentos'
+    ) {
       if (mapa.adiantamento === undefined) mapa.adiantamento = idx
-    } else if (col.includes('falta') || col.includes('atraso')) {
-      if (mapa.faltas === undefined) mapa.faltas = idx
-    } else if (col.includes('saude') || col.includes('medico') || col.includes('unimed')) {
-      if (mapa.plano_saude === undefined) mapa.plano_saude = idx
     } else if (
-      col === 'total descontos' ||
-      col === 'descontos' ||
-      col.includes('tot desc') ||
-      col.includes('total de desc')
+      col === 'gratificacao' ||
+      col === 'gratificacoes' ||
+      col === 'premio' ||
+      col === 'premiacao'
     ) {
-      if (mapa.total_descontos === undefined) mapa.total_descontos = idx
+      if (mapa.gratificacao === undefined) mapa.gratificacao = idx
     } else if (
+      col === 'mensalliquido' ||
       col === 'liquido' ||
-      col === 'salario liquido' ||
-      col === 'total liquido' ||
-      col === 'valor liquido' ||
-      col.includes('liq a receber') ||
-      col.includes('liquido a pagar')
+      col === 'liquidomensal' ||
+      col === 'salarioliquido'
     ) {
-      if (mapa.salario_liquido === undefined) mapa.salario_liquido = idx
-    } else if (col.includes('base inss')) {
-      if (mapa.base_inss === undefined) mapa.base_inss = idx
-    } else if (col.includes('base fgts')) {
-      if (mapa.base_fgts === undefined) mapa.base_fgts = idx
-    } else if (col.includes('base irrf') || col.includes('base ir')) {
-      if (mapa.base_irrf === undefined) mapa.base_irrf = idx
-    } else if (col === 'fgts' || col.includes('fgts mes') || col.includes('valor fgts') || col.includes('fgts do mes')) {
-      if (mapa.fgts_mes === undefined) mapa.fgts_mes = idx
-    } else if (col === 'banco' || col.includes('nome banco')) {
-      if (mapa.banco === undefined) mapa.banco = idx
-    } else if (col === 'agencia' || col === 'ag') {
-      if (mapa.agencia === undefined) mapa.agencia = idx
-    } else if (col === 'conta' || col === 'cc' || col.includes('conta corrente')) {
+      if (mapa.mensalliquido === undefined) mapa.mensalliquido = idx
+    } else if (col === 'producao' || col === 'prod') {
+      if (mapa.producao === undefined) mapa.producao = idx
+    } else if (col === 'comissao' || col === 'comissoes') {
+      if (mapa.comissao === undefined) mapa.comissao = idx
+    } else if (
+      col === 'conta' ||
+      col === 'contabancaria' ||
+      col === 'agenciaconta' ||
+      col === 'banco'
+    ) {
       if (mapa.conta === undefined) mapa.conta = idx
-    } else if (col.includes('pix') || col === 'chave pix') {
-      if (mapa.chave_pix === undefined) mapa.chave_pix = idx
-    } else {
-      identificada = false
-    }
-
-    if (!identificada) {
-      colunasRestantes.push({ indice: idx, rotulo: colCrua.trim() })
+    } else if (col === 'pix' || col === 'chavepix') {
+      if (mapa.pix === undefined) mapa.pix = idx
     }
   })
 
-  return { mapa, colunasRestantes }
+  // Se não encontrou por nomes exatos, define padrão posicional do anexo:
+  // Tipo;Nome;Funcao;Unidade;Bruto;Filhos;INSS;Familia;IR;Quinzena;Adiantamento;Gratificacao;MensalLiquido;Producao;Comissao;Conta;PIX
+  if (mapa.nome === undefined && cabecalho.length >= 2) {
+    mapa.tipo = 0
+    mapa.nome = 1
+    mapa.funcao = 2
+    mapa.unidade = 3
+    mapa.bruto = 4
+    mapa.filhos = 5
+    mapa.inss = 6
+    mapa.familia = 7
+    mapa.ir = 8
+    mapa.quinzena = 9
+    mapa.adiantamento = 10
+    mapa.gratificacao = 11
+    mapa.mensalliquido = 12
+    mapa.producao = 13
+    mapa.comissao = 14
+    mapa.conta = 15
+    mapa.pix = 16
+  }
+
+  return mapa
 }
 
 /**
- * Parser de CSV de Folha de Pagamento
+ * Parser do arquivo CSV da folha real
+ * Suporta separadores ';' e ',', decimais com vírgula ou ponto, campos vazios = 0
+ * Trata linhas com Tipo "Terceiro" (que não têm Bruto/INSS)
+ * Deduplica por (competência, nome)
  */
 export function parseFolhaPagamentoCSV(
   conteudoCsv: string,
   nomeArquivo?: string,
   competenciaForcada?: string,
-  cpfsCadastradosBanco: Set<string> = new Set(),
+  nomesCadastradosBanco: Set<string> = new Set(),
 ): PreviewImportacaoFolhaCSV {
   const avisos: string[] = []
   const erros: string[] = []
@@ -301,78 +248,75 @@ export function parseFolhaPagamentoCSV(
   const competencia =
     competenciaForcada || extrairCompetenciaDoNomeArquivo(nomeArquivo)
 
+  const emptyResult: PreviewImportacaoFolhaCSV = {
+    competenciaSugerida: competencia,
+    totalLinhasLidas: 0,
+    totalColaboradoresValidos: 0,
+    totalFuncionarios: 0,
+    totalTerceiros: 0,
+    totalDuplicadosPlanilha: 0,
+    totalExistentesAtualizados: 0,
+    totalNovos: 0,
+    totais: {
+      totalRegistros: 0,
+      totalFuncionarios: 0,
+      totalTerceiros: 0,
+      totalBruto: 0,
+      totalFilhos: 0,
+      totalInss: 0,
+      totalFamilia: 0,
+      totalIr: 0,
+      totalQuinzena: 0,
+      totalAdiantamento: 0,
+      totalGratificacao: 0,
+      totalMensalLiquido: 0,
+      totalProducao: 0,
+      totalComissao: 0,
+      totalGeralLiquidoAReceber: 0,
+    },
+    linhas: [],
+    avisos: [],
+    erros: [],
+    funcoesDetectadas: [],
+  }
+
   if (!conteudoCsv || !conteudoCsv.trim()) {
-    return {
-      competenciaSugerida: competencia,
-      totalLinhasLidas: 0,
-      totalColaboradoresValidos: 0,
-      totalDuplicadosPlanilha: 0,
-      totalExistentesAtualizados: 0,
-      totalNovos: 0,
-      totais: {
-        totalSalarioBase: 0,
-        totalProventos: 0,
-        totalDescontos: 0,
-        totalLiquido: 0,
-        totalFgts: 0,
-        totalInss: 0,
-        totalIrrf: 0,
-      },
-      linhas: [],
-      avisos: [],
-      erros: ['Arquivo CSV vazio ou sem conteúdo legível.'],
-      cargosDetectados: [],
-    }
+    emptyResult.erros.push('Arquivo CSV vazio ou sem conteúdo legível.')
+    return emptyResult
   }
 
   const textoTratado = conteudoCsv.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
   const linhasCruas = textoTratado.split('\n')
 
   let indiceLinhaCabecalho = -1
-  let delimitador = ','
+  let delimitador = ';'
 
-  // Procura linha de cabeçalho
-  for (let i = 0; i < Math.min(linhasCruas.length, 15); i++) {
+  // Detecta linha do cabeçalho e delimitador (; ou ,)
+  for (let i = 0; i < Math.min(linhasCruas.length, 10); i++) {
     const l = linhasCruas[i]
     if (!l.trim()) continue
 
-    const virgulas = (l.match(/,/g) || []).length
     const pontoVirgulas = (l.match(/;/g) || []).length
-    const tabs = (l.match(/\t/g) || []).length
+    const virgulas = (l.match(/,/g) || []).length
 
-    let delimTeste = ','
-    if (pontoVirgulas > virgulas && pontoVirgulas > tabs) delimTeste = ';'
-    else if (tabs > virgulas && tabs > pontoVirgulas) delimTeste = '\t'
-
-    const colunas = (
-      delimTeste === ';'
-        ? l.split(';')
-        : delimTeste === '\t'
-          ? l.split('\t')
-          : splitCsvLine(l)
-    ).map(normalizarTexto)
-
-    const temNome = colunas.some(
-      (c) =>
-        c === 'nome' ||
-        c === 'funcionario' ||
-        c === 'colaborador' ||
-        c.includes('nome'),
+    const delim = pontoVirgulas >= virgulas ? ';' : ','
+    const cols = (delim === ';' ? l.split(';') : splitCsvLine(l)).map(
+      normalizarTexto,
     )
-    const temSalarial = colunas.some(
+
+    const temNome = cols.some((c) => c.includes('nome'))
+    const temFuncao = cols.some((c) => c.includes('func') || c.includes('cargo'))
+    const temFinanceiro = cols.some(
       (c) =>
-        c.includes('salario') ||
-        c.includes('provento') ||
-        c.includes('desconto') ||
-        c.includes('liquido') ||
+        c.includes('bruto') ||
         c.includes('inss') ||
-        c.includes('cargo') ||
-        c.includes('cpf'),
+        c.includes('liquido') ||
+        c.includes('quinzena'),
     )
 
-    if (temNome && temSalarial) {
+    if (temNome && (temFuncao || temFinanceiro)) {
       indiceLinhaCabecalho = i
-      delimitador = delimTeste
+      delimitador = delim
       break
     }
   }
@@ -384,21 +328,10 @@ export function parseFolhaPagamentoCSV(
   const cabecalhoBruto = (
     delimitador === ';'
       ? linhasCruas[indiceLinhaCabecalho].split(';')
-      : delimitador === '\t'
-        ? linhasCruas[indiceLinhaCabecalho].split('\t')
-        : splitCsvLine(linhasCruas[indiceLinhaCabecalho])
+      : splitCsvLine(linhasCruas[indiceLinhaCabecalho])
   ).map((c) => c.trim())
 
-  const { mapa, colunasRestantes } = identificarColunasFolha(cabecalhoBruto)
-
-  // Fallbacks de posição se não identificado por nome
-  if (mapa.nome === undefined) {
-    // Procura a primeira coluna que contenha string não puramente numérica
-    mapa.nome = cabecalhoBruto.length > 1 ? 1 : 0
-  }
-  if (mapa.cargo === undefined && cabecalhoBruto.length > 2) {
-    mapa.cargo = 2
-  }
+  const mapa = identificarColunasFolhaReal(cabecalhoBruto)
 
   const getCol = (cols: string[], idx?: number): string => {
     if (idx === undefined || idx < 0 || idx >= cols.length) return ''
@@ -411,13 +344,14 @@ export function parseFolhaPagamentoCSV(
   }
 
   const linhasParseadas: LinhaFolhaParsed[] = []
-  const cpfsVistos = new Set<string>()
   const nomesVistos = new Set<string>()
-  const cargosSet = new Set<string>()
+  const funcoesSet = new Set<string>()
 
   let totalDuplicadosPlanilha = 0
   let totalExistentesAtualizados = 0
   let totalNovos = 0
+  let totalFuncionarios = 0
+  let totalTerceiros = 0
 
   for (let i = indiceLinhaCabecalho + 1; i < linhasCruas.length; i++) {
     const linhaTexto = linhasCruas[i].trim()
@@ -426,12 +360,10 @@ export function parseFolhaPagamentoCSV(
     const colunas = (
       delimitador === ';'
         ? linhaTexto.split(';')
-        : delimitador === '\t'
-          ? linhaTexto.split('\t')
-          : splitCsvLine(linhaTexto)
+        : splitCsvLine(linhaTexto)
     ).map((c) => c.trim())
 
-    // Ignora linhas de totalizadores no final da planilha (ex: "TOTAL GERAL", "Subtotal")
+    // Ignora linhas de totalizadores do rodapé da planilha (ex: "TOTAL;;;;;;2583.11...")
     const primeiraColNorm = normalizarTexto(colunas[0] || '')
     const segundaColNorm = normalizarTexto(colunas[1] || '')
     if (
@@ -443,235 +375,169 @@ export function parseFolhaPagamentoCSV(
     }
 
     const nomeCru = getCol(colunas, mapa.nome)
+    // Se não tem nome nesta linha, pula
     if (!nomeCru) continue
 
-    const matricula = getCol(colunas, mapa.matricula) || null
-    const cpfCru = getCol(colunas, mapa.cpf)
-    const cargoCru = getCol(colunas, mapa.cargo) || 'Geral'
-    const departamento = getCol(colunas, mapa.departamento) || null
-    const admissaoCru = getCol(colunas, mapa.admissao)
-    const dataAdmissaoIso = admissaoCru ? parseDataBrParaIso(admissaoCru) : null
+    const tipoCru = getCol(colunas, mapa.tipo)
+    const tipoNorm = normalizarTexto(tipoCru)
+    const tipo: TipoColaboradorFolha =
+      tipoNorm.includes('terceiro') ? 'Terceiro' : 'Funcionario'
 
-    const cpfLimpo = cpfCru ? limparMascara(cpfCru) : null
-    const cpfFormatado = cpfLimpo ? formatarCpfCnpj(cpfLimpo) : null
+    const funcaoCru = getCol(colunas, mapa.funcao) || (tipo === 'Terceiro' ? 'Terceiro' : 'Geral')
+    const unidadeCru = getCol(colunas, mapa.unidade) || 'SJE'
 
-    // Proventos
-    const salarioBase = getNumCol(colunas, mapa.salario_base)
-    const horasNormais = getNumCol(colunas, mapa.horas_normais)
-    const horasExtras = getNumCol(colunas, mapa.horas_extras)
-    const valorHorasExtras = getNumCol(colunas, mapa.valor_horas_extras)
-    const adicionalPericulosidade = getNumCol(colunas, mapa.periculosidade)
-    const adicionalInsalubridade = getNumCol(colunas, mapa.insalubridade)
-    const adicionalNoturno = getNumCol(colunas, mapa.adicional_noturno)
-    const gratificacoes = getNumCol(colunas, mapa.gratificacoes)
-    const comissoes = getNumCol(colunas, mapa.comissoes)
-    const dsr = getNumCol(colunas, mapa.dsr)
-    let outrosProventos = getNumCol(colunas, mapa.outros_proventos)
-
-    // Descontos
+    // Colunas financeiras
+    const bruto = getNumCol(colunas, mapa.bruto)
+    const filhosStr = getCol(colunas, mapa.filhos)
+    const filhos = parseInt(filhosStr, 10) || 0
     const inss = getNumCol(colunas, mapa.inss)
-    const irrf = getNumCol(colunas, mapa.irrf)
-    const vt = getNumCol(colunas, mapa.vale_transporte)
-    const vr = getNumCol(colunas, mapa.vale_refeicao)
+    const familia = getNumCol(colunas, mapa.familia)
+    const ir = getNumCol(colunas, mapa.ir)
+    const quinzena = getNumCol(colunas, mapa.quinzena)
     const adiantamento = getNumCol(colunas, mapa.adiantamento)
-    const faltas = getNumCol(colunas, mapa.faltas)
-    const planoSaude = getNumCol(colunas, mapa.plano_saude)
-    let outrosDescontos = getNumCol(colunas, mapa.outros_descontos)
+    const gratificacao = getNumCol(colunas, mapa.gratificacao)
+    const mensalLiquidoCsv = getNumCol(colunas, mapa.mensalliquido)
+    const producao = getNumCol(colunas, mapa.producao)
+    const comissao = getNumCol(colunas, mapa.comissao)
 
-    // Colunas extras identificadas nas sobras
-    const itensDiscriminados: FolhaItemDiscriminado[] = []
-    colunasRestantes.forEach((colRest) => {
-      const valStr = getCol(colunas, colRest.indice)
-      const valNum = parseMoedaBr(valStr)
-      if (valNum !== 0) {
-        const nomeNorm = normalizarTexto(colRest.rotulo)
-        const ehDesconto =
-          nomeNorm.includes('desc') ||
-          nomeNorm.includes('contrib') ||
-          nomeNorm.includes('sind') ||
-          nomeNorm.includes('farm') ||
-          nomeNorm.includes('multa') ||
-          valNum < 0
+    const conta = getCol(colunas, mapa.conta)
+    const pix = getCol(colunas, mapa.pix)
 
-        const valorAbs = Math.abs(valNum)
-        if (ehDesconto) {
-          outrosDescontos += valorAbs
-          itensDiscriminados.push({
-            tipo: 'DESCONTO',
-            descricao: colRest.rotulo,
-            valor: valorAbs,
-          })
-        } else {
-          outrosProventos += valorAbs
-          itensDiscriminados.push({
-            tipo: 'PROVENTO',
-            descricao: colRest.rotulo,
-            valor: valorAbs,
-          })
-        }
-      }
+    // Cálculo automático oficial:
+    // Líquido Mensal = Bruto − INSS − IR + Família + Gratificação − Quinzena − Adiantamento + Produção + Comissão
+    const mensalLiquidoCalculado = calcularMensalLiquido({
+      tipo,
+      bruto,
+      inss,
+      ir,
+      familia,
+      gratificacao,
+      quinzena,
+      adiantamento,
+      producao,
+      comissao,
     })
 
-    // Calcula ou usa totais declarados
-    let totalProventosDeclarado = getNumCol(colunas, mapa.total_proventos)
-    const totalProventosCalculado =
-      salarioBase +
-      valorHorasExtras +
-      adicionalPericulosidade +
-      adicionalInsalubridade +
-      adicionalNoturno +
-      gratificacoes +
-      comissoes +
-      dsr +
-      outrosProventos
+    // Se no CSV veio um valor declarado de MensalLiquido diferente de 0, verifica se confere
+    let mensalLiquidoFinal = mensalLiquidoCsv
+    let modoCalculo: 'Calculado' | 'Digitado' = 'Calculado'
+    const diferenca = Math.abs(mensalLiquidoCsv - mensalLiquidoCalculado)
 
-    const totalProventos =
-      totalProventosDeclarado > 0
-        ? totalProventosDeclarado
-        : totalProventosCalculado
-
-    let totalDescontosDeclarado = getNumCol(colunas, mapa.total_descontos)
-    const totalDescontosCalculado =
-      inss +
-      irrf +
-      vt +
-      vr +
-      adiantamento +
-      faltas +
-      planoSaude +
-      outrosDescontos
-
-    const totalDescontos =
-      totalDescontosDeclarado > 0
-        ? totalDescontosDeclarado
-        : totalDescontosCalculado
-
-    let salarioLiquidoDeclarado = getNumCol(colunas, mapa.salario_liquido)
-    const salarioLiquido =
-      salarioLiquidoDeclarado > 0
-        ? salarioLiquidoDeclarado
-        : Math.max(0, totalProventos - totalDescontos)
-
-    // Encargos e Bases
-    const baseInss = getNumCol(colunas, mapa.base_inss) || totalProventos
-    const baseFgts = getNumCol(colunas, mapa.base_fgts) || totalProventos
-    const baseIrrf =
-      getNumCol(colunas, mapa.base_irrf) ||
-      Math.max(0, totalProventos - inss)
-    let fgtsMes = getNumCol(colunas, mapa.fgts_mes)
-    if (fgtsMes === 0 && baseFgts > 0) {
-      fgtsMes = Number((baseFgts * 0.08).toFixed(2)) // 8% do FGTS padrão CLT
+    if (mensalLiquidoCsv !== 0 && diferenca > 0.05) {
+      modoCalculo = 'Digitado' // Usuário fixou na planilha um valor divergente da fórmula padrão
+    } else if (mensalLiquidoCsv === 0 && mensalLiquidoCalculado !== 0) {
+      mensalLiquidoFinal = mensalLiquidoCalculado
+      modoCalculo = 'Calculado'
     }
 
-    // Dados bancários
-    const banco = getCol(colunas, mapa.banco) || null
-    const agencia = getCol(colunas, mapa.agencia) || null
-    const conta = getCol(colunas, mapa.conta) || null
-    const chavePix = getCol(colunas, mapa.chave_pix) || null
+    const linhaErros: string[] = []
+    const linhaAvisos: string[] = []
 
-    // Deduplicação
-    const chaveDedup = cpfLimpo
-      ? `cpf_${cpfLimpo}`
-      : `nome_${normalizarTexto(nomeCru)}`
-
-    if (cpfLimpo && cpfsVistos.has(cpfLimpo)) {
-      totalDuplicadosPlanilha++
-      avisos.push(
-        `Linha ${i + 1}: CPF ${cpfFormatado} duplicado na planilha (${nomeCru}). Apenas a última ocorrência será mantida.`,
-      )
-    } else if (!cpfLimpo && nomesVistos.has(normalizarTexto(nomeCru))) {
-      totalDuplicadosPlanilha++
-      avisos.push(
-        `Linha ${i + 1}: Funcionário "${nomeCru}" sem CPF duplicado na planilha.`,
-      )
+    if (tipo === 'Terceiro') {
+      totalTerceiros++
+      if (bruto > 0 || inss > 0) {
+        linhaAvisos.push(
+          'Terceiro com valor de Bruto/INSS informado no arquivo; preservado conforme digitado.',
+        )
+      }
+    } else {
+      totalFuncionarios++
+      if (bruto <= 0 && producao <= 0 && comissao <= 0) {
+        linhaAvisos.push('Funcionário sem valor de Bruto, Produção ou Comissão informado.')
+      }
     }
 
-    if (cpfLimpo) cpfsVistos.add(cpfLimpo)
-    nomesVistos.add(normalizarTexto(nomeCru))
+    const nomeChave = normalizarTexto(nomeCru)
+    if (nomesVistos.has(nomeChave)) {
+      totalDuplicadosPlanilha++
+      avisos.push(
+        `Linha ${i + 1}: Colaborador "${nomeCru}" duplicado no arquivo. A última ocorrência será considerada.`,
+      )
+    }
+    nomesVistos.add(nomeChave)
 
-    if (cpfLimpo && cpfsCadastradosBanco.has(cpfLimpo)) {
+    if (nomesCadastradosBanco.has(nomeCru.trim().toUpperCase())) {
       totalExistentesAtualizados++
     } else {
       totalNovos++
     }
 
-    cargosSet.add(cargoCru)
+    funcoesSet.add(funcaoCru.toUpperCase())
 
     linhasParseadas.push({
       linhaIndex: i + 1,
       competencia,
-      matricula,
-      cpf: cpfLimpo,
-      cpfFormatado,
+      tipo,
       nome: nomeCru.toUpperCase(),
-      cargo: cargoCru.toUpperCase(),
-      departamento: departamento ? departamento.toUpperCase() : null,
-      data_admissao: dataAdmissaoIso,
-      salario_base: salarioBase,
-      horas_normais: horasNormais,
-      horas_extras: horasExtras,
-      valor_horas_extras: valorHorasExtras,
-      adicional_periculosidade: adicionalPericulosidade,
-      adicional_insalubridade: adicionalInsalubridade,
-      adicional_noturno: adicionalNoturno,
-      gratificacoes,
-      comissoes,
-      dsr,
-      outros_proventos: outrosProventos,
-      total_proventos: totalProventos,
-      inss_retido: inss,
-      irrf_retido: irrf,
-      vale_transporte: vt,
-      vale_refeicao: vr,
+      funcao: funcaoCru.toUpperCase(),
+      unidade: unidadeCru.toUpperCase(),
+      bruto,
+      filhos,
+      inss,
+      familia,
+      ir,
+      quinzena,
       adiantamento,
-      faltas_atrasos: faltas,
-      plano_saude: planoSaude,
-      outros_descontos: outrosDescontos,
-      total_descontos: totalDescontos,
-      salario_liquido: salarioLiquido,
-      base_inss: baseInss,
-      base_fgts: baseFgts,
-      base_irrf: baseIrrf,
-      fgts_mes: fgtsMes,
-      banco,
-      agencia,
+      gratificacao,
+      mensal_liquido: mensalLiquidoFinal,
+      producao,
+      comissao,
       conta,
-      chave_pix: chavePix,
-      itens_discriminados: itensDiscriminados,
-      erros: [],
-      avisos: [],
+      pix,
+      modo_calculo: modoCalculo,
+      diferencaCalculo: diferenca > 0.05 ? diferenca : undefined,
+      erros: linhaErros,
+      avisos: linhaAvisos,
     })
   }
 
-  // Deduplicação final por chave
+  // Deduplicação pelo nome normalizado (mantém a última ocorrência)
   const mapaFinal = new Map<string, LinhaFolhaParsed>()
   linhasParseadas.forEach((l) => {
-    const k = l.cpf ? `cpf_${l.cpf}` : `nome_${normalizarTexto(l.nome)}`
-    mapaFinal.set(k, l)
+    mapaFinal.set(normalizarTexto(l.nome), l)
   })
 
   const linhasUnicas = Array.from(mapaFinal.values())
 
-  // Calcula somatórios gerais
-  const totais = linhasUnicas.reduce(
+  // Totais consolidados do preview
+  const totais: FolhaTotaisCalculados = linhasUnicas.reduce(
     (acc, l) => {
-      acc.totalSalarioBase += l.salario_base
-      acc.totalProventos += l.total_proventos
-      acc.totalDescontos += l.total_descontos
-      acc.totalLiquido += l.salario_liquido
-      acc.totalFgts += l.fgts_mes
-      acc.totalInss += l.inss_retido
-      acc.totalIrrf += l.irrf_retido
+      acc.totalRegistros += 1
+      if (l.tipo === 'Terceiro') {
+        acc.totalTerceiros += 1
+      } else {
+        acc.totalFuncionarios += 1
+      }
+      acc.totalBruto += l.bruto
+      acc.totalFilhos += l.filhos
+      acc.totalInss += l.inss
+      acc.totalFamilia += l.familia
+      acc.totalIr += l.ir
+      acc.totalQuinzena += l.quinzena
+      acc.totalAdiantamento += l.adiantamento
+      acc.totalGratificacao += l.gratificacao
+      acc.totalMensalLiquido += l.mensal_liquido
+      acc.totalProducao += l.producao
+      acc.totalComissao += l.comissao
+      acc.totalGeralLiquidoAReceber += l.mensal_liquido
       return acc
     },
     {
-      totalSalarioBase: 0,
-      totalProventos: 0,
-      totalDescontos: 0,
-      totalLiquido: 0,
-      totalFgts: 0,
+      totalRegistros: 0,
+      totalFuncionarios: 0,
+      totalTerceiros: 0,
+      totalBruto: 0,
+      totalFilhos: 0,
       totalInss: 0,
-      totalIrrf: 0,
+      totalFamilia: 0,
+      totalIr: 0,
+      totalQuinzena: 0,
+      totalAdiantamento: 0,
+      totalGratificacao: 0,
+      totalMensalLiquido: 0,
+      totalProducao: 0,
+      totalComissao: 0,
+      totalGeralLiquidoAReceber: 0,
     },
   )
 
@@ -679,6 +545,8 @@ export function parseFolhaPagamentoCSV(
     competenciaSugerida: competencia,
     totalLinhasLidas: linhasParseadas.length,
     totalColaboradoresValidos: linhasUnicas.length,
+    totalFuncionarios,
+    totalTerceiros,
     totalDuplicadosPlanilha,
     totalExistentesAtualizados,
     totalNovos,
@@ -686,6 +554,6 @@ export function parseFolhaPagamentoCSV(
     linhas: linhasUnicas,
     avisos,
     erros,
-    cargosDetectados: Array.from(cargosSet).sort(),
+    funcoesDetectadas: Array.from(funcoesSet).sort(),
   }
 }
