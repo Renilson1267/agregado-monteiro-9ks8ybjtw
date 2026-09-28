@@ -65,7 +65,12 @@ const ChartContainer =
   })
 ChartContainer.displayName = "Chart"
 
-const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
+interface ChartStyleProps {
+  id: string
+  config: ChartConfig
+}
+
+const ChartStyle = ({ id, config }: ChartStyleProps) => {
   const colorConfig = Object.entries(config).filter(
     ([, itemConfig]) => itemConfig.theme || itemConfig.color,
   )

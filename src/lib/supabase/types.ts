@@ -319,10 +319,12 @@ export type Database = {
           ano: number
           competencia: string
           created_at: string
+          data_competencia: string | null
           empresa_id: string
           id: string
           mes: number
           observacoes: string | null
+          percentual_quinzena: number
           status: string
           total_colaboradores: number
           total_descontos: number
@@ -336,10 +338,12 @@ export type Database = {
           ano: number
           competencia: string
           created_at?: string
+          data_competencia?: string | null
           empresa_id: string
           id?: string
           mes: number
           observacoes?: string | null
+          percentual_quinzena?: number
           status?: string
           total_colaboradores?: number
           total_descontos?: number
@@ -353,10 +357,12 @@ export type Database = {
           ano?: number
           competencia?: string
           created_at?: string
+          data_competencia?: string | null
           empresa_id?: string
           id?: string
           mes?: number
           observacoes?: string | null
+          percentual_quinzena?: number
           status?: string
           total_colaboradores?: number
           total_descontos?: number
@@ -403,6 +409,7 @@ export type Database = {
           empresa_id: string
           faltas_atrasos: number
           familia: number
+          feriado: number
           ferias: number
           fgts_mes: number
           filhos: number
@@ -425,6 +432,7 @@ export type Database = {
           modo_calculo: string
           nome: string
           obras: number
+          observacao_linha: string | null
           observacoes: string | null
           oculto: boolean
           outros_descontos: number
@@ -477,6 +485,7 @@ export type Database = {
           empresa_id: string
           faltas_atrasos?: number
           familia?: number
+          feriado?: number
           ferias?: number
           fgts_mes?: number
           filhos?: number
@@ -499,6 +508,7 @@ export type Database = {
           modo_calculo?: string
           nome: string
           obras?: number
+          observacao_linha?: string | null
           observacoes?: string | null
           oculto?: boolean
           outros_descontos?: number
@@ -551,6 +561,7 @@ export type Database = {
           empresa_id?: string
           faltas_atrasos?: number
           familia?: number
+          feriado?: number
           ferias?: number
           fgts_mes?: number
           filhos?: number
@@ -573,6 +584,7 @@ export type Database = {
           modo_calculo?: string
           nome?: string
           obras?: number
+          observacao_linha?: string | null
           observacoes?: string | null
           oculto?: boolean
           outros_descontos?: number
@@ -614,6 +626,72 @@ export type Database = {
           columns: ["funcionario_id"]
           isOneToOne: false
           referencedRelation: "funcionarios"
+          referencedColumns: ["id"]
+        }]
+      }
+      folha_tabelas_oficiais: {
+        Row: {
+          ano: number
+          ativo: boolean
+          created_at: string
+          descricao: string
+          empresa_id: string | null
+          familia_cota_por_filho: number
+          familia_teto_salario: number
+          id: string
+          inss_faixas: Json
+          ir_coeficiente_reducao: number
+          ir_desconto_gradual_ate: number
+          ir_isento_ate: number
+          ir_parcela_fixa_reducao: number
+          irrf_faixas: Json
+          salario_minimo: number
+          teto_inss: number
+          updated_at: string
+        }
+        Insert: {
+          ano?: number
+          ativo?: boolean
+          created_at?: string
+          descricao?: string
+          empresa_id?: string | null
+          familia_cota_por_filho?: number
+          familia_teto_salario?: number
+          id?: string
+          inss_faixas?: Json
+          ir_coeficiente_reducao?: number
+          ir_desconto_gradual_ate?: number
+          ir_isento_ate?: number
+          ir_parcela_fixa_reducao?: number
+          irrf_faixas?: Json
+          salario_minimo?: number
+          teto_inss?: number
+          updated_at?: string
+        }
+        Update: {
+          ano?: number
+          ativo?: boolean
+          created_at?: string
+          descricao?: string
+          empresa_id?: string | null
+          familia_cota_por_filho?: number
+          familia_teto_salario?: number
+          id?: string
+          inss_faixas?: Json
+          ir_coeficiente_reducao?: number
+          ir_desconto_gradual_ate?: number
+          ir_isento_ate?: number
+          ir_parcela_fixa_reducao?: number
+          irrf_faixas?: Json
+          salario_minimo?: number
+          teto_inss?: number
+          updated_at?: string
+        }
+        Relationships: [{
+          foreignKeyName: "folha_tabelas_oficiais_empresa_id_fkey"
+          columns: ["empresa_id"]
+          isOneToOne: false
+          referencedRelation: "empresas"
           referencedColumns: ["id"]
         }]
       }
