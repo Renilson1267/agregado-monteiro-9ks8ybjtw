@@ -230,6 +230,10 @@ export class FolhaService {
       payload.competencia,
     )
 
+    const isRaimundo =
+      payload.nome && payload.nome.toUpperCase().includes("RAIMUNDO")
+    const isTerceiro = payload.tipo === "Terceiro"
+
     const dados = {
       empresa_id: payload.empresa_id,
       competencia_id: comp.id,
@@ -242,28 +246,31 @@ export class FolhaService {
       bruto: Number(payload.bruto || 0),
       salario_base: Number(payload.salario_base ?? payload.bruto ?? 0),
       filhos: parseInt(String(payload.filhos || 0), 10) || 0,
-      inss: Number(payload.inss || 0),
-      familia: Number(payload.familia || 0),
-      ir: Number(payload.ir || 0),
+      inss: isTerceiro ? 0 : Number(payload.inss || 0),
+      familia: isTerceiro ? 0 : Number(payload.familia || 0),
+      ir: isTerceiro ? 0 : Number(payload.ir || 0),
       quinzena: Number(payload.quinzena || 0),
       quinzena_2: Number(payload.quinzena_2 || 0),
-      adiantamento: Number(payload.adiantamento || 0),
+      adiantamento: isTerceiro ? 0 : Number(payload.adiantamento || 0),
       gratificacao: Number(payload.gratificacao || 0),
-      obras: Number(payload.obras || 0),
+      obras: isTerceiro ? 0 : Number(payload.obras || 0),
       valor_obra: Number(payload.valor_obra ?? 20),
-      producao: Number(payload.producao || 0),
+      producao: isTerceiro ? 0 : Number(payload.producao || 0),
       limpeza: Number(payload.limpeza || 0),
       sabado: Number(payload.sabado || 0),
       feriado: Number(payload.feriado || 0),
       ferias: Number(payload.ferias || 0),
       ajuda_custo: Number(payload.ajuda_custo || 0),
-      vendas_obra: Number(payload.vendas_obra || 0),
-      comissao: Number(payload.comissao || 0),
-      vendas_ajuda: Number(payload.vendas_ajuda || 0),
-      mensal_liquido: Number(payload.mensal_liquido || 0),
-      salario_liquido: Number(
-        payload.salario_liquido ?? payload.mensal_liquido ?? 0,
-      ),
+      // Raimundo nunca tem vendas/comissão; outros terceiros (ex: Márcio Luan) ou funcionários podem ter
+      vendas_obra: isRaimundo ? 0 : Number(payload.vendas_obra || 0),
+      comissao: isRaimundo ? 0 : Number(payload.comissao || 0),
+      vendas_ajuda: isRaimundo ? 0 : Number(payload.vendas_ajuda || 0),
+      mensal_liquido: isTerceiro
+        ? Number(payload.bruto ?? payload.salario_base ?? 0)
+        : Number(payload.mensal_liquido || 0),
+      salario_liquido: isTerceiro
+        ? Number(payload.bruto ?? payload.salario_base ?? 0)
+        : Number(payload.salario_liquido ?? payload.mensal_liquido ?? 0),
       conta: payload.conta || "",
       pix: payload.pix || payload.chave_pix || "",
       chave_pix: payload.chave_pix || payload.pix || "",
@@ -371,26 +378,32 @@ export class FolhaService {
     for (const l of linhas) {
       const nomeUpper = l.nome.trim().toUpperCase()
       const existente = mapLinhasAtuaisPorNome.get(nomeUpper)
+      const isRaimundo = nomeUpper.includes("RAIMUNDO")
+      const isTerceiro = l.tipo === "Terceiro"
 
       const payload = {
         empresa_id: empresaId,
         competencia_id: comp.id,
         competencia,
-        tipo: l.tipo === "Terceiro" ? "Terceiro" : "Funcionario",
+        tipo: isTerceiro ? "Terceiro" : "Funcionario",
         nome: nomeUpper,
         funcao: (l.funcao || "Geral").trim().toUpperCase(),
         unidade: (l.unidade || "SJE").trim().toUpperCase(),
         bruto: Number(l.bruto || 0),
         filhos: parseInt(String(l.filhos || 0), 10) || 0,
-        inss: Number(l.inss || 0),
-        familia: Number(l.familia || 0),
-        ir: Number(l.ir || 0),
+        inss: isTerceiro ? 0 : Number(l.inss || 0),
+        familia: isTerceiro ? 0 : Number(l.familia || 0),
+        ir: isTerceiro ? 0 : Number(l.ir || 0),
         quinzena: Number(l.quinzena || 0),
-        adiantamento: Number(l.adiantamento || 0),
+        adiantamento: isTerceiro ? 0 : Number(l.adiantamento || 0),
         gratificacao: Number(l.gratificacao || 0),
-        mensal_liquido: Number(l.mensal_liquido || 0),
-        producao: Number(l.producao || 0),
-        comissao: Number(l.comissao || 0),
+        mensal_liquido: isTerceiro
+          ? Number(l.bruto || 0)
+          : Number(l.mensal_liquido || 0),
+        producao: isTerceiro ? 0 : Number(l.producao || 0),
+        vendas_obra: isRaimundo ? 0 : Number(l.vendas_obra || 0),
+        comissao: isRaimundo ? 0 : Number(l.comissao || 0),
+        vendas_ajuda: isRaimundo ? 0 : Number(l.vendas_ajuda || 0),
         conta: l.conta || "",
         pix: l.pix || "",
         modo_calculo: l.modo_calculo || "Calculado",
@@ -535,16 +548,147 @@ export class FolhaService {
   }
 
   /**
+   * Obtém os terceiros cadastrados da empresa (folha_terceiros)
+   */
+  static async getTerceiros(empresaId: string): Promise<any[]> {
+    const { data, error } = await (supabase as any)
+      .from("folha_terceiros")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("nome", { ascending: true })
+
+    if (error) {
+      console.error("Erro ao buscar terceiros:", error)
+      throw error
+    }
+    return data || []
+  }
+
+  /**
+   * Salva ou atualiza um terceiro (incluindo flag eh_vendedor)
+   */
+  static async salvarTerceiro(terceiro: {
+    id?: string
+    empresa_id: string
+    nome: string
+    bruto?: number
+    conta?: string
+    pix?: string
+    obs?: string
+    unidade?: string
+    ativo?: boolean
+    eh_vendedor?: boolean
+  }): Promise<any> {
+    const payload = {
+      ...terceiro,
+      updated_at: new Date().toISOString(),
+    }
+
+    if (terceiro.id) {
+      const { data, error } = await (supabase as any)
+        .from("folha_terceiros")
+        .update(payload)
+        .eq("id", terceiro.id)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    } else {
+      const { data, error } = await (supabase as any)
+        .from("folha_terceiros")
+        .insert(payload)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    }
+  }
+
+  /**
+   * Obtém as faixas da tabela progressiva de comissões por empresa
+   */
+  static async getFaixasComissao(
+    empresaId: string,
+  ): Promise<import("@/types/folha").FaixaComissaoProgressiva[]> {
+    const { data, error } = await (supabase as any)
+      .from("folha_comissao_faixas")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("de_valor", { ascending: true })
+
+    if (error) {
+      console.error("Erro ao buscar faixas de comissão:", error)
+      throw error
+    }
+    return (data || []) as import("@/types/folha").FaixaComissaoProgressiva[]
+  }
+
+  /**
+   * Salva (substitui) as faixas da tabela progressiva de comissões de uma empresa
+   */
+  static async salvarFaixasComissao(
+    empresaId: string,
+    faixas: Array<{
+      de_valor: number
+      ate_valor: number
+      percentual: number
+      ordem?: number
+    }>,
+  ): Promise<import("@/types/folha").FaixaComissaoProgressiva[]> {
+    // 1. Remove faixas existentes da empresa
+    const { error: delError } = await (supabase as any)
+      .from("folha_comissao_faixas")
+      .delete()
+      .eq("empresa_id", empresaId)
+
+    if (delError) {
+      console.error("Erro ao limpar faixas anteriores:", delError)
+      throw delError
+    }
+
+    if (!faixas || faixas.length === 0) {
+      return []
+    }
+
+    // 2. Insere novas faixas
+    const payload = faixas.map((f, idx) => ({
+      empresa_id: empresaId,
+      de_valor: Number(f.de_valor || 0),
+      ate_valor: Number(f.ate_valor || 0),
+      percentual: Number(f.percentual || 0),
+      ordem: f.ordem !== undefined ? f.ordem : idx + 1,
+      updated_at: new Date().toISOString(),
+    }))
+
+    const { data, error: insError } = await (supabase as any)
+      .from("folha_comissao_faixas")
+      .insert(payload)
+      .select()
+      .order("de_valor", { ascending: true })
+
+    if (insError) {
+      console.error("Erro ao salvar faixas de comissão:", insError)
+      throw insError
+    }
+
+    return (data || []) as import("@/types/folha").FaixaComissaoProgressiva[]
+  }
+
+  /**
    * Calcula somatório consolidado de todas as colunas reais da Folha GC MIX
    */
   static calcularTotais(linhas: FolhaPagamentoLinha[]): FolhaTotaisCalculados {
     return linhas.reduce(
       (acc, l) => {
-        const isTerceiro =
-          l.tipo === "Terceiro" ||
-          (l.nome &&
-            (l.nome.includes("RAIMUNDO MARIANO") ||
-              l.nome.includes("MARCIO LUAN")))
+        const isRaimundo = l.nome && l.nome.includes("RAIMUNDO MARIANO")
+        const isMarcioLuan = l.nome && l.nome.includes("MARCIO LUAN")
+        const isTerceiro = l.tipo === "Terceiro" || isRaimundo || isMarcioLuan
+        // Vendedor terceiro conta vendas e comissão (ex: Márcio Luan), mas Raimundo segue fora
+        const isTerceiroVendedor =
+          isMarcioLuan ||
+          (isTerceiro &&
+            (Number(l.vendas_obra || 0) > 0 || Number(l.comissao || 0) > 0))
+
         acc.totalRegistros += 1
         if (isTerceiro) {
           acc.totalTerceiros += 1
@@ -567,10 +711,18 @@ export class FolhaService {
         acc.totalFeriado = (acc.totalFeriado || 0) + Number(l.feriado || 0)
         acc.totalFerias += Number(l.ferias || 0)
         acc.totalAjudaCusto += Number(l.ajuda_custo || 0)
-        // Vendas e comissão são exclusivas de funcionários
-        acc.totalVendas += isTerceiro ? 0 : Number(l.vendas_obra || 0)
-        acc.totalComissao += isTerceiro ? 0 : Number(l.comissao || 0)
-        acc.totalVendasAjuda += isTerceiro ? 0 : Number(l.vendas_ajuda || 0)
+
+        // Vendas e comissão: conta funcionários + terceiros vendedores (Márcio Luan). Raimundo não conta.
+        if (!isTerceiro || isTerceiroVendedor) {
+          acc.totalVendas += Number(l.vendas_obra || 0)
+          acc.totalComissao += Number(l.comissao || 0)
+          acc.totalVendasAjuda += Number(l.vendas_ajuda || 0)
+        }
+        if (isTerceiro && isTerceiroVendedor) {
+          acc.totalComissaoTerceiros =
+            (acc.totalComissaoTerceiros || 0) + Number(l.comissao || 0)
+        }
+
         acc.totalMensalLiquido += Number(l.mensal_liquido || 0)
         acc.totalGeralLiquidoAReceber +=
           Number(l.mensal_liquido || 0) +
@@ -599,6 +751,7 @@ export class FolhaService {
         totalAjudaCusto: 0,
         totalVendas: 0,
         totalComissao: 0,
+        totalComissaoTerceiros: 0,
         totalVendasAjuda: 0,
         totalMensalLiquido: 0,
         totalGeralLiquidoAReceber: 0,

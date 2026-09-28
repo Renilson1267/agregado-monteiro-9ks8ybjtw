@@ -28,6 +28,30 @@ export interface FaixaTabelaOficial {
   deducao: number
 }
 
+export interface FaixaComissaoProgressiva {
+  id?: string
+  empresa_id?: string
+  de_valor: number
+  ate_valor: number
+  percentual: number // Ex.: 0.025 para 2,5% (ou gravado no banco como decimal)
+  ordem?: number
+}
+
+export interface FolhaTerceiro {
+  id: string
+  empresa_id: string
+  nome: string
+  bruto: number
+  conta?: string | null
+  pix?: string | null
+  obs?: string | null
+  unidade?: string | null
+  ativo?: boolean
+  eh_vendedor?: boolean
+  created_at?: string
+  updated_at?: string
+}
+
 export interface FolhaTabelaOficial {
   id: string
   empresa_id?: string | null
@@ -136,6 +160,7 @@ export interface FolhaTotaisCalculados {
   totalAjudaCusto?: number
   totalVendas?: number
   totalComissao: number
+  totalComissaoTerceiros?: number
   totalVendasAjuda?: number
   totalMensalLiquido: number
   totalGeralLiquidoAReceber: number

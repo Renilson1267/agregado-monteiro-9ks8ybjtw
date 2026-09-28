@@ -1,4 +1,4 @@
-import { FolhaTabelaOficial } from "@/types/folha"
+import { FolhaTabelaOficial, FaixaComissaoProgressiva } from "@/types/folha"
 
 /**
  * Funções de cálculo fiscal da Folha GC MIX baseadas nas Tabelas Oficiais do Supabase.
@@ -295,9 +295,72 @@ export function calcularAPagarProducao(linha: {
 
 /**
  * Cálculo da Aba VENDAS:
- * COMISSÃO = 0,5% × VALOR DAS OBRAS
+ * COMISSÃO = 0,5% × VALOR DAS OBRAS (padrão para funcionários vendedores)
  */
 export function calcularComissaoVendas(valorObras: number): number {
   const v = Number(valorObras || 0)
   return Math.round(v * 0.005 * 100) / 100
+}
+
+/**
+ * Cálculo Marginal por Faixa da Tabela Progressiva de Comissões:
+ * Soma-se a comissão de cada trecho do valor vendido.
+ * Exemplo:
+ * - 0 a 100.000: 2,5% (0.025)
+ * - 100.000,01 a 200.000: 2,0% (0.020)
+ * - 200.000,01 a 300.000: 1,5% (0.015)
+ * - Acima de 300.000: 1,0% (0.010)
+ *
+ * Se valor for R$ 169.884,00:
+ * 1ª faixa: R$ 100.000,00 × 2,5% = R$ 2.500,00
+ * 2ª faixa: R$ 69.884,00 × 2,0% = R$ 1.397,68
+ * Total = R$ 3.897,68
+ *
+ * Retorna null se não houver faixas cadastradas para alertar o operador a configurar a tabela.
+ */
+export function calcularComissaoProgressivaMarginal(
+  valorVendas: number,
+  faixas: FaixaComissaoProgressiva[] | null | undefined,
+): number | null {
+  if (!faixas || faixas.length === 0) {
+    return null
+  }
+
+  const valor = Number(valorVendas || 0)
+  if (valor <= 0) return 0
+
+  // Ordena por de_valor ascendente
+  const faixasOrdenadas = [...faixas].sort(
+    (a, b) => Number(a.de_valor) - Number(b.de_valor),
+  )
+
+  let comissaoTotal = 0
+
+  for (const f of faixasOrdenadas) {
+    const de = Number(f.de_valor || 0)
+    const ate = Number(f.ate_valor || 0)
+    // Suporta percentual informado tanto em decimal (ex: 0.025) quanto em porcentagem (ex: 2.5)
+    let perc = Number(f.percentual || 0)
+    if (perc > 1) {
+      perc = perc / 100
+    }
+
+    if (valor <= de) {
+      // Valor vendido não alcançou esta faixa
+      continue
+    }
+
+    // Trecho tributável nesta faixa
+    // O início efetivo do trecho da faixa (para de=0 ou de=100000.01)
+    const piso =
+      de > 0 && Math.abs(de - Math.floor(de)) > 0 ? Math.floor(de) : de
+    const limiteSuperior = ate > 0 ? Math.min(valor, ate) : valor
+    const baseNaFaixa = Math.max(0, limiteSuperior - piso)
+
+    if (baseNaFaixa > 0) {
+      comissaoTotal += baseNaFaixa * perc
+    }
+  }
+
+  return Math.round(comissaoTotal * 100) / 100
 }

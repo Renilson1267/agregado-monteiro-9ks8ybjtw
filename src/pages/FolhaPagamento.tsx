@@ -32,6 +32,8 @@ import {
   FolhaPagamentoLinha,
   FolhaCompetencia,
   FolhaTabelaOficial,
+  FaixaComissaoProgressiva,
+  FolhaTerceiro,
 } from "@/types/folha"
 import {
   calcularInssProgressivo,
@@ -42,6 +44,7 @@ import {
   calcularProducaoTotal,
   calcularAPagarProducao,
   calcularComissaoVendas,
+  calcularComissaoProgressivaMarginal,
 } from "@/lib/folha-calculos"
 import { LOGO_GC_MIX_HORIZONTAL } from "@/assets/logos"
 import { AbaTabelasOficiais } from "@/components/AbaTabelasOficiais"
@@ -101,6 +104,10 @@ export function FolhaPagamento() {
   const [tabelaOficial, setTabelaOficial] = useState<FolhaTabelaOficial | null>(
     null,
   )
+  const [faixasComissao, setFaixasComissao] =
+    useState<FaixaComissaoProgressiva[]>([])
+  const [terceirosCadastrados, setTerceirosCadastrados] =
+    useState<FolhaTerceiro[]>([])
   const [carregando, setCarregando] = useState(false)
   const [abaAtiva, setAbaAtiva] = useState<string>("geral")
 
@@ -183,18 +190,27 @@ export function FolhaPagamento() {
     carregarCompetencias()
   }, [empresaAtiva?.id])
 
-  // 2. Carregar tabelas oficiais (2026) da empresa
+  // 2. Carregar tabelas oficiais (2026), faixas de comissão e terceiros cadastrados da empresa
   useEffect(() => {
-    async function carregarTabela() {
+    async function carregarTabelaEComissoes() {
       if (!empresaAtiva?.id) return
       try {
-        const tab = await FolhaService.getTabelaOficial(empresaAtiva.id, 2026)
+        const [tab, faixas, tercs] = await Promise.all([
+          FolhaService.getTabelaOficial(empresaAtiva.id, 2026),
+          FolhaService.getFaixasComissao(empresaAtiva.id),
+          FolhaService.getTerceiros(empresaAtiva.id),
+        ])
         setTabelaOficial(tab)
+        setFaixasComissao(faixas || [])
+        setTerceirosCadastrados(tercs || [])
       } catch (err) {
-        console.warn("Erro ao carregar tabela oficial:", err)
+        console.warn(
+          "Erro ao carregar tabelas oficiais/faixas de comissão:",
+          err,
+        )
       }
     }
-    carregarTabela()
+    carregarTabelaEComissoes()
   }, [empresaAtiva?.id])
 
   // 3. Carregar dados da competência (data e % quinzena) e linhas
@@ -563,20 +579,20 @@ export function FolhaPagamento() {
     }
   }, [funcionariosFiltrados])
 
-  // Linhas da Aba VENDAS (exclusiva de funcionários; terceiros NÃO entram em vendas nem têm comissão)
-  const linhasVendas = useMemo(() => {
+  // Linhas de Funcionários da Aba VENDAS (comissão 0,5% ou digitada)
+  const linhasVendasFuncionarios = useMemo(() => {
     const candidatos = funcionariosFiltrados.filter(
       (l) =>
-        l.vendas_obra > 0 ||
-        l.comissao > 0 ||
+        Number(l.vendas_obra || 0) > 0 ||
+        Number(l.comissao || 0) > 0 ||
         (l.funcao && l.funcao.toUpperCase().includes("VENDEDOR")) ||
         (l.cargo && l.cargo.toUpperCase().includes("VENDEDOR")),
     )
     return candidatos.map((l) => {
-      const comissaoAuto = calcularComissaoVendas(l.vendas_obra || 0)
+      const comissaoAuto = calcularComissaoVendas(Number(l.vendas_obra || 0))
       const isComissaoSobrescrita =
         l.modo_calculo === "Digitado" ||
-        (l.vendas_obra > 0 &&
+        (Number(l.vendas_obra || 0) > 0 &&
           Math.abs(Number(l.comissao || 0) - comissaoAuto) > 0.05)
       const comissaoFinal = Number(l.comissao || comissaoAuto)
       return {
@@ -587,6 +603,128 @@ export function FolhaPagamento() {
       }
     })
   }, [funcionariosFiltrados])
+
+  // Linhas de Vendedores Terceiros da Aba VENDAS (fora da folha, ex: Márcio Luan — Raimundo segue fora)
+  // Utiliza tabela progressiva marginal de comissões por faixa
+  const linhasVendasTerceiros = useMemo(() => {
+    // 1. Identifica terceiros marcados como vendedores no cadastro (folha_terceiros)
+    const vendedoresCadastrados = terceirosCadastrados.filter(
+      (c) => c.eh_vendedor || c.nome.toUpperCase().includes("MARCIO LUAN"),
+    )
+
+    // 2. Mapeia com a linha da competência (ou cria representação com dados do cadastro se ainda não tiver linha)
+    const linhasVendedores: FolhaPagamentoLinha[] = []
+
+    // Procura nas linhas de terceiros da competência atual
+    terceirosFiltrados.forEach((t) => {
+      const cadastrado = terceirosCadastrados.find(
+        (c) =>
+          c.id === t.id ||
+          c.nome.toUpperCase() === t.nome.toUpperCase() ||
+          t.nome.toUpperCase().includes(c.nome.toUpperCase()),
+      )
+      const ehVendedor =
+        cadastrado?.eh_vendedor ||
+        t.nome.toUpperCase().includes("MARCIO LUAN") ||
+        (t.tipo === "Terceiro" &&
+          (Number(t.vendas_obra || 0) > 0 || Number(t.comissao || 0) > 0))
+
+      // Raimundo NUNCA é vendedor
+      if (ehVendedor && !t.nome.toUpperCase().includes("RAIMUNDO")) {
+        linhasVendedores.push({
+          ...t,
+          conta: t.conta || cadastrado?.conta || "",
+          pix: t.pix || t.chave_pix || cadastrado?.pix || "",
+        })
+      }
+    })
+
+    // Se houver terceiro vendedor no cadastro mas ainda não existir linha na competência, inclui
+    vendedoresCadastrados.forEach((vc) => {
+      if (vc.nome.toUpperCase().includes("RAIMUNDO")) return
+      const jaExiste = linhasVendedores.some(
+        (l) => l.nome.toUpperCase() === vc.nome.toUpperCase(),
+      )
+      if (!jaExiste) {
+        linhasVendedores.push({
+          id: vc.id,
+          empresa_id: vc.empresa_id,
+          competencia,
+          tipo: "Terceiro",
+          nome: vc.nome,
+          cargo: "VENDEDOR TERCEIRO",
+          funcao: "VENDEDOR TERCEIRO",
+          unidade: vc.unidade || "MONTEIRO",
+          salario_base: 0,
+          bruto: Number(vc.bruto || 0),
+          filhos: 0,
+          inss: 0,
+          familia: 0,
+          ir: 0,
+          quinzena: 0,
+          quinzena_2: 0,
+          adiantamento: 0,
+          gratificacao: 0,
+          obras: 0,
+          valor_obra: 20,
+          producao: 0,
+          limpeza: 0,
+          sabado: 0,
+          feriado: 0,
+          ferias: 0,
+          ajuda_custo: 0,
+          vendas_obra: 0,
+          comissao: 0,
+          vendas_ajuda: 0,
+          mensal_liquido: Number(vc.bruto || 0),
+          salario_liquido: Number(vc.bruto || 0),
+          conta: vc.conta || "",
+          pix: vc.pix || "",
+          chave_pix: vc.pix || "",
+          observacao_linha: vc.obs || "",
+          modo_calculo: "Calculado",
+          oculto: false,
+          inativo: false,
+        })
+      }
+    })
+
+    return linhasVendedores.map((t) => {
+      const vendas = Number(t.vendas_obra || 0)
+      const comissaoProgressiva = calcularComissaoProgressivaMarginal(
+        vendas,
+        faixasComissao,
+      )
+      const temTabelaConfigurada = faixasComissao && faixasComissao.length > 0
+      const comissaoAuto = comissaoProgressiva ?? 0
+
+      const isComissaoSobrescrita =
+        t.modo_calculo === "Digitado" ||
+        (temTabelaConfigurada &&
+          vendas > 0 &&
+          t.comissao !== undefined &&
+          t.comissao !== null &&
+          Math.abs(Number(t.comissao) - comissaoAuto) > 0.05)
+
+      const comissaoFinal =
+        isComissaoSobrescrita && t.comissao !== undefined && t.comissao !== null
+          ? Number(t.comissao)
+          : comissaoAuto
+
+      return {
+        ...t,
+        comissaoAuto,
+        comissaoFinal,
+        isComissaoSobrescrita,
+        temTabelaConfigurada,
+      }
+    })
+  }, [terceirosFiltrados, terceirosCadastrados, faixasComissao, competencia])
+
+  // Todas as linhas de vendas combinadas (mantendo compatibilidade com linhasVendas anterior)
+  const linhasVendas = useMemo(() => {
+    return [...linhasVendasFuncionarios, ...linhasVendasTerceiros]
+  }, [linhasVendasFuncionarios, linhasVendasTerceiros])
 
   // TOTAIS DA ABA GERAL (FUNCIONÁRIOS) COM DISCRIMINAÇÃO COMPLETA
   const totaisGeral = useMemo(() => {
@@ -675,9 +813,9 @@ export function FolhaPagamento() {
     )
   }, [linhasProducao])
 
-  // TOTAIS VENDAS
-  const totaisVendas = useMemo(() => {
-    return linhasVendas.reduce(
+  // TOTAIS VENDAS FUNCIONÁRIOS
+  const totaisVendasFuncionarios = useMemo(() => {
+    return linhasVendasFuncionarios.reduce(
       (acc, l) => {
         acc.vendas_obra += Number(l.vendas_obra || 0)
         acc.comissao += l.comissaoFinal
@@ -685,26 +823,54 @@ export function FolhaPagamento() {
       },
       { vendas_obra: 0, comissao: 0 },
     )
-  }, [linhasVendas])
+  }, [linhasVendasFuncionarios])
+
+  // TOTAIS VENDAS TERCEIROS
+  const totaisVendasTerceiros = useMemo(() => {
+    return linhasVendasTerceiros.reduce(
+      (acc, l) => {
+        acc.vendas_obra += Number(l.vendas_obra || 0)
+        acc.comissao += l.comissaoFinal
+        return acc
+      },
+      { vendas_obra: 0, comissao: 0 },
+    )
+  }, [linhasVendasTerceiros])
+
+  // TOTAIS VENDAS (GERAL: FUNCIONÁRIOS + TERCEIROS VENDEDORES)
+  const totaisVendas = useMemo(() => {
+    return {
+      vendas_obra:
+        totaisVendasFuncionarios.vendas_obra +
+        totaisVendasTerceiros.vendas_obra,
+      comissao:
+        totaisVendasFuncionarios.comissao + totaisVendasTerceiros.comissao,
+    }
+  }, [totaisVendasFuncionarios, totaisVendasTerceiros])
 
   // RESUMO GERAL CONSOLIDADO (Aba 6)
   const resumo = useMemo(() => {
     const pessoasNaFolha = linhasGeralProcessadas.length
     const salariosQuinzena = totaisGeral.quinzena
-    // Salários Mensal Líquido agora não inclui produção (produção fica separada como pagamento à parte)
+    // Salários Mensal Líquido não inclui produção (produção fica separada como pagamento à parte)
     const salariosMensalLiquido = totaisGeral.mensal
     const subtotalFolha = salariosQuinzena + salariosMensalLiquido
     // Produção a pagar é item separado (pagamento à parte) sem duplicar no mensal
     const producaoAPagar = totaisProducao.aPagar
+    // Vendas (comissões): inclui comissões dos funcionários + comissões dos vendedores terceiros (ex: Márcio Luan)
     const vendasComissoes = totaisVendas.comissao
     const terceirosFolha = totaisTerceiros.valorMes
     const inssRetido = totaisGeral.inss
     const irrfRetido = totaisGeral.irrf
     const salarioFamiliaPago = totaisGeral.familia
 
-    // Total Geral do Mês = Subtotal Folha (Quinzena + Mensal Líquido sem produção) + Produção a pagar + Terceiros
-    // Obs: comissões de vendas já fazem parte do Mensal Líquido dos vendedores, logo não devem ser duplicadas se somadas aqui
-    const totalGeralDoMes = subtotalFolha + producaoAPagar + terceirosFolha
+    // Total Geral do Mês = Subtotal Folha (Quinzena + Mensal Líquido sem produção) + Produção a pagar + Terceiros (fixos) + Comissão Terceiros Vendedores
+    const comissaoTerceirosVendedores = totaisVendasTerceiros.comissao
+    const totalGeralDoMes =
+      subtotalFolha +
+      producaoAPagar +
+      terceirosFolha +
+      comissaoTerceirosVendedores
 
     return {
       pessoasNaFolha,
@@ -714,6 +880,7 @@ export function FolhaPagamento() {
       producaoAPagar,
       vendasComissoes,
       terceirosFolha,
+      comissaoTerceirosVendedores,
       inssRetido,
       irrfRetido,
       salarioFamiliaPago,
@@ -724,6 +891,7 @@ export function FolhaPagamento() {
     totaisProducao,
     totaisVendas,
     totaisTerceiros,
+    totaisVendasTerceiros,
     linhasGeralProcessadas.length,
   ])
 
@@ -940,10 +1108,10 @@ export function FolhaPagamento() {
         feriado: Number(linhaEmEdicao.feriado || 0),
         ferias: Number(linhaEmEdicao.ferias || 0),
         ajuda_custo: Number(linhaEmEdicao.ajuda_custo || 0),
-        // Terceiros NÃO têm vendas nem comissão
-        vendas_obra: isTerceiro ? 0 : Number(linhaEmEdicao.vendas_obra || 0),
-        comissao: isTerceiro ? 0 : Number(linhaEmEdicao.comissao || 0),
-        vendas_ajuda: isTerceiro ? 0 : Number(linhaEmEdicao.vendas_ajuda || 0),
+        // Terceiros vendedores têm vendas e comissão; terceiros não-vendedores ficam zerados
+        vendas_obra: Number(linhaEmEdicao.vendas_obra || 0),
+        comissao: Number(linhaEmEdicao.comissao || 0),
+        vendas_ajuda: Number(linhaEmEdicao.vendas_ajuda || 0),
         // Para terceiro, mensal_liquido é o valor do mês integral (conforme quinzena 40% e mensal 60% sem desconto)
         mensal_liquido: isTerceiro
           ? Number(linhaEmEdicao.bruto || 0)
@@ -3128,28 +3296,174 @@ export function FolhaPagamento() {
             </Card>
           )}
 
-          {/* TABELA GERAL DE COMISSÃO DE VENDEDORES */}
-          <Card>
-            <CardHeader className="py-3 px-4 border-b">
+          {/* BOTÃO IMPRIMIR NO TOPO DA ABA VENDAS */}
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs"
+              onClick={() => imprimirAbaA4("vendas")}
+            >
+              <Printer className="h-4 w-4" />
+              Imprimir Vendas A4
+            </Button>
+          </div>
+
+          {/* 1. SEÇÃO VENDEDORES TERCEIROS (FORA DA FOLHA) - CONFORME PLANILHA DO USUÁRIO */}
+          <Card className="border-purple-300 dark:border-purple-800">
+            <CardHeader className="py-3 px-4 border-b bg-purple-500/10">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                 <div>
-                  <CardTitle className="text-base font-semibold">
-                    VENDEDORES DA FOLHA (comissão é pagamento à parte do
-                    salário)
+                  <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-purple-600" />
+                    VENDEDORES TERCEIROS (fora da folha)
+                    <Badge
+                      variant="outline"
+                      className="border-purple-400 text-purple-700 bg-purple-50 text-[10px]"
+                    >
+                      Tabela Progressiva
+                    </Badge>
                   </CardTitle>
-                  <CardDescription className="text-xs mt-1 text-primary font-medium">
-                    COMISSÃO = 0,5% DO VALOR VENDIDO (calcula sozinha)
+                  <CardDescription className="text-xs mt-1 text-purple-700 dark:text-purple-300 font-semibold">
+                    COMISSÃO = TABELA PROGRESSIVA (calcula sozinha)
                   </CardDescription>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 text-xs"
-                  onClick={() => imprimirAbaA4("vendas")}
-                >
-                  <Printer className="h-4 w-4" />
-                  Imprimir Vendas A4
-                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {faixasComissao.length === 0 && (
+                <div className="p-3 bg-amber-50 border-b border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>
+                    Configure a tabela progressiva de comissões na aba{" "}
+                    <strong>Tabelas (Admin)</strong> para cálculo automático
+                    marginal por faixa.
+                  </span>
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead className="bg-purple-100/60 dark:bg-purple-950/40 text-muted-foreground uppercase font-semibold border-b">
+                    <tr>
+                      <th className="py-2.5 px-3 sticky left-0 bg-purple-100/90 dark:bg-purple-950/90 z-10">
+                        NOME
+                      </th>
+                      <th className="py-2.5 px-3 text-right font-semibold text-blue-600">
+                        VALOR DAS OBRAS
+                      </th>
+                      <th className="py-2.5 px-3 text-right font-bold text-amber-600">
+                        COMISSÃO
+                      </th>
+                      <th className="py-2.5 px-3">AGÊNCIA / C/C</th>
+                      <th className="py-2.5 px-3">PIX</th>
+                      <th className="py-2.5 px-2 text-center print:hidden w-16">
+                        AÇÕES
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {linhasVendasTerceiros.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="text-center py-6 text-muted-foreground"
+                        >
+                          Nenhum vendedor terceiro cadastrado ou com vendas
+                          nesta unidade.
+                        </td>
+                      </tr>
+                    ) : (
+                      linhasVendasTerceiros.map((l) => (
+                        <tr key={l.id} className="hover:bg-purple-50/30">
+                          <td className="py-2 px-3 font-semibold text-foreground sticky left-0 bg-background z-10 border-r whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <span>{l.nome}</span>
+                              <Badge
+                                variant="secondary"
+                                className="text-[9px] px-1 py-0 h-4 bg-purple-100 text-purple-700"
+                              >
+                                Terceiro Vendedor
+                              </Badge>
+                            </div>
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-blue-600 font-semibold whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <span>{fmtMoeda(l.vendas_obra)}</span>
+                              <Badge
+                                variant="outline"
+                                className="text-[8px] px-1 py-0 h-3.5 border-blue-300 text-blue-700 bg-blue-50"
+                              >
+                                Digitado
+                              </Badge>
+                            </div>
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-amber-600 whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1">
+                              <span>{fmtMoeda(l.comissaoFinal)}</span>
+                              <Badge
+                                variant="outline"
+                                className={`text-[8px] px-1 py-0 h-3.5 ${
+                                  l.isComissaoSobrescrita
+                                    ? "border-amber-400 text-amber-700 bg-amber-50"
+                                    : "border-muted text-muted-foreground"
+                                }`}
+                              >
+                                {l.isComissaoSobrescrita
+                                  ? "Digitado"
+                                  : "Calculado"}
+                              </Badge>
+                            </div>
+                          </td>
+                          <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
+                            {l.conta || "-"}
+                          </td>
+                          <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
+                            {l.pix || l.chave_pix || "-"}
+                          </td>
+                          <td className="py-2 px-2 text-center print:hidden">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={() => abrirModalEdicao(l, "Terceiro")}
+                              title="Editar vendas do terceiro"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  <tfoot className="bg-purple-100/40 dark:bg-purple-950/30 font-bold text-foreground border-t-2 border-border">
+                    <tr>
+                      <td className="py-2.5 px-3 sticky left-0 bg-purple-100/40 dark:bg-purple-950/30 z-10 border-r">
+                        TOTAL TERCEIROS ({linhasVendasTerceiros.length})
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-blue-600">
+                        {fmtMoeda(totaisVendasTerceiros.vendas_obra)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-amber-600">
+                        {fmtMoeda(totaisVendasTerceiros.comissao)}
+                      </td>
+                      <td className="py-2.5 px-3" colSpan={3}></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 2. TABELA DE VENDEDORES DA FOLHA (FUNCIONÁRIOS) */}
+          <Card>
+            <CardHeader className="py-3 px-4 border-b">
+              <div>
+                <CardTitle className="text-base font-semibold">
+                  VENDEDORES DA FOLHA (comissão é pagamento à parte do salário)
+                </CardTitle>
+                <CardDescription className="text-xs mt-1 text-primary font-medium">
+                  COMISSÃO = 0,5% DO VALOR VENDIDO (calcula sozinha)
+                </CardDescription>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -3165,7 +3479,7 @@ export function FolhaPagamento() {
                         VALOR DAS OBRAS
                       </th>
                       <th className="py-2.5 px-2 text-right font-bold text-amber-600">
-                        COMISSÃO
+                        COMISSÃO (0,5%)
                       </th>
                       <th className="py-2.5 px-3">AGÊNCIA / C/C</th>
                       <th className="py-2.5 px-3">PIX</th>
@@ -3175,17 +3489,18 @@ export function FolhaPagamento() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {linhasVendas.length === 0 ? (
+                    {linhasVendasFuncionarios.length === 0 ? (
                       <tr>
                         <td
                           colSpan={7}
                           className="text-center py-6 text-muted-foreground"
                         >
-                          Nenhum vendedor com obras nesta competência.
+                          Nenhum funcionário vendedor com obras nesta
+                          competência.
                         </td>
                       </tr>
                     ) : (
-                      linhasVendas.map((l, index) => (
+                      linhasVendasFuncionarios.map((l, index) => (
                         <tr key={l.id} className="hover:bg-muted/30">
                           <td className="py-2 px-2 text-center font-mono text-muted-foreground">
                             {index + 1}
@@ -3199,14 +3514,6 @@ export function FolhaPagamento() {
                                   className="text-[9px] px-1 py-0 h-4 border-amber-400 text-amber-700 bg-amber-50"
                                 >
                                   Lançador Vendas
-                                </Badge>
-                              )}
-                              {l.tipo === "Terceiro" && (
-                                <Badge
-                                  variant="secondary"
-                                  className="text-[9px] px-1 py-0 h-4 bg-purple-100 text-purple-700"
-                                >
-                                  Terceiro
                                 </Badge>
                               )}
                             </div>
@@ -3256,12 +3563,25 @@ export function FolhaPagamento() {
                     <tr>
                       <td className="py-2.5 px-2 text-center">-</td>
                       <td className="py-2.5 px-3 sticky left-0 bg-muted z-10 border-r">
-                        TOTAL VENDAS
+                        TOTAL VENDAS FUNCIONÁRIOS
                       </td>
                       <td className="py-2.5 px-2 text-right font-mono text-blue-600">
-                        {fmtMoeda(totaisVendas.vendas_obra)}
+                        {fmtMoeda(totaisVendasFuncionarios.vendas_obra)}
                       </td>
                       <td className="py-2.5 px-2 text-right font-mono text-amber-600">
+                        {fmtMoeda(totaisVendasFuncionarios.comissao)}
+                      </td>
+                      <td className="py-2.5 px-3" colSpan={3}></td>
+                    </tr>
+                    <tr className="bg-primary/10 text-primary font-extrabold border-t">
+                      <td className="py-2.5 px-2 text-center">-</td>
+                      <td className="py-2.5 px-3 sticky left-0 bg-primary/10 z-10 border-r uppercase">
+                        TOTAL GERAL VENDAS (FUNCIONÁRIOS + TERCEIROS)
+                      </td>
+                      <td className="py-2.5 px-2 text-right font-mono">
+                        {fmtMoeda(totaisVendas.vendas_obra)}
+                      </td>
+                      <td className="py-2.5 px-2 text-right font-mono">
                         {fmtMoeda(totaisVendas.comissao)}
                       </td>
                       <td className="py-2.5 px-3" colSpan={3}></td>
@@ -3269,12 +3589,74 @@ export function FolhaPagamento() {
                   </tfoot>
                 </table>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="p-4 bg-muted/10 border-t text-xs text-muted-foreground">
-                <strong>Regra:</strong> COMISSÃO = 0,5% × VALOR VENDIDO (a
-                coluna COMISSÃO calcula sozinha, exclusiva de funcionários da
-                folha; terceiros não entram na folha de vendas).
-              </div>
+          {/* 3. EXIBIÇÃO DA TABELA PROGRESSIVA NO RODAPÉ DA ABA VENDAS (CONFORME PLANILHA) */}
+          <Card className="border-muted">
+            <CardHeader className="py-2.5 px-4 bg-muted/40 border-b">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                <span>
+                  TABELA PROGRESSIVA DE COMISSÕES (usada pelas fórmulas acima)
+                </span>
+                {isAdministrador && (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="text-[11px] h-6 p-0 text-amber-600"
+                    onClick={() => setAbaAtiva("tabelas")}
+                  >
+                    Editar faixas na aba Tabelas &rarr;
+                  </Button>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {faixasComissao.length === 0 ? (
+                <div className="p-4 text-center text-xs text-muted-foreground">
+                  Nenhuma faixa cadastrada. Configure na aba{" "}
+                  <strong>Tabelas (Admin)</strong>.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border-collapse font-mono">
+                    <thead className="bg-muted/60 text-muted-foreground uppercase text-[10px] border-b">
+                      <tr>
+                        <th className="py-1.5 px-3">De (R$)</th>
+                        <th className="py-1.5 px-3">Até (R$)</th>
+                        <th className="py-1.5 px-3 text-right">%</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {faixasComissao.map((f, idx) => {
+                        const percFormatado =
+                          Number(f.percentual || 0) > 1
+                            ? Number(f.percentual || 0)
+                            : Number(f.percentual || 0) * 100
+                        return (
+                          <tr key={idx} className="hover:bg-muted/20">
+                            <td className="py-1.5 px-3">
+                              {fmtMoeda(f.de_valor)}
+                            </td>
+                            <td className="py-1.5 px-3">
+                              {Number(f.ate_valor) >= 900000000
+                                ? "Sem limite"
+                                : fmtMoeda(f.ate_valor)}
+                            </td>
+                            <td className="py-1.5 px-3 text-right font-bold text-amber-700">
+                              {percFormatado.toLocaleString("pt-BR", {
+                                minimumFractionDigits: 1,
+                                maximumFractionDigits: 3,
+                              })}
+                              %
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -3353,12 +3735,12 @@ export function FolhaPagamento() {
                   <div className="flex items-center justify-between py-2.5 px-4">
                     <div className="flex flex-col">
                       <span className="text-muted-foreground">
-                        Vendas / Comissões
+                        Vendas (comissões)
                       </span>
                       <span className="text-[10px] text-muted-foreground">
-                        {dadosLancadorVendas
-                          ? `(Lançador Vendas: ${dadosLancadorVendas.linha.nome} — inclusas no Mensal Líquido)`
-                          : "(já inclusas no Mensal dos vendedores)"}
+                        {totaisVendasTerceiros.comissao > 0
+                          ? `Funcionários (${fmtMoeda(totaisVendasFuncionarios.comissao)}) + Terceiros Vendedores (${fmtMoeda(totaisVendasTerceiros.comissao)})`
+                          : "Funcionários + Vendedores Terceiros"}
                       </span>
                     </div>
                     <span className="font-mono font-medium text-amber-600">
@@ -3368,12 +3750,12 @@ export function FolhaPagamento() {
                   <div className="flex items-center justify-between py-2.5 px-4 bg-purple-50/50 dark:bg-purple-950/20">
                     <div className="flex flex-col">
                       <span className="text-purple-900 dark:text-purple-200 font-semibold">
-                        Subtotal Terceiros (folha à parte)
+                        Terceiros (folha à parte)
                       </span>
                       <span className="text-[10px] text-muted-foreground">
                         Quinzena ({fmtMoeda(totaisTerceiros.quinzena)}) + Mensal
-                        ({fmtMoeda(totaisTerceiros.mensal)}) — sem comissão /
-                        sem desconto
+                        ({fmtMoeda(totaisTerceiros.mensal)}) — salários sem
+                        comissão / sem desconto
                       </span>
                     </div>
                     <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
@@ -3458,6 +3840,9 @@ export function FolhaPagamento() {
             <AbaTabelasOficiais
               onTabelaAtualizada={(novaTab) => {
                 setTabelaOficial(novaTab)
+              }}
+              onFaixasComissaoAtualizadas={(novasFaixas) => {
+                setFaixasComissao(novasFaixas)
               }}
             />
           </TabsContent>
@@ -4608,61 +4993,188 @@ export function FolhaPagamento() {
 
         {tipoImpressaoA4 === "vendas" && (
           <div className="space-y-4">
-            <table className="w-full border-collapse border text-[10px]">
-              <thead className="bg-gray-100 text-gray-800 font-bold uppercase">
-                <tr>
-                  <th className="border p-1.5 text-center w-6">Nº</th>
-                  <th className="border p-1.5 text-left">NOME</th>
-                  <th className="border p-1.5 text-right font-semibold">
-                    VALOR DAS OBRAS
-                  </th>
-                  <th className="border p-1.5 text-right font-bold">
-                    COMISSÃO (0,5%)
-                  </th>
-                  <th className="border p-1.5 text-left">AGÊNCIA / C/C</th>
-                  <th className="border p-1.5 text-left">PIX</th>
-                  <th className="border p-1.5 text-center w-36">ASSINATURA</th>
-                </tr>
-              </thead>
-              <tbody>
-                {linhasVendas.map((l, idx) => (
-                  <tr key={l.id}>
-                    <td className="border p-1 text-center font-mono">
-                      {idx + 1}
-                    </td>
-                    <td className="border p-1 font-semibold">{l.nome}</td>
-                    <td className="border p-1 text-right font-mono">
-                      {fmtMoeda(l.vendas_obra)}
-                    </td>
-                    <td className="border p-1 text-right font-mono font-bold">
-                      {fmtMoeda(l.comissaoFinal)}
-                    </td>
-                    <td className="border p-1 font-mono text-[9px]">
-                      {l.conta || "-"}
-                    </td>
-                    <td className="border p-1 font-mono text-[9px]">
-                      {l.pix || l.chave_pix || "-"}
-                    </td>
-                    <td className="border p-1"></td>
+            {/* Seção Terceiros Vendedores na Impressão A4 */}
+            {linhasVendasTerceiros.length > 0 && (
+              <div className="space-y-2">
+                <div className="font-bold text-[11px] uppercase bg-gray-100 p-1 border">
+                  VENDEDORES TERCEIROS (fora da folha) — COMISSÃO TABELA
+                  PROGRESSIVA
+                </div>
+                <table className="w-full border-collapse border text-[10px]">
+                  <thead className="bg-gray-50 font-bold uppercase">
+                    <tr>
+                      <th className="border p-1.5 text-left">NOME</th>
+                      <th className="border p-1.5 text-right">
+                        VALOR DAS OBRAS
+                      </th>
+                      <th className="border p-1.5 text-right">
+                        COMISSÃO (PROGRESSIVA)
+                      </th>
+                      <th className="border p-1.5 text-left">AGÊNCIA / C/C</th>
+                      <th className="border p-1.5 text-left">PIX</th>
+                      <th className="border p-1.5 text-center w-36">
+                        ASSINATURA
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {linhasVendasTerceiros.map((l) => (
+                      <tr key={l.id}>
+                        <td className="border p-1 font-semibold">{l.nome}</td>
+                        <td className="border p-1 text-right font-mono">
+                          {fmtMoeda(l.vendas_obra)}
+                        </td>
+                        <td className="border p-1 text-right font-mono font-bold">
+                          {fmtMoeda(l.comissaoFinal)}
+                        </td>
+                        <td className="border p-1 font-mono text-[9px]">
+                          {l.conta || "-"}
+                        </td>
+                        <td className="border p-1 font-mono text-[9px]">
+                          {l.pix || l.chave_pix || "-"}
+                        </td>
+                        <td className="border p-1"></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-100 font-bold">
+                    <tr>
+                      <td className="border p-1.5">
+                        TOTAL TERCEIROS VENDEDORES
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(totaisVendasTerceiros.vendas_obra)}
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(totaisVendasTerceiros.comissao)}
+                      </td>
+                      <td className="border p-1.5" colSpan={3}></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+
+            {/* Seção Funcionários Vendedores na Impressão A4 */}
+            <div className="space-y-2">
+              <div className="font-bold text-[11px] uppercase bg-gray-100 p-1 border">
+                VENDEDORES DA FOLHA (FUNCIONÁRIOS) — COMISSÃO 0,5%
+              </div>
+              <table className="w-full border-collapse border text-[10px]">
+                <thead className="bg-gray-50 text-gray-800 font-bold uppercase">
+                  <tr>
+                    <th className="border p-1.5 text-center w-6">Nº</th>
+                    <th className="border p-1.5 text-left">NOME</th>
+                    <th className="border p-1.5 text-right font-semibold">
+                      VALOR DAS OBRAS
+                    </th>
+                    <th className="border p-1.5 text-right font-bold">
+                      COMISSÃO (0,5%)
+                    </th>
+                    <th className="border p-1.5 text-left">AGÊNCIA / C/C</th>
+                    <th className="border p-1.5 text-left">PIX</th>
+                    <th className="border p-1.5 text-center w-36">
+                      ASSINATURA
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-gray-100 font-bold">
-                <tr>
-                  <td className="border p-1.5 text-center">-</td>
-                  <td className="border p-1.5">
-                    TOTAL VENDAS ({linhasVendas.length})
-                  </td>
-                  <td className="border p-1.5 text-right font-mono">
-                    {fmtMoeda(totaisVendas.vendas_obra)}
-                  </td>
-                  <td className="border p-1.5 text-right font-mono">
-                    {fmtMoeda(totaisVendas.comissao)}
-                  </td>
-                  <td className="border p-1.5" colSpan={3}></td>
-                </tr>
-              </tfoot>
-            </table>
+                </thead>
+                <tbody>
+                  {linhasVendasFuncionarios.map((l, idx) => (
+                    <tr key={l.id}>
+                      <td className="border p-1 text-center font-mono">
+                        {idx + 1}
+                      </td>
+                      <td className="border p-1 font-semibold">{l.nome}</td>
+                      <td className="border p-1 text-right font-mono">
+                        {fmtMoeda(l.vendas_obra)}
+                      </td>
+                      <td className="border p-1 text-right font-mono font-bold">
+                        {fmtMoeda(l.comissaoFinal)}
+                      </td>
+                      <td className="border p-1 font-mono text-[9px]">
+                        {l.conta || "-"}
+                      </td>
+                      <td className="border p-1 font-mono text-[9px]">
+                        {l.pix || l.chave_pix || "-"}
+                      </td>
+                      <td className="border p-1"></td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-100 font-bold">
+                  <tr>
+                    <td className="border p-1.5 text-center">-</td>
+                    <td className="border p-1.5">
+                      TOTAL VENDAS FUNCIONÁRIOS (
+                      {linhasVendasFuncionarios.length})
+                    </td>
+                    <td className="border p-1.5 text-right font-mono">
+                      {fmtMoeda(totaisVendasFuncionarios.vendas_obra)}
+                    </td>
+                    <td className="border p-1.5 text-right font-mono">
+                      {fmtMoeda(totaisVendasFuncionarios.comissao)}
+                    </td>
+                    <td className="border p-1.5" colSpan={3}></td>
+                  </tr>
+                  <tr className="bg-gray-200 font-extrabold border-t-2">
+                    <td className="border p-1.5 text-center">-</td>
+                    <td className="border p-1.5">
+                      TOTAL GERAL VENDAS (FUNCIONÁRIOS + TERCEIROS)
+                    </td>
+                    <td className="border p-1.5 text-right font-mono">
+                      {fmtMoeda(totaisVendas.vendas_obra)}
+                    </td>
+                    <td className="border p-1.5 text-right font-mono">
+                      {fmtMoeda(totaisVendas.comissao)}
+                    </td>
+                    <td className="border p-1.5" colSpan={3}></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Tabela Progressiva na Impressão A4 */}
+            {faixasComissao.length > 0 && (
+              <div className="pt-2">
+                <div className="text-[10px] font-bold uppercase mb-1">
+                  TABELA PROGRESSIVA DE COMISSÕES (usada pelas fórmulas acima)
+                </div>
+                <table className="w-1/2 border-collapse border text-[9px] font-mono">
+                  <thead className="bg-gray-50 uppercase">
+                    <tr>
+                      <th className="border p-1 text-left">De (R$)</th>
+                      <th className="border p-1 text-left">Até (R$)</th>
+                      <th className="border p-1 text-right">%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {faixasComissao.map((f, idx) => {
+                      const percFormatado =
+                        Number(f.percentual || 0) > 1
+                          ? Number(f.percentual || 0)
+                          : Number(f.percentual || 0) * 100
+                      return (
+                        <tr key={idx}>
+                          <td className="border p-1">{fmtMoeda(f.de_valor)}</td>
+                          <td className="border p-1">
+                            {Number(f.ate_valor) >= 900000000
+                              ? "Sem limite"
+                              : fmtMoeda(f.ate_valor)}
+                          </td>
+                          <td className="border p-1 text-right font-bold">
+                            {percFormatado.toLocaleString("pt-BR", {
+                              minimumFractionDigits: 1,
+                              maximumFractionDigits: 3,
+                            })}
+                            %
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {dadosLancadorVendas && (
               <div className="p-3 border rounded bg-gray-50 text-[10px] space-y-1">
@@ -4732,15 +5244,13 @@ export function FolhaPagamento() {
                     </td>
                   </tr>
                   <tr>
-                    <td className="border p-2">Vendas / Comissões</td>
+                    <td className="border p-2">Vendas (comissões)</td>
                     <td className="border p-2 text-right font-mono">
                       {fmtMoeda(resumo.vendasComissoes)}
                     </td>
                   </tr>
                   <tr>
-                    <td className="border p-2">
-                      Subtotal Terceiros (folha à parte)
-                    </td>
+                    <td className="border p-2">Terceiros (folha à parte)</td>
                     <td className="border p-2 text-right font-mono">
                       {fmtMoeda(resumo.terceirosFolha)}
                     </td>

@@ -25,10 +25,16 @@ import { useToast } from "@/hooks/use-toast"
 import { useEmpresa } from "@/hooks/use-empresa"
 import { useUsuario } from "@/hooks/use-usuario"
 import { FolhaService } from "@/services/folha"
-import { FolhaTabelaOficial, FaixaTabelaOficial } from "@/types/folha"
+import {
+  FolhaTabelaOficial,
+  FaixaTabelaOficial,
+  FaixaComissaoProgressiva,
+} from "@/types/folha"
+import { TrendingUp, Plus, Trash2 } from "lucide-react"
 
 interface AbaTabelasOficiaisProps {
   onTabelaAtualizada?: (tabela: FolhaTabelaOficial) => void
+  onFaixasComissaoAtualizadas?: (faixas: FaixaComissaoProgressiva[]) => void
 }
 
 const TABELA_OFICIAL_PADRAO_2026: Omit<FolhaTabelaOficial, "id" | "empresa_id"> =
@@ -61,6 +67,7 @@ const TABELA_OFICIAL_PADRAO_2026: Omit<FolhaTabelaOficial, "id" | "empresa_id"> 
 
 export function AbaTabelasOficiais({
   onTabelaAtualizada,
+  onFaixasComissaoAtualizadas,
 }: AbaTabelasOficiaisProps) {
   const { toast } = useToast()
   const { empresaAtiva } = useEmpresa()
@@ -69,7 +76,10 @@ export function AbaTabelasOficiais({
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [restaurando, setRestaurando] = useState(false)
+  const [salvandoComissao, setSalvandoComissao] = useState(false)
   const [tabela, setTabela] = useState<FolhaTabelaOficial | null>(null)
+  const [faixasComissao, setFaixasComissao] =
+    useState<FaixaComissaoProgressiva[]>([])
 
   // Formulário local
   const [formTabela, setFormTabela] =
@@ -77,11 +87,16 @@ export function AbaTabelasOficiais({
       TABELA_OFICIAL_PADRAO_2026,
     )
 
-  const carregarTabela = async () => {
+  const carregarDados = async () => {
     if (!empresaAtiva?.id) return
     setLoading(true)
     try {
-      const tab = await FolhaService.getTabelaOficial(empresaAtiva.id, 2026)
+      const [tab, faixas] = await Promise.all([
+        FolhaService.getTabelaOficial(empresaAtiva.id, 2026),
+        FolhaService.getFaixasComissao(empresaAtiva.id),
+      ])
+
+      setFaixasComissao(faixas || [])
       if (tab) {
         setTabela(tab)
         setFormTabela({
@@ -124,9 +139,77 @@ export function AbaTabelasOficiais({
   }
 
   useEffect(() => {
-    carregarTabela()
+    carregarDados()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaAtiva?.id])
+
+  const adicionarFaixaComissao = () => {
+    setFaixasComissao((prev) => {
+      const ultima = prev[prev.length - 1]
+      const proximoDe = ultima ? Number(ultima.ate_valor || 0) + 0.01 : 0
+      return [
+        ...prev,
+        {
+          de_valor: proximoDe,
+          ate_valor: proximoDe + 100000,
+          percentual: 0.02,
+          ordem: prev.length + 1,
+        },
+      ]
+    })
+  }
+
+  const removerFaixaComissao = (idx: number) => {
+    setFaixasComissao((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  const atualizarFaixaComissao = (
+    idx: number,
+    campo: keyof FaixaComissaoProgressiva,
+    valor: any,
+  ) => {
+    setFaixasComissao((prev) => {
+      const copia = [...prev]
+      copia[idx] = { ...copia[idx], [campo]: valor }
+      return copia
+    })
+  }
+
+  const handleSalvarComissao = async () => {
+    if (!isAdministrador) {
+      toast({
+        title: "Permissão necessária",
+        description: "Apenas administradores podem editar faixas de comissão.",
+        variant: "destructive",
+      })
+      return
+    }
+    if (!empresaAtiva?.id) return
+
+    setSalvandoComissao(true)
+    try {
+      const salvas = await FolhaService.salvarFaixasComissao(
+        empresaAtiva.id,
+        faixasComissao,
+      )
+      setFaixasComissao(salvas)
+      toast({
+        title: "Tabela progressiva de comissões salva!",
+        description: `${salvas.length} faixa(s) salva(s) para ${empresaAtiva.nome}.`,
+      })
+      if (onFaixasComissaoAtualizadas) {
+        onFaixasComissaoAtualizadas(salvas)
+      }
+    } catch (err: any) {
+      toast({
+        title: "Erro ao salvar comissões",
+        description: err.message,
+        variant: "destructive",
+      })
+    } finally {
+      setSalvandoComissao(false)
+    }
+  }
 
   const atualizarFaixaInss = (
     idx: number,
@@ -699,6 +782,191 @@ export function AbaTabelasOficiais({
           </CardContent>
         </Card>
       </div>
+
+      {/* SEÇÃO: TABELA PROGRESSIVA DE COMISSÕES (POR EMPRESA) */}
+      <Card className="border-amber-400/40">
+        <CardHeader className="pb-3 border-b bg-amber-500/5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-amber-600" />
+                Tabela Progressiva de Comissões
+                {empresaAtiva && (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-400 text-amber-700 bg-amber-50 text-[10px]"
+                  >
+                    {empresaAtiva.nome}
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                Utilizada pelo cálculo automático na aba <strong>VENDAS</strong>{" "}
+                para apuração marginal por faixa (o percentual incide sobre a
+                fatia vendida de cada trecho).
+              </CardDescription>
+            </div>
+
+            {isAdministrador && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={adicionarFaixaComissao}
+                  disabled={loading || salvandoComissao}
+                  className="text-xs h-8 gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Nova Faixa
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSalvarComissao}
+                  disabled={loading || salvandoComissao}
+                  className="text-xs h-8 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {salvandoComissao
+                    ? "Salvando..."
+                    : "Salvar Faixas de Comissão"}
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {faixasComissao.length === 0 ? (
+            <div className="p-6 text-center text-xs text-muted-foreground">
+              <p className="font-medium text-amber-700">
+                Nenhuma faixa progressiva de comissão configurada para esta
+                empresa.
+              </p>
+              <p className="mt-1">
+                Na aba VENDAS, os colaboradores com comissão progressiva
+                exibirão o aviso "Configure a tabela progressiva de comissões".
+              </p>
+              {isAdministrador && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={adicionarFaixaComissao}
+                  className="mt-3 text-xs h-8 gap-1.5 border-dashed border-amber-400"
+                >
+                  <Plus className="w-3.5 h-3.5 text-amber-600" />
+                  Adicionar 1ª Faixa
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead className="bg-muted/70 text-muted-foreground font-semibold uppercase border-b">
+                  <tr>
+                    <th className="py-2.5 px-3 w-12 text-center">Faixa</th>
+                    <th className="py-2.5 px-3">De (R$)</th>
+                    <th className="py-2.5 px-3">Até (R$)</th>
+                    <th className="py-2.5 px-3 text-right">% Alíquota</th>
+                    <th className="py-2.5 px-3 text-right">% Formatado</th>
+                    {isAdministrador && (
+                      <th className="py-2.5 px-3 text-center w-16">Ações</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border font-mono">
+                  {faixasComissao.map((f, idx) => {
+                    const percFormatado =
+                      Number(f.percentual || 0) > 1
+                        ? Number(f.percentual || 0)
+                        : Number(f.percentual || 0) * 100
+
+                    return (
+                      <tr key={idx} className="hover:bg-muted/30">
+                        <td className="py-2 px-3 text-center text-muted-foreground font-sans font-bold">
+                          {idx + 1}ª
+                        </td>
+                        <td className="py-2 px-3">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            disabled={!isAdministrador}
+                            value={f.de_valor}
+                            onChange={(e) =>
+                              atualizarFaixaComissao(
+                                idx,
+                                "de_valor",
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            className="h-7 text-xs font-mono w-32"
+                          />
+                        </td>
+                        <td className="py-2 px-3">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            disabled={!isAdministrador}
+                            value={f.ate_valor}
+                            onChange={(e) =>
+                              atualizarFaixaComissao(
+                                idx,
+                                "ate_valor",
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            className="h-7 text-xs font-mono w-32"
+                          />
+                        </td>
+                        <td className="py-2 px-3 text-right">
+                          <Input
+                            type="number"
+                            step="0.001"
+                            disabled={!isAdministrador}
+                            value={f.percentual}
+                            onChange={(e) =>
+                              atualizarFaixaComissao(
+                                idx,
+                                "percentual",
+                                parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            className="h-7 text-xs font-mono w-24 text-right ml-auto"
+                          />
+                        </td>
+                        <td className="py-2 px-3 text-right font-sans font-bold text-amber-700">
+                          {percFormatado.toLocaleString("pt-BR", {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 3,
+                          })}
+                          %
+                        </td>
+                        {isAdministrador && (
+                          <td className="py-2 px-3 text-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removerFaixaComissao(idx)}
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              title="Remover faixa"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="p-3 bg-muted/20 border-t text-[11px] text-muted-foreground">
+            <strong>Dica:</strong> Para faixas ilimitadas (sem teto máximo),
+            utilize um valor alto em "Até" como <code>999999999</code>. O
+            percentual pode ser informado tanto em decimal (ex:{" "}
+            <code>0.025</code>) quanto em porcentagem (ex: <code>2.5</code>).
+          </div>
+        </CardContent>
+      </Card>
 
       {/* RODAPÉ DE AÇÃO */}
       {isAdministrador && (
