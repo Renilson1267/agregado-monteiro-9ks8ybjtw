@@ -613,4 +613,1028 @@ export class FolhaService {
     // Dados já presentes e mantidos no banco via migrations/importação
     return
   }
+
+  /**
+   * Exporta todo o conjunto de dados da folha para a empresa ativa (todas as competências,
+   * linhas completas com todos os campos, além de funcionários e terceiros cadastrados).
+   */
+  static async exportarBackupCompleto(
+    empresaId: string,
+    empresaNome: string,
+    appVersion: string = "0.0.83",
+  ): Promise<any> {
+    // 1. Competências da empresa
+    const { data: competenciasData, error: errComp } = await (supabase as any)
+      .from("folha_competencias")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("competencia", { ascending: false })
+    if (errComp) throw errComp
+
+    // 2. Linhas de todas as competências
+    const { data: linhasData, error: errLinhas } = await (supabase as any)
+      .from("folha_pagamento_linhas")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("competencia", { ascending: false })
+      .order("nome", { ascending: true })
+    if (errLinhas) throw errLinhas
+
+    // 3. Cadastro de funcionários
+    const { data: funcsData, error: errFuncs } = await (supabase as any)
+      .from("funcionarios")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("nome", { ascending: true })
+    if (errFuncs) throw errFuncs
+
+    // 4. Terceiros cadastrados
+    const { data: tercData, error: errTerc } = await (supabase as any)
+      .from("folha_terceiros")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("nome", { ascending: true })
+    if (errTerc) throw errTerc
+
+    // Agrupa linhas por competência
+    const linhasPorComp: Record<string, any[]> = {}
+    for (const l of linhasData || []) {
+      const comp = l.competencia || "sem_competencia"
+      if (!linhasPorComp[comp]) linhasPorComp[comp] = []
+      linhasPorComp[comp].push(l)
+    }
+
+    const competenciasComLinhas = (competenciasData || []).map((c: any) => ({
+      ...c,
+      linhas: linhasPorComp[c.competencia] || [],
+    }))
+
+    // Compatibilidade com o formato do sistema legado GC MIX:
+    // backupData.cadastros.funcionarios, backupData.folha.func, backupData.folha.terceiros, backupData.folha.lanc
+    const legacyFuncsMap: Record<string, any> = {}
+    for (const f of funcsData || []) {
+      legacyFuncsMap[f.id] = {
+        id: f.id,
+        nome: f.nome,
+        funcao: f.funcao,
+        unidade: f.unidade || "SJE",
+        bruto: Number(f.bruto || 0),
+        filhos: Number(f.filhos || 0),
+        conta: f.conta || "",
+        pix: f.pix || "",
+        inativo: Boolean(f.inativo),
+        oculto: Boolean(f.oculto),
+        obs: f.observacoes || "",
+      }
+    }
+
+    const legacyLancMap: Record<string, {
+      func: Record<string, any>
+      terc: Record<string, any>
+    }> = {}
+    for (const c of competenciasData || []) {
+      const linhas = linhasPorComp[c.competencia] || []
+      const funcObj: Record<string, any> = {}
+      const tercObj: Record<string, any> = {}
+
+      linhas.forEach((l: any, idx: number) => {
+        const key = l.funcionario_id || l.backup_id || `linha_${idx}`
+        const dadosLinha = {
+          nome: l.nome,
+          tipo: l.tipo,
+          cargo: l.cargo,
+          funcao: l.funcao,
+          unidade: l.unidade,
+          bruto: Number(l.bruto || 0),
+          filhos: Number(l.filhos || 0),
+          obras: Number(l.obras || 0),
+          valorObra: Number(l.valor_obra || 20),
+          producao: Number(l.producao || 0),
+          limp: Number(l.limpeza || 0),
+          sab: Number(l.sabado || 0),
+          fer: Number(l.ferias || 0),
+          feriado: Number(l.feriado || 0),
+          ajuda: Number(l.ajuda_custo || 0),
+          vendObra: Number(l.vendas_obra || 0),
+          vendCom: Number(l.comissao || 0),
+          vendAjuda: Number(l.vendas_ajuda || 0),
+          adiant: Number(l.adiantamento || 0),
+          gratif: Number(l.gratificacao || 0),
+          inss: Number(l.inss || 0),
+          familia: Number(l.familia || 0),
+          ir: Number(l.ir || 0),
+          quinzena: Number(l.quinzena || 0),
+          quinzena_2: Number(l.quinzena_2 || 0),
+          mensal_liquido: Number(l.mensal_liquido || 0),
+          salario_liquido: Number(l.salario_liquido || 0),
+          total_proventos: Number(l.total_proventos || 0),
+          total_descontos: Number(l.total_descontos || 0),
+          conta: l.conta || "",
+          pix: l.pix || l.chave_pix || "",
+          chave_pix: l.chave_pix || l.pix || "",
+          modo_calculo: l.modo_calculo || "Calculado",
+          oculto: Boolean(l.oculto),
+          inativo: Boolean(l.inativo),
+          observacao_linha: l.observacao_linha || "",
+          cpf: l.cpf || null,
+        }
+
+        if (l.tipo === "Terceiro") {
+          tercObj[key] = dadosLinha
+        } else {
+          funcObj[key] = dadosLinha
+        }
+      })
+
+      legacyLancMap[c.competencia] = {
+        func: funcObj,
+        terc: tercObj,
+      }
+    }
+
+    return {
+      metadata: {
+        tipo: "backup_folha_pagamento",
+        versao: "2.0",
+        app_version: appVersion,
+        gerado_em: new Date().toISOString(),
+        empresa_id: empresaId,
+        empresa_nome: empresaNome,
+        contagem: {
+          competencias: (competenciasData || []).length,
+          linhas: (linhasData || []).length,
+          funcionarios: (funcsData || []).length,
+          terceiros: (tercData || []).length,
+        },
+      },
+      // Estrutura estruturada moderna
+      folha: {
+        empresa_id: empresaId,
+        competencias: competenciasComLinhas,
+        // Mantém mapa legado para retrocompatibilidade
+        func: legacyFuncsMap,
+        terceiros: tercData || [],
+        lanc: legacyLancMap,
+      },
+      // Cadastros completos da empresa
+      cadastros: {
+        funcionarios: funcsData || [],
+        terceiros: tercData || [],
+      },
+    }
+  }
+
+  /**
+   * Analisa um arquivo JSON de backup (suporta formato atual ou legado) e gera o resumo prévio.
+   */
+  static analisarBackupJson(
+    conteudoJson: any,
+    empresaAtivaId: string,
+    empresaAtivaNome: string,
+    funcionariosCadastrados: Array<{
+      id: string
+      nome: string
+      cpf?: string | null
+    }>,
+  ): {
+    valido: boolean
+    mensagemErro?: string
+    empresaArquivo?: string
+    geradoEm?: string
+    totalCompetencias: number
+    totalLinhas: number
+    totalFuncionariosCadastro: number
+    totalTerceirosCadastro: number
+    competenciasLista: string[]
+    linhasPorCompetencia: Record<string, number>
+    avisos: string[]
+    linhasNormalizadas: Array<{
+      competencia: string
+      tipo: "Funcionario" | "Terceiro"
+      nome: string
+      funcao: string
+      cargo: string
+      unidade: string
+      bruto: number
+      salario_base?: number
+      filhos: number
+      inss: number
+      familia: number
+      ir: number
+      quinzena: number
+      quinzena_2?: number
+      adiantamento: number
+      gratificacao: number
+      mensal_liquido: number
+      salario_liquido?: number
+      obras?: number
+      valor_obra?: number
+      producao?: number
+      limpeza?: number
+      sabado?: number
+      feriado?: number
+      ferias?: number
+      ajuda_custo?: number
+      vendas_obra?: number
+      comissao?: number
+      vendas_ajuda?: number
+      conta: string
+      pix: string
+      chave_pix?: string
+      modo_calculo?: "Calculado" | "Digitado"
+      oculto?: boolean
+      inativo?: boolean
+      observacao_linha?: string | null
+      cpf?: string | null
+      funcionario_id?: string | null
+      backup_id?: string | null
+    }>
+    funcionariosParaRestaurar: any[]
+    terceirosParaRestaurar: any[]
+  } {
+    const avisos: string[] = []
+
+    if (!conteudoJson || typeof conteudoJson !== "object") {
+      return {
+        valido: false,
+        mensagemErro: "Arquivo não é um JSON válido.",
+        totalCompetencias: 0,
+        totalLinhas: 0,
+        totalFuncionariosCadastro: 0,
+        totalTerceirosCadastro: 0,
+        competenciasLista: [],
+        linhasPorCompetencia: {},
+        avisos: ["JSON inválido"],
+        linhasNormalizadas: [],
+        funcionariosParaRestaurar: [],
+        terceirosParaRestaurar: [],
+      }
+    }
+
+    const empresaArquivo =
+      conteudoJson.metadata?.empresa_nome ||
+      conteudoJson.metadata?.empresa_id ||
+      conteudoJson.empresa ||
+      "Não identificada"
+    const geradoEm =
+      conteudoJson.metadata?.gerado_em || conteudoJson.data_geracao || undefined
+
+    const nomesCadastradosSet = new Set(
+      funcionariosCadastrados.map((f) => f.nome.trim().toUpperCase()),
+    )
+
+    const linhasNormalizadas: any[] = []
+    const competenciasSet = new Set<string>()
+    const linhasPorComp: Record<string, number> = {}
+
+    // 1. Verifica se está no formato moderno com array de competências
+    if (
+      conteudoJson.folha?.competencias &&
+      Array.isArray(conteudoJson.folha.competencias)
+    ) {
+      for (const compItem of conteudoJson.folha.competencias) {
+        const comp = compItem.competencia
+        if (!comp) continue
+        competenciasSet.add(comp)
+        const linhas = compItem.linhas || []
+        linhasPorComp[comp] = (linhasPorComp[comp] || 0) + linhas.length
+
+        for (const l of linhas) {
+          const nomeNorm = (l.nome || "").trim().toUpperCase()
+          if (!nomeNorm) continue
+
+          linhasNormalizadas.push({
+            competencia: comp,
+            tipo: l.tipo === "Terceiro" ? "Terceiro" : "Funcionario",
+            nome: nomeNorm,
+            cargo: (l.cargo || l.funcao || "Geral").trim().toUpperCase(),
+            funcao: (l.funcao || l.cargo || "Geral").trim().toUpperCase(),
+            unidade: (l.unidade || "SJE").trim().toUpperCase(),
+            bruto: Number(l.bruto || 0),
+            salario_base: Number(l.salario_base ?? l.bruto ?? 0),
+            filhos: parseInt(String(l.filhos || 0), 10) || 0,
+            inss: Number(l.inss || 0),
+            familia: Number(l.familia || 0),
+            ir: Number(l.ir || 0),
+            quinzena: Number(l.quinzena || 0),
+            quinzena_2: Number(l.quinzena_2 || 0),
+            adiantamento: Number(l.adiantamento || 0),
+            gratificacao: Number(l.gratificacao || 0),
+            mensal_liquido: Number(l.mensal_liquido || 0),
+            salario_liquido: Number(l.salario_liquido ?? l.mensal_liquido ?? 0),
+            obras: Number(l.obras || 0),
+            valor_obra: Number(l.valor_obra ?? 20),
+            producao: Number(l.producao || 0),
+            limpeza: Number(l.limpeza || 0),
+            sabado: Number(l.sabado || 0),
+            feriado: Number(l.feriado || 0),
+            ferias: Number(l.ferias || 0),
+            ajuda_custo: Number(l.ajuda_custo || 0),
+            vendas_obra: Number(l.vendas_obra || 0),
+            comissao: Number(l.comissao || 0),
+            vendas_ajuda: Number(l.vendas_ajuda || 0),
+            conta: l.conta || "",
+            pix: l.pix || l.chave_pix || "",
+            chave_pix: l.chave_pix || l.pix || "",
+            modo_calculo: l.modo_calculo || "Calculado",
+            oculto: Boolean(l.oculto),
+            inativo: Boolean(l.inativo),
+            observacao_linha: l.observacao_linha || null,
+            cpf: l.cpf || null,
+            funcionario_id: l.funcionario_id || null,
+            backup_id: l.backup_id || null,
+          })
+        }
+      }
+    } else if (conteudoJson.folha?.lanc) {
+      // 2. Formato legado GC MIX (backup-folha-*.json)
+      const cadFuncs = conteudoJson.cadastros?.funcionarios || []
+      const folhaFuncs = conteudoJson.folha?.func || {}
+      const funcMap: Record<string, any> = {}
+
+      for (const f of cadFuncs) {
+        const fFolha = folhaFuncs[f.id] || {}
+        funcMap[f.id] = {
+          ...f,
+          ...fFolha,
+          cpfLimpo: f.doc ? String(f.doc).replace(/[^\d]/g, "") : null,
+        }
+      }
+
+      const lanc = conteudoJson.folha.lanc
+      for (const [comp, compData] of Object.entries<any>(lanc)) {
+        competenciasSet.add(comp)
+        const funcsLanc = compData?.func || {}
+        const tercLanc = compData?.terc || {}
+
+        // Funcionários
+        for (const [funcId, fL] of Object.entries<any>(funcsLanc)) {
+          if (funcId === "__novo" || funcId === "undefined") continue
+          const fCad = funcMap[funcId] || {}
+          const nomeNorm = (fCad.nome || fL.nome || `Colaborador ${funcId}`)
+            .trim()
+            .toUpperCase()
+
+          const obras = Number(fL.obras || 0)
+          const valorObra = Number(fL.valorObra ?? 20)
+          const producao = obras * valorObra
+          const limp = Number(fL.limp || fL.limpeza || 0)
+          const sab = Number(fL.sab || fL.sabado || 0)
+          const fer = Number(fL.fer || fL.ferias || 0)
+          const feriado = Number(fL.feriado || 0)
+          const ajuda = Number(fL.ajuda || fL.ajuda_custo || 0)
+          const vendObra = Number(fL.vendObra || fL.vendas_obra || 0)
+          let comissao = Number(fL.vendCom || fL.comissao || 0)
+          if (comissao === 0 && vendObra > 0) {
+            comissao = Math.round(vendObra * 0.005 * 100) / 100
+          }
+          const vendAjuda = Number(fL.vendAjuda || fL.vendas_ajuda || 0)
+          const adiant = Number(fL.adiant || fL.adiantamento || 0)
+          const gratif = Number(fL.gratif || fL.gratificacao || 0)
+          const bruto = Number(fL.bruto || fCad.bruto || 0)
+          const filhos = Number(fL.filhos || fCad.filhos || 0)
+          const totalAjuda = ajuda + vendAjuda
+
+          const inss = Number(fL.inss || 0)
+          const ir = Number(fL.ir || 0)
+          const familia = Number(fL.familia || 0)
+          const quinzena = Number(fL.quinzena || 0)
+
+          const totalProventos =
+            bruto +
+            producao +
+            limp +
+            sab +
+            fer +
+            totalAjuda +
+            comissao +
+            gratif +
+            familia
+          const totalDescontos = adiant + inss + ir + quinzena
+          const liquido = Number(
+            fL.mensal_liquido ||
+              fL.salario_liquido ||
+              totalProventos - totalDescontos,
+          )
+
+          linhasNormalizadas.push({
+            competencia: comp,
+            tipo: "Funcionario",
+            nome: nomeNorm,
+            cargo: (fCad.funcao || fL.funcao || "Geral").trim().toUpperCase(),
+            funcao: (fCad.funcao || fL.funcao || "Geral").trim().toUpperCase(),
+            unidade: (fCad.unidade || fL.unidade || "SJE").trim().toUpperCase(),
+            bruto,
+            salario_base: bruto,
+            filhos,
+            conta: fCad.conta || fL.conta || "",
+            chave_pix: fCad.pix || fL.pix || "",
+            pix: fCad.pix || fL.pix || "",
+            obras,
+            valor_obra: valorObra,
+            producao,
+            limpeza: limp,
+            sabado: sab,
+            feriado,
+            ferias: fer,
+            ajuda_custo: totalAjuda,
+            vendas_obra: vendObra,
+            comissao,
+            vendas_ajuda: vendAjuda,
+            adiantamento: adiant,
+            gratificacao: gratif,
+            inss,
+            ir,
+            familia,
+            quinzena,
+            quinzena_2: 0,
+            mensal_liquido: liquido,
+            salario_liquido: liquido,
+            modo_calculo: fL.modo_calculo || "Calculado",
+            oculto: Boolean(fCad.oculto || fL.oculto),
+            inativo: Boolean(fCad.inativo || fL.inativo),
+            observacao_linha: fL.observacao_linha || fCad.obs || null,
+            cpf: fCad.cpfLimpo || null,
+            funcionario_id: null,
+            backup_id: funcId,
+          })
+
+          linhasPorComp[comp] = (linhasPorComp[comp] || 0) + 1
+        }
+
+        // Terceiros legado
+        for (const [tercKey, tL] of Object.entries<any>(tercLanc)) {
+          const nomeNorm = (tL.nome || `TERCEIRO ${tercKey}`)
+            .trim()
+            .toUpperCase()
+          const bruto = Number(tL.bruto || 0)
+          const vendObra = Number(tL.vendObra || tL.vendas_obra || 0)
+          let comissao = Number(tL.vendCom || tL.comissao || 0)
+          if (comissao === 0 && vendObra > 0) {
+            comissao = Math.round(vendObra * 0.005 * 100) / 100
+          }
+          const vendAjuda = Number(tL.vendAjuda || tL.vendas_ajuda || 0)
+          const adiant = Number(tL.adiant || tL.adiantamento || 0)
+          const gratif = Number(tL.gratif || tL.gratificacao || 0)
+          const ajuda = Number(tL.ajuda || tL.ajuda_custo || vendAjuda)
+
+          const totalProventos = bruto + comissao + ajuda + gratif
+          const totalDescontos = adiant
+          const liquido = Number(
+            tL.mensal_liquido ||
+              tL.salario_liquido ||
+              totalProventos - totalDescontos,
+          )
+
+          linhasNormalizadas.push({
+            competencia: comp,
+            tipo: "Terceiro",
+            nome: nomeNorm,
+            cargo: "Terceiro",
+            funcao: "Terceiro",
+            unidade: (tL.unidade || "SJE").trim().toUpperCase(),
+            bruto,
+            salario_base: bruto,
+            filhos: 0,
+            conta: tL.conta || "",
+            chave_pix: tL.pix || "",
+            pix: tL.pix || "",
+            obras: 0,
+            valor_obra: 20,
+            producao: 0,
+            limpeza: 0,
+            sabado: 0,
+            feriado: 0,
+            ferias: 0,
+            ajuda_custo: ajuda,
+            vendas_obra: vendObra,
+            comissao,
+            vendas_ajuda: vendAjuda,
+            adiantamento: adiant,
+            gratificacao: gratif,
+            inss: 0,
+            ir: 0,
+            familia: 0,
+            quinzena: Number(tL.quinzena || 0),
+            quinzena_2: 0,
+            mensal_liquido: liquido,
+            salario_liquido: liquido,
+            modo_calculo: tL.modo_calculo || "Calculado",
+            oculto: false,
+            inativo: false,
+            observacao_linha: tL.obs || null,
+            cpf: null,
+            funcionario_id: null,
+            backup_id: `terc_${tercKey}`,
+          })
+
+          linhasPorComp[comp] = (linhasPorComp[comp] || 0) + 1
+        }
+      }
+    }
+
+    if (linhasNormalizadas.length === 0) {
+      return {
+        valido: false,
+        mensagemErro:
+          "O arquivo não contém competências ou linhas de folha reconhecíveis.",
+        empresaArquivo,
+        geradoEm,
+        totalCompetencias: 0,
+        totalLinhas: 0,
+        totalFuncionariosCadastro: 0,
+        totalTerceirosCadastro: 0,
+        competenciasLista: [],
+        linhasPorCompetencia: {},
+        avisos: ["Nenhuma linha localizada"],
+        linhasNormalizadas: [],
+        funcionariosParaRestaurar: [],
+        terceirosParaRestaurar: [],
+      }
+    }
+
+    // Avisos de verificação
+    if (
+      conteudoJson.metadata?.empresa_id &&
+      conteudoJson.metadata.empresa_id !== empresaAtivaId
+    ) {
+      avisos.push(
+        `Atenção: O backup foi gerado para a empresa "${empresaArquivo}", mas será restaurado na empresa ativa atual "${empresaAtivaNome}".`,
+      )
+    }
+
+    // Verifica quantos colaboradores já estão cadastrados
+    const nomesNaoCadastrados = new Set<string>()
+    for (const l of linhasNormalizadas) {
+      if (l.tipo === "Funcionario" && !nomesCadastradosSet.has(l.nome)) {
+        nomesNaoCadastrados.add(l.nome)
+      }
+    }
+
+    if (nomesNaoCadastrados.size > 0) {
+      avisos.push(
+        `${nomesNaoCadastrados.size} funcionário(s) das linhas não constam no cadastro prévio de colaboradores da empresa ativa e serão vinculados automaticamente.`,
+      )
+    }
+
+    const funcsCadastros = conteudoJson.cadastros?.funcionarios || []
+    const tercCadastros =
+      conteudoJson.cadastros?.terceiros || conteudoJson.folha?.terceiros || []
+
+    return {
+      valido: true,
+      empresaArquivo,
+      geradoEm,
+      totalCompetencias: competenciasSet.size,
+      totalLinhas: linhasNormalizadas.length,
+      totalFuncionariosCadastro: Array.isArray(funcsCadastros)
+        ? funcsCadastros.length
+        : 0,
+      totalTerceirosCadastro: Array.isArray(tercCadastros)
+        ? tercCadastros.length
+        : 0,
+      competenciasLista: Array.from(competenciasSet).sort().reverse(),
+      linhasPorCompetencia: linhasPorComp,
+      avisos,
+      linhasNormalizadas,
+      funcionariosParaRestaurar: Array.isArray(funcsCadastros)
+        ? funcsCadastros
+        : [],
+      terceirosParaRestaurar: Array.isArray(tercCadastros) ? tercCadastros : [],
+    }
+  }
+
+  /**
+   * Executa a restauração do backup na empresa ativa:
+   * modo = 'mesclar': upsert das competências e das linhas por empresa_id+competencia+nome
+   * modo = 'substituir': apaga todas as linhas das competências que vieram no backup (somente da empresa ativa) e reinsere
+   */
+  static async restaurarBackupFolha(
+    empresaId: string,
+    modo: "mesclar" | "substituir",
+    dadosAnalisados: ReturnType<typeof FolhaService.analisarBackupJson>,
+    restaurarCadastros: boolean = true,
+  ): Promise<{
+    competenciasAfetadas: number
+    linhasInseridas: number
+    linhasAtualizadas: number
+    linhasExcluidas: number
+  }> {
+    if (
+      !dadosAnalisados.valido ||
+      dadosAnalisados.linhasNormalizadas.length === 0
+    ) {
+      throw new Error("Dados de backup inválidos para restauração.")
+    }
+
+    let linhasInseridas = 0
+    let linhasAtualizadas = 0
+    let linhasExcluidas = 0
+
+    // 1. Opcional: restaura ou atualiza cadastros de funcionários se presentes no backup
+    if (
+      restaurarCadastros &&
+      dadosAnalisados.funcionariosParaRestaurar.length > 0
+    ) {
+      for (const f of dadosAnalisados.funcionariosParaRestaurar) {
+        if (!f.nome) continue
+        const nomeUpper = String(f.nome).trim().toUpperCase()
+        const cpfLimpo =
+          f.cpf || f.doc ? String(f.cpf || f.doc).replace(/[^\d]/g, "") : null
+
+        const payloadFunc = {
+          empresa_id: empresaId,
+          nome: nomeUpper,
+          funcao: (f.funcao || "Geral").trim().toUpperCase(),
+          cpf: cpfLimpo || null,
+          data_admissao: f.data_admissao || f.admissao || null,
+          ativo: f.ativo !== undefined ? Boolean(f.ativo) : true,
+          observacoes: f.observacoes || f.obs || null,
+          telefone: f.telefone || null,
+          email: f.email || null,
+          bruto: Number(f.bruto || 0),
+          filhos: parseInt(String(f.filhos || 0), 10) || 0,
+          conta: f.conta || "",
+          pix: f.pix || "",
+          inativo: Boolean(f.inativo),
+          oculto: Boolean(f.oculto),
+          unidade: (f.unidade || "SJE").trim().toUpperCase(),
+          updated_at: new Date().toISOString(),
+        }
+
+        // Busca existente por CPF ou Nome
+        let existingId: string | null = null
+        if (cpfLimpo) {
+          const { data: exCpf } = await (supabase as any)
+            .from("funcionarios")
+            .select("id")
+            .eq("empresa_id", empresaId)
+            .eq("cpf", cpfLimpo)
+            .maybeSingle()
+          if (exCpf) existingId = exCpf.id
+        }
+
+        if (!existingId) {
+          const { data: exNome } = await (supabase as any)
+            .from("funcionarios")
+            .select("id")
+            .eq("empresa_id", empresaId)
+            .ilike("nome", nomeUpper)
+            .maybeSingle()
+          if (exNome) existingId = exNome.id
+        }
+
+        if (existingId) {
+          await (supabase as any)
+            .from("funcionarios")
+            .update(payloadFunc)
+            .eq("id", existingId)
+        } else {
+          await (supabase as any).from("funcionarios").insert(payloadFunc)
+        }
+      }
+    }
+
+    // 2. Opcional: restaura terceiros se presentes
+    if (
+      restaurarCadastros &&
+      dadosAnalisados.terceirosParaRestaurar.length > 0
+    ) {
+      for (const t of dadosAnalisados.terceirosParaRestaurar) {
+        if (!t.nome) continue
+        const nomeUpper = String(t.nome).trim().toUpperCase()
+        const payloadTerc = {
+          empresa_id: empresaId,
+          nome: nomeUpper,
+          bruto: Number(t.bruto || 0),
+          conta: t.conta || "",
+          pix: t.pix || "",
+          obs: t.obs || t.observacoes || "",
+          unidade: (t.unidade || "SJE").trim().toUpperCase(),
+          ativo: t.ativo !== undefined ? Boolean(t.ativo) : true,
+          updated_at: new Date().toISOString(),
+        }
+
+        const { data: exTerc } = await (supabase as any)
+          .from("folha_terceiros")
+          .select("id")
+          .eq("empresa_id", empresaId)
+          .ilike("nome", nomeUpper)
+          .maybeSingle()
+
+        if (exTerc) {
+          await (supabase as any)
+            .from("folha_terceiros")
+            .update(payloadTerc)
+            .eq("id", exTerc.id)
+        } else {
+          await (supabase as any).from("folha_terceiros").insert(payloadTerc)
+        }
+      }
+    }
+
+    // 3. Garante que todas as competências do backup existam
+    const mapaCompetenciaObj: Record<string, string> = {}
+    for (const comp of dadosAnalisados.competenciasLista) {
+      const compCriada = await this.obterOuCriarCompetencia(empresaId, comp)
+      mapaCompetenciaObj[comp] = compCriada.id
+    }
+
+    // 4. Se modo === 'substituir', apaga as linhas das competências que vieram no backup (APENAS desta empresa)
+    if (modo === "substituir") {
+      for (const comp of dadosAnalisados.competenciasLista) {
+        const { count, error: errCount } = await (supabase as any)
+          .from("folha_pagamento_linhas")
+          .select("*", { count: "exact", head: true })
+          .eq("empresa_id", empresaId)
+          .eq("competencia", comp)
+
+        if (!errCount && count) {
+          linhasExcluidas += count
+        }
+
+        const { error: errDel } = await (supabase as any)
+          .from("folha_pagamento_linhas")
+          .delete()
+          .eq("empresa_id", empresaId)
+          .eq("competencia", comp)
+
+        if (errDel) {
+          console.error(`Erro ao apagar linhas da competência ${comp}:`, errDel)
+          throw errDel
+        }
+      }
+    }
+
+    // 5. Mapeia funcionários da empresa ativa por nome e por cpf para vincular funcionario_id
+    const { data: listaFuncsAtual } = await (supabase as any)
+      .from("funcionarios")
+      .select("id, nome, cpf")
+      .eq("empresa_id", empresaId)
+
+    const mapFuncPorNome = new Map<string, string>()
+    const mapFuncPorCpf = new Map<string, string>()
+    for (const f of listaFuncsAtual || []) {
+      mapFuncPorNome.set(f.nome.trim().toUpperCase(), f.id)
+      if (f.cpf) {
+        const cpfL = String(f.cpf).replace(/[^\d]/g, "")
+        if (cpfL) mapFuncPorCpf.set(cpfL, f.id)
+      }
+    }
+
+    // 6. Insere ou mescla as linhas
+    // Se for modo substituir, podemos inserir em lotes para alta performance
+    if (modo === "substituir") {
+      const lote: any[] = []
+      for (const l of dadosAnalisados.linhasNormalizadas) {
+        const compId = mapaCompetenciaObj[l.competencia]
+        const nomeUpper = l.nome.trim().toUpperCase()
+        const cpfL = l.cpf ? String(l.cpf).replace(/[^\d]/g, "") : null
+        const funcId =
+          (cpfL && mapFuncPorCpf.get(cpfL)) ||
+          mapFuncPorNome.get(nomeUpper) ||
+          null
+
+        lote.push({
+          empresa_id: empresaId,
+          competencia_id: compId,
+          competencia: l.competencia,
+          tipo: l.tipo,
+          nome: nomeUpper,
+          cargo: l.cargo || l.funcao || "Geral",
+          funcao: l.funcao || l.cargo || "Geral",
+          unidade: l.unidade || "SJE",
+          bruto: l.bruto,
+          salario_base: l.salario_base ?? l.bruto,
+          filhos: l.filhos,
+          inss: l.inss,
+          familia: l.familia,
+          ir: l.ir,
+          quinzena: l.quinzena,
+          quinzena_2: l.quinzena_2 ?? 0,
+          adiantamento: l.adiantamento,
+          gratificacao: l.gratificacao,
+          mensal_liquido: l.mensal_liquido,
+          salario_liquido: l.salario_liquido ?? l.mensal_liquido,
+          obras: l.obras ?? 0,
+          valor_obra: l.valor_obra ?? 20,
+          producao: l.producao ?? 0,
+          limpeza: l.limpeza ?? 0,
+          sabado: l.sabado ?? 0,
+          feriado: l.feriado ?? 0,
+          ferias: l.ferias ?? 0,
+          ajuda_custo: l.ajuda_custo ?? 0,
+          vendas_obra: l.vendas_obra ?? 0,
+          comissao: l.comissao ?? 0,
+          vendas_ajuda: l.vendas_ajuda ?? 0,
+          conta: l.conta || "",
+          pix: l.pix || "",
+          chave_pix: l.chave_pix || l.pix || "",
+          modo_calculo: l.modo_calculo || "Calculado",
+          oculto: Boolean(l.oculto),
+          inativo: Boolean(l.inativo),
+          observacao_linha: l.observacao_linha || null,
+          cpf: cpfL || null,
+          funcionario_id: funcId,
+          backup_id: l.backup_id || null,
+          updated_at: new Date().toISOString(),
+        })
+      }
+
+      // Inserção em lotes de 50
+      const CHUNK_SIZE = 50
+      for (let i = 0; i < lote.length; i += CHUNK_SIZE) {
+        const slice = lote.slice(i, i + CHUNK_SIZE)
+        const { error: errInsertBatch } = await (supabase as any)
+          .from("folha_pagamento_linhas")
+          .insert(slice)
+        if (errInsertBatch) {
+          console.error(
+            "Erro ao inserir lote de linhas no modo substituir:",
+            errInsertBatch,
+          )
+          throw errInsertBatch
+        }
+        linhasInseridas += slice.length
+      }
+    } else {
+      // Modo mesclar (upsert por nome na mesma empresa e competência)
+      for (const comp of dadosAnalisados.competenciasLista) {
+        const linhasAtuaisComp = await this.getLinhasCompetencia(
+          empresaId,
+          comp,
+        )
+        const mapLinhasAtuais = new Map<string, FolhaPagamentoLinha>()
+        linhasAtuaisComp.forEach((la) => {
+          mapLinhasAtuais.set(la.nome.trim().toUpperCase(), la)
+        })
+
+        const linhasDesteComp = dadosAnalisados.linhasNormalizadas.filter(
+          (l) => l.competencia === comp,
+        )
+        const compId = mapaCompetenciaObj[comp]
+
+        for (const l of linhasDesteComp) {
+          const nomeUpper = l.nome.trim().toUpperCase()
+          const existente = mapLinhasAtuais.get(nomeUpper)
+          const cpfL = l.cpf ? String(l.cpf).replace(/[^\d]/g, "") : null
+          const funcId =
+            (cpfL && mapFuncPorCpf.get(cpfL)) ||
+            mapFuncPorNome.get(nomeUpper) ||
+            null
+
+          const payload = {
+            empresa_id: empresaId,
+            competencia_id: compId,
+            competencia: comp,
+            tipo: l.tipo,
+            nome: nomeUpper,
+            cargo: l.cargo || l.funcao || "Geral",
+            funcao: l.funcao || l.cargo || "Geral",
+            unidade: l.unidade || "SJE",
+            bruto: l.bruto,
+            salario_base: l.salario_base ?? l.bruto,
+            filhos: l.filhos,
+            inss: l.inss,
+            familia: l.familia,
+            ir: l.ir,
+            quinzena: l.quinzena,
+            quinzena_2: l.quinzena_2 ?? 0,
+            adiantamento: l.adiantamento,
+            gratificacao: l.gratificacao,
+            mensal_liquido: l.mensal_liquido,
+            salario_liquido: l.salario_liquido ?? l.mensal_liquido,
+            obras: l.obras ?? 0,
+            valor_obra: l.valor_obra ?? 20,
+            producao: l.producao ?? 0,
+            limpeza: l.limpeza ?? 0,
+            sabado: l.sabado ?? 0,
+            feriado: l.feriado ?? 0,
+            ferias: l.ferias ?? 0,
+            ajuda_custo: l.ajuda_custo ?? 0,
+            vendas_obra: l.vendas_obra ?? 0,
+            comissao: l.comissao ?? 0,
+            vendas_ajuda: l.vendas_ajuda ?? 0,
+            conta: l.conta || "",
+            pix: l.pix || "",
+            chave_pix: l.chave_pix || l.pix || "",
+            modo_calculo: l.modo_calculo || "Calculado",
+            oculto: Boolean(l.oculto),
+            inativo: Boolean(l.inativo),
+            observacao_linha: l.observacao_linha || null,
+            cpf: cpfL || null,
+            funcionario_id: funcId,
+            backup_id: l.backup_id || null,
+            updated_at: new Date().toISOString(),
+          }
+
+          if (existente) {
+            const { error: errUpd } = await (supabase as any)
+              .from("folha_pagamento_linhas")
+              .update(payload)
+              .eq("id", existente.id)
+            if (errUpd) throw errUpd
+            linhasAtualizadas++
+          } else {
+            const { error: errIns } = await (supabase as any)
+              .from("folha_pagamento_linhas")
+              .insert(payload)
+            if (errIns) throw errIns
+            linhasInseridas++
+          }
+        }
+      }
+    }
+
+    // 7. Atualiza os totais consolidados de cada competência afetada
+    for (const comp of dadosAnalisados.competenciasLista) {
+      await this.atualizarTotaisCompetencia(empresaId, comp)
+    }
+
+    return {
+      competenciasAfetadas: dadosAnalisados.competenciasLista.length,
+      linhasInseridas,
+      linhasAtualizadas,
+      linhasExcluidas,
+    }
+  }
+
+  /**
+   * Exporta linhas da aba GERAL em formato CSV compatível com o importador padrão.
+   * Pode exportar uma competência específica ou todas as competências da empresa ativa.
+   */
+  static async exportarGeralCSV(
+    empresaId: string,
+    competenciaAlvo?: string, // se undefined, exporta todas as competências
+  ): Promise<string> {
+    let query = (supabase as any)
+      .from("folha_pagamento_linhas")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("competencia", { ascending: false })
+      .order("nome", { ascending: true })
+
+    if (competenciaAlvo) {
+      query = query.eq("competencia", competenciaAlvo)
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+
+    // Formato compatível com o parser:
+    // Tipo;Nome;Funcao;Unidade;Bruto;Filhos;INSS;Familia;IR;Quinzena;Adiantamento;Gratificacao;MensalLiquido;Producao;Comissao;Conta;PIX
+    const colunas = [
+      "Tipo",
+      "Nome",
+      "Funcao",
+      "Unidade",
+      "Bruto",
+      "Filhos",
+      "INSS",
+      "Familia",
+      "IR",
+      "Quinzena",
+      "Adiantamento",
+      "Gratificacao",
+      "MensalLiquido",
+      "Producao",
+      "Comissao",
+      "Conta",
+      "PIX",
+      "Competencia",
+    ]
+
+    const linhasCsv: string[] = [colunas.join(";")]
+
+    const formatNum = (v: any) => {
+      const n = Number(v || 0)
+      return n.toFixed(2).replace(".", ",")
+    }
+
+    for (const l of data || []) {
+      const valores = [
+        l.tipo || "Funcionario",
+        (l.nome || "").replace(/;/g, " "),
+        (l.funcao || l.cargo || "Geral").replace(/;/g, " "),
+        (l.unidade || "SJE").replace(/;/g, " "),
+        formatNum(l.bruto),
+        String(l.filhos || 0),
+        formatNum(l.inss),
+        formatNum(l.familia),
+        formatNum(l.ir),
+        formatNum(l.quinzena),
+        formatNum(l.adiantamento),
+        formatNum(l.gratificacao),
+        formatNum(l.mensal_liquido),
+        formatNum(l.producao),
+        formatNum(l.comissao),
+        (l.conta || "").replace(/;/g, " "),
+        (l.pix || l.chave_pix || "").replace(/;/g, " "),
+        l.competencia || "",
+      ]
+      linhasCsv.push(valores.join(";"))
+    }
+
+    return "\uFEFF" + linhasCsv.join("\r\n")
+  }
 }

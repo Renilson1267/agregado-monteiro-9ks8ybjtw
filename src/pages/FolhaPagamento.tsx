@@ -45,6 +45,8 @@ import {
 } from "@/lib/folha-calculos"
 import { LOGO_GC_MIX_HORIZONTAL } from "@/assets/logos"
 import { AbaTabelasOficiais } from "@/components/AbaTabelasOficiais"
+import { AbaBackupFolha } from "@/components/AbaBackupFolha"
+import { Database } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -1192,13 +1194,22 @@ export function FolhaPagamento() {
               RESUMO
             </TabsTrigger>
             {isAdministrador && (
-              <TabsTrigger
-                value="tabelas"
-                className="gap-2 font-semibold text-amber-600"
-              >
-                <TableIcon className="h-4 w-4" />
-                TABELAS (ADMIN)
-              </TabsTrigger>
+              <>
+                <TabsTrigger
+                  value="tabelas"
+                  className="gap-2 font-semibold text-amber-600"
+                >
+                  <TableIcon className="h-4 w-4" />
+                  TABELAS (ADMIN)
+                </TabsTrigger>
+                <TabsTrigger
+                  value="backup"
+                  className="gap-2 font-semibold text-primary"
+                >
+                  <Database className="h-4 w-4" />
+                  BACKUP
+                </TabsTrigger>
+              </>
             )}
           </TabsList>
 
@@ -3447,6 +3458,46 @@ export function FolhaPagamento() {
             <AbaTabelasOficiais
               onTabelaAtualizada={(novaTab) => {
                 setTabelaOficial(novaTab)
+              }}
+            />
+          </TabsContent>
+        )}
+
+        {/* =========================================================================
+            ABA 8: BACKUP E RESTAURAÇÃO (ADMIN)
+        ========================================================================== */}
+        {isAdministrador && (
+          <TabsContent value="backup" className="space-y-4">
+            <AbaBackupFolha
+              competenciaAtiva={competencia}
+              competenciasDisponiveis={competenciasDisponiveis}
+              onRestauraçãoConcluida={async () => {
+                // Recarrega competências e dados atuais da folha
+                if (empresaAtiva?.id) {
+                  try {
+                    const comps = await FolhaService.getCompetencias(
+                      empresaAtiva.id,
+                    )
+                    const nomesComps = comps
+                      .map((c) => c.competencia)
+                      .sort()
+                      .reverse()
+                    if (nomesComps.length > 0) {
+                      setCompetenciasDisponiveis(nomesComps)
+                    }
+                    const [compData, dataLinhas] = await Promise.all([
+                      FolhaService.getCompetencia(empresaAtiva.id, competencia),
+                      FolhaService.getLinhasCompetencia(
+                        empresaAtiva.id,
+                        competencia,
+                      ),
+                    ])
+                    setCompetenciaObj(compData)
+                    setLinhas(dataLinhas)
+                  } catch (e) {
+                    console.error("Erro ao atualizar folha pós-restauração:", e)
+                  }
+                }
               }}
             />
           </TabsContent>
