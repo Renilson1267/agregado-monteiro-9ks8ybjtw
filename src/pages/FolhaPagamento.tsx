@@ -691,20 +691,17 @@ export function FolhaPagamento() {
 
     return linhasVendedores.map((t) => {
       const vendas = Number(t.vendas_obra || 0)
-      const comissaoProgressiva = calcularComissaoProgressivaMarginal(
-        vendas,
-        faixasComissao,
+      const temTabelaConfigurada = Boolean(
+        faixasComissao && faixasComissao.length > 0,
       )
-      const temTabelaConfigurada = faixasComissao && faixasComissao.length > 0
-      const comissaoAuto = comissaoProgressiva ?? 0
+      const comissaoProgressiva = temTabelaConfigurada
+        ? (calcularComissaoProgressivaMarginal(vendas, faixasComissao) ?? 0)
+        : 0
+      const comissaoAuto = comissaoProgressiva
 
-      const isComissaoSobrescrita =
-        t.modo_calculo === "Digitado" ||
-        (temTabelaConfigurada &&
-          vendas > 0 &&
-          t.comissao !== undefined &&
-          t.comissao !== null &&
-          Math.abs(Number(t.comissao) - comissaoAuto) > 0.05)
+      // Quando modo_calculo !== 'Digitado', a comissão exibida/salva deve ser SEMPRE a progressiva automática
+      // Badge 'Digitado' apenas quando modo_calculo === 'Digitado'
+      const isComissaoSobrescrita = t.modo_calculo === "Digitado"
 
       const comissaoFinal =
         isComissaoSobrescrita && t.comissao !== undefined && t.comissao !== null
@@ -1002,7 +999,41 @@ export function FolhaPagamento() {
 
       // Se mudou vendas e comissão não é manual
       if (campo === "vendas_obra" && !comissaoManual) {
-        updated.comissao = calcularComissaoVendas(Number(valor || 0))
+        const valorVendas = Number(valor || 0)
+        const isTerceiro = updated.tipo === "Terceiro"
+        const ehVendedorTerceiro =
+          isTerceiro &&
+          (Boolean(
+            terceirosCadastrados.find(
+              (c) =>
+                (updated.id && c.id === updated.id) ||
+                (updated.nome &&
+                  c.nome &&
+                  c.nome.trim().toUpperCase() ===
+                    updated.nome.trim().toUpperCase()),
+            )?.eh_vendedor,
+          ) ||
+            Boolean(updated.nome?.toUpperCase().includes("MARCIO LUAN")))
+
+        if (ehVendedorTerceiro) {
+          if (faixasComissao && faixasComissao.length > 0) {
+            updated.comissao =
+              calcularComissaoProgressivaMarginal(
+                valorVendas,
+                faixasComissao,
+              ) ?? 0
+          } else {
+            updated.comissao = 0
+            toast({
+              title: "Tabela progressiva não configurada",
+              description: "Configure as faixas na aba TABELAS.",
+              variant: "destructive",
+            })
+          }
+        } else {
+          // Só usar calcularComissaoVendas (0,5%) para funcionários e terceiros não-vendedores
+          updated.comissao = calcularComissaoVendas(valorVendas)
+        }
       }
 
       // Recálculos de INSS, Família, IRRF e Quinzena se automáticos
@@ -3399,7 +3430,13 @@ export function FolhaPagamento() {
                           </td>
                           <td className="py-2 px-3 text-right font-mono font-bold text-amber-600 whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1">
-                              <span>{fmtMoeda(l.comissaoFinal)}</span>
+                              {!l.temTabelaConfigurada ? (
+                                <span className="text-[11px] font-normal text-amber-600 italic">
+                                  Configure as faixas na aba TABELAS
+                                </span>
+                              ) : (
+                                <span>{fmtMoeda(l.comissaoFinal)}</span>
+                              )}
                               <Badge
                                 variant="outline"
                                 className={`text-[8px] px-1 py-0 h-3.5 ${
@@ -4265,17 +4302,48 @@ export function FolhaPagamento() {
               {/* VENDAS E COMISSÃO */}
               <div className="p-3 bg-muted/40 rounded-lg border space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
-                    Vendas & Comissão (0,5%)
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={() => setComissaoManual(!comissaoManual)}
-                    className="text-[10px] text-primary underline"
-                  >
-                    {comissaoManual ? "Comissão Manual" : "0,5% Automático"}
-                  </button>
+                  {(() => {
+                    const isTerceiro = linhaEmEdicao.tipo === "Terceiro"
+                    const ehVendedorTerceiro =
+                      isTerceiro &&
+                      (Boolean(
+                        terceirosCadastrados.find(
+                          (c) =>
+                            (linhaEmEdicao.id && c.id === linhaEmEdicao.id) ||
+                            (linhaEmEdicao.nome &&
+                              c.nome &&
+                              c.nome.trim().toUpperCase() ===
+                                linhaEmEdicao.nome.trim().toUpperCase()),
+                        )?.eh_vendedor,
+                      ) ||
+                        Boolean(
+                          linhaEmEdicao.nome
+                            ?.toUpperCase()
+                            .includes("MARCIO LUAN"),
+                        ))
+
+                    return (
+                      <>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                          <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
+                          {ehVendedorTerceiro
+                            ? "Vendas & Comissão (Tabela Progressiva)"
+                            : "Vendas & Comissão (0,5%)"}
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => setComissaoManual(!comissaoManual)}
+                          className="text-[10px] text-primary underline"
+                        >
+                          {comissaoManual
+                            ? "Comissão Manual"
+                            : ehVendedorTerceiro
+                              ? "Tabela Progressiva Automática"
+                              : "0,5% Automático"}
+                        </button>
+                      </>
+                    )
+                  })()}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
