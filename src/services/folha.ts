@@ -12,22 +12,37 @@ export interface SalvarLinhaFolhaPayload {
   competencia: string
   tipo: 'Funcionario' | 'Terceiro'
   nome: string
+  cargo?: string
   funcao: string
   unidade: string
   bruto: number
+  salario_base?: number
   filhos: number
   inss: number
   familia: number
   ir: number
   quinzena: number
+  quinzena_2?: number
   adiantamento: number
   gratificacao: number
   mensal_liquido: number
+  salario_liquido?: number
+  obras?: number
+  valor_obra?: number
   producao: number
+  limpeza?: number
+  sabado?: number
+  ferias?: number
+  ajuda_custo?: number
+  vendas_obra?: number
   comissao: number
+  vendas_ajuda?: number
   conta: string
   pix: string
+  chave_pix?: string
   modo_calculo?: 'Calculado' | 'Digitado'
+  oculto?: boolean
+  inativo?: boolean
   funcionario_id?: string | null
   cpf?: string | null
   matricula?: string | null
@@ -133,22 +148,39 @@ export class FolhaService {
       ...l,
       tipo: l.tipo === 'Terceiro' ? 'Terceiro' : 'Funcionario',
       nome: l.nome || '',
-      funcao: l.funcao || 'Geral',
+      cargo: l.cargo || l.funcao || 'Geral',
+      funcao: l.funcao || l.cargo || 'Geral',
       unidade: l.unidade || 'SJE',
       bruto: Number(l.bruto || 0),
+      salario_base: Number(l.salario_base || l.bruto || 0),
       filhos: parseInt(String(l.filhos || 0), 10) || 0,
       inss: Number(l.inss || 0),
       familia: Number(l.familia || 0),
       ir: Number(l.ir || 0),
       quinzena: Number(l.quinzena || 0),
+      quinzena_2: Number(l.quinzena_2 || 0),
       adiantamento: Number(l.adiantamento || 0),
       gratificacao: Number(l.gratificacao || 0),
-      mensal_liquido: Number(l.mensal_liquido || 0),
+      obras: Number(l.obras || 0),
+      valor_obra: Number(l.valor_obra ?? 20),
       producao: Number(l.producao || 0),
+      limpeza: Number(l.limpeza || 0),
+      sabado: Number(l.sabado || 0),
+      ferias: Number(l.ferias || 0),
+      ajuda_custo: Number(l.ajuda_custo || 0),
+      vendas_obra: Number(l.vendas_obra || 0),
       comissao: Number(l.comissao || 0),
+      vendas_ajuda: Number(l.vendas_ajuda || 0),
+      total_proventos: Number(l.total_proventos || 0),
+      total_descontos: Number(l.total_descontos || 0),
+      salario_liquido: Number(l.salario_liquido || l.mensal_liquido || 0),
+      mensal_liquido: Number(l.mensal_liquido || l.salario_liquido || 0),
       conta: l.conta || '',
-      pix: l.pix || '',
+      pix: l.pix || l.chave_pix || '',
+      chave_pix: l.chave_pix || l.pix || '',
       modo_calculo: l.modo_calculo || 'Calculado',
+      oculto: Boolean(l.oculto),
+      inativo: Boolean(l.inativo),
     })) as FolhaPagamentoLinha[]
   }
 
@@ -169,22 +201,37 @@ export class FolhaService {
       competencia: payload.competencia,
       tipo: payload.tipo === 'Terceiro' ? 'Terceiro' : 'Funcionario',
       nome: payload.nome.trim().toUpperCase(),
+      cargo: (payload.cargo || payload.funcao).trim().toUpperCase(),
       funcao: payload.funcao.trim().toUpperCase(),
       unidade: payload.unidade.trim().toUpperCase() || 'SJE',
       bruto: Number(payload.bruto || 0),
+      salario_base: Number(payload.salario_base ?? payload.bruto ?? 0),
       filhos: parseInt(String(payload.filhos || 0), 10) || 0,
       inss: Number(payload.inss || 0),
       familia: Number(payload.familia || 0),
       ir: Number(payload.ir || 0),
       quinzena: Number(payload.quinzena || 0),
+      quinzena_2: Number(payload.quinzena_2 || 0),
       adiantamento: Number(payload.adiantamento || 0),
       gratificacao: Number(payload.gratificacao || 0),
-      mensal_liquido: Number(payload.mensal_liquido || 0),
+      obras: Number(payload.obras || 0),
+      valor_obra: Number(payload.valor_obra ?? 20),
       producao: Number(payload.producao || 0),
+      limpeza: Number(payload.limpeza || 0),
+      sabado: Number(payload.sabado || 0),
+      ferias: Number(payload.ferias || 0),
+      ajuda_custo: Number(payload.ajuda_custo || 0),
+      vendas_obra: Number(payload.vendas_obra || 0),
       comissao: Number(payload.comissao || 0),
+      vendas_ajuda: Number(payload.vendas_ajuda || 0),
+      mensal_liquido: Number(payload.mensal_liquido || 0),
+      salario_liquido: Number(payload.salario_liquido ?? payload.mensal_liquido ?? 0),
       conta: payload.conta || '',
-      pix: payload.pix || '',
+      pix: payload.pix || payload.chave_pix || '',
+      chave_pix: payload.chave_pix || payload.pix || '',
       modo_calculo: payload.modo_calculo || 'Calculado',
+      oculto: Boolean(payload.oculto),
+      inativo: Boolean(payload.inativo),
       funcionario_id: payload.funcionario_id || null,
       cpf: payload.cpf || null,
       matricula: payload.matricula || null,
@@ -414,11 +461,19 @@ export class FolhaService {
         acc.totalFamilia += Number(l.familia || 0)
         acc.totalIr += Number(l.ir || 0)
         acc.totalQuinzena += Number(l.quinzena || 0)
+        acc.totalQuinzena2 += Number(l.quinzena_2 || 0)
         acc.totalAdiantamento += Number(l.adiantamento || 0)
         acc.totalGratificacao += Number(l.gratificacao || 0)
-        acc.totalMensalLiquido += Number(l.mensal_liquido || 0)
+        acc.totalObras += Number(l.obras || 0)
         acc.totalProducao += Number(l.producao || 0)
+        acc.totalLimpeza += Number(l.limpeza || 0)
+        acc.totalSabado += Number(l.sabado || 0)
+        acc.totalFerias += Number(l.ferias || 0)
+        acc.totalAjudaCusto += Number(l.ajuda_custo || 0)
+        acc.totalVendas += Number(l.vendas_obra || 0)
         acc.totalComissao += Number(l.comissao || 0)
+        acc.totalVendasAjuda += Number(l.vendas_ajuda || 0)
+        acc.totalMensalLiquido += Number(l.mensal_liquido || 0)
         acc.totalGeralLiquidoAReceber += Number(l.mensal_liquido || 0)
         return acc
       },
@@ -432,13 +487,256 @@ export class FolhaService {
         totalFamilia: 0,
         totalIr: 0,
         totalQuinzena: 0,
+        totalQuinzena2: 0,
         totalAdiantamento: 0,
         totalGratificacao: 0,
-        totalMensalLiquido: 0,
+        totalObras: 0,
         totalProducao: 0,
+        totalLimpeza: 0,
+        totalSabado: 0,
+        totalFerias: 0,
+        totalAjudaCusto: 0,
+        totalVendas: 0,
         totalComissao: 0,
+        totalVendasAjuda: 0,
+        totalMensalLiquido: 0,
         totalGeralLiquidoAReceber: 0,
       },
     )
+  }
+
+  /**
+   * Garante a importação automática do backup legado no banco se ainda não houver lançamentos
+   */
+  static async garantirSeedFolha(): Promise<void> {
+    try {
+      const { count, error } = await (supabase as any)
+        .from('folha_pagamento_linhas')
+        .select('*', { count: 'exact', head: true })
+
+      if (error) {
+        console.warn('Erro ao checar contagem folha_pagamento_linhas:', error)
+        return
+      }
+
+      // Se temos menos de 30 linhas, o backup (que tem ~300+ registros) não foi totalmente semeado
+      if (typeof count === 'number' && count > 50) {
+        return
+      }
+
+      console.info('[Folha] Semeando dados do backup legado via client...')
+      const backupMod = await import('@/assets/backup-folha-2026-09-28-46d43.json')
+      const backupData = (backupMod as any).default || backupMod
+
+      const cadFuncs = backupData.cadastros?.funcionarios || []
+      const folhaFuncs = backupData.folha?.func || {}
+      const lanc = backupData.folha?.lanc || {}
+
+      const SJE_ID = '22222222-2222-2222-2222-222222222222'
+      const MONTEIRO_ID = '11111111-1111-1111-1111-111111111111'
+
+      const funcMap: Record<string, any> = {}
+      for (const f of cadFuncs) {
+        const fFolha = folhaFuncs[f.id] || {}
+        const unidade = (fFolha.unidade || f.unidade || 'SJE').toUpperCase()
+        const empresaId = unidade.includes('MONTEIRO') ? MONTEIRO_ID : SJE_ID
+        funcMap[f.id] = {
+          ...f,
+          ...fFolha,
+          empresaId,
+          unidade: unidade.includes('MONTEIRO') ? 'MONTEIRO' : 'SJE',
+          cpfLimpo: f.doc ? f.doc.replace(/[^\d]/g, '') : null,
+        }
+      }
+
+      const tercDefs = [
+        {
+          backupKey: '1',
+          nome: 'RAIMUNDO MARIANO DA SILVA JUNIOR',
+          empresaId: SJE_ID,
+          unidade: 'SJE',
+          bruto: 4270,
+          pix: 'raimundojunior100@gmail.com',
+          conta: '',
+        },
+        {
+          backupKey: '0',
+          nome: 'MARCIO LUAN DA SILVA',
+          empresaId: MONTEIRO_ID,
+          unidade: 'MONTEIRO',
+          bruto: 0,
+          pix: '12175804410',
+          conta: '',
+        },
+      ]
+
+      const comps = Object.keys(lanc).sort()
+
+      for (const comp of comps) {
+        const [anoStr, mesStr] = comp.split('-')
+        const ano = parseInt(anoStr, 10)
+        const mes = parseInt(mesStr, 10)
+        const funcsLanc = lanc[comp].func || {}
+        const tercLanc = lanc[comp].terc || {}
+
+        for (const empId of [SJE_ID, MONTEIRO_ID]) {
+          const rows: any[] = []
+
+          // Competencia
+          await (supabase as any)
+            .from('folha_competencias')
+            .upsert(
+              {
+                empresa_id: empId,
+                competencia: comp,
+                ano,
+                mes,
+                status: 'ABERTA',
+                observacoes: 'Importado do backup legado',
+              },
+              { onConflict: 'empresa_id,competencia' },
+            )
+
+          for (const [funcId, fL] of Object.entries(funcsLanc) as [string, any][]) {
+            if (funcId === '__novo' || funcId === 'undefined') continue
+            const fCad = funcMap[funcId]
+            if (!fCad || fCad.empresaId !== empId) continue
+
+            const obras = Number(fL.obras || 0)
+            const valorObra = Number(fL.valorObra ?? 20)
+            const producao = obras * valorObra
+            const limp = Number(fL.limp || 0)
+            const sab = Number(fL.sab || 0)
+            const fer = Number(fL.fer || 0)
+            const ajuda = Number(fL.ajuda || 0)
+            const vendObra = Number(fL.vendObra || 0)
+            let comissao = Number(fL.vendCom || 0)
+            if (comissao === 0 && vendObra > 0) {
+              comissao = Math.round(vendObra * 0.005 * 100) / 100
+            }
+            const vendAjuda = Number(fL.vendAjuda || 0)
+            const adiant = Number(fL.adiant || 0)
+            const gratif = Number(fL.gratif || 0)
+            const bruto = Number(fCad.bruto || 0)
+            const filhos = Number(fCad.filhos || 0)
+
+            const totalProventos =
+              bruto + producao + limp + sab + fer + ajuda + comissao + gratif + vendAjuda
+            const totalDescontos = adiant
+            const liquido = Math.round((totalProventos - totalDescontos) * 100) / 100
+            const comissaoCalc = Math.round(vendObra * 0.005 * 100) / 100
+            const modoCalculo =
+              vendObra > 0 && Math.abs(comissao - comissaoCalc) > 0.01 ? 'Digitado' : 'Calculado'
+
+            rows.push({
+              empresa_id: empId,
+              competencia: comp,
+              nome: fCad.nome.trim().toUpperCase(),
+              cargo: (fCad.funcao || 'Geral').trim().toUpperCase(),
+              tipo: 'Funcionario',
+              funcao: (fCad.funcao || 'Geral').trim().toUpperCase(),
+              unidade: fCad.unidade,
+              bruto,
+              salario_base: bruto,
+              filhos,
+              conta: fCad.conta || '',
+              chave_pix: fCad.pix || '',
+              pix: fCad.pix || '',
+              obras,
+              valor_obra: valorObra,
+              producao,
+              limpeza: limp,
+              sabado: sab,
+              ferias: fer,
+              ajuda_custo: ajuda,
+              vendas_obra: vendObra,
+              comissao,
+              vendas_ajuda: vendAjuda,
+              adiantamento: adiant,
+              gratificacao: gratif,
+              total_proventos: totalProventos,
+              total_descontos: totalDescontos,
+              salario_liquido: liquido,
+              mensal_liquido: liquido,
+              modo_calculo: modoCalculo,
+              oculto: Boolean(fCad.oculto),
+              inativo: Boolean(fCad.inativo),
+              backup_id: funcId,
+              cpf: fCad.cpfLimpo || null,
+            })
+          }
+
+          for (const t of tercDefs) {
+            if (t.empresaId !== empId) continue
+            const tL = tercLanc[t.backupKey]
+            const vendObra = Number(tL?.vendObra || 0)
+            let comissao = Number(tL?.vendCom || 0)
+            if (comissao === 0 && vendObra > 0) {
+              comissao = Math.round(vendObra * 0.005 * 100) / 100
+            }
+            const vendAjuda = Number(tL?.vendAjuda || 0)
+            const adiant = Number(tL?.adiant || 0)
+            const gratif = Number(tL?.gratif || 0)
+            const ajudaCusto = vendAjuda
+            const bruto = t.bruto
+            const totalProventos = bruto + comissao + ajudaCusto + gratif
+            const totalDescontos = adiant
+            const liquido = Math.round((totalProventos - totalDescontos) * 100) / 100
+
+            if (tL || bruto > 0 || vendObra > 0) {
+              rows.push({
+                empresa_id: empId,
+                competencia: comp,
+                nome: t.nome.trim().toUpperCase(),
+                cargo: 'Terceiro',
+                tipo: 'Terceiro',
+                funcao: 'Terceiro',
+                unidade: t.unidade,
+                bruto,
+                salario_base: bruto,
+                filhos: 0,
+                conta: t.conta,
+                chave_pix: t.pix,
+                pix: t.pix,
+                obras: 0,
+                valor_obra: 20,
+                producao: 0,
+                limpeza: 0,
+                sabado: 0,
+                ferias: 0,
+                ajuda_custo: ajudaCusto,
+                vendas_obra: vendObra,
+                comissao,
+                vendas_ajuda: vendAjuda,
+                adiantamento: adiant,
+                gratificacao: gratif,
+                total_proventos: totalProventos,
+                total_descontos: totalDescontos,
+                salario_liquido: liquido,
+                mensal_liquido: liquido,
+                modo_calculo:
+                  vendObra > 0 && Math.abs(comissao - Math.round(vendObra * 0.005 * 100) / 100) > 0.01
+                    ? 'Digitado'
+                    : 'Calculado',
+                oculto: false,
+                inativo: false,
+                backup_id: `terc_${t.backupKey}`,
+                cpf: null,
+              })
+            }
+          }
+
+          if (rows.length > 0) {
+            await (supabase as any)
+              .from('folha_pagamento_linhas')
+              .upsert(rows, { onConflict: 'empresa_id,competencia,nome' })
+          }
+        }
+      }
+
+      console.info('[Folha] Seed automático concluído com sucesso.')
+    } catch (err) {
+      console.error('[Folha] Falha ao semear folha:', err)
+    }
   }
 }
