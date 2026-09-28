@@ -511,17 +511,52 @@ export function FolhaPagamento() {
     })
   }, [terceirosFiltrados, percentualQuinzena])
 
-  // Linhas da Aba PRODUÇÃO
+  // Helper: identifica se o colaborador é lançador/responsável de vendas (ex: VALDERCLEITON FREIRE DE OLIVEIRA)
+  // que deve ser retirado da produção principal e ter seção própria em VENDAS
+  const isLancadorVendas = (nome: string | undefined | null) =>
+    (nome || "").toUpperCase().includes("VALDERCLEITON")
+
+  // Linhas da Aba PRODUÇÃO (filtra fora Valdercleiton — ele fica exclusivamente na aba de Vendas)
   const linhasProducao = useMemo(() => {
-    return funcionariosFiltrados.map((l) => {
-      const producaoTotal = calcularProducaoTotal(l)
-      const aPagar = calcularAPagarProducao(l)
-      return {
-        ...l,
-        producaoTotal,
-        aPagar,
-      }
-    })
+    return funcionariosFiltrados
+      .filter((l) => !isLancadorVendas(l.nome))
+      .map((l) => {
+        const producaoTotal = calcularProducaoTotal(l)
+        const aPagar = calcularAPagarProducao(l)
+        return {
+          ...l,
+          producaoTotal,
+          aPagar,
+        }
+      })
+  }, [funcionariosFiltrados])
+
+  // Dados exclusivos do lançador de vendas (Valdercleiton) para a aba VENDAS
+  const dadosLancadorVendas = useMemo(() => {
+    const lancador = funcionariosFiltrados.find((l) => isLancadorVendas(l.nome))
+    if (!lancador) return null
+
+    const vendasObra = Number(lancador.vendas_obra || 0)
+    const comissaoAuto = calcularComissaoVendas(vendasObra)
+    const isComissaoSobrescrita =
+      lancador.modo_calculo === "Digitado" ||
+      (vendasObra > 0 &&
+        Math.abs(Number(lancador.comissao || 0) - comissaoAuto) > 0.05)
+    const comissaoFinal = Number(lancador.comissao || comissaoAuto)
+    const ajudaCusto = Number(
+      lancador.ajuda_custo || lancador.vendas_ajuda || 0,
+    )
+    const totalReceberVendas = comissaoFinal + ajudaCusto
+
+    return {
+      linha: lancador,
+      vendasObra,
+      comissaoAuto,
+      comissaoFinal,
+      isComissaoSobrescrita,
+      ajudaCusto,
+      totalReceberVendas,
+    }
   }, [funcionariosFiltrados])
 
   // Linhas da Aba VENDAS (exclusiva de funcionários; terceiros NÃO entram em vendas nem têm comissão)
@@ -2876,9 +2911,146 @@ export function FolhaPagamento() {
         </TabsContent>
 
         {/* =========================================================================
-            ABA 5: VENDAS (COMISSÃO 0,5% × VALOR VENDIDO)
+            ABA 5: VENDAS (COMISSÃO 0,5% × VALOR VENDIDO + SEÇÃO EXCLUSIVA DE VALDERCLEITON)
         ========================================================================== */}
         <TabsContent value="vendas" className="space-y-4">
+          {/* SEÇÃO PRÓPRIA DO LANÇADOR DE VENDAS (VALDERCLEITON FREIRE DE OLIVEIRA) */}
+          {dadosLancadorVendas && (
+            <Card className="border-amber-300 bg-gradient-to-br from-amber-500/5 via-background to-amber-500/10 shadow-sm">
+              <CardHeader className="py-3 px-4 border-b bg-amber-500/10">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-amber-600" />
+                    <div>
+                      <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                        <span>
+                          LANÇADOR DE VENDAS: {dadosLancadorVendas.linha.nome}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500 text-amber-700 bg-amber-100/60 dark:bg-amber-950/40 text-[10px]"
+                        >
+                          Vendedor Titular
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                        Folha de Vendas exclusiva — retirado da produção
+                        principal para apuração direta de obras, comissão e
+                        ajuda de custo.
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs border-amber-400 hover:bg-amber-100/50"
+                    onClick={() => abrirModalEdicao(dadosLancadorVendas.linha)}
+                  >
+                    <Edit2 className="h-3.5 w-3.5 text-amber-700" />
+                    Editar Dados de Vendas
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 space-y-4">
+                {/* CARDS DE DESTAQUE DOS VALORES */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-lg border bg-card/80">
+                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block">
+                      Total Obras / Vendido
+                    </span>
+                    <span className="text-lg font-bold font-mono text-blue-600 block mt-1">
+                      {fmtMoeda(dadosLancadorVendas.vendasObra)}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                      Base das comissões do mês
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-lg border bg-card/80">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">
+                        Comissão (0,5%)
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className={`text-[8px] px-1 py-0 h-3.5 ${
+                          dadosLancadorVendas.isComissaoSobrescrita
+                            ? "border-amber-400 text-amber-700 bg-amber-50"
+                            : "border-muted text-muted-foreground"
+                        }`}
+                      >
+                        {dadosLancadorVendas.isComissaoSobrescrita
+                          ? "Digitado"
+                          : "0,5% Auto"}
+                      </Badge>
+                    </div>
+                    <span className="text-lg font-bold font-mono text-amber-600 block mt-1">
+                      {fmtMoeda(dadosLancadorVendas.comissaoFinal)}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                      0,5% × {fmtMoeda(dadosLancadorVendas.vendasObra)}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-lg border bg-card/80">
+                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block">
+                      Ajuda de Custo
+                    </span>
+                    <span className="text-lg font-bold font-mono text-foreground block mt-1">
+                      {fmtMoeda(dadosLancadorVendas.ajudaCusto)}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                      Auxílio mensal de vendas
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-lg border border-primary/30 bg-primary/5">
+                    <span className="text-[11px] text-primary uppercase tracking-wide font-bold block">
+                      Total a Receber (Vendas)
+                    </span>
+                    <span className="text-lg font-extrabold font-mono text-primary block mt-1">
+                      {fmtMoeda(dadosLancadorVendas.totalReceberVendas)}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                      Comissão + Ajuda de Custo
+                    </span>
+                  </div>
+                </div>
+
+                {/* DETALHES BANCÁRIOS E ASSINATURA */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t text-xs">
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">
+                      Agência / Conta:
+                    </span>
+                    <span className="font-mono font-medium text-foreground">
+                      {dadosLancadorVendas.linha.conta || "Não informado"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">
+                      Chave PIX:
+                    </span>
+                    <span className="font-mono font-medium text-foreground">
+                      {dadosLancadorVendas.linha.pix ||
+                        dadosLancadorVendas.linha.chave_pix ||
+                        "Não informado"}
+                    </span>
+                  </div>
+                  <div className="border-b border-gray-400 pb-1 text-[11px]">
+                    <span className="font-semibold block truncate">
+                      {dadosLancadorVendas.linha.nome}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      Assinatura — Lançador de Vendas
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* TABELA GERAL DE COMISSÃO DE VENDEDORES */}
           <Card>
             <CardHeader className="py-3 px-4 border-b">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
@@ -2934,6 +3106,14 @@ export function FolhaPagamento() {
                           <td className="py-2 px-3 font-semibold text-foreground sticky left-0 bg-background z-10 border-r whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <span>{l.nome}</span>
+                              {isLancadorVendas(l.nome) && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] px-1 py-0 h-4 border-amber-400 text-amber-700 bg-amber-50"
+                                >
+                                  Lançador Vendas
+                                </Badge>
+                              )}
                               {l.tipo === "Terceiro" && (
                                 <Badge
                                   variant="secondary"
@@ -3075,10 +3255,12 @@ export function FolhaPagamento() {
                   <div className="flex items-center justify-between py-2.5 px-4">
                     <div className="flex flex-col">
                       <span className="text-muted-foreground">
-                        Vendas (comissões)
+                        Vendas / Comissões
                       </span>
                       <span className="text-[10px] text-muted-foreground">
-                        (já inclusas no Mensal dos vendedores)
+                        {dadosLancadorVendas
+                          ? `(Lançador Vendas: ${dadosLancadorVendas.linha.nome} — inclusas no Mensal Líquido)`
+                          : "(já inclusas no Mensal dos vendedores)"}
                       </span>
                     </div>
                     <span className="font-mono font-medium text-amber-600">
