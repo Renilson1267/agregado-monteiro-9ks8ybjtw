@@ -174,10 +174,9 @@
 /* Print Styles for A4 Clean Reports and Two-Copy Work Orders */
 @media print {
   @page {
-    size: A4 portrait;
-    margin: 5mm 7mm 5mm 7mm;
+    size: A4 landscape;
+    margin: 6mm 8mm;
   }
-
   html,
   body {
     background: #ffffff !important;

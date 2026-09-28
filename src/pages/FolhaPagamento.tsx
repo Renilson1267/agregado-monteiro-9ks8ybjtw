@@ -148,7 +148,9 @@ export function FolhaPagamento() {
 
   // Holerite / Impressão
   const [tipoImpressaoA4, setTipoImpressaoA4] =
-    useState<"geral" | "quinzena" | "mensal" | "producao" | null>(null)
+    useState<"geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | null>(
+      null,
+    )
   const printRef = useRef<HTMLDivElement>(null)
 
   // 1. Carregar lista de competências disponíveis
@@ -1030,7 +1032,7 @@ export function FolhaPagamento() {
 
   // Disparar impressão de aba em A4
   const imprimirAbaA4 = (
-    tipo: "geral" | "quinzena" | "mensal" | "producao",
+    tipo: "geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo",
   ) => {
     setTipoImpressaoA4(tipo)
     setTimeout(() => {
@@ -1384,10 +1386,10 @@ export function FolhaPagamento() {
                         PRODUÇÃO (+)
                       </th>
                       <th
-                        className="py-2.5 px-2 text-right text-blue-600 font-semibold bg-blue-50/40 dark:bg-blue-950/20"
-                        title="Adiantamento de Quinzena (calculado sobre salário bruto)"
+                        className="py-2.5 px-2 text-right text-muted-foreground font-semibold bg-blue-50/40 dark:bg-blue-950/20"
+                        title="Quinzena"
                       >
-                        QUINZENA (−)
+                        QUINZENA
                       </th>
                       <th
                         className="py-2.5 px-2 text-right text-red-600"
@@ -1529,27 +1531,9 @@ export function FolhaPagamento() {
                                 </div>
                               </td>
 
-                              {/* QUINZENA VISÍVEL NA ABA GERAL (SOBRE O BRUTO) */}
-                              <td className="py-2 px-2 text-right font-mono text-blue-600 whitespace-nowrap bg-blue-50/20 dark:bg-blue-950/10">
-                                <div className="flex items-center justify-end gap-1">
-                                  <span>
-                                    {l.quinzenaFinal > 0
-                                      ? `−${fmtMoeda(l.quinzenaFinal)}`
-                                      : fmtMoeda(0)}
-                                  </span>
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-[8px] px-1 py-0 h-3.5 ${
-                                      l.isQuinzenaSobrescrita
-                                        ? "border-amber-400 text-amber-700 bg-amber-50"
-                                        : "border-muted text-muted-foreground"
-                                    }`}
-                                  >
-                                    {l.isQuinzenaSobrescrita
-                                      ? "Digitado"
-                                      : "Calculado"}
-                                  </Badge>
-                                </div>
+                              {/* QUINZENA NA ABA GERAL (EM BRANCO / SÓ EXIBIÇÃO) */}
+                              <td className="py-2 px-2 text-center font-mono text-muted-foreground whitespace-nowrap bg-blue-50/20 dark:bg-blue-950/10">
+                                —
                               </td>
 
                               {/* INSS com badge Calculado / Digitado */}
@@ -2033,10 +2017,8 @@ export function FolhaPagamento() {
                           ? `+${fmtMoeda(totaisGeral.producao)}`
                           : fmtMoeda(0)}
                       </td>
-                      <td className="py-2.5 px-2 text-right font-mono text-blue-600 bg-blue-50/20 dark:bg-blue-950/10">
-                        {totaisGeral.quinzena > 0
-                          ? `−${fmtMoeda(totaisGeral.quinzena)}`
-                          : fmtMoeda(0)}
+                      <td className="py-2.5 px-2 text-center font-mono text-muted-foreground bg-blue-50/20 dark:bg-blue-950/10">
+                        —
                       </td>
                       <td className="py-2.5 px-2 text-right font-mono text-red-600">
                         {totaisGeral.inss > 0
@@ -2058,6 +2040,48 @@ export function FolhaPagamento() {
                       </td>
                       <td className="py-2.5 px-3" colSpan={4}></td>
                     </tr>
+                    {terceirosProcessados.length > 0 && (
+                      <tr className="border-t-2 border-primary/30 bg-primary/10 text-xs font-bold text-foreground">
+                        <td className="py-2.5 px-2 text-center">-</td>
+                        <td className="py-2.5 px-3 sticky left-0 bg-primary/15 z-10 border-r font-bold text-primary uppercase">
+                          TOTAL GERAL DA FOLHA (FUNCIONÁRIOS + TERCEIROS)
+                        </td>
+                        <td className="py-2.5 px-2 text-muted-foreground font-normal">
+                          {linhasGeralProcessadas.length +
+                            terceirosProcessados.length}{" "}
+                          pessoas
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono text-muted-foreground font-semibold">
+                          {fmtMoeda(
+                            totaisGeral.bruto + totaisTerceiros.valorMes,
+                          )}
+                        </td>
+                        <td className="py-2.5 px-1 text-center font-mono text-muted-foreground">
+                          {totaisGeral.filhos}
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono text-emerald-600">
+                          {fmtMoeda(totaisGeral.producao)}
+                        </td>
+                        <td className="py-2.5 px-2 text-center font-mono text-muted-foreground">
+                          —
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono text-red-600">
+                          {fmtMoeda(totaisGeral.inss)}
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono text-emerald-600">
+                          {fmtMoeda(totaisGeral.familia)}
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono text-red-600">
+                          {fmtMoeda(totaisGeral.irrf)}
+                        </td>
+                        <td className="py-2.5 px-2 text-right font-mono font-bold text-primary bg-primary/25 text-sm">
+                          {fmtMoeda(
+                            totaisGeral.liquidoGeral + totaisTerceiros.valorMes,
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3" colSpan={4}></td>
+                      </tr>
+                    )}
                     {/* Linha adicional no rodapé detalhando totais dos componentes extras */}
                     <tr className="bg-muted/60 text-[11px] border-t border-border font-normal">
                       <td colSpan={17} className="py-2 px-4">
@@ -2267,6 +2291,49 @@ export function FolhaPagamento() {
                       </tr>
                     </tfoot>
                   </table>
+                </div>
+              </div>
+
+              {/* CARDS RESUMO NO RODAPÉ DA PÁGINA DA GERAL */}
+              <div className="p-4 border-t bg-muted/20">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-3.5 rounded-lg border bg-card text-card-foreground shadow-sm">
+                    <span className="text-xs text-muted-foreground font-medium block">
+                      Total Funcionários ({linhasGeralProcessadas.length})
+                    </span>
+                    <span className="text-lg font-bold font-mono text-foreground mt-1 block">
+                      {fmtMoeda(totaisGeral.liquidoGeral)}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground mt-0.5 block">
+                      Líquido da competência (mensal + produção)
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-lg border bg-purple-50/50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800 text-card-foreground shadow-sm">
+                    <span className="text-xs text-purple-700 dark:text-purple-300 font-medium block">
+                      Total Terceiros ({terceirosProcessados.length})
+                    </span>
+                    <span className="text-lg font-bold font-mono text-purple-900 dark:text-purple-200 mt-1 block">
+                      {fmtMoeda(totaisTerceiros.valorMes)}
+                    </span>
+                    <span className="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5 block">
+                      Prestadores e serviços autônomos
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-lg border-2 border-primary bg-primary/10 shadow-sm">
+                    <span className="text-xs font-bold text-primary block uppercase tracking-wide">
+                      Valor Real da Folha
+                    </span>
+                    <span className="text-xl font-black font-mono text-primary mt-1 block">
+                      {fmtMoeda(
+                        totaisGeral.liquidoGeral + totaisTerceiros.valorMes,
+                      )}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground mt-0.5 block">
+                      Funcionários + Terceiros (total competência)
+                    </span>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -3063,6 +3130,15 @@ export function FolhaPagamento() {
                     COMISSÃO = 0,5% DO VALOR VENDIDO (calcula sozinha)
                   </CardDescription>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs"
+                  onClick={() => imprimirAbaA4("vendas")}
+                >
+                  <Printer className="h-4 w-4" />
+                  Imprimir Vendas A4
+                </Button>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -3196,6 +3272,17 @@ export function FolhaPagamento() {
             ABA 6: RESUMO (CONSOLIDAÇÃO TOTAL AUTOMÁTICA)
         ========================================================================== */}
         <TabsContent value="resumo" className="space-y-4">
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs"
+              onClick={() => imprimirAbaA4("resumo")}
+            >
+              <Printer className="h-4 w-4" />
+              Imprimir Resumo A4
+            </Button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader className="py-3 px-4 border-b">
@@ -3896,7 +3983,11 @@ export function FolhaPagamento() {
                   ? "FOLHA DE PRODUÇÃO"
                   : tipoImpressaoA4 === "geral"
                     ? "FOLHA GERAL DE PAGAMENTO"
-                    : "FOLHA MENSAL"}
+                    : tipoImpressaoA4 === "vendas"
+                      ? "FOLHA DE VENDAS / COMISSÕES"
+                      : tipoImpressaoA4 === "resumo"
+                        ? "RESUMO GERAL DA FOLHA"
+                        : "FOLHA MENSAL"}
             </span>
             <p className="text-[11px] font-semibold mt-1">
               Competência: {rotuloCompetenciaMesAno}
@@ -3923,7 +4014,7 @@ export function FolhaPagamento() {
                     MENSAL (LÍQUIDO)
                   </th>
                   <th className="border p-1 text-left">PIX / CONTA</th>
-                  <th className="border p-1 text-center w-28">ASSINATURA</th>
+                  <th className="border p-1 text-center w-36">ASSINATURA</th>
                 </tr>
               </thead>
               <tbody>
@@ -3943,9 +4034,7 @@ export function FolhaPagamento() {
                     <td className="border p-1 text-right font-mono">
                       {l.producaoTotal > 0 ? fmtMoeda(l.producaoTotal) : "-"}
                     </td>
-                    <td className="border p-1 text-right font-mono">
-                      {l.quinzenaFinal > 0 ? fmtMoeda(l.quinzenaFinal) : "-"}
-                    </td>
+                    <td className="border p-1 text-center font-mono">—</td>
                     <td className="border p-1 text-right font-mono">
                       {l.inssFinal > 0 ? fmtMoeda(l.inssFinal) : "-"}
                     </td>
@@ -3981,9 +4070,7 @@ export function FolhaPagamento() {
                   <td className="border p-1 text-right font-mono">
                     {fmtMoeda(totaisGeral.producao)}
                   </td>
-                  <td className="border p-1 text-right font-mono">
-                    {fmtMoeda(totaisGeral.quinzena)}
-                  </td>
+                  <td className="border p-1 text-center font-mono">—</td>
                   <td className="border p-1 text-right font-mono">
                     {fmtMoeda(totaisGeral.inss)}
                   </td>
@@ -3998,6 +4085,44 @@ export function FolhaPagamento() {
                   </td>
                   <td className="border p-1" colSpan={2}></td>
                 </tr>
+                {terceirosProcessados.length > 0 && (
+                  <tr className="bg-gray-200 font-bold border-t-2 border-gray-400">
+                    <td className="border p-1 text-center">-</td>
+                    <td className="border p-1 uppercase">
+                      TOTAL GERAL DA FOLHA (FUNC. + TERC.)
+                    </td>
+                    <td className="border p-1">
+                      {linhasGeralProcessadas.length +
+                        terceirosProcessados.length}{" "}
+                      pess.
+                    </td>
+                    <td className="border p-1 text-right font-mono">
+                      {fmtMoeda(totaisGeral.bruto + totaisTerceiros.valorMes)}
+                    </td>
+                    <td className="border p-1 text-center font-mono">
+                      {totaisGeral.filhos}
+                    </td>
+                    <td className="border p-1 text-right font-mono">
+                      {fmtMoeda(totaisGeral.producao)}
+                    </td>
+                    <td className="border p-1 text-center font-mono">—</td>
+                    <td className="border p-1 text-right font-mono">
+                      {fmtMoeda(totaisGeral.inss)}
+                    </td>
+                    <td className="border p-1 text-right font-mono">
+                      {fmtMoeda(totaisGeral.familia)}
+                    </td>
+                    <td className="border p-1 text-right font-mono">
+                      {fmtMoeda(totaisGeral.irrf)}
+                    </td>
+                    <td className="border p-1 text-right font-mono text-[10px] font-black">
+                      {fmtMoeda(
+                        totaisGeral.liquidoGeral + totaisTerceiros.valorMes,
+                      )}
+                    </td>
+                    <td className="border p-1" colSpan={2}></td>
+                  </tr>
+                )}
               </tfoot>
             </table>
 
@@ -4020,7 +4145,7 @@ export function FolhaPagamento() {
                       </th>
                       <th className="border p-1 text-left">PIX</th>
                       <th className="border p-1 text-left">OBS</th>
-                      <th className="border p-1 text-center w-28">
+                      <th className="border p-1 text-center w-36">
                         ASSINATURA
                       </th>
                     </tr>
@@ -4202,7 +4327,7 @@ export function FolhaPagamento() {
                     MENSAL (LÍQUIDO)
                   </th>
                   <th className="border p-1 text-left">PIX / CONTA</th>
-                  <th className="border p-1 text-center w-32">ASSINATURA</th>
+                  <th className="border p-1 text-center w-36">ASSINATURA</th>
                 </tr>
               </thead>
               <tbody>
@@ -4348,7 +4473,7 @@ export function FolhaPagamento() {
                 <th className="border p-1 text-right">GRATIF.</th>
                 <th className="border p-1 text-right">ADIANT.</th>
                 <th className="border p-1 text-right font-bold">A PAGAR</th>
-                <th className="border p-1 text-center w-28">ASSINATURA</th>
+                <th className="border p-1 text-center w-36">ASSINATURA</th>
               </tr>
             </thead>
             <tbody>
@@ -4428,6 +4553,200 @@ export function FolhaPagamento() {
               </tr>
             </tfoot>
           </table>
+        )}
+
+        {tipoImpressaoA4 === "vendas" && (
+          <div className="space-y-4">
+            <table className="w-full border-collapse border text-[10px]">
+              <thead className="bg-gray-100 text-gray-800 font-bold uppercase">
+                <tr>
+                  <th className="border p-1.5 text-center w-6">Nº</th>
+                  <th className="border p-1.5 text-left">NOME</th>
+                  <th className="border p-1.5 text-right font-semibold">
+                    VALOR DAS OBRAS
+                  </th>
+                  <th className="border p-1.5 text-right font-bold">
+                    COMISSÃO (0,5%)
+                  </th>
+                  <th className="border p-1.5 text-left">AGÊNCIA / C/C</th>
+                  <th className="border p-1.5 text-left">PIX</th>
+                  <th className="border p-1.5 text-center w-36">ASSINATURA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linhasVendas.map((l, idx) => (
+                  <tr key={l.id}>
+                    <td className="border p-1 text-center font-mono">
+                      {idx + 1}
+                    </td>
+                    <td className="border p-1 font-semibold">{l.nome}</td>
+                    <td className="border p-1 text-right font-mono">
+                      {fmtMoeda(l.vendas_obra)}
+                    </td>
+                    <td className="border p-1 text-right font-mono font-bold">
+                      {fmtMoeda(l.comissaoFinal)}
+                    </td>
+                    <td className="border p-1 font-mono text-[9px]">
+                      {l.conta || "-"}
+                    </td>
+                    <td className="border p-1 font-mono text-[9px]">
+                      {l.pix || l.chave_pix || "-"}
+                    </td>
+                    <td className="border p-1"></td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-100 font-bold">
+                <tr>
+                  <td className="border p-1.5 text-center">-</td>
+                  <td className="border p-1.5">
+                    TOTAL VENDAS ({linhasVendas.length})
+                  </td>
+                  <td className="border p-1.5 text-right font-mono">
+                    {fmtMoeda(totaisVendas.vendas_obra)}
+                  </td>
+                  <td className="border p-1.5 text-right font-mono">
+                    {fmtMoeda(totaisVendas.comissao)}
+                  </td>
+                  <td className="border p-1.5" colSpan={3}></td>
+                </tr>
+              </tfoot>
+            </table>
+
+            {dadosLancadorVendas && (
+              <div className="p-3 border rounded bg-gray-50 text-[10px] space-y-1">
+                <div className="font-bold uppercase">
+                  Destaque Lançador de Vendas: {dadosLancadorVendas.linha.nome}
+                </div>
+                <div className="flex gap-4">
+                  <span>
+                    Vendido: {fmtMoeda(dadosLancadorVendas.vendasObra)}
+                  </span>
+                  <span>
+                    Comissão: {fmtMoeda(dadosLancadorVendas.comissaoFinal)}
+                  </span>
+                  <span>
+                    Ajuda de Custo: {fmtMoeda(dadosLancadorVendas.ajudaCusto)}
+                  </span>
+                  <span className="font-bold">
+                    Total Vendas:{" "}
+                    {fmtMoeda(dadosLancadorVendas.totalReceberVendas)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tipoImpressaoA4 === "resumo" && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <table className="w-full border-collapse border text-[10px]">
+                <thead className="bg-gray-100 text-gray-800 font-bold uppercase">
+                  <tr>
+                    <th className="border p-2 text-left" colSpan={2}>
+                      RESUMO DA FOLHA — {rotuloCompetenciaMesAno}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border p-2">Pessoas na Folha</td>
+                    <td className="border p-2 text-right font-mono font-bold">
+                      {resumo.pessoasNaFolha}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2">Salários — Quinzena</td>
+                    <td className="border p-2 text-right font-mono">
+                      {fmtMoeda(resumo.salariosQuinzena)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2">Salários — Mensal Líquido</td>
+                    <td className="border p-2 text-right font-mono">
+                      {fmtMoeda(resumo.salariosMensalLiquido)}
+                    </td>
+                  </tr>
+                  <tr className="bg-gray-50 font-bold">
+                    <td className="border p-2">SUBTOTAL FOLHA FUNCIONÁRIOS</td>
+                    <td className="border p-2 text-right font-mono">
+                      {fmtMoeda(resumo.subtotalFolha)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2">Produção (a pagar)</td>
+                    <td className="border p-2 text-right font-mono">
+                      {fmtMoeda(resumo.producaoAPagar)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2">Vendas / Comissões</td>
+                    <td className="border p-2 text-right font-mono">
+                      {fmtMoeda(resumo.vendasComissoes)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2">
+                      Subtotal Terceiros (folha à parte)
+                    </td>
+                    <td className="border p-2 text-right font-mono">
+                      {fmtMoeda(resumo.terceirosFolha)}
+                    </td>
+                  </tr>
+                  <tr className="bg-gray-200 font-bold text-xs">
+                    <td className="border p-2">TOTAL GERAL DO MÊS</td>
+                    <td className="border p-2 text-right font-mono">
+                      {fmtMoeda(resumo.totalGeralDoMes)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <table className="w-full border-collapse border text-[10px]">
+                <thead className="bg-gray-100 text-gray-800 font-bold uppercase">
+                  <tr>
+                    <th className="border p-2 text-left" colSpan={2}>
+                      TRIBUTOS & RETENÇÕES DA COMPETÊNCIA
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border p-2">INSS Retido (a recolher)</td>
+                    <td className="border p-2 text-right font-mono font-bold">
+                      {fmtMoeda(resumo.inssRetido)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2">IRRF Retido (a recolher)</td>
+                    <td className="border p-2 text-right font-mono font-bold">
+                      {fmtMoeda(resumo.irrfRetido)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border p-2">
+                      Salário-família Pago (a deduzir)
+                    </td>
+                    <td className="border p-2 text-right font-mono font-bold">
+                      {fmtMoeda(resumo.salarioFamiliaPago)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="pt-8 grid grid-cols-2 gap-8 text-[11px] text-center">
+              <div>
+                <div className="border-b border-gray-400 pb-1 mb-1"></div>
+                <span>Responsável pelo Departamento Financeiro / Folha</span>
+              </div>
+              <div>
+                <div className="border-b border-gray-400 pb-1 mb-1"></div>
+                <span>Diretoria / Aprovação</span>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
