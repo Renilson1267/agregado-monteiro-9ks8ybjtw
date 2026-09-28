@@ -343,7 +343,7 @@ END $$;
   return { sql, comps, countComps: comps.length }
 }
 
-export function gerarChunksSQL(chunkSize = 3) {
+export function gerarChunksSQL(_chunkSize = 3) {
   const __filename = fileURLToPath(import.meta.url)
   const __dirname = path.dirname(__filename)
   const rootDir = path.resolve(__dirname, '..')

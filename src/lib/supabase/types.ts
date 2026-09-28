@@ -452,6 +452,7 @@ export type Database = {
           plano_saude: number
           producao: number
           quinzena: number
+          quinzena_2: number
           sabado: number
           salario_base: number
           salario_liquido: number
@@ -525,6 +526,7 @@ export type Database = {
           plano_saude?: number
           producao?: number
           quinzena?: number
+          quinzena_2?: number
           sabado?: number
           salario_base?: number
           salario_liquido?: number
@@ -598,6 +600,7 @@ export type Database = {
           plano_saude?: number
           producao?: number
           quinzena?: number
+          quinzena_2?: number
           sabado?: number
           salario_base?: number
           salario_liquido?: number

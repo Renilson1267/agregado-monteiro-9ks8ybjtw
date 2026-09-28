@@ -1,9 +1,4 @@
 node_modules
 dist
 .git
-scripts
-supabase
-*.json
-*.config.*
-*.d.ts
 public

@@ -93,18 +93,18 @@ export interface FolhaTotaisCalculados {
   totalFamilia: number
   totalIr: number
   totalQuinzena: number
-  totalQuinzena2: number
+  totalQuinzena2?: number
   totalAdiantamento: number
   totalGratificacao: number
-  totalObras: number
+  totalObras?: number
   totalProducao: number
-  totalLimpeza: number
-  totalSabado: number
-  totalFerias: number
-  totalAjudaCusto: number
-  totalVendas: number
+  totalLimpeza?: number
+  totalSabado?: number
+  totalFerias?: number
+  totalAjudaCusto?: number
+  totalVendas?: number
   totalComissao: number
-  totalVendasAjuda: number
+  totalVendasAjuda?: number
   totalMensalLiquido: number
   totalGeralLiquidoAReceber: number
 }

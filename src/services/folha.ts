@@ -519,18 +519,23 @@ export class FolhaService {
         return
       }
 
-      // Se temos menos de 30 linhas, o backup (que tem ~300+ registros) não foi totalmente semeado
-      if (typeof count === 'number' && count > 50) {
+      // Se já temos as ~300+ linhas semeadas, nada a fazer
+      if (typeof count === 'number' && count >= 300) {
         return
       }
 
       console.info('[Folha] Semeando dados do backup legado via client...')
-      const backupMod = await import('@/assets/backup-folha-2026-09-28-46d43.json')
-      const backupData = (backupMod as any).default || backupMod
+      const { FOLHA_BACKUP_DATA: backupData } = await import('@/lib/folha-backup-data')
 
-      const cadFuncs = backupData.cadastros?.funcionarios || []
-      const folhaFuncs = backupData.folha?.func || {}
-      const lanc = backupData.folha?.lanc || {}
+      const cadFuncs = (backupData.cadastros?.funcionarios || []) as Array<{
+        id: string
+        nome: string
+        doc?: string
+        funcao?: string
+        unidade?: string
+      }>
+      const folhaFuncs = (backupData.folha?.func || {}) as Record<string, any>
+      const lanc = (backupData.folha?.lanc || {}) as Record<string, any>
 
       const SJE_ID = '22222222-2222-2222-2222-222222222222'
       const MONTEIRO_ID = '11111111-1111-1111-1111-111111111111'
@@ -538,7 +543,8 @@ export class FolhaService {
       const funcMap: Record<string, any> = {}
       for (const f of cadFuncs) {
         const fFolha = folhaFuncs[f.id] || {}
-        const unidade = (fFolha.unidade || f.unidade || 'SJE').toUpperCase()
+        const unidadeCru = fFolha.unidade || f.unidade || 'SJE'
+        const unidade = String(unidadeCru).toUpperCase()
         const empresaId = unidade.includes('MONTEIRO') ? MONTEIRO_ID : SJE_ID
         funcMap[f.id] = {
           ...f,

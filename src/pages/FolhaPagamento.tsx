@@ -1,4 +1,34 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import {
+  Users,
+  Search,
+  Filter,
+  Eye,
+  EyeOff,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Edit2,
+  Trash2,
+  Printer,
+  TrendingUp,
+  DollarSign,
+  Briefcase,
+  Layers,
+  Award,
+  Calendar,
+  CheckCircle2,
+  Sparkles,
+  Download,
+} from 'lucide-react'
+import { useEmpresa } from '@/hooks/use-empresa'
+import { useToast } from '@/hooks/use-toast'
+import { FolhaService, SalvarLinhaFolhaPayload } from '@/services/folha'
+import { FolhaPagamentoLinha, calcularMensalLiquido } from '@/types/folha'
+import { LOGO_GC_MIX_HORIZONTAL } from '@/assets/logos'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import {
   Card,
   CardContent,
@@ -6,9 +36,29 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from '@/components/ui/tabs'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -17,248 +67,194 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { useUsuario } from '@/hooks/use-usuario'
-import { FolhaService, SalvarLinhaFolhaPayload } from '@/services/folha'
-import {
-  FolhaCompetencia,
-  FolhaPagamentoLinha,
-  TipoColaboradorFolha,
-  calcularMensalLiquido,
-} from '@/types/folha'
-import { ModalImportarFolhaCSV } from '@/components/ModalImportarFolhaCSV'
-import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from '@/assets/logos'
-import {
-  Users,
-  Search,
-  Filter,
-  Download,
-  Printer,
-  Upload,
-  RefreshCw,
-  Calendar,
-  Briefcase,
-  Plus,
-  Trash2,
-  Edit,
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  Calculator,
-  ShieldCheck,
-  CheckCircle2,
-  FileSpreadsheet,
-  Building2,
-  AlertTriangle,
-} from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
 
-export default function FolhaPagamento() {
-  const { toast } = useToast()
+export function FolhaPagamento() {
   const { empresaAtiva } = useEmpresa()
-  const { isAdministrador } = useUsuario()
+  const { toast } = useToast()
 
-  const [competencias, setCompetencias] = useState<FolhaCompetencia[]>([])
-  const [competenciaAtiva, setCompetenciaAtiva] = useState<string>('2026-09')
-  const [linhasFolha, setLinhasFolha] = useState<FolhaPagamentoLinha[]>([])
-  const [loading, setLoading] = useState(true)
-  const [modalImportarOpen, setModalImportarOpen] = useState(false)
+  // Competência selecionada (ex: '2026-09')
+  const [competencia, setCompetencia] = useState<string>('2026-09')
+  const [competenciasDisponiveis, setCompetenciasDisponiveis] = useState<string[]>([])
+  const [linhas, setLinhas] = useState<FolhaPagamentoLinha[]>([])
+  const [carregando, setCarregando] = useState(false)
+  const [abaAtiva, setAbaAtiva] = useState<string>('mensal')
 
   // Filtros
   const [busca, setBusca] = useState('')
-  const [tipoFiltro, setTipoFiltro] = useState<string>('todos')
-  const [funcaoFiltro, setFuncaoFiltro] = useState<string>('todos')
+  const [mostrarOcultos, setMostrarOcultos] = useState(false)
+  const [filtroTipo, setFiltroTipo] = useState<'todos' | 'funcionarios' | 'terceiros'>('todos')
 
-  // Modais de Edição/Criação, Holerite e Confirmação de Exclusão
-  const [modalFormOpen, setModalFormOpen] = useState(false)
-  const [linhaEditando, setLinhaEditando] = useState<Partial<SalvarLinhaFolhaPayload> | null>(null)
+  // Modal Edição / Criação
+  const [modalAberto, setModalAberto] = useState(false)
+  const [linhaEmEdicao, setLinhaEmEdicao] = useState<Partial<FolhaPagamentoLinha> | null>(null)
+  const [comissaoModoManual, setComissaoModoManual] = useState(false)
+
+  // Modal Exclusão
   const [linhaParaExcluir, setLinhaParaExcluir] = useState<FolhaPagamentoLinha | null>(null)
-  const [holeriteModal, setHoleriteModal] = useState<FolhaPagamentoLinha | null>(null)
-  const [salvandoLinha, setSalvandoLinha] = useState(false)
-  const [excluindoLinha, setExcluindoLinha] = useState(false)
 
-  // Carrega lista de competências da empresa ativa
-  const carregarCompetencias = async () => {
-    if (!empresaAtiva) return
-    try {
-      const comps = await FolhaService.getCompetencias(empresaAtiva.id)
-      setCompetencias(comps)
+  // Holerite / Impressão
+  const [linhaHolerite, setLinhaHolerite] = useState<FolhaPagamentoLinha | null>(null)
+  const holeriteRef = useRef<HTMLDivElement>(null)
 
-      if (comps.length > 0) {
-        if (!comps.some((c) => c.competencia === competenciaAtiva)) {
-          setCompetenciaAtiva(comps[0].competencia)
-        }
-      }
-    } catch (e) {
-      console.error('Erro ao carregar competências:', e)
-    }
-  }
-
-  // Carrega linhas da folha
-  const carregarLinhasFolha = async () => {
-    if (!empresaAtiva || !competenciaAtiva) return
-    setLoading(true)
-    try {
-      const linhas = await FolhaService.getLinhasCompetencia(
-        empresaAtiva.id,
-        competenciaAtiva,
-      )
-      setLinhasFolha(linhas)
-    } catch (e) {
-      console.error('Erro ao carregar linhas da folha:', e)
-      toast({
-        title: 'Erro ao carregar folha',
-        description: 'Não foi possível buscar as linhas desta competência.',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // Carregar lista de competências disponíveis
   useEffect(() => {
-    if (empresaAtiva) {
-      carregarCompetencias()
+    async function carregarCompetencias() {
+      if (!empresaAtiva?.id) return
+      try {
+        const comps = await FolhaService.getCompetencias(empresaAtiva.id)
+        const nomesComps = comps.map((c) => c.competencia).sort().reverse()
+        if (nomesComps.length > 0) {
+          setCompetenciasDisponiveis(nomesComps)
+          // Se a atual não estiver, define para a mais recente ou mantém 2026-09 se existir
+          setCompetencia((prev) => {
+            if (!nomesComps.includes(prev)) {
+              return nomesComps.includes('2026-09') ? '2026-09' : nomesComps[0]
+            }
+            return prev
+          })
+        } else {
+          setCompetenciasDisponiveis(['2026-09', '2026-08', '2026-07'])
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar competências:', err)
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    carregarCompetencias()
   }, [empresaAtiva?.id])
 
+  // Carregar linhas da folha para a empresa e competência ativa
   useEffect(() => {
-    if (empresaAtiva && competenciaAtiva) {
-      carregarLinhasFolha()
+    async function carregarLinhas() {
+      if (!empresaAtiva?.id || !competencia) return
+      setCarregando(true)
+      try {
+        const data = await FolhaService.getLinhasCompetencia(empresaAtiva.id, competencia)
+        setLinhas(data)
+      } catch (err: any) {
+        toast({
+          title: 'Erro ao carregar folha',
+          description: err.message || 'Não foi possível carregar os lançamentos.',
+          variant: 'destructive',
+        })
+      } finally {
+        setCarregando(false)
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empresaAtiva?.id, competenciaAtiva])
+    carregarLinhas()
+  }, [empresaAtiva?.id, competencia, toast])
 
-  // Funções únicas para filtro
-  const funcoesDisponiveis = useMemo(() => {
-    const s = new Set<string>()
-    linhasFolha.forEach((l) => {
-      if (l.funcao) s.add(l.funcao)
-    })
-    return Array.from(s).sort()
-  }, [linhasFolha])
+  // Navegação anterior / próxima competência
+  const mudarCompetencia = (delta: number) => {
+    const idx = competenciasDisponiveis.indexOf(competencia)
+    if (idx !== -1) {
+      const novoIdx = idx - delta // lista está invertida (mais recentes primeiro)
+      if (novoIdx >= 0 && novoIdx < competenciasDisponiveis.length) {
+        setCompetencia(competenciasDisponiveis[novoIdx])
+        return
+      }
+    }
+    // Fallback: cálculo de data
+    const [ano, mes] = competencia.split('-').map(Number)
+    const data = new Date(ano, mes - 1 + delta, 1)
+    const novoAno = data.getFullYear()
+    const novoMes = String(data.getMonth() + 1).padStart(2, '0')
+    setCompetencia(`${novoAno}-${novoMes}`)
+  }
 
-  // Filtragem das linhas
+  // Filtragem de linhas
   const linhasFiltradas = useMemo(() => {
-    const q = busca.toLowerCase().trim()
-    return linhasFolha.filter((l) => {
-      if (tipoFiltro !== 'todos' && l.tipo !== tipoFiltro) {
-        return false
+    return linhas.filter((l) => {
+      if (!mostrarOcultos && l.oculto) return false
+      if (filtroTipo === 'funcionarios' && l.tipo === 'Terceiro') return false
+      if (filtroTipo === 'terceiros' && l.tipo !== 'Terceiro') return false
+      if (busca.trim()) {
+        const termo = busca.toLowerCase()
+        const nomeOk = l.nome?.toLowerCase().includes(termo)
+        const funcaoOk = l.funcao?.toLowerCase().includes(termo)
+        const pixOk = (l.pix || l.chave_pix || '').toLowerCase().includes(termo)
+        if (!nomeOk && !funcaoOk && !pixOk) return false
       }
-      if (funcaoFiltro !== 'todos' && l.funcao !== funcaoFiltro) {
-        return false
-      }
-      if (!q) return true
-
-      const nomeOk = l.nome.toLowerCase().includes(q)
-      const funcOk = l.funcao.toLowerCase().includes(q)
-      const unidOk = l.unidade.toLowerCase().includes(q)
-      const contaOk = l.conta ? l.conta.toLowerCase().includes(q) : false
-      const pixOk = l.pix ? l.pix.toLowerCase().includes(q) : false
-
-      return nomeOk || funcOk || unidOk || contaOk || pixOk
+      return true
     })
-  }, [linhasFolha, busca, tipoFiltro, funcaoFiltro])
+  }, [linhas, mostrarOcultos, filtroTipo, busca])
 
-  // Totais consolidados
-  const totaisFiltrados = useMemo(() => {
+  // Totais calculados da competência (baseados nas linhas filtradas/visíveis ou de todas)
+  const totais = useMemo(() => {
     return FolhaService.calcularTotais(linhasFiltradas)
   }, [linhasFiltradas])
 
-  const totaisCompetencia = useMemo(() => {
-    return FolhaService.calcularTotais(linhasFolha)
-  }, [linhasFolha])
-
-  // Competência formatada legível (ex: "Setembro / 2026")
-  const labelCompetencia = useMemo(() => {
-    if (!competenciaAtiva) return ''
-    const [ano, mes] = competenciaAtiva.split('-')
-    const dataObj = new Date(Number(ano), Number(mes) - 1, 1)
-    const nomeMes = dataObj.toLocaleDateString('pt-BR', { month: 'long' })
-    return `${nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)} / ${ano}`
-  }, [competenciaAtiva])
-
-  // Abrir modal para novo colaborador
-  const handleNovoColaborador = () => {
-    const unidadeSugerida = empresaAtiva?.slug?.toUpperCase() || 'SJE'
-    setLinhaEditando({
-      empresa_id: empresaAtiva?.id,
-      competencia: competenciaAtiva,
-      tipo: 'Funcionario',
-      nome: '',
-      funcao: '',
-      unidade: unidadeSugerida,
-      bruto: 0,
-      filhos: 0,
-      inss: 0,
-      familia: 0,
-      ir: 0,
-      quinzena: 0,
-      adiantamento: 0,
-      gratificacao: 0,
-      mensal_liquido: 0,
-      producao: 0,
-      comissao: 0,
-      conta: '',
-      pix: '',
-      modo_calculo: 'Calculado',
-    })
-    setModalFormOpen(true)
+  // Abrir modal de edição/criação
+  const abrirModalEdicao = (linha?: FolhaPagamentoLinha) => {
+    if (linha) {
+      setLinhaEmEdicao({ ...linha })
+      setComissaoModoManual(linha.modo_calculo === 'Digitado')
+    } else {
+      setLinhaEmEdicao({
+        empresa_id: empresaAtiva?.id,
+        competencia,
+        tipo: 'Funcionario',
+        nome: '',
+        funcao: 'MOTORISTA',
+        unidade: empresaAtiva?.nome?.includes('Monteiro') ? 'MONTEIRO' : 'SJE',
+        bruto: 2410,
+        filhos: 0,
+        inss: 0,
+        familia: 0,
+        ir: 0,
+        quinzena: 0,
+        quinzena_2: 0,
+        adiantamento: 0,
+        gratificacao: 0,
+        obras: 0,
+        valor_obra: 20,
+        producao: 0,
+        limpeza: 0,
+        sabado: 0,
+        ferias: 0,
+        ajuda_custo: 0,
+        vendas_obra: 0,
+        comissao: 0,
+        vendas_ajuda: 0,
+        mensal_liquido: 2410,
+        conta: '',
+        pix: '',
+        modo_calculo: 'Calculado',
+        oculto: false,
+      })
+      setComissaoModoManual(false)
+    }
+    setModalAberto(true)
   }
 
-  // Abrir modal para editar colaborador
-  const handleEditarColaborador = (linha: FolhaPagamentoLinha) => {
-    setLinhaEditando({
-      ...linha,
-    })
-    setModalFormOpen(true)
-  }
-
-  // Atualizar campo no form com recálculo automático quando modo for 'Calculado'
-  const handleCampoFormChange = (campo: string, valor: any) => {
-    if (!linhaEditando) return
-
-    setLinhaEditando((prev) => {
+  // Recalcular dinamicamente os proventos e líquido no formulário
+  const atualizarCampoEdicao = (campo: keyof FolhaPagamentoLinha, valor: any) => {
+    setLinhaEmEdicao((prev) => {
       if (!prev) return null
-      const novo = { ...prev, [campo]: valor }
+      const updated = { ...prev, [campo]: valor }
 
-      // Se for alteração do modo manual/automático
-      if (campo === 'modo_calculo') {
-        if (valor === 'Calculado') {
-          novo.mensal_liquido = calcularMensalLiquido(novo)
-        }
-        return novo
+      // Se mudou obras ou valor_obra, recalcula produção
+      if (campo === 'obras' || campo === 'valor_obra') {
+        const obs = Number(campo === 'obras' ? valor : updated.obras || 0)
+        const valOb = Number(campo === 'valor_obra' ? valor : updated.valor_obra ?? 20)
+        updated.producao = obs * valOb
       }
 
-      // Se o colaborador mudou para 'Terceiro', zera Bruto/INSS caso estejam sem valor fixado
-      if (campo === 'tipo' && valor === 'Terceiro') {
-        if (Number(novo.bruto || 0) === 0) novo.bruto = 0
-        if (Number(novo.inss || 0) === 0) novo.inss = 0
+      // Se mudou vendas_obra e comissão automática
+      if (campo === 'vendas_obra' && !comissaoModoManual) {
+        const vendas = Number(valor || 0)
+        updated.comissao = Math.round(vendas * 0.005 * 100) / 100
       }
 
-      // Se estiver no modo 'Calculado', recalcula automaticamente o Líquido Mensal
-      if (novo.modo_calculo !== 'Digitado') {
-        novo.mensal_liquido = calcularMensalLiquido(novo)
-      }
-
-      return novo
+      // Recalcula o líquido conforme a fórmula oficial do legado
+      updated.mensal_liquido = calcularMensalLiquido(updated as any)
+      return updated
     })
   }
 
-  // Salvar formulário
-  const handleSalvarLinha = async () => {
-    if (!linhaEditando || !empresaAtiva) return
-
-    if (!linhaEditando.nome || !linhaEditando.nome.trim()) {
+  // Salvar linha
+  const salvarLinha = async () => {
+    if (!linhaEmEdicao || !empresaAtiva?.id) return
+    if (!linhaEmEdicao.nome?.trim()) {
       toast({
         title: 'Nome obrigatório',
         description: 'Informe o nome do colaborador.',
@@ -267,1576 +263,1362 @@ export default function FolhaPagamento() {
       return
     }
 
-    setSalvandoLinha(true)
     try {
       const payload: SalvarLinhaFolhaPayload = {
-        id: linhaEditando.id,
+        id: linhaEmEdicao.id,
         empresa_id: empresaAtiva.id,
-        competencia: competenciaAtiva,
-        tipo: (linhaEditando.tipo as TipoColaboradorFolha) || 'Funcionario',
-        nome: linhaEditando.nome.trim(),
-        funcao: (linhaEditando.funcao || 'Geral').trim(),
-        unidade: (linhaEditando.unidade || 'SJE').trim(),
-        bruto: Number(linhaEditando.bruto || 0),
-        filhos: Number(linhaEditando.filhos || 0),
-        inss: Number(linhaEditando.inss || 0),
-        familia: Number(linhaEditando.familia || 0),
-        ir: Number(linhaEditando.ir || 0),
-        quinzena: Number(linhaEditando.quinzena || 0),
-        adiantamento: Number(linhaEditando.adiantamento || 0),
-        gratificacao: Number(linhaEditando.gratificacao || 0),
-        mensal_liquido: Number(linhaEditando.mensal_liquido || 0),
-        producao: Number(linhaEditando.producao || 0),
-        comissao: Number(linhaEditando.comissao || 0),
-        conta: linhaEditando.conta || '',
-        pix: linhaEditando.pix || '',
-        modo_calculo: linhaEditando.modo_calculo || 'Calculado',
+        competencia,
+        tipo: linhaEmEdicao.tipo || 'Funcionario',
+        nome: linhaEmEdicao.nome.trim().toUpperCase(),
+        cargo: linhaEmEdicao.funcao || 'Geral',
+        funcao: linhaEmEdicao.funcao || 'Geral',
+        unidade: linhaEmEdicao.unidade || (empresaAtiva.nome.includes('Monteiro') ? 'MONTEIRO' : 'SJE'),
+        bruto: Number(linhaEmEdicao.bruto || 0),
+        salario_base: Number(linhaEmEdicao.bruto || 0),
+        filhos: Number(linhaEmEdicao.filhos || 0),
+        inss: Number(linhaEmEdicao.inss || 0),
+        familia: Number(linhaEmEdicao.familia || 0),
+        ir: Number(linhaEmEdicao.ir || 0),
+        quinzena: Number(linhaEmEdicao.quinzena || 0),
+        quinzena_2: Number(linhaEmEdicao.quinzena_2 || 0),
+        adiantamento: Number(linhaEmEdicao.adiantamento || 0),
+        gratificacao: Number(linhaEmEdicao.gratificacao || 0),
+        obras: Number(linhaEmEdicao.obras || 0),
+        valor_obra: Number(linhaEmEdicao.valor_obra ?? 20),
+        producao: Number(linhaEmEdicao.producao || 0),
+        limpeza: Number(linhaEmEdicao.limpeza || 0),
+        sabado: Number(linhaEmEdicao.sabado || 0),
+        ferias: Number(linhaEmEdicao.ferias || 0),
+        ajuda_custo: Number(linhaEmEdicao.ajuda_custo || 0),
+        vendas_obra: Number(linhaEmEdicao.vendas_obra || 0),
+        comissao: Number(linhaEmEdicao.comissao || 0),
+        vendas_ajuda: Number(linhaEmEdicao.vendas_ajuda || 0),
+        mensal_liquido: Number(linhaEmEdicao.mensal_liquido || 0),
+        salario_liquido: Number(linhaEmEdicao.mensal_liquido || 0),
+        conta: linhaEmEdicao.conta || '',
+        pix: linhaEmEdicao.pix || '',
+        chave_pix: linhaEmEdicao.pix || '',
+        modo_calculo: comissaoModoManual ? 'Digitado' : 'Calculado',
+        oculto: Boolean(linhaEmEdicao.oculto),
+        inativo: Boolean(linhaEmEdicao.inativo),
       }
 
-      await FolhaService.salvarLinha(payload)
-
+      const salva = await FolhaService.salvarLinha(payload)
       toast({
-        title: linhaEditando.id ? 'Colaborador atualizado!' : 'Colaborador adicionado!',
-        description: `${payload.nome} salvo na folha de ${labelCompetencia}.`,
+        title: 'Registro salvo',
+        description: `Lançamento de ${salva.nome} atualizado com sucesso.`,
       })
 
-      setModalFormOpen(false)
-      setLinhaEditando(null)
-      carregarLinhasFolha()
-      carregarCompetencias()
+      // Atualiza lista local
+      setLinhas((prev) => {
+        const idx = prev.findIndex((l) => l.id === salva.id)
+        if (idx !== -1) {
+          const copia = [...prev]
+          copia[idx] = salva
+          return copia
+        }
+        return [...prev, salva]
+      })
+
+      setModalAberto(false)
     } catch (err: any) {
       toast({
-        title: 'Erro ao salvar colaborador',
-        description: err.message,
+        title: 'Erro ao salvar',
+        description: err.message || 'Ocorreu um erro ao gravar a linha.',
         variant: 'destructive',
       })
-    } finally {
-      setSalvandoLinha(false)
     }
   }
 
-  // Excluir colaborador
-  const handleConfirmarExclusao = async () => {
-    if (!linhaParaExcluir || !empresaAtiva) return
-
-    setExcluindoLinha(true)
+  // Excluir linha
+  const confirmarExclusao = async () => {
+    if (!linhaParaExcluir || !empresaAtiva?.id) return
     try {
-      await FolhaService.excluirLinha(
-        linhaParaExcluir.id,
-        empresaAtiva.id,
-        competenciaAtiva,
-      )
-
+      await FolhaService.excluirLinha(linhaParaExcluir.id, empresaAtiva.id, competencia)
+      setLinhas((prev) => prev.filter((l) => l.id !== linhaParaExcluir.id))
       toast({
-        title: 'Registro excluído',
-        description: `${linhaParaExcluir.nome} removido da competência.`,
+        title: 'Lançamento excluído',
+        description: `O registro de ${linhaParaExcluir.nome} foi removido.`,
       })
-
-      setLinhaParaExcluir(null)
-      carregarLinhasFolha()
-      carregarCompetencias()
     } catch (err: any) {
       toast({
         title: 'Erro ao excluir',
-        description: err.message,
+        description: err.message || 'Falha ao remover o registro.',
         variant: 'destructive',
       })
     } finally {
-      setExcluindoLinha(false)
+      setLinhaParaExcluir(null)
     }
   }
 
-  // Exportar CSV exatamente com as colunas do anexo
-  const handleExportarCSV = () => {
-    if (linhasFiltradas.length === 0) {
-      toast({
-        title: 'Sem dados para exportação',
-        description: 'Nenhum registro encontrado na listagem.',
-        variant: 'destructive',
-      })
-      return
-    }
+  // Imprimir holerite
+  const dispararImpressaoHolerite = () => {
+    window.print()
+  }
 
-    const cabecalho = [
-      'Tipo',
-      'Nome',
-      'Funcao',
-      'Unidade',
-      'Bruto',
-      'Filhos',
-      'INSS',
-      'Familia',
-      'IR',
-      'Quinzena',
-      'Adiantamento',
-      'Gratificacao',
-      'MensalLiquido',
-      'Producao',
-      'Comissao',
-      'Conta',
-      'PIX',
-    ]
-
-    const linhas = linhasFiltradas.map((l) => [
-      l.tipo,
-      `"${l.nome}"`,
-      `"${l.funcao}"`,
-      l.unidade,
-      l.tipo === 'Terceiro' && l.bruto === 0 ? '' : l.bruto.toFixed(2),
-      l.filhos || '',
-      l.tipo === 'Terceiro' && l.inss === 0 ? '' : l.inss.toFixed(2),
-      l.familia > 0 ? l.familia.toFixed(2) : '',
-      l.ir > 0 ? l.ir.toFixed(2) : '',
-      l.quinzena > 0 ? l.quinzena.toFixed(2) : '',
-      l.adiantamento > 0 ? l.adiantamento.toFixed(2) : '',
-      l.gratificacao > 0 ? l.gratificacao.toFixed(2) : '',
-      l.mensal_liquido.toFixed(2),
-      l.producao > 0 ? l.producao.toFixed(2) : '',
-      l.comissao > 0 ? l.comissao.toFixed(2) : '',
-      `"${l.conta || ''}"`,
-      `"${l.pix || ''}"`,
-    ])
-
-    // Linha de TOTAL no formato exato da planilha
-    const linhaTotal = [
-      'TOTAL',
-      '',
-      '',
-      '',
-      totaisFiltrados.totalBruto > 0 ? totaisFiltrados.totalBruto.toFixed(2) : '',
-      totaisFiltrados.totalFilhos || '',
-      totaisFiltrados.totalInss.toFixed(2),
-      totaisFiltrados.totalFamilia.toFixed(2),
-      totaisFiltrados.totalIr.toFixed(2),
-      totaisFiltrados.totalQuinzena.toFixed(2),
-      totaisFiltrados.totalAdiantamento.toFixed(2),
-      totaisFiltrados.totalGratificacao.toFixed(2),
-      totaisFiltrados.totalMensalLiquido.toFixed(2),
-      totaisFiltrados.totalProducao.toFixed(2),
-      totaisFiltrados.totalComissao.toFixed(2),
-      '',
-      '',
-    ]
-
-    const csvContent =
-      'data:text/csv;charset=utf-8,\uFEFF' +
-      [cabecalho.join(';'), ...linhas.map((e) => e.join(';')), linhaTotal.join(';')].join('\n')
-
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
-    link.setAttribute(
-      'download',
-      `folha-${competenciaAtiva}-${empresaAtiva?.slug || 'gcmix'}.csv`,
-    )
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-
-    toast({
-      title: 'CSV exportado!',
-      description: `Arquivo da folha ${competenciaAtiva} baixado com sucesso.`,
+  // Formatação em Real
+  const fmtMoeda = (val: number | undefined) => {
+    return Number(val || 0).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
     })
   }
 
-  // Formatação em R$ (pt-BR)
-  const formatMoeda = (val: number) => {
-    return val.toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-  }
+  // Formatação de competência legível: '2026-09' -> 'Setembro / 2026'
+  const rotuloCompetencia = useMemo(() => {
+    const meses = [
+      'Janeiro',
+      'Fevereiro',
+      'Março',
+      'Abril',
+      'Maio',
+      'Junho',
+      'Julho',
+      'Agosto',
+      'Setembro',
+      'Outubro',
+      'Novembro',
+      'Dezembro',
+    ]
+    const [ano, mes] = competencia.split('-').map(Number)
+    if (!ano || !mes) return competencia
+    return `${meses[mes - 1]} de ${ano}`
+  }, [competencia])
 
   return (
-    <div className="space-y-6">
-      {/* ======================================================== */}
-      {/* CABEÇALHO EXCLUSIVO DE IMPRESSÃO A4 (Padrão Relatório Geral) */}
-      {/* ======================================================== */}
-      <div className="print-only border-b-2 border-black pb-3 mb-4 text-black bg-white">
-        <div className="flex justify-between items-start">
-          <div className="flex items-center gap-3">
-            <img
-              src={LOGO_GC_MIX_HORIZONTAL}
-              alt={LOGO_ALT_TEXT}
-              className="h-10 w-auto object-contain"
-            />
-            <div>
-              <h1 className="text-lg font-black uppercase tracking-wider text-black leading-tight">
-                GC MIX CONCRETO USINADO • {empresaAtiva?.nome?.toUpperCase() || ''}
-              </h1>
-              <p className="text-xs font-bold text-black">
-                Folha Mensal de Pagamento — Unidade {empresaAtiva?.slug?.toUpperCase() || 'SJE'}
-              </p>
-              {empresaAtiva?.cnpj && (
-                <p className="text-[10px] text-gray-700">
-                  CNPJ: {empresaAtiva.cnpj}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="text-right text-[10px] text-black">
-            <p className="font-bold">
-              Competência: <strong>{labelCompetencia}</strong> ({competenciaAtiva})
-            </p>
-            <p>Emissão: {new Date().toLocaleString('pt-BR')}</p>
-            <p>Empresa: {empresaAtiva?.nome}</p>
-          </div>
-        </div>
-
-        {/* Quadro resumo na impressão geral */}
-        <div className="mt-3 grid grid-cols-4 gap-2 p-2 bg-gray-100 border border-gray-400 rounded text-xs text-black font-mono">
-          <div>
-            <span className="text-[9px] uppercase font-bold text-gray-600 block font-sans">
-              Total Colaboradores
-            </span>
-            <strong className="text-sm">
-              {totaisCompetencia.totalRegistros} ({totaisCompetencia.totalFuncionarios} F / {totaisCompetencia.totalTerceiros} T)
-            </strong>
-          </div>
-          <div>
-            <span className="text-[9px] uppercase font-bold text-gray-600 block font-sans">
-              Total Bruto
-            </span>
-            <strong className="text-sm">
-              R$ {formatMoeda(totaisCompetencia.totalBruto)}
-            </strong>
-          </div>
-          <div>
-            <span className="text-[9px] uppercase font-bold text-gray-600 block font-sans">
-              INSS Retido
-            </span>
-            <strong className="text-sm text-red-700">
-              R$ {formatMoeda(totaisCompetencia.totalInss)}
-            </strong>
-          </div>
-          <div>
-            <span className="text-[9px] uppercase font-bold text-gray-600 block font-sans">
-              Líquido da Folha
-            </span>
-            <strong className="text-sm text-black">
-              R$ {formatMoeda(totaisCompetencia.totalMensalLiquido)}
-            </strong>
-          </div>
-        </div>
-      </div>
-
-      {/* ======================================================== */}
-      {/* CABEÇALHO DA TELA NA APLICAÇÃO */}
-      {/* ======================================================== */}
-      <div className="no-print flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-border/40 pb-4">
-        <div className="flex items-center gap-3.5">
-          <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-border/60 shadow-sm shrink-0">
-            <img
-              src={LOGO_GC_MIX_HORIZONTAL}
-              alt={LOGO_ALT_TEXT}
-              className="h-10 sm:h-12 w-auto max-w-[170px] sm:max-w-[210px] object-contain rounded-lg"
-            />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2 flex-wrap">
-              <span>Folha de Pagamento</span>
-              <Badge
-                variant="outline"
-                className="text-xs bg-primary/10 text-primary border-primary/30 font-semibold"
-              >
-                {empresaAtiva?.nome || 'Unidade'}
-              </Badge>
-              <Badge variant="secondary" className="text-xs font-mono font-bold">
-                {labelCompetencia || competenciaAtiva}
-              </Badge>
+    <div className="space-y-6 print:m-0 print:p-0">
+      {/* CABEÇALHO DA TELA & NAVEGAÇÃO DE COMPETÊNCIA */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card border rounded-lg p-4 shadow-sm print:hidden">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Briefcase className="h-6 w-6 text-primary" />
+              Folha de Pagamento
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Gestão de proventos, deduções, horas/produção, comissões, terceiros e holerites individuais
-            </p>
+            <Badge variant="outline" className="text-xs font-semibold uppercase">
+              {empresaAtiva?.nome || 'Unidade'}
+            </Badge>
           </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            Gestão integrada da folha mensal, quinzena, produção de obras e comissões de vendas.
+          </p>
         </div>
 
-        {/* Barra de ações superiores */}
-        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-          {/* Seletor de Competência */}
-          <div className="flex items-center gap-1.5 bg-card border border-border/50 rounded-lg px-2.5 py-1">
-            <Calendar className="w-4 h-4 text-primary" />
-            <span className="text-xs text-muted-foreground font-medium hidden sm:inline">
-              Mês:
-            </span>
-            <input
-              type="month"
-              value={competenciaAtiva}
-              onChange={(e) => setCompetenciaAtiva(e.target.value)}
-              className="bg-transparent text-xs font-mono font-bold text-foreground focus:outline-none cursor-pointer"
-            />
+        {/* Seletor de Competência */}
+        <div className="flex items-center gap-2 bg-muted/60 p-1.5 rounded-lg border">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => mudarCompetencia(-1)}
+            title="Competência anterior"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+
+          <div className="flex items-center gap-2 px-2">
+            <Calendar className="h-4 w-4 text-primary" />
+            <Select value={competencia} onValueChange={(val) => setCompetencia(val)}>
+              <SelectTrigger className="h-8 w-44 font-semibold bg-background">
+                <SelectValue>{rotuloCompetencia}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {competenciasDisponiveis.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleNovoColaborador}
-            className="gap-1.5 bg-primary text-primary-foreground font-semibold shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Novo Registro
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setModalImportarOpen(true)}
-            className="gap-1.5 text-xs"
-          >
-            <Upload className="w-4 h-4 text-primary" />
-            Importar CSV
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportarCSV}
-            className="gap-1.5 text-xs"
-          >
-            <Download className="w-4 h-4 text-emerald-500" />
-            Exportar CSV
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.print()}
-            className="gap-1.5 text-xs"
-          >
-            <Printer className="w-4 h-4" />
-            Imprimir A4
-          </Button>
 
           <Button
             variant="ghost"
             size="icon"
-            onClick={carregarLinhasFolha}
-            disabled={loading}
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            title="Recarregar"
+            className="h-8 w-8"
+            onClick={() => mudarCompetencia(1)}
+            title="Próxima competência"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+
+          <Button
+            size="sm"
+            className="ml-2 gap-1.5"
+            onClick={() => abrirModalEdicao()}
+          >
+            <Plus className="h-4 w-4" />
+            Novo Lançamento
           </Button>
         </div>
       </div>
 
-      {/* ======================================================== */}
-      {/* CARDS COM MÉTRICAS PRINCIPAIS DA FOLHA REAL */}
-      {/* ======================================================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total Registros */}
-        <Card className="bg-gradient-to-br from-card/90 to-card/50 border-border/50 shadow-sm relative overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Colaboradores
-            </CardTitle>
-            <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
+      {/* 4 CARDS NO TOPO: Total da Folha, Vendas, Comissões, Produção */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">
+        <Card className="border-l-4 border-l-primary shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total da Folha</CardTitle>
+            <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl font-black text-foreground font-mono">
-              {totaisFiltrados.totalRegistros}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 flex-wrap">
-              <span className="font-semibold text-blue-600 dark:text-blue-400">
-                {totaisFiltrados.totalFuncionarios} Funcionários
-              </span>
-              <span>•</span>
-              <span className="font-semibold text-amber-600 dark:text-amber-400">
-                {totaisFiltrados.totalTerceiros} Terceiros
-              </span>
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Card 2: Salário Bruto */}
-        <Card className="bg-gradient-to-br from-card/90 to-card/50 border-border/50 shadow-sm relative overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-              Total Bruto
-            </CardTitle>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-600 dark:text-emerald-400">
-              R$ {formatMoeda(totaisFiltrados.totalBruto)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <span>Família: R$ {formatMoeda(totaisFiltrados.totalFamilia)}</span>
-              <span>•</span>
-              <span>Gratif: R$ {formatMoeda(totaisFiltrados.totalGratificacao)}</span>
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Card 3: Descontos (INSS + IR + Quinzena + Adiantamento) */}
-        <Card className="bg-gradient-to-br from-card/90 to-card/50 border-border/50 shadow-sm relative overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-rose-600 dark:text-rose-400 uppercase tracking-wider">
-              INSS & Quinzena
-            </CardTitle>
-            <div className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center">
-              <TrendingDown className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl sm:text-3xl font-black font-mono text-rose-600 dark:text-rose-400">
-              R$ {formatMoeda(totaisFiltrados.totalInss + totaisFiltrados.totalQuinzena)}
+            <div className="text-2xl font-bold text-primary">
+              {fmtMoeda(totais.totalMensalLiquido)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              INSS: R$ {formatMoeda(totaisFiltrados.totalInss)} | Quinzena: R${' '}
-              {formatMoeda(totaisFiltrados.totalQuinzena)}
+              Soma de todos os líquidos ({totais.totalRegistros} colaboradores)
             </p>
           </CardContent>
         </Card>
 
-        {/* Card 4: Líquido Mensal a Pagar */}
-        <Card className="bg-gradient-to-br from-card/90 via-card/70 to-primary/10 border-primary/40 shadow-sm relative overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-primary uppercase tracking-wider">
-              Total Líquido Mensal
-            </CardTitle>
-            <div className="w-8 h-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center">
-              <DollarSign className="w-4 h-4" />
-            </div>
+        <Card className="border-l-4 border-l-blue-500 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Vendas</CardTitle>
+            <TrendingUp className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl font-black font-mono text-foreground">
-              R$ {formatMoeda(totaisFiltrados.totalMensalLiquido)}
+            <div className="text-2xl font-bold text-foreground">
+              {fmtMoeda(totais.totalVendas)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <span>Prod: R$ {formatMoeda(totaisFiltrados.totalProducao)}</span>
-              <span>•</span>
-              <span>Comis: R$ {formatMoeda(totaisFiltrados.totalComissao)}</span>
+            <p className="text-xs text-muted-foreground mt-1">
+              Volume faturado de concreto na competência
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-amber-500 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Comissões</CardTitle>
+            <Award className="h-4 w-4 text-amber-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {fmtMoeda(totais.totalComissao)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Comissão padrão 0,5% ou ajustada
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-emerald-500 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Produção</CardTitle>
+            <Layers className="h-4 w-4 text-emerald-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {fmtMoeda(totais.totalProducao)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {totais.totalObras} obras concluídas no mês (R$ 20/obra)
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* ======================================================== */}
-      {/* FILTROS E BUSCA */}
-      {/* ======================================================== */}
-      <Card className="no-print bg-card/60 border-border/40 shadow-sm">
-        <CardContent className="p-3 sm:p-4">
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+      {/* ABAS DO LEGADO: FOLHA MENSAL, QUINZENA, PRODUÇÃO, VENDAS */}
+      <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="space-y-4 print:hidden">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <TabsList className="bg-muted p-1">
+            <TabsTrigger value="mensal" className="gap-2">
+              <Briefcase className="h-4 w-4" />
+              FOLHA MENSAL
+            </TabsTrigger>
+            <TabsTrigger value="quinzena" className="gap-2">
+              <Calendar className="h-4 w-4" />
+              QUINZENA
+            </TabsTrigger>
+            <TabsTrigger value="producao" className="gap-2">
+              <Layers className="h-4 w-4" />
+              PRODUÇÃO
+            </TabsTrigger>
+            <TabsTrigger value="vendas" className="gap-2">
+              <TrendingUp className="h-4 w-4" />
+              VENDAS
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Filtros e Busca */}
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <div className="relative flex-1 md:w-60">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por colaborador, função, unidade, conta ou PIX..."
+                placeholder="Buscar funcionário..."
+                className="pl-8 h-9 text-sm"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                className="pl-9 h-9 text-xs"
               />
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Filtro Tipo: Funcionario vs Terceiro */}
-              <Select value={tipoFiltro} onValueChange={setTipoFiltro}>
-                <SelectTrigger className="w-[140px] h-9 text-xs">
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os Tipos</SelectItem>
-                  <SelectItem value="Funcionario">Funcionários</SelectItem>
-                  <SelectItem value="Terceiro">Terceiros</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Filtro Função */}
-              <Select value={funcaoFiltro} onValueChange={setFuncaoFiltro}>
-                <SelectTrigger className="w-[160px] h-9 text-xs">
-                  <SelectValue placeholder="Função" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todas as Funções</SelectItem>
-                  {funcoesDisponiveis.map((f) => (
-                    <SelectItem key={f} value={f}>
-                      {f}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Histórico de competências */}
-              {competencias.length > 0 && (
-                <Select
-                  value={competenciaAtiva}
-                  onValueChange={setCompetenciaAtiva}
-                >
-                  <SelectTrigger className="w-[140px] h-9 text-xs font-mono font-bold">
-                    <SelectValue placeholder="Competência" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {competencias.map((comp) => (
-                      <SelectItem
-                        key={comp.id}
-                        value={comp.competencia}
-                        className="font-mono text-xs"
-                      >
-                        {comp.competencia} ({comp.total_colaboradores} reg.)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-
-              <Badge
-                variant="outline"
-                className="text-xs font-mono py-1 px-2.5 h-9 flex items-center"
-              >
-                {linhasFiltradas.length} de {linhasFolha.length} listados
-              </Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ======================================================== */}
-      {/* TABELA PRINCIPAL DA FOLHA (COM TODAS AS COLUNAS DO ANEXO) */}
-      {/* ======================================================== */}
-      <Card className="border-border/40 bg-card/60 shadow-sm overflow-hidden">
-        <CardHeader className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/40">
-          <div>
-            <CardTitle className="text-base font-bold flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-primary" />
-              <span>
-                Quadro Geral da Folha — {labelCompetencia || competenciaAtiva}
-              </span>
-            </CardTitle>
-            <CardDescription className="text-xs mt-0.5">
-              Empresa ativa: <strong>{empresaAtiva?.nome}</strong>. Linhas de
-              Terceiro destacadas em amarelo. Totais somados no rodapé.
-            </CardDescription>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="outline"
-              className="text-xs font-mono bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+            <Select
+              value={filtroTipo}
+              onValueChange={(val: any) => setFiltroTipo(val)}
             >
-              Líquido Total: R$ {formatMoeda(totaisFiltrados.totalMensalLiquido)}
-            </Badge>
+              <SelectTrigger className="h-9 w-36 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="funcionarios">Funcionários</SelectItem>
+                <SelectItem value="terceiros">Terceiros</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant={mostrarOcultos ? 'secondary' : 'outline'}
+              size="sm"
+              className="h-9 gap-1.5 text-xs"
+              onClick={() => setMostrarOcultos(!mostrarOcultos)}
+              title="Alternar exibição de colaboradores ocultos (ex: Renilson)"
+            >
+              {mostrarOcultos ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              {mostrarOcultos ? 'Ocultos Visíveis' : 'Mostrar Ocultos'}
+            </Button>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse min-w-[1250px]">
-              <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/50 border-b border-border/40 font-semibold select-none">
-                <tr>
-                  <th className="py-2.5 px-2.5">Tipo</th>
-                  <th className="py-2.5 px-3 min-w-[160px]">Nome</th>
-                  <th className="py-2.5 px-2.5 min-w-[110px]">Função</th>
-                  <th className="py-2.5 px-2 text-center">Unid</th>
-                  <th className="py-2.5 px-2 text-right">Bruto</th>
-                  <th className="py-2.5 px-1.5 text-center">Filhos</th>
-                  <th className="py-2.5 px-2 text-right">INSS</th>
-                  <th className="py-2.5 px-2 text-right">Família</th>
-                  <th className="py-2.5 px-2 text-right">IR</th>
-                  <th className="py-2.5 px-2 text-right">Quinzena</th>
-                  <th className="py-2.5 px-2 text-right">Adiant.</th>
-                  <th className="py-2.5 px-2 text-right">Gratif.</th>
-                  <th className="py-2.5 px-2.5 text-right font-black text-foreground bg-muted/40">
-                    Líquido Mensal
-                  </th>
-                  <th className="py-2.5 px-2 text-right">Produção</th>
-                  <th className="py-2.5 px-2 text-right">Comissão</th>
-                  <th className="py-2.5 px-2.5">Conta</th>
-                  <th className="py-2.5 px-2.5">PIX</th>
-                  <th className="py-2.5 px-2.5 text-center no-print">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/20 font-mono text-[11px]">
-                {linhasFiltradas.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={18}
-                      className="py-12 text-center text-muted-foreground font-sans"
-                    >
-                      {loading ? (
-                        <div className="flex flex-col items-center justify-center gap-2">
-                          <RefreshCw className="w-6 h-6 animate-spin text-primary" />
-                          <span>Carregando folha de pagamento...</span>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center gap-3">
-                          <FileSpreadsheet className="w-10 h-10 text-muted-foreground/40" />
-                          <div>
-                            <p className="font-semibold text-foreground text-sm">
-                              Nenhum registro para {labelCompetencia || competenciaAtiva}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Importe a folha via CSV ou adicione um novo colaborador.
-                            </p>
-                          </div>
-                          <div className="flex gap-2 mt-1">
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => setModalImportarOpen(true)}
-                              className="gap-1.5 bg-primary text-primary-foreground"
-                            >
-                              <Upload className="w-4 h-4" />
-                              Importar CSV
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={handleNovoColaborador}
-                              className="gap-1.5"
-                            >
-                              <Plus className="w-4 h-4" />
-                              Adicionar Manualmente
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ) : (
-                  linhasFiltradas.map((linha) => {
-                    const isTerceiro = linha.tipo === 'Terceiro'
-
-                    return (
-                      <tr
-                        key={linha.id}
-                        className={`hover:bg-muted/25 transition-colors ${
-                          isTerceiro ? 'bg-amber-500/5' : ''
-                        }`}
-                      >
-                        {/* Tipo */}
-                        <td className="py-2 px-2.5 font-sans">
-                          {isTerceiro ? (
-                            <Badge
-                              variant="outline"
-                              className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40 font-bold text-[10px] px-1.5 py-0"
-                            >
-                              Terceiro
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 text-[10px] px-1.5 py-0"
-                            >
-                              Func.
-                            </Badge>
-                          )}
-                        </td>
-
-                        {/* Nome */}
-                        <td className="py-2 px-3 font-sans font-bold text-foreground">
-                          <span
-                            onClick={() => setHoleriteModal(linha)}
-                            className="cursor-pointer hover:underline hover:text-primary transition-colors block"
-                            title="Clique para ver o holerite individual"
-                          >
-                            {linha.nome}
-                          </span>
-                        </td>
-
-                        {/* Função */}
-                        <td className="py-2 px-2.5 font-sans text-muted-foreground text-[11px]">
-                          {linha.funcao}
-                        </td>
-
-                        {/* Unidade */}
-                        <td className="py-2 px-2 text-center font-sans font-semibold text-[10px] text-muted-foreground">
-                          {linha.unidade}
-                        </td>
-
-                        {/* Bruto */}
-                        <td className="py-2 px-2 text-right">
-                          {linha.bruto > 0 ? (
-                            formatMoeda(linha.bruto)
-                          ) : (
-                            <span className="text-muted-foreground/40">—</span>
-                          )}
-                        </td>
-
-                        {/* Filhos */}
-                        <td className="py-2 px-1.5 text-center text-muted-foreground">
-                          {linha.filhos > 0 ? linha.filhos : '0'}
-                        </td>
-
-                        {/* INSS */}
-                        <td className="py-2 px-2 text-right text-rose-600 dark:text-rose-400">
-                          {linha.inss > 0 ? (
-                            formatMoeda(linha.inss)
-                          ) : (
-                            <span className="text-muted-foreground/40">—</span>
-                          )}
-                        </td>
-
-                        {/* Família */}
-                        <td className="py-2 px-2 text-right text-emerald-600 dark:text-emerald-400">
-                          {linha.familia > 0 ? (
-                            formatMoeda(linha.familia)
-                          ) : (
-                            <span className="text-muted-foreground/40">—</span>
-                          )}
-                        </td>
-
-                        {/* IR */}
-                        <td className="py-2 px-2 text-right text-rose-600 dark:text-rose-400">
-                          {linha.ir > 0 ? (
-                            formatMoeda(linha.ir)
-                          ) : (
-                            <span className="text-muted-foreground/40">—</span>
-                          )}
-                        </td>
-
-                        {/* Quinzena */}
-                        <td className="py-2 px-2 text-right text-muted-foreground">
-                          {linha.quinzena > 0 ? (
-                            formatMoeda(linha.quinzena)
-                          ) : (
-                            <span className="text-muted-foreground/40">—</span>
-                          )}
-                        </td>
-
-                        {/* Adiantamento */}
-                        <td className="py-2 px-2 text-right text-muted-foreground">
-                          {linha.adiantamento > 0 ? (
-                            formatMoeda(linha.adiantamento)
-                          ) : (
-                            <span className="text-muted-foreground/40">—</span>
-                          )}
-                        </td>
-
-                        {/* Gratificação */}
-                        <td className="py-2 px-2 text-right text-emerald-600 dark:text-emerald-400">
-                          {linha.gratificacao > 0 ? (
-                            formatMoeda(linha.gratificacao)
-                          ) : (
-                            <span className="text-muted-foreground/40">—</span>
-                          )}
-                        </td>
-
-                        {/* Mensal Líquido */}
-                        <td className="py-2 px-2.5 text-right font-black text-foreground bg-muted/20">
-                          <div className="flex items-center justify-end gap-1">
-                            <span>{formatMoeda(linha.mensal_liquido)}</span>
-                            {linha.modo_calculo === 'Digitado' && (
-                              <Badge
-                                variant="outline"
-                                className="font-sans text-[8px] px-1 py-0 bg-amber-500/10 text-amber-600 border-amber-500/20"
-                                title="Valor fixado manualmente"
-                              >
-                                Dig.
-                              </Badge>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Produção */}
-                        <td className="py-2 px-2 text-right text-emerald-600 dark:text-emerald-400">
-                          {linha.producao > 0 ? (
-                            formatMoeda(linha.producao)
-                          ) : (
-                            <span className="text-muted-foreground/40">—</span>
-                          )}
-                        </td>
-
-                        {/* Comissão */}
-                        <td className="py-2 px-2 text-right text-emerald-600 dark:text-emerald-400">
-                          {linha.comissao > 0 ? (
-                            formatMoeda(linha.comissao)
-                          ) : (
-                            <span className="text-muted-foreground/40">—</span>
-                          )}
-                        </td>
-
-                        {/* Conta */}
-                        <td className="py-2 px-2.5 font-sans text-muted-foreground text-[10px] truncate max-w-[130px]">
-                          {linha.conta || '—'}
-                        </td>
-
-                        {/* PIX */}
-                        <td className="py-2 px-2.5 font-sans text-muted-foreground text-[10px] truncate max-w-[150px]">
-                          {linha.pix || '—'}
-                        </td>
-
-                        {/* Ações */}
-                        <td className="py-2 px-2.5 text-center font-sans no-print">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setHoleriteModal(linha)}
-                              className="h-7 w-7 text-primary hover:bg-primary/10"
-                              title="Ver Holerite"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEditarColaborador(linha)}
-                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                              title="Editar Linha"
-                            >
-                              <Edit className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setLinhaParaExcluir(linha)}
-                              className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                              title="Excluir"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
+        {/* ABA 1: FOLHA MENSAL (TABELA PRINCIPAL COMPLETA) */}
+        <TabsContent value="mensal" className="space-y-4">
+          <Card>
+            <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold">Folha Mensal — {rotuloCompetencia}</CardTitle>
+                <CardDescription className="text-xs">
+                  Colunas oficiais do sistema legado: Proventos, Descontos, Obras, Limpeza, Sábado, Vendas, Comissão e Líquido.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead className="bg-muted/70 text-muted-foreground uppercase font-semibold border-b">
+                    <tr>
+                      <th className="py-2.5 px-3 sticky left-0 bg-muted/90 z-10">Colaborador</th>
+                      <th className="py-2.5 px-2">Função</th>
+                      <th className="py-2.5 px-2 text-right">Bruto</th>
+                      <th className="py-2.5 px-2 text-center" title="Quantidade de obras">Obras</th>
+                      <th className="py-2.5 px-2 text-right" title="Valor unitário por obra">R$/Obra</th>
+                      <th className="py-2.5 px-2 text-right font-semibold text-foreground">Produção</th>
+                      <th className="py-2.5 px-2 text-right">Limp.</th>
+                      <th className="py-2.5 px-2 text-right">Sábado</th>
+                      <th className="py-2.5 px-2 text-right">Férias</th>
+                      <th className="py-2.5 px-2 text-right">Ajuda</th>
+                      <th className="py-2.5 px-2 text-right">Vendas (R$)</th>
+                      <th className="py-2.5 px-2 text-right font-semibold">Comissão</th>
+                      <th className="py-2.5 px-2 text-right text-red-600">Adiant.</th>
+                      <th className="py-2.5 px-2 text-right">Gratif.</th>
+                      <th className="py-2.5 px-2 text-right font-bold text-primary bg-primary/5">Líquido</th>
+                      <th className="py-2.5 px-3">Conta / PIX</th>
+                      <th className="py-2.5 px-2 text-center print:hidden">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {linhasFiltradas.length === 0 ? (
+                      <tr>
+                        <td colSpan={17} className="text-center py-8 text-muted-foreground">
+                          {carregando
+                            ? 'Carregando folha...'
+                            : 'Nenhum lançamento encontrado para os filtros selecionados.'}
                         </td>
                       </tr>
-                    )
-                  })
-                )}
-              </tbody>
+                    ) : (
+                      linhasFiltradas.map((l) => (
+                        <tr
+                          key={l.id}
+                          className={`hover:bg-muted/40 transition-colors ${
+                            l.oculto ? 'bg-amber-500/5 opacity-80' : ''
+                          }`}
+                        >
+                          <td className="py-2 px-3 font-medium text-foreground sticky left-0 bg-background z-10 border-r">
+                            <div className="flex items-center gap-1.5">
+                              <span>{l.nome}</span>
+                              {l.tipo === 'Terceiro' && (
+                                <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 bg-purple-100 text-purple-700 border-purple-200">
+                                  Terceiro
+                                </Badge>
+                              )}
+                              {l.oculto && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-amber-600 border-amber-300">
+                                  Oculto
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2 px-2 text-muted-foreground whitespace-nowrap">{l.funcao}</td>
+                          <td className="py-2 px-2 text-right font-mono whitespace-nowrap">
+                            {l.tipo === 'Terceiro' && l.bruto === 0 ? '-' : fmtMoeda(l.bruto)}
+                          </td>
+                          <td className="py-2 px-2 text-center font-mono">
+                            {l.obras > 0 ? (
+                              <span className="font-semibold text-primary">{l.obras}</span>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono text-muted-foreground">
+                            {l.obras > 0 ? fmtMoeda(l.valor_obra) : '-'}
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono font-medium text-foreground whitespace-nowrap">
+                            {l.producao > 0 ? fmtMoeda(l.producao) : '-'}
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono whitespace-nowrap">
+                            {l.limpeza > 0 ? fmtMoeda(l.limpeza) : '-'}
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono whitespace-nowrap">
+                            {l.sabado > 0 ? fmtMoeda(l.sabado) : '-'}
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono whitespace-nowrap">
+                            {l.ferias > 0 ? fmtMoeda(l.ferias) : '-'}
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono whitespace-nowrap">
+                            {l.ajuda_custo > 0 ? fmtMoeda(l.ajuda_custo) : '-'}
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono text-blue-600 whitespace-nowrap">
+                            {l.vendas_obra > 0 ? fmtMoeda(l.vendas_obra) : '-'}
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono whitespace-nowrap">
+                            {l.comissao > 0 ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <span className="font-semibold text-amber-600">{fmtMoeda(l.comissao)}</span>
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[9px] px-0.5 py-0 h-3.5 ${
+                                    l.modo_calculo === 'Digitado'
+                                      ? 'border-amber-400 text-amber-700 bg-amber-50'
+                                      : 'border-muted-foreground/30 text-muted-foreground'
+                                  }`}
+                                >
+                                  {l.modo_calculo === 'Digitado' ? 'Dig' : 'Calc'}
+                                </Badge>
+                              </div>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono text-red-600 whitespace-nowrap">
+                            {l.adiantamento > 0 ? fmtMoeda(l.adiantamento) : '-'}
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono text-emerald-600 whitespace-nowrap">
+                            {l.gratificacao > 0 ? fmtMoeda(l.gratificacao) : '-'}
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono font-bold text-primary bg-primary/5 whitespace-nowrap">
+                            {fmtMoeda(l.mensal_liquido)}
+                          </td>
+                          <td className="py-2 px-3 text-muted-foreground text-[11px] truncate max-w-[160px]" title={`${l.conta} | PIX: ${l.pix}`}>
+                            {l.pix ? `PIX: ${l.pix}` : l.conta || '-'}
+                          </td>
+                          <td className="py-2 px-2 text-center whitespace-nowrap print:hidden">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                onClick={() => setLinhaHolerite(l)}
+                                title="Ver / Imprimir Holerite"
+                              >
+                                <Printer className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                onClick={() => abrirModalEdicao(l)}
+                                title="Editar"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                onClick={() => setLinhaParaExcluir(l)}
+                                title="Excluir"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  {/* LINHA DE TOTAIS NO RODAPÉ */}
+                  <tfoot className="bg-muted font-bold text-foreground border-t-2 border-border">
+                    <tr>
+                      <td className="py-2.5 px-3 sticky left-0 bg-muted z-10 border-r">
+                        TOTAL ({linhasFiltradas.length})
+                      </td>
+                      <td className="py-2.5 px-2">-</td>
+                      <td className="py-2.5 px-2 text-right font-mono">{fmtMoeda(totais.totalBruto)}</td>
+                      <td className="py-2.5 px-2 text-center font-mono">{totais.totalObras}</td>
+                      <td className="py-2.5 px-2 text-right">-</td>
+                      <td className="py-2.5 px-2 text-right font-mono">{fmtMoeda(totais.totalProducao)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono">{fmtMoeda(totais.totalLimpeza)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono">{fmtMoeda(totais.totalSabado)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono">{fmtMoeda(totais.totalFerias)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono">{fmtMoeda(totais.totalAjudaCusto)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono text-blue-600">{fmtMoeda(totais.totalVendas)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono text-amber-600">{fmtMoeda(totais.totalComissao)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono text-red-600">{fmtMoeda(totais.totalAdiantamento)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono text-emerald-600">{fmtMoeda(totais.totalGratificacao)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono text-primary bg-primary/10">
+                        {fmtMoeda(totais.totalMensalLiquido)}
+                      </td>
+                      <td className="py-2.5 px-3" colSpan={2}></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              {/* ======================================================== */}
-              {/* LINHA DE TOTAL NO RODAPÉ (SOMATÓRIOS DO ANEXO) */}
-              {/* ======================================================== */}
-              {linhasFiltradas.length > 0 && (
-                <tfoot className="bg-muted/70 font-mono text-[11px] font-bold border-t-2 border-border/60">
-                  <tr>
-                    <td className="py-3 px-2.5 font-sans uppercase text-[10px] font-black text-foreground">
-                      TOTAL
-                    </td>
-                    <td className="py-3 px-3 font-sans text-xs">
-                      {totaisFiltrados.totalRegistros} colaboradores
-                    </td>
-                    <td className="py-3 px-2.5 font-sans text-[10px] text-muted-foreground">
-                      {totaisFiltrados.totalFuncionarios} F / {totaisFiltrados.totalTerceiros} T
-                    </td>
-                    <td></td>
-                    {/* Bruto */}
-                    <td className="py-3 px-2 text-right">
-                      {formatMoeda(totaisFiltrados.totalBruto)}
-                    </td>
-                    {/* Filhos */}
-                    <td className="py-3 px-1.5 text-center">
-                      {totaisFiltrados.totalFilhos}
-                    </td>
-                    {/* INSS */}
-                    <td className="py-3 px-2 text-right text-rose-600 dark:text-rose-400">
-                      {formatMoeda(totaisFiltrados.totalInss)}
-                    </td>
-                    {/* Família */}
-                    <td className="py-3 px-2 text-right text-emerald-600 dark:text-emerald-400">
-                      {formatMoeda(totaisFiltrados.totalFamilia)}
-                    </td>
-                    {/* IR */}
-                    <td className="py-3 px-2 text-right text-rose-600 dark:text-rose-400">
-                      {formatMoeda(totaisFiltrados.totalIr)}
-                    </td>
-                    {/* Quinzena */}
-                    <td className="py-3 px-2 text-right">
-                      {formatMoeda(totaisFiltrados.totalQuinzena)}
-                    </td>
-                    {/* Adiantamento */}
-                    <td className="py-3 px-2 text-right">
-                      {formatMoeda(totaisFiltrados.totalAdiantamento)}
-                    </td>
-                    {/* Gratificação */}
-                    <td className="py-3 px-2 text-right text-emerald-600 dark:text-emerald-400">
-                      {formatMoeda(totaisFiltrados.totalGratificacao)}
-                    </td>
-                    {/* Líquido Mensal */}
-                    <td className="py-3 px-2.5 text-right font-black text-foreground bg-muted/40 text-xs">
-                      {formatMoeda(totaisFiltrados.totalMensalLiquido)}
-                    </td>
-                    {/* Produção */}
-                    <td className="py-3 px-2 text-right text-emerald-600 dark:text-emerald-400">
-                      {formatMoeda(totaisFiltrados.totalProducao)}
-                    </td>
-                    {/* Comissão */}
-                    <td className="py-3 px-2 text-right text-emerald-600 dark:text-emerald-400">
-                      {formatMoeda(totaisFiltrados.totalComissao)}
-                    </td>
-                    <td colSpan={2}></td>
-                    <td className="no-print"></td>
-                  </tr>
-                </tfoot>
-              )}
-            </table>
+        {/* ABA 2: QUINZENA */}
+        <TabsContent value="quinzena" className="space-y-4">
+          <Card>
+            <CardHeader className="py-3 px-4 border-b">
+              <CardTitle className="text-base font-semibold">Controle de Quinzena e Adiantamentos</CardTitle>
+              <CardDescription className="text-xs">
+                Valores adiantados na 1ª quinzena e descontos programados da competência {rotuloCompetencia}.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead className="bg-muted/70 text-muted-foreground uppercase font-semibold border-b">
+                    <tr>
+                      <th className="py-2.5 px-3 sticky left-0 bg-muted/90 z-10">Colaborador</th>
+                      <th className="py-2.5 px-2">Função</th>
+                      <th className="py-2.5 px-2 text-right">Salário Base</th>
+                      <th className="py-2.5 px-2 text-right font-semibold text-blue-600">1ª Quinzena</th>
+                      <th className="py-2.5 px-2 text-right text-muted-foreground">2ª Quinzena</th>
+                      <th className="py-2.5 px-2 text-right font-semibold text-red-600">Adiantamento Total</th>
+                      <th className="py-2.5 px-2 text-right font-bold text-primary">Líquido Final</th>
+                      <th className="py-2.5 px-3">Chave PIX / Banco</th>
+                      <th className="py-2.5 px-2 text-center print:hidden">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {linhasFiltradas.map((l) => (
+                      <tr key={l.id} className="hover:bg-muted/40 transition-colors">
+                        <td className="py-2 px-3 font-medium text-foreground sticky left-0 bg-background z-10 border-r">
+                          {l.nome}
+                        </td>
+                        <td className="py-2 px-2 text-muted-foreground">{l.funcao}</td>
+                        <td className="py-2 px-2 text-right font-mono">{fmtMoeda(l.bruto)}</td>
+                        <td className="py-2 px-2 text-right font-mono text-blue-600 font-medium">
+                          {l.quinzena > 0 ? fmtMoeda(l.quinzena) : '-'}
+                        </td>
+                        <td className="py-2 px-2 text-right font-mono text-muted-foreground">
+                          {l.quinzena_2 && l.quinzena_2 > 0 ? fmtMoeda(l.quinzena_2) : '-'}
+                        </td>
+                        <td className="py-2 px-2 text-right font-mono text-red-600 font-semibold">
+                          {l.adiantamento > 0 ? fmtMoeda(l.adiantamento) : '-'}
+                        </td>
+                        <td className="py-2 px-2 text-right font-mono font-bold text-primary">
+                          {fmtMoeda(l.mensal_liquido)}
+                        </td>
+                        <td className="py-2 px-3 text-muted-foreground text-[11px]">
+                          {l.pix || l.conta || '-'}
+                        </td>
+                        <td className="py-2 px-2 text-center print:hidden">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            onClick={() => abrirModalEdicao(l)}
+                            title="Editar adiantamento"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-muted font-bold text-foreground border-t-2 border-border">
+                    <tr>
+                      <td className="py-2.5 px-3 sticky left-0 bg-muted z-10 border-r">TOTAL</td>
+                      <td className="py-2.5 px-2">-</td>
+                      <td className="py-2.5 px-2 text-right font-mono">{fmtMoeda(totais.totalBruto)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono text-blue-600">{fmtMoeda(totais.totalQuinzena)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono text-muted-foreground">{fmtMoeda(totais.totalQuinzena2)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono text-red-600">{fmtMoeda(totais.totalAdiantamento)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono text-primary">{fmtMoeda(totais.totalMensalLiquido)}</td>
+                      <td className="py-2.5 px-3" colSpan={2}></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ABA 3: PRODUÇÃO (OBRAS E RANKING) */}
+        <TabsContent value="producao" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card className="lg:col-span-2">
+              <CardHeader className="py-3 px-4 border-b">
+                <CardTitle className="text-base font-semibold">Tabela de Produção por Funcionário</CardTitle>
+                <CardDescription className="text-xs">
+                  Cálculo de obras atendidas multiplicadas pela taxa contratual (padrão R$ 20,00 por obra).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead className="bg-muted/70 text-muted-foreground uppercase font-semibold border-b">
+                      <tr>
+                        <th className="py-2.5 px-3">Funcionário</th>
+                        <th className="py-2.5 px-2">Função</th>
+                        <th className="py-2.5 px-2 text-center">Obras</th>
+                        <th className="py-2.5 px-2 text-right">Valor Unit.</th>
+                        <th className="py-2.5 px-2 text-right font-semibold text-emerald-600">Total Produção</th>
+                        <th className="py-2.5 px-2 text-right">Limpeza</th>
+                        <th className="py-2.5 px-2 text-right">Sábado</th>
+                        <th className="py-2.5 px-2 text-center print:hidden">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {linhasFiltradas
+                        .filter((l) => l.obras > 0 || l.producao > 0 || l.limpeza > 0 || l.sabado > 0)
+                        .map((l) => (
+                          <tr key={l.id} className="hover:bg-muted/40 transition-colors">
+                            <td className="py-2 px-3 font-medium text-foreground">{l.nome}</td>
+                            <td className="py-2 px-2 text-muted-foreground">{l.funcao}</td>
+                            <td className="py-2 px-2 text-center font-mono font-bold text-primary">{l.obras}</td>
+                            <td className="py-2 px-2 text-right font-mono text-muted-foreground">{fmtMoeda(l.valor_obra)}</td>
+                            <td className="py-2 px-2 text-right font-mono font-semibold text-emerald-600">
+                              {fmtMoeda(l.producao)}
+                            </td>
+                            <td className="py-2 px-2 text-right font-mono">{fmtMoeda(l.limpeza)}</td>
+                            <td className="py-2 px-2 text-right font-mono">{fmtMoeda(l.sabado)}</td>
+                            <td className="py-2 px-2 text-center print:hidden">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                onClick={() => abrirModalEdicao(l)}
+                                title="Editar produção"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Ranking de Produção do Mês */}
+            <Card>
+              <CardHeader className="py-3 px-4 border-b">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Award className="h-4 w-4 text-amber-500" />
+                  Top Ranking de Obras
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Colaboradores com maior volume de entregas no mês.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3">
+                {linhas
+                  .filter((l) => l.obras > 0)
+                  .sort((a, b) => b.obras - a.obras)
+                  .slice(0, 5)
+                  .map((l, index) => (
+                    <div
+                      key={l.id}
+                      className="flex items-center justify-between p-2.5 rounded-lg border bg-muted/30"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold ${
+                            index === 0
+                              ? 'bg-amber-500 text-white'
+                              : index === 1
+                              ? 'bg-slate-400 text-white'
+                              : index === 2
+                              ? 'bg-amber-700 text-white'
+                              : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-foreground leading-none">{l.nome}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{l.funcao}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-bold text-primary font-mono">{l.obras} obras</span>
+                        <p className="text-[10px] text-muted-foreground">{fmtMoeda(l.producao)}</p>
+                      </div>
+                    </div>
+                  ))}
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
+        </TabsContent>
 
-      {/* ======================================================== */}
-      {/* MODAL PARA INCLUIR / EDITAR COLABORADOR DA FOLHA */}
-      {/* ======================================================== */}
-      {modalFormOpen && linhaEditando && (
-        <Dialog open={modalFormOpen} onOpenChange={setModalFormOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-base font-bold flex items-center gap-2">
-                <Briefcase className="w-5 h-5 text-primary" />
-                <span>
-                  {linhaEditando.id ? 'Editar Colaborador na Folha' : 'Novo Registro de Folha'}
-                </span>
-                <Badge variant="outline" className="text-xs font-mono ml-2">
-                  {competenciaAtiva}
-                </Badge>
-              </DialogTitle>
-              <DialogDescription className="text-xs">
-                Preencha todos os proventos, deduções e dados bancários. O Líquido
-                Mensal é calculado automaticamente pela fórmula oficial, com opção
-                de sobrescrever se necessário.
-              </DialogDescription>
-            </DialogHeader>
+        {/* ABA 4: VENDAS (VENDEDORES E TERCEIROS) */}
+        <TabsContent value="vendas" className="space-y-4">
+          <Card>
+            <CardHeader className="py-3 px-4 border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold">Comissões sobre Vendas</CardTitle>
+                <CardDescription className="text-xs">
+                  Funcionários vendedores e parceiros terceiros comissionados na competência {rotuloCompetencia}.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead className="bg-muted/70 text-muted-foreground uppercase font-semibold border-b">
+                    <tr>
+                      <th className="py-2.5 px-3">Vendedor / Terceiro</th>
+                      <th className="py-2.5 px-2">Tipo</th>
+                      <th className="py-2.5 px-2 text-right">Salário Fixo</th>
+                      <th className="py-2.5 px-2 text-right font-semibold text-blue-600">Volume Vendas</th>
+                      <th className="py-2.5 px-2 text-right font-bold text-amber-600">Comissão (0,5%)</th>
+                      <th className="py-2.5 px-2 text-center">Tipo Comissão</th>
+                      <th className="py-2.5 px-2 text-right">Ajuda de Custo</th>
+                      <th className="py-2.5 px-2 text-right font-bold text-primary">Total Líquido</th>
+                      <th className="py-2.5 px-3">Dados Bancários / PIX</th>
+                      <th className="py-2.5 px-2 text-center print:hidden">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {linhasFiltradas
+                      .filter((l) => l.vendas_obra > 0 || l.comissao > 0 || l.tipo === 'Terceiro')
+                      .map((l) => (
+                        <tr key={l.id} className="hover:bg-muted/40 transition-colors">
+                          <td className="py-2.5 px-3 font-medium text-foreground">
+                            <div className="flex items-center gap-1.5">
+                              <span>{l.nome}</span>
+                              {l.tipo === 'Terceiro' && (
+                                <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 bg-purple-100 text-purple-700">
+                                  Terceiro
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-2 text-muted-foreground">{l.funcao}</td>
+                          <td className="py-2.5 px-2 text-right font-mono">
+                            {l.bruto > 0 ? fmtMoeda(l.bruto) : '-'}
+                          </td>
+                          <td className="py-2.5 px-2 text-right font-mono text-blue-600 font-semibold">
+                            {fmtMoeda(l.vendas_obra)}
+                          </td>
+                          <td className="py-2.5 px-2 text-right font-mono font-bold text-amber-600">
+                            {fmtMoeda(l.comissao)}
+                          </td>
+                          <td className="py-2.5 px-2 text-center">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] ${
+                                l.modo_calculo === 'Digitado'
+                                  ? 'border-amber-400 text-amber-700 bg-amber-50'
+                                  : 'border-muted-foreground/30 text-muted-foreground'
+                              }`}
+                            >
+                              {l.modo_calculo === 'Digitado' ? 'Digitada' : '0,5% Auto'}
+                            </Badge>
+                          </td>
+                          <td className="py-2.5 px-2 text-right font-mono">
+                            {l.vendas_ajuda > 0 ? fmtMoeda(l.vendas_ajuda) : l.ajuda_custo > 0 ? fmtMoeda(l.ajuda_custo) : '-'}
+                          </td>
+                          <td className="py-2.5 px-2 text-right font-mono font-bold text-primary">
+                            {fmtMoeda(l.mensal_liquido)}
+                          </td>
+                          <td className="py-2.5 px-3 text-muted-foreground text-[11px]">
+                            {l.pix || l.conta || '-'}
+                          </td>
+                          <td className="py-2.5 px-2 text-center print:hidden">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={() => abrirModalEdicao(l)}
+                              title="Editar comissão e vendas"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                  <tfoot className="bg-muted font-bold text-foreground border-t-2 border-border">
+                    <tr>
+                      <td className="py-2.5 px-3">TOTAL VENDAS / COMISSÕES</td>
+                      <td className="py-2.5 px-2" colSpan={2}>-</td>
+                      <td className="py-2.5 px-2 text-right font-mono text-blue-600">{fmtMoeda(totais.totalVendas)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono text-amber-600">{fmtMoeda(totais.totalComissao)}</td>
+                      <td className="py-2.5 px-2">-</td>
+                      <td className="py-2.5 px-2 text-right font-mono">{fmtMoeda(totais.totalVendasAjuda || totais.totalAjudaCusto)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono text-primary">{fmtMoeda(totais.totalMensalLiquido)}</td>
+                      <td className="py-2.5 px-3" colSpan={2}></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-            <div className="space-y-4 py-2 text-xs">
-              {/* Identificação Geral */}
-              <div className="p-3 bg-muted/30 rounded-xl space-y-3 border border-border/40">
-                <div className="font-bold text-foreground text-xs uppercase tracking-wider flex items-center justify-between">
-                  <span>Identificação do Colaborador</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-muted-foreground font-normal">
-                      Tipo:
-                    </span>
-                    <select
-                      value={linhaEditando.tipo || 'Funcionario'}
-                      onChange={(e) =>
-                        handleCampoFormChange('tipo', e.target.value as TipoColaboradorFolha)
-                      }
-                      className="bg-card border border-border/60 rounded px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="Funcionario">Funcionario</option>
-                      <option value="Terceiro">Terceiro</option>
-                    </select>
-                  </div>
+      {/* MODAL DE EDIÇÃO / CRIAÇÃO DE LINHA */}
+      <Dialog open={modalAberto} onOpenChange={setModalAberto}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {linhaEmEdicao?.id ? 'Editar Lançamento' : 'Novo Lançamento na Folha'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {linhaEmEdicao && (
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label>Nome Completo</Label>
+                  <Input
+                    value={linhaEmEdicao.nome || ''}
+                    onChange={(e) => atualizarCampoEdicao('nome', e.target.value)}
+                    placeholder="Ex: ARLINDO LEITE"
+                    className="mt-1"
+                  />
                 </div>
+                <div>
+                  <Label>Função / Cargo</Label>
+                  <Input
+                    value={linhaEmEdicao.funcao || ''}
+                    onChange={(e) => atualizarCampoEdicao('funcao', e.target.value)}
+                    placeholder="Ex: MOTORISTA"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <Label>Tipo de Vínculo</Label>
+                  <Select
+                    value={linhaEmEdicao.tipo || 'Funcionario'}
+                    onValueChange={(val: any) => atualizarCampoEdicao('tipo', val)}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Funcionario">Funcionário</SelectItem>
+                      <SelectItem value="Terceiro">Terceiro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Salário Bruto (R$)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={linhaEmEdicao.bruto ?? 0}
+                    onChange={(e) => atualizarCampoEdicao('bruto', parseFloat(e.target.value) || 0)}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Filhos (Sal. Família)</Label>
+                  <Input
+                    type="number"
+                    value={linhaEmEdicao.filhos ?? 0}
+                    onChange={(e) => atualizarCampoEdicao('filhos', parseInt(e.target.value, 10) || 0)}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              {/* Produção: Obras e Valor por Obra */}
+              <div className="p-3 bg-muted/40 rounded-lg border space-y-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5 text-primary" />
+                  Produção de Obras
+                </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="sm:col-span-2 space-y-1">
-                    <Label className="text-[11px]">Nome Completo *</Label>
-                    <Input
-                      value={linhaEditando.nome || ''}
-                      onChange={(e) =>
-                        handleCampoFormChange('nome', e.target.value.toUpperCase())
-                      }
-                      placeholder="Ex: CARLOS ALBERTO FERREIRA"
-                      className="h-8 text-xs font-semibold uppercase"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Função / Cargo</Label>
-                    <Input
-                      value={linhaEditando.funcao || ''}
-                      onChange={(e) =>
-                        handleCampoFormChange('funcao', e.target.value.toUpperCase())
-                      }
-                      placeholder="Ex: MOTORISTA, BALANCEIRO..."
-                      className="h-8 text-xs uppercase"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Unidade Operacional</Label>
-                    <Input
-                      value={linhaEditando.unidade || 'SJE'}
-                      onChange={(e) =>
-                        handleCampoFormChange('unidade', e.target.value.toUpperCase())
-                      }
-                      placeholder="SJE ou Monteiro"
-                      className="h-8 text-xs uppercase"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Qtd. Filhos (Dependentes)</Label>
+                  <div>
+                    <Label className="text-xs">Qtd Obras</Label>
                     <Input
                       type="number"
-                      min={0}
-                      value={linhaEditando.filhos ?? 0}
-                      onChange={(e) =>
-                        handleCampoFormChange('filhos', parseInt(e.target.value, 10) || 0)
-                      }
-                      className="h-8 text-xs font-mono"
+                      value={linhaEmEdicao.obras ?? 0}
+                      onChange={(e) => atualizarCampoEdicao('obras', parseFloat(e.target.value) || 0)}
+                      className="mt-1 h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Valor Unitário (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={linhaEmEdicao.valor_obra ?? 20}
+                      onChange={(e) => atualizarCampoEdicao('valor_obra', parseFloat(e.target.value) || 0)}
+                      className="mt-1 h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Total Produção (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={linhaEmEdicao.producao ?? 0}
+                      onChange={(e) => atualizarCampoEdicao('producao', parseFloat(e.target.value) || 0)}
+                      className="mt-1 h-8 text-xs font-bold text-emerald-600"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Valores Proventos e Deduções */}
-              <div className="p-3 bg-card rounded-xl border border-border/40 space-y-3">
+              {/* Benefícios Adicionais: Limpeza, Sábado, Férias, Ajuda */}
+              <div className="p-3 bg-muted/40 rounded-lg border space-y-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Adicionais & Benefícios
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <Label className="text-xs">Limpeza (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={linhaEmEdicao.limpeza ?? 0}
+                      onChange={(e) => atualizarCampoEdicao('limpeza', parseFloat(e.target.value) || 0)}
+                      className="mt-1 h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Sábado (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={linhaEmEdicao.sabado ?? 0}
+                      onChange={(e) => atualizarCampoEdicao('sabado', parseFloat(e.target.value) || 0)}
+                      className="mt-1 h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Férias (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={linhaEmEdicao.ferias ?? 0}
+                      onChange={(e) => atualizarCampoEdicao('ferias', parseFloat(e.target.value) || 0)}
+                      className="mt-1 h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Ajuda de Custo (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={linhaEmEdicao.ajuda_custo ?? 0}
+                      onChange={(e) => atualizarCampoEdicao('ajuda_custo', parseFloat(e.target.value) || 0)}
+                      className="mt-1 h-8 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Vendas e Comissões */}
+              <div className="p-3 bg-muted/40 rounded-lg border space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-foreground text-xs uppercase tracking-wider">
-                    Valores Salariais (R$)
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-muted-foreground">Modo do Líquido:</span>
-                    <Badge
-                      variant={linhaEditando.modo_calculo === 'Digitado' ? 'secondary' : 'default'}
-                      onClick={() =>
-                        handleCampoFormChange(
-                          'modo_calculo',
-                          linhaEditando.modo_calculo === 'Digitado' ? 'Calculado' : 'Digitado',
-                        )
-                      }
-                      className="cursor-pointer text-[10px] select-none"
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <TrendingUp className="h-3.5 w-3.5 text-blue-500" />
+                    Vendas & Comissões
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant={comissaoModoManual ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-6 text-[10px] px-2"
+                      onClick={() => setComissaoModoManual(!comissaoModoManual)}
                     >
-                      {linhaEditando.modo_calculo === 'Digitado' ? 'Digitado (Manual)' : 'Calculado (Auto)'}
-                    </Badge>
+                      {comissaoModoManual ? 'Comissão Manual' : '0,5% Calculado'}
+                    </Button>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Salário Bruto</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs">Volume de Vendas (R$)</Label>
                     <Input
                       type="number"
                       step="0.01"
-                      value={linhaEditando.bruto ?? 0}
-                      onChange={(e) =>
-                        handleCampoFormChange('bruto', parseFloat(e.target.value) || 0)
-                      }
-                      className="h-8 text-xs font-mono font-bold"
+                      value={linhaEmEdicao.vendas_obra ?? 0}
+                      onChange={(e) => atualizarCampoEdicao('vendas_obra', parseFloat(e.target.value) || 0)}
+                      className="mt-1 h-8 text-xs"
                     />
                   </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-rose-600 dark:text-rose-400">INSS Retido</Label>
+                  <div>
+                    <Label className="text-xs">Comissão (R$)</Label>
                     <Input
                       type="number"
                       step="0.01"
-                      value={linhaEditando.inss ?? 0}
-                      onChange={(e) =>
-                        handleCampoFormChange('inss', parseFloat(e.target.value) || 0)
-                      }
-                      className="h-8 text-xs font-mono"
+                      value={linhaEmEdicao.comissao ?? 0}
+                      onChange={(e) => {
+                        setComissaoModoManual(true)
+                        atualizarCampoEdicao('comissao', parseFloat(e.target.value) || 0)
+                      }}
+                      className="mt-1 h-8 text-xs font-bold text-amber-600"
                     />
                   </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-emerald-600 dark:text-emerald-400">Salário Família</Label>
+                  <div>
+                    <Label className="text-xs">Ajuda Vendedor (R$)</Label>
                     <Input
                       type="number"
                       step="0.01"
-                      value={linhaEditando.familia ?? 0}
-                      onChange={(e) =>
-                        handleCampoFormChange('familia', parseFloat(e.target.value) || 0)
-                      }
-                      className="h-8 text-xs font-mono"
+                      value={linhaEmEdicao.vendas_ajuda ?? 0}
+                      onChange={(e) => atualizarCampoEdicao('vendas_ajuda', parseFloat(e.target.value) || 0)}
+                      className="mt-1 h-8 text-xs"
                     />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-rose-600 dark:text-rose-400">IRRF (Imposto Renda)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={linhaEditando.ir ?? 0}
-                      onChange={(e) =>
-                        handleCampoFormChange('ir', parseFloat(e.target.value) || 0)
-                      }
-                      className="h-8 text-xs font-mono"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">1ª Quinzena</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={linhaEditando.quinzena ?? 0}
-                      onChange={(e) =>
-                        handleCampoFormChange('quinzena', parseFloat(e.target.value) || 0)
-                      }
-                      className="h-8 text-xs font-mono"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Adiantamento</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={linhaEditando.adiantamento ?? 0}
-                      onChange={(e) =>
-                        handleCampoFormChange('adiantamento', parseFloat(e.target.value) || 0)
-                      }
-                      className="h-8 text-xs font-mono"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Gratificação</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={linhaEditando.gratificacao ?? 0}
-                      onChange={(e) =>
-                        handleCampoFormChange('gratificacao', parseFloat(e.target.value) || 0)
-                      }
-                      className="h-8 text-xs font-mono"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Produção</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={linhaEditando.producao ?? 0}
-                      onChange={(e) =>
-                        handleCampoFormChange('producao', parseFloat(e.target.value) || 0)
-                      }
-                      className="h-8 text-xs font-mono"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Comissão</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={linhaEditando.comissao ?? 0}
-                      onChange={(e) =>
-                        handleCampoFormChange('comissao', parseFloat(e.target.value) || 0)
-                      }
-                      className="h-8 text-xs font-mono"
-                    />
-                  </div>
-
-                  {/* Campo Líquido Mensal */}
-                  <div className="col-span-2 sm:col-span-3 space-y-1 bg-muted/40 p-2 rounded-lg border border-primary/20">
-                    <div className="flex justify-between items-center">
-                      <Label className="text-xs font-bold text-foreground">
-                        Líquido Mensal (R$)
-                      </Label>
-                      <span className="text-[10px] text-muted-foreground font-mono">
-                        Bruto - INSS - IR + Fam + Grat - Quinz - Adiant + Prod + Comis
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={linhaEditando.mensal_liquido ?? 0}
-                        onChange={(e) => {
-                          handleCampoFormChange('modo_calculo', 'Digitado')
-                          handleCampoFormChange('mensal_liquido', parseFloat(e.target.value) || 0)
-                        }}
-                        className="h-8 text-xs font-mono font-black text-foreground bg-background"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const liq = calcularMensalLiquido(linhaEditando)
-                          handleCampoFormChange('mensal_liquido', liq)
-                          handleCampoFormChange('modo_calculo', 'Calculado')
-                        }}
-                        className="text-[11px] h-8 shrink-0 gap-1"
-                        title="Recalcular com base na fórmula oficial"
-                      >
-                        <Calculator className="w-3.5 h-3.5" />
-                        Recalcular
-                      </Button>
-                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Dados Bancários */}
-              <div className="p-3 bg-muted/30 rounded-xl space-y-3 border border-border/40">
-                <span className="font-bold text-foreground text-xs uppercase tracking-wider block">
-                  Dados de Pagamento Bancário
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Conta Bancária (Agência / Conta)</Label>
+              {/* Descontos e Adiantamentos */}
+              <div className="p-3 bg-muted/40 rounded-lg border space-y-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Descontos & Gratificações
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <Label className="text-xs text-red-600">Adiantamento (R$)</Label>
                     <Input
-                      value={linhaEditando.conta || ''}
-                      onChange={(e) => handleCampoFormChange('conta', e.target.value)}
-                      placeholder="Ex: 1563/82316-4"
-                      className="h-8 text-xs font-mono"
+                      type="number"
+                      step="0.01"
+                      value={linhaEmEdicao.adiantamento ?? 0}
+                      onChange={(e) => atualizarCampoEdicao('adiantamento', parseFloat(e.target.value) || 0)}
+                      className="mt-1 h-8 text-xs"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Chave PIX (Telefone, E-mail, CPF, Chave)</Label>
+                  <div>
+                    <Label className="text-xs text-blue-600">1ª Quinzena (R$)</Label>
                     <Input
-                      value={linhaEditando.pix || ''}
-                      onChange={(e) => handleCampoFormChange('pix', e.target.value)}
-                      placeholder="Ex: 87999146340 ou email@exemplo.com"
-                      className="h-8 text-xs font-mono"
+                      type="number"
+                      step="0.01"
+                      value={linhaEmEdicao.quinzena ?? 0}
+                      onChange={(e) => atualizarCampoEdicao('quinzena', parseFloat(e.target.value) || 0)}
+                      className="mt-1 h-8 text-xs"
                     />
                   </div>
+                  <div>
+                    <Label className="text-xs text-emerald-600">Gratificação (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={linhaEmEdicao.gratificacao ?? 0}
+                      onChange={(e) => atualizarCampoEdicao('gratificacao', parseFloat(e.target.value) || 0)}
+                      className="mt-1 h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold text-primary">Líquido Final (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={linhaEmEdicao.mensal_liquido ?? 0}
+                      onChange={(e) => atualizarCampoEdicao('mensal_liquido', parseFloat(e.target.value) || 0)}
+                      className="mt-1 h-8 text-xs font-bold text-primary bg-primary/5"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Dados Bancários & PIX */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label>Conta Bancária</Label>
+                  <Input
+                    value={linhaEmEdicao.conta || ''}
+                    onChange={(e) => atualizarCampoEdicao('conta', e.target.value)}
+                    placeholder="Ex: Ag 1563 / C/C 82316-4"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Chave PIX</Label>
+                  <Input
+                    value={linhaEmEdicao.pix || ''}
+                    onChange={(e) => atualizarCampoEdicao('pix', e.target.value)}
+                    placeholder="Ex: 87999146340 ou email"
+                    className="mt-1"
+                  />
                 </div>
               </div>
             </div>
+          )}
 
-            <DialogFooter className="pt-2 border-t border-border/30">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setModalFormOpen(false)}
-                disabled={salvandoLinha}
-              >
-                Cancelar
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleSalvarLinha}
-                disabled={salvandoLinha}
-                className="gap-1.5 bg-primary text-primary-foreground font-semibold"
-              >
-                {salvandoLinha ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Salvar Colaborador
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setModalAberto(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={salvarLinha}>
+              Gravar Lançamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* ======================================================== */}
       {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
-      {/* ======================================================== */}
-      {linhaParaExcluir && (
-        <Dialog
-          open={Boolean(linhaParaExcluir)}
-          onOpenChange={(v) => !v && setLinhaParaExcluir(null)}
-        >
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-base font-bold flex items-center gap-2 text-destructive">
-                <AlertTriangle className="w-5 h-5" />
-                <span>Confirmar Exclusão</span>
-              </DialogTitle>
-              <DialogDescription className="text-xs">
-                Deseja remover <strong>{linhaParaExcluir.nome}</strong> da folha
-                de <strong>{competenciaAtiva}</strong>? Essa ação é exclusiva do
-                administrador.
-              </DialogDescription>
-            </DialogHeader>
+      <AlertDialog open={Boolean(linhaParaExcluir)} onOpenChange={(open) => !open && setLinhaParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir lançamento da folha?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação removerá o lançamento de <strong>{linhaParaExcluir?.nome}</strong> da competência{' '}
+              <strong>{competencia}</strong>. Os dados históricos no backup legado continuarão salvos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmarExclusao}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-            <DialogFooter className="pt-2 border-t border-border/30">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setLinhaParaExcluir(null)}
-                disabled={excluindoLinha}
-              >
-                Cancelar
+      {/* MODAL / VISÃO DE HOLERITE A4 INDIVIDUAL */}
+      <Dialog open={Boolean(linhaHolerite)} onOpenChange={(open) => !open && setLinhaHolerite(null)}>
+        <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto print:p-0 print:border-none print:shadow-none">
+          <DialogHeader className="print:hidden">
+            <DialogTitle className="flex items-center justify-between">
+              <span>Recibo de Pagamento de Salário</span>
+              <Button size="sm" onClick={dispararImpressaoHolerite} className="gap-1.5">
+                <Printer className="h-4 w-4" />
+                Imprimir A4
               </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleConfirmarExclusao}
-                disabled={excluindoLinha}
-                className="gap-1.5 font-semibold"
-              >
-                {excluindoLinha ? 'Excluindo...' : 'Sim, Excluir Registro'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+            </DialogTitle>
+          </DialogHeader>
 
-      {/* ======================================================== */}
-      {/* MODAL / HOLERITE INDIVIDUAL EM FORMATO OFICIAL A4 */}
-      {/* ======================================================== */}
-      {holeriteModal && (
-        <Dialog
-          open={Boolean(holeriteModal)}
-          onOpenChange={(v) => !v && setHoleriteModal(null)}
-        >
-          <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
-            <DialogHeader className="no-print">
-              <div className="flex items-center justify-between pr-4">
-                <div className="flex items-center gap-2">
-                  <Briefcase className="w-5 h-5 text-primary" />
-                  <DialogTitle className="text-base font-bold">
-                    Demonstrativo Individual de Pagamento
-                  </DialogTitle>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => window.print()}
-                  className="gap-1.5 text-xs h-8"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  Imprimir Holerite A4
-                </Button>
-              </div>
-              <DialogDescription className="text-xs">
-                {empresaAtiva?.nome} • Competência {labelCompetencia} ({competenciaAtiva})
-              </DialogDescription>
-            </DialogHeader>
-
-            {/* Quadro Holerite Formatado (A4 friendly, fundo branco ao imprimir) */}
-            <div className="p-4 bg-white text-black rounded-xl border border-gray-300 space-y-4 print-holerite">
-              {/* Cabeçalho do Holerite */}
-              <div className="flex justify-between items-start border-b-2 border-black pb-3">
+          {linhaHolerite && (
+            <div
+              ref={holeriteRef}
+              className="bg-white text-black p-8 rounded-lg border shadow-sm font-sans print:m-0 print:p-4 print:border-none text-xs"
+              style={{ minHeight: '260mm' }}
+            >
+              {/* TOPO: LOGO GC MIX E DADOS DA EMPRESA */}
+              <div className="flex items-center justify-between border-b pb-4 mb-4">
                 <div className="flex items-center gap-3">
                   <img
                     src={LOGO_GC_MIX_HORIZONTAL}
-                    alt={LOGO_ALT_TEXT}
-                    className="h-10 w-auto object-contain"
+                    alt="GC MIX"
+                    className="h-10 object-contain"
                   />
                   <div>
-                    <h2 className="text-sm font-black uppercase text-black leading-tight">
-                      GC MIX CONCRETO USINADO
+                    <h2 className="text-base font-bold uppercase tracking-wide">
+                      GC MIX CONCRETO E AGREGADOS
                     </h2>
-                    <p className="text-[11px] font-bold text-gray-800">
-                      {empresaAtiva?.razao_social || empresaAtiva?.nome}
+                    <p className="text-[11px] text-gray-600">
+                      Unidade: {empresaAtiva?.nome || linhaHolerite.unidade}
                     </p>
-                    {empresaAtiva?.cnpj && (
-                      <p className="text-[10px] text-gray-600">
-                        CNPJ: {empresaAtiva.cnpj}
-                      </p>
-                    )}
                   </div>
                 </div>
-
-                <div className="text-right text-[11px] text-black">
-                  <p className="font-black text-xs uppercase">
-                    Recibo de Pagamento
-                  </p>
-                  <p className="font-bold">
-                    Competência: <strong>{labelCompetencia}</strong>
-                  </p>
-                  <p className="text-[10px] text-gray-600">
-                    Unidade: {holeriteModal.unidade || empresaAtiva?.slug?.toUpperCase()}
+                <div className="text-right">
+                  <span className="font-bold text-xs uppercase bg-gray-100 px-2.5 py-1 rounded border">
+                    RECIBO DE PAGAMENTO
+                  </span>
+                  <p className="text-[11px] font-semibold mt-1">
+                    Competência: {rotuloCompetencia}
                   </p>
                 </div>
               </div>
 
-              {/* Dados do Colaborador */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2.5 bg-gray-100 rounded border border-gray-300 text-xs">
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-gray-500 block">
-                    Nome Colaborador
-                  </span>
-                  <strong className="text-xs block truncate text-black">
-                    {holeriteModal.nome}
-                  </strong>
+              {/* IDENTIFICAÇÃO DO COLABORADOR */}
+              <div className="grid grid-cols-3 gap-2 border p-3 rounded bg-gray-50/70 mb-4 text-[11px]">
+                <div className="col-span-2">
+                  <span className="text-gray-500 block text-[9px] uppercase font-bold">Colaborador</span>
+                  <span className="font-bold text-sm text-gray-900">{linhaHolerite.nome}</span>
                 </div>
                 <div>
-                  <span className="text-[9px] uppercase font-bold text-gray-500 block">
-                    Função / Cargo
-                  </span>
-                  <span className="text-black font-semibold">
-                    {holeriteModal.funcao}
-                  </span>
+                  <span className="text-gray-500 block text-[9px] uppercase font-bold">Função</span>
+                  <span className="font-semibold text-gray-800">{linhaHolerite.funcao}</span>
                 </div>
                 <div>
-                  <span className="text-[9px] uppercase font-bold text-gray-500 block">
-                    Tipo de Vínculo
-                  </span>
-                  <span className="text-black font-semibold">
-                    {holeriteModal.tipo}
-                  </span>
+                  <span className="text-gray-500 block text-[9px] uppercase font-bold">Vínculo</span>
+                  <span className="font-medium text-gray-800">{linhaHolerite.tipo}</span>
                 </div>
                 <div>
-                  <span className="text-[9px] uppercase font-bold text-gray-500 block">
-                    Dependentes / Filhos
-                  </span>
-                  <span className="text-black font-semibold font-mono">
-                    {holeriteModal.filhos}
-                  </span>
+                  <span className="text-gray-500 block text-[9px] uppercase font-bold">Salário Base</span>
+                  <span className="font-mono font-medium">{fmtMoeda(linhaHolerite.bruto)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-[9px] uppercase font-bold">Conta / PIX</span>
+                  <span className="font-mono text-[10px] truncate block">{linhaHolerite.pix || linhaHolerite.conta || '-'}</span>
                 </div>
               </div>
 
-              {/* Tabela de Eventos (Proventos e Descontos) */}
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  <tr className="bg-gray-200 border-b border-gray-400 text-[10px] font-black uppercase text-gray-800">
-                    <th className="py-1.5 px-2 text-left">Descrição do Evento</th>
-                    <th className="py-1.5 px-2 text-right">Proventos (R$)</th>
-                    <th className="py-1.5 px-2 text-right">Descontos (R$)</th>
+              {/* TABELA DE PROVENTOS E DESCONTOS */}
+              <table className="w-full border-collapse border text-[11px] mb-4">
+                <thead className="bg-gray-100 text-gray-700 font-bold uppercase text-[10px]">
+                  <tr>
+                    <th className="border p-2 text-left">Código / Descrição do Item</th>
+                    <th className="border p-2 text-center w-20">Referência</th>
+                    <th className="border p-2 text-right w-28">Vencimentos (R$)</th>
+                    <th className="border p-2 text-right w-28">Descontos (R$)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200 font-mono text-xs text-black">
-                  {holeriteModal.bruto > 0 && (
+                <tbody className="divide-y text-gray-800 font-mono">
+                  {linhaHolerite.bruto > 0 && (
                     <tr>
-                      <td className="py-1.5 px-2 font-sans">Salário Base / Bruto</td>
-                      <td className="py-1.5 px-2 text-right">
-                        {formatMoeda(holeriteModal.bruto)}
-                      </td>
-                      <td className="py-1.5 px-2 text-right text-gray-400">—</td>
+                      <td className="border p-1.5 font-sans">001 - Salário Base Mensal</td>
+                      <td className="border p-1.5 text-center">30 dias</td>
+                      <td className="border p-1.5 text-right font-medium">{fmtMoeda(linhaHolerite.bruto)}</td>
+                      <td className="border p-1.5 text-right text-gray-400">-</td>
                     </tr>
                   )}
-                  {holeriteModal.familia > 0 && (
+                  {linhaHolerite.producao > 0 && (
                     <tr>
-                      <td className="py-1.5 px-2 font-sans">Salário Família</td>
-                      <td className="py-1.5 px-2 text-right text-green-700 font-semibold">
-                        {formatMoeda(holeriteModal.familia)}
+                      <td className="border p-1.5 font-sans">
+                        010 - Produção Concreto ({linhaHolerite.obras} obras × R$ {linhaHolerite.valor_obra})
                       </td>
-                      <td className="py-1.5 px-2 text-right text-gray-400">—</td>
+                      <td className="border p-1.5 text-center">{linhaHolerite.obras} un</td>
+                      <td className="border p-1.5 text-right font-medium">{fmtMoeda(linhaHolerite.producao)}</td>
+                      <td className="border p-1.5 text-right text-gray-400">-</td>
                     </tr>
                   )}
-                  {holeriteModal.gratificacao > 0 && (
+                  {linhaHolerite.limpeza > 0 && (
                     <tr>
-                      <td className="py-1.5 px-2 font-sans">Gratificação</td>
-                      <td className="py-1.5 px-2 text-right text-green-700 font-semibold">
-                        {formatMoeda(holeriteModal.gratificacao)}
-                      </td>
-                      <td className="py-1.5 px-2 text-right text-gray-400">—</td>
+                      <td className="border p-1.5 font-sans">012 - Adicional Limpeza de Caminhão/Pátio</td>
+                      <td className="border p-1.5 text-center">Integral</td>
+                      <td className="border p-1.5 text-right font-medium">{fmtMoeda(linhaHolerite.limpeza)}</td>
+                      <td className="border p-1.5 text-right text-gray-400">-</td>
                     </tr>
                   )}
-                  {holeriteModal.producao > 0 && (
+                  {linhaHolerite.sabado > 0 && (
                     <tr>
-                      <td className="py-1.5 px-2 font-sans">Produção</td>
-                      <td className="py-1.5 px-2 text-right text-green-700 font-semibold">
-                        {formatMoeda(holeriteModal.producao)}
-                      </td>
-                      <td className="py-1.5 px-2 text-right text-gray-400">—</td>
+                      <td className="border p-1.5 font-sans">014 - Adicional Plantão de Sábado</td>
+                      <td className="border p-1.5 text-center">Plantão</td>
+                      <td className="border p-1.5 text-right font-medium">{fmtMoeda(linhaHolerite.sabado)}</td>
+                      <td className="border p-1.5 text-right text-gray-400">-</td>
                     </tr>
                   )}
-                  {holeriteModal.comissao > 0 && (
+                  {linhaHolerite.comissao > 0 && (
                     <tr>
-                      <td className="py-1.5 px-2 font-sans">Comissão</td>
-                      <td className="py-1.5 px-2 text-right text-green-700 font-semibold">
-                        {formatMoeda(holeriteModal.comissao)}
+                      <td className="border p-1.5 font-sans">
+                        020 - Comissão sobre Vendas (Base R$ {fmtMoeda(linhaHolerite.vendas_obra)})
                       </td>
-                      <td className="py-1.5 px-2 text-right text-gray-400">—</td>
+                      <td className="border p-1.5 text-center">0,5%</td>
+                      <td className="border p-1.5 text-right font-medium">{fmtMoeda(linhaHolerite.comissao)}</td>
+                      <td className="border p-1.5 text-right text-gray-400">-</td>
                     </tr>
                   )}
-                  {holeriteModal.inss > 0 && (
+                  {linhaHolerite.ajuda_custo > 0 && (
                     <tr>
-                      <td className="py-1.5 px-2 font-sans">Previdência Social - INSS</td>
-                      <td className="py-1.5 px-2 text-right text-gray-400">—</td>
-                      <td className="py-1.5 px-2 text-right text-red-700 font-semibold">
-                        {formatMoeda(holeriteModal.inss)}
-                      </td>
+                      <td className="border p-1.5 font-sans">025 - Ajuda de Custo Operacional</td>
+                      <td className="border p-1.5 text-center">-</td>
+                      <td className="border p-1.5 text-right font-medium">{fmtMoeda(linhaHolerite.ajuda_custo)}</td>
+                      <td className="border p-1.5 text-right text-gray-400">-</td>
                     </tr>
                   )}
-                  {holeriteModal.ir > 0 && (
+                  {linhaHolerite.vendas_ajuda > 0 && (
                     <tr>
-                      <td className="py-1.5 px-2 font-sans">Imposto de Renda - IRRF</td>
-                      <td className="py-1.5 px-2 text-right text-gray-400">—</td>
-                      <td className="py-1.5 px-2 text-right text-red-700 font-semibold">
-                        {formatMoeda(holeriteModal.ir)}
-                      </td>
+                      <td className="border p-1.5 font-sans">026 - Ajuda de Custo Vendas</td>
+                      <td className="border p-1.5 text-center">-</td>
+                      <td className="border p-1.5 text-right font-medium">{fmtMoeda(linhaHolerite.vendas_ajuda)}</td>
+                      <td className="border p-1.5 text-right text-gray-400">-</td>
                     </tr>
                   )}
-                  {holeriteModal.quinzena > 0 && (
+                  {linhaHolerite.gratificacao > 0 && (
                     <tr>
-                      <td className="py-1.5 px-2 font-sans">1ª Quinzena</td>
-                      <td className="py-1.5 px-2 text-right text-gray-400">—</td>
-                      <td className="py-1.5 px-2 text-right text-red-700 font-semibold">
-                        {formatMoeda(holeriteModal.quinzena)}
-                      </td>
+                      <td className="border p-1.5 font-sans">030 - Gratificação Especial</td>
+                      <td className="border p-1.5 text-center">-</td>
+                      <td className="border p-1.5 text-right font-medium">{fmtMoeda(linhaHolerite.gratificacao)}</td>
+                      <td className="border p-1.5 text-right text-gray-400">-</td>
                     </tr>
                   )}
-                  {holeriteModal.adiantamento > 0 && (
+                  {linhaHolerite.ferias > 0 && (
                     <tr>
-                      <td className="py-1.5 px-2 font-sans">Adiantamento</td>
-                      <td className="py-1.5 px-2 text-right text-gray-400">—</td>
-                      <td className="py-1.5 px-2 text-right text-red-700 font-semibold">
-                        {formatMoeda(holeriteModal.adiantamento)}
-                      </td>
+                      <td className="border p-1.5 font-sans">040 - Proventos de Férias</td>
+                      <td className="border p-1.5 text-center">-</td>
+                      <td className="border p-1.5 text-right font-medium">{fmtMoeda(linhaHolerite.ferias)}</td>
+                      <td className="border p-1.5 text-right text-gray-400">-</td>
+                    </tr>
+                  )}
+                  {linhaHolerite.adiantamento > 0 && (
+                    <tr>
+                      <td className="border p-1.5 font-sans text-red-700">101 - Adiantamento Salarial / Vales</td>
+                      <td className="border p-1.5 text-center">-</td>
+                      <td className="border p-1.5 text-right text-gray-400">-</td>
+                      <td className="border p-1.5 text-right font-medium text-red-700">{fmtMoeda(linhaHolerite.adiantamento)}</td>
+                    </tr>
+                  )}
+                  {linhaHolerite.quinzena > 0 && (
+                    <tr>
+                      <td className="border p-1.5 font-sans text-red-700">102 - 1ª Quinzena Adiantada</td>
+                      <td className="border p-1.5 text-center">-</td>
+                      <td className="border p-1.5 text-right text-gray-400">-</td>
+                      <td className="border p-1.5 text-right font-medium text-red-700">{fmtMoeda(linhaHolerite.quinzena)}</td>
                     </tr>
                   )}
                 </tbody>
-                <tfoot className="border-t-2 border-black font-bold">
-                  <tr className="bg-gray-100">
-                    <td className="py-2 px-2 uppercase font-sans">Totais</td>
-                    <td className="py-2 px-2 text-right text-green-800 font-mono">
-                      R${' '}
-                      {formatMoeda(
-                        holeriteModal.bruto +
-                          holeriteModal.familia +
-                          holeriteModal.gratificacao +
-                          holeriteModal.producao +
-                          holeriteModal.comissao,
-                      )}
-                    </td>
-                    <td className="py-2 px-2 text-right text-red-800 font-mono">
-                      R${' '}
-                      {formatMoeda(
-                        holeriteModal.inss +
-                          holeriteModal.ir +
-                          holeriteModal.quinzena +
-                          holeriteModal.adiantamento,
-                      )}
-                    </td>
-                  </tr>
-                  <tr className="bg-gray-200 border-t border-gray-400 text-sm">
-                    <td className="py-2.5 px-2 uppercase font-black font-sans text-black">
-                      Valor Líquido a Receber
-                    </td>
-                    <td
-                      colSpan={2}
-                      className="py-2.5 px-2 text-right font-black font-mono text-base text-black"
-                    >
-                      R$ {formatMoeda(holeriteModal.mensal_liquido)}
-                    </td>
-                  </tr>
-                </tfoot>
               </table>
 
-              {/* Informações bancárias para pagamento */}
-              {(holeriteModal.conta || holeriteModal.pix) && (
-                <div className="p-2.5 bg-gray-50 border border-gray-300 rounded text-xs text-black">
-                  <strong className="block uppercase text-[10px] text-gray-700 mb-1">
-                    Dados Cadastrados para Pagamento
-                  </strong>
-                  {holeriteModal.conta && (
-                    <p>
-                      <strong>Conta Bancária:</strong> {holeriteModal.conta}
-                    </p>
-                  )}
-                  {holeriteModal.pix && (
-                    <p className="font-mono">
-                      <strong>Chave PIX:</strong> {holeriteModal.pix}
-                    </p>
-                  )}
+              {/* TOTAIS E VALOR LÍQUIDO */}
+              <div className="grid grid-cols-3 border p-3 rounded bg-gray-50 mb-8 font-mono">
+                <div>
+                  <span className="text-gray-500 block text-[10px] font-sans uppercase">Total Proventos</span>
+                  <span className="font-bold text-sm text-gray-900">
+                    {fmtMoeda(
+                      linhaHolerite.bruto +
+                        linhaHolerite.producao +
+                        linhaHolerite.limpeza +
+                        linhaHolerite.sabado +
+                        linhaHolerite.ferias +
+                        linhaHolerite.ajuda_custo +
+                        linhaHolerite.vendas_ajuda +
+                        linhaHolerite.comissao +
+                        linhaHolerite.gratificacao,
+                    )}
+                  </span>
                 </div>
-              )}
+                <div>
+                  <span className="text-gray-500 block text-[10px] font-sans uppercase">Total Descontos</span>
+                  <span className="font-bold text-sm text-red-700">
+                    {fmtMoeda(linhaHolerite.adiantamento + linhaHolerite.quinzena)}
+                  </span>
+                </div>
+                <div className="border-l pl-3">
+                  <span className="text-gray-500 block text-[10px] font-sans uppercase">Líquido a Receber</span>
+                  <span className="font-bold text-base text-primary">
+                    {fmtMoeda(linhaHolerite.mensal_liquido)}
+                  </span>
+                </div>
+              </div>
 
-              {/* Assinatura */}
-              <div className="pt-8 border-t border-gray-300 mt-6 grid grid-cols-2 gap-8 text-center text-xs">
-                <div>
-                  <div className="border-t border-black pt-1 font-semibold text-black">
-                    GC MIX CONCRETO USINADO
+              {/* DECLARAÇÃO DE QUITAÇÃO & ASSINATURAS */}
+              <div className="mt-8 pt-4 border-t text-[10px] text-gray-600 space-y-8">
+                <p>
+                  Declaro ter recebido da empresa <strong>GC MIX CONCRETO E AGREGADOS</strong> a importância líquida
+                  discriminada neste recibo, quitando a competência {rotuloCompetencia}.
+                </p>
+
+                <div className="grid grid-cols-2 gap-12 pt-6">
+                  <div className="text-center border-t border-gray-400 pt-1">
+                    <p className="font-bold text-gray-800">GC MIX CONCRETO</p>
+                    <p className="text-[9px] text-gray-500">Empregador</p>
                   </div>
-                  <span className="text-[10px] text-gray-600">Empregador</span>
-                </div>
-                <div>
-                  <div className="border-t border-black pt-1 font-semibold text-black">
-                    {holeriteModal.nome}
+                  <div className="text-center border-t border-gray-400 pt-1">
+                    <p className="font-bold text-gray-800">{linhaHolerite.nome}</p>
+                    <p className="text-[9px] text-gray-500">Assinatura do Colaborador</p>
                   </div>
-                  <span className="text-[10px] text-gray-600">Assinatura do Colaborador</span>
                 </div>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Modal de Importação CSV */}
-      <ModalImportarFolhaCSV
-        open={modalImportarOpen}
-        onOpenChange={setModalImportarOpen}
-        linhasAtuais={linhasFolha}
-        competenciaAtiva={competenciaAtiva}
-        onImportadoSucesso={(novaComp) => {
-          setCompetenciaAtiva(novaComp)
-          carregarCompetencias()
-          carregarLinhasFolha()
-        }}
-      />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
+export default FolhaPagamento
