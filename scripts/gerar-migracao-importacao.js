@@ -8,7 +8,6 @@ const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'))
 const MONTEIRO_ID = '11111111-1111-1111-1111-111111111111'
 const SJE_ID = '22222222-2222-2222-2222-222222222222'
 
-// Mapeia funcionários
 const cadastrosFuncs = backupData.cadastros.funcionarios || []
 const folhaFuncs = backupData.folha.func || {}
 const folhaTerceiros = backupData.folha.terceiros || []
@@ -30,7 +29,7 @@ const numSql = (num, def = 0) => {
 
 let sql = `-- Migração de importação completa do backup legado da folha
 -- Data: 2026-09-28
--- Inclui funcionários (11 SJE, 7 Monteiro), 2 terceiros e ~30 competências
+-- Importação idempotente de 18 funcionários, 2 terceiros e todas as competências (~30)
 
 DO $$
 DECLARE
@@ -48,52 +47,61 @@ for (const f of cadastrosFuncs) {
   const fInfo = folhaFuncs[f.id] || {}
   const unidade = (fInfo.unidade || (f.unidade || 'SJE')).toUpperCase()
   const empresaId = unidade.includes('MONTEIRO') ? MONTEIRO_ID : SJE_ID
-  
+  const cpfLimpo = f.doc ? f.doc.replace(/[^\d]/g, '') : null
+
   funcMap[f.id] = {
     ...f,
     ...fInfo,
+    cpfLimpo,
     empresaId,
     unidade: unidade.includes('MONTEIRO') ? 'MONTEIRO' : 'SJE'
   }
 
+  const nomeUpper = f.nome.trim().toUpperCase()
+
   sql += `
-  INSERT INTO public.funcionarios (
-    empresa_id, nome, funcao, cpf, data_admissao, ativo, observacoes,
-    telefone, email, bruto, filhos, conta, pix, inativo, oculto, unidade
-  ) VALUES (
-    '${empresaId}',
-    ${escapeSql(f.nome.trim().toUpperCase())},
-    ${escapeSql(f.funcao || 'Geral')},
-    ${f.doc ? escapeSql(f.doc) : 'NULL'},
-    ${f.admissao ? escapeSql(f.admissao) : 'NULL'},
-    ${fInfo.inativo ? 'false' : 'true'},
-    ${escapeSql(fInfo.obs || '')},
-    ${escapeSql(f.telefone || '')},
-    ${escapeSql(f.email || '')},
-    ${numSql(fInfo.bruto)},
-    ${numSql(fInfo.filhos)},
-    ${escapeSql(fInfo.conta || '')},
-    ${escapeSql(fInfo.pix || '')},
-    ${fInfo.inativo ? 'true' : 'false'},
-    ${fInfo.oculto ? 'true' : 'false'},
-    ${escapeSql(unidade.includes('MONTEIRO') ? 'MONTEIRO' : 'SJE')}
-  )
-  ON CONFLICT (empresa_id, cpf) WHERE ((cpf IS NOT NULL) AND (cpf <> ''))
-  DO UPDATE SET
-    nome = EXCLUDED.nome,
-    funcao = EXCLUDED.funcao,
-    data_admissao = COALESCE(EXCLUDED.data_admissao, funcionarios.data_admissao),
-    ativo = EXCLUDED.ativo,
-    telefone = EXCLUDED.telefone,
-    email = EXCLUDED.email,
-    bruto = EXCLUDED.bruto,
-    filhos = EXCLUDED.filhos,
-    conta = EXCLUDED.conta,
-    pix = EXCLUDED.pix,
-    inativo = EXCLUDED.inativo,
-    oculto = EXCLUDED.oculto,
-    unidade = EXCLUDED.unidade,
-    updated_at = now();
+  -- Funcionário ${f.id} (${nomeUpper})
+  IF EXISTS (SELECT 1 FROM public.funcionarios WHERE empresa_id = '${empresaId}' AND lower(TRIM(nome)) = lower(${escapeSql(nomeUpper)})) THEN
+    UPDATE public.funcionarios SET
+      funcao = ${escapeSql(f.funcao || 'Geral')},
+      cpf = COALESCE(${cpfLimpo ? escapeSql(cpfLimpo) : 'NULL'}, funcionarios.cpf),
+      data_admissao = COALESCE(${f.admissao ? escapeSql(f.admissao) : 'NULL'}, funcionarios.data_admissao),
+      ativo = ${fInfo.inativo ? 'false' : 'true'},
+      observacoes = COALESCE(${escapeSql(fInfo.obs || '')}, funcionarios.observacoes),
+      telefone = COALESCE(${escapeSql(f.telefone || '')}, funcionarios.telefone),
+      email = COALESCE(${escapeSql(f.email || '')}, funcionarios.email),
+      bruto = ${numSql(fInfo.bruto)},
+      filhos = ${numSql(fInfo.filhos)},
+      conta = ${escapeSql(fInfo.conta || '')},
+      pix = ${escapeSql(fInfo.pix || '')},
+      inativo = ${fInfo.inativo ? 'true' : 'false'},
+      oculto = ${fInfo.oculto ? 'true' : 'false'},
+      unidade = ${escapeSql(unidade.includes('MONTEIRO') ? 'MONTEIRO' : 'SJE')},
+      updated_at = now()
+    WHERE empresa_id = '${empresaId}' AND lower(TRIM(nome)) = lower(${escapeSql(nomeUpper)});
+  ELSE
+    INSERT INTO public.funcionarios (
+      empresa_id, nome, funcao, cpf, data_admissao, ativo, observacoes,
+      telefone, email, bruto, filhos, conta, pix, inativo, oculto, unidade
+    ) VALUES (
+      '${empresaId}',
+      ${escapeSql(nomeUpper)},
+      ${escapeSql(f.funcao || 'Geral')},
+      ${cpfLimpo ? escapeSql(cpfLimpo) : 'NULL'},
+      ${f.admissao ? escapeSql(f.admissao) : 'NULL'},
+      ${fInfo.inativo ? 'false' : 'true'},
+      ${escapeSql(fInfo.obs || '')},
+      ${escapeSql(f.telefone || '')},
+      ${escapeSql(f.email || '')},
+      ${numSql(fInfo.bruto)},
+      ${numSql(fInfo.filhos)},
+      ${escapeSql(fInfo.conta || '')},
+      ${escapeSql(fInfo.pix || '')},
+      ${fInfo.inativo ? 'true' : 'false'},
+      ${fInfo.oculto ? 'true' : 'false'},
+      ${escapeSql(unidade.includes('MONTEIRO') ? 'MONTEIRO' : 'SJE')}
+    );
+  END IF;
 `
 }
 
@@ -138,7 +146,6 @@ for (const comp of comps) {
   const funcsLanc = lancComp.func || {}
   const tercLanc = lancComp.terc || {}
 
-  // Separa por empresa
   for (const empId of [SJE_ID, MONTEIRO_ID]) {
     const isSje = empId === SJE_ID
     const empSlug = isSje ? 'sje' : 'monteiro'
@@ -185,7 +192,7 @@ for (const comp of comps) {
       const oculto = fCadastro.oculto ? 'true' : 'false'
       const inativo = fCadastro.inativo ? 'true' : 'false'
 
-      // Comissão: se vendCom > 0 usa vendCom, senão se vendObra > 0 comissão = 0.5%
+      // Comissão: no backup, vendCom vem direto ou vendObra*0.005
       let comissao = vendCom
       if (comissao === 0 && vendObra > 0) {
         comissao = Math.round(vendObra * 0.005 * 100) / 100
@@ -204,7 +211,7 @@ for (const comp of comps) {
     obras, valor_obra, producao, limpeza, sabado, ferias, ajuda_custo,
     vendas_obra, comissao, vendas_ajuda, adiantamento, gratificacao,
     total_proventos, total_descontos, salario_liquido, mensal_liquido,
-    modo_calculo, oculto, inativo, backup_id
+    modo_calculo, oculto, inativo, backup_id, cpf
   ) VALUES (
     '${empId}', v_comp_id, '${comp}',
     ${escapeSql(fCadastro.nome.trim().toUpperCase())},
@@ -217,7 +224,8 @@ for (const comp of comps) {
     ${obras}, ${valorObra}, ${producao}, ${limp}, ${sab}, ${fer}, ${ajuda},
     ${vendObra}, ${comissao}, ${vendAjuda}, ${adiant}, ${gratif},
     ${totalProventos}, ${totalDescontos}, ${liquido}, ${liquido},
-    'Calculado', ${oculto}, ${inativo}, '${funcId}'
+    'Calculado', ${oculto}, ${inativo}, '${funcId}',
+    ${fCadastro.cpfLimpo ? escapeSql(fCadastro.cpfLimpo) : 'NULL'}
   )
   ON CONFLICT (empresa_id, competencia, lower(TRIM(nome)))
   DO UPDATE SET
@@ -250,28 +258,54 @@ for (const comp of comps) {
     oculto = EXCLUDED.oculto,
     inativo = EXCLUDED.inativo,
     backup_id = EXCLUDED.backup_id,
+    cpf = COALESCE(EXCLUDED.cpf, folha_pagamento_linhas.cpf),
     updated_at = now();
 `
     }
 
     // Processa terceiros dessa empresa
-    // Terc 0 = RAIMUNDO MARIANO DA SILVA JUNIOR (SJE)
-    // Terc 1 = Marcio Luan da Silva (MONTEIRO)
-    folhaTerceiros.forEach((terc, idx) => {
-      const tUnidade = (terc.unidade || 'SJE').toUpperCase()
-      const tEmpId = tUnidade.includes('MONTEIRO') ? MONTEIRO_ID : SJE_ID
-      if (tEmpId !== empId) return
+    // Terc 0 = Marcio Luan da Silva (MONTEIRO)
+    // Terc 1 = RAIMUNDO MARIANO DA SILVA JUNIOR (SJE)
+    // backupData.folha.terceiros: [0: Raimundo, 1: Marcio] no array JSON mas o prompt diz:
+    // "terceiro '0' = Marcio/MONTEIRO, '1' = Raimundo/SJE"
+    // Vamos verificar o objeto folha.lanc[comp].terc:
+    // Chave "1" tem vendObra: 169884 (Raimundo em SJE)
+    // Chave "0" só aparece em 2026-09 com 0 (Marcio na Monteiro)
+    // Vamos seguir o mapeamento:
+    // Terc 0 => Marcio Luan da Silva (MONTEIRO_ID)
+    // Terc 1 => RAIMUNDO MARIANO DA SILVA JUNIOR (SJE_ID)
+    const tercDefs = [
+      {
+        backupKey: '1',
+        nome: 'RAIMUNDO MARIANO DA SILVA JUNIOR',
+        empresaId: SJE_ID,
+        unidade: 'SJE',
+        bruto: 4270,
+        pix: 'raimundojunior100@gmail.com',
+        conta: '',
+      },
+      {
+        backupKey: '0',
+        nome: 'Marcio Luan da Silva',
+        empresaId: MONTEIRO_ID,
+        unidade: 'MONTEIRO',
+        bruto: 0,
+        pix: '12175804410',
+        conta: '',
+      },
+    ]
 
-      const lancTerc = tercLanc[String(idx)] || {}
+    tercDefs.forEach((terc) => {
+      if (terc.empresaId !== empId) return
+
+      const lancTerc = tercLanc[terc.backupKey] || {}
       const vendObra = numSql(lancTerc.vendObra)
-      const vendCom = numSql(lancTerc.vendCom)
+      // Terceiros: gravar comissao COMO VEIO no backup, sem recalcular!
+      const comissao = numSql(lancTerc.vendCom)
       const vendAjuda = numSql(lancTerc.vendAjuda)
-      let comissao = vendCom
-      if (comissao === 0 && vendObra > 0) {
-        comissao = Math.round(vendObra * 0.005 * 100) / 100
-      }
-      const bruto = numSql(terc.bruto)
-      const totalProventos = bruto + comissao + vendAjuda
+      const ajudaCusto = vendAjuda // vendas_ajuda -> ajuda_custo
+      const bruto = terc.bruto
+      const totalProventos = bruto + comissao + ajudaCusto
       const liquido = totalProventos
 
       sql += `
@@ -288,13 +322,13 @@ for (const comp of comps) {
     'Terceiro',
     'Terceiro',
     'Terceiro',
-    ${escapeSql(tUnidade)},
+    ${escapeSql(terc.unidade)},
     ${bruto}, ${bruto}, 0,
-    ${escapeSql(terc.conta || '')}, ${escapeSql(terc.pix || '')}, ${escapeSql(terc.pix || '')},
-    0, 20, 0, 0, 0, 0, 0,
+    ${escapeSql(terc.conta)}, ${escapeSql(terc.pix)}, ${escapeSql(terc.pix)},
+    0, 20, 0, 0, 0, 0, ${ajudaCusto},
     ${vendObra}, ${comissao}, ${vendAjuda}, 0, 0,
     ${totalProventos}, 0, ${liquido}, ${liquido},
-    'Calculado', false, false, 'terc_${idx}'
+    'Calculado', false, false, 'terc_${terc.backupKey}'
   )
   ON CONFLICT (empresa_id, competencia, lower(TRIM(nome)))
   DO UPDATE SET
@@ -309,10 +343,12 @@ for (const comp of comps) {
     vendas_obra = EXCLUDED.vendas_obra,
     comissao = EXCLUDED.comissao,
     vendas_ajuda = EXCLUDED.vendas_ajuda,
+    ajuda_custo = EXCLUDED.ajuda_custo,
     total_proventos = EXCLUDED.total_proventos,
     salario_liquido = EXCLUDED.salario_liquido,
     mensal_liquido = EXCLUDED.mensal_liquido,
     modo_calculo = EXCLUDED.modo_calculo,
+    backup_id = EXCLUDED.backup_id,
     updated_at = now();
 `
     })
@@ -324,7 +360,7 @@ for (const comp of comps) {
     total_colaboradores = (SELECT count(*) FROM public.folha_pagamento_linhas WHERE competencia_id = v_comp_id),
     total_proventos = COALESCE((SELECT sum(total_proventos) FROM public.folha_pagamento_linhas WHERE competencia_id = v_comp_id), 0),
     total_descontos = COALESCE((SELECT sum(total_descontos) FROM public.folha_pagamento_linhas WHERE competencia_id = v_comp_id), 0),
-    total_liquido = COALESCE((SELECT sum(salario_liquido) FROM public.folha_pagamento_linhas WHERE competencia_id = v_comp_id), 0),
+    total_liquido = COALESCE((SELECT sum(mensal_liquido) FROM public.folha_pagamento_linhas WHERE competencia_id = v_comp_id), 0),
     updated_at = now()
   WHERE id = v_comp_id;
 `
