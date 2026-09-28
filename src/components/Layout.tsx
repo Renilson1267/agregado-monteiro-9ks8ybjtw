@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
-import { Sidebar } from './Sidebar'
-import { Header } from './Header'
-import { cn } from '@/lib/utils'
+import { useState, useEffect } from "react"
+import { Outlet } from "react-router-dom"
+import { Sidebar } from "./Sidebar"
+import { Header } from "./Header"
+import { cn } from "@/lib/utils"
 
 export default function Layout() {
   // Estado de colapso da sidebar persistido em localStorage
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem('gcmix-sidebar-collapsed')
-      return saved === 'true'
+      const saved = localStorage.getItem("gcmix-sidebar-collapsed")
+      return saved === "true"
     } catch {
       return false
     }
@@ -22,7 +22,7 @@ export default function Layout() {
     setSidebarCollapsed((prev) => {
       const next = !prev
       try {
-        localStorage.setItem('gcmix-sidebar-collapsed', String(next))
+        localStorage.setItem("gcmix-sidebar-collapsed", String(next))
       } catch {
         // ignora se localStorage não disponível
       }
@@ -37,8 +37,8 @@ export default function Layout() {
         setMobileMenuOpen(false)
       }
     }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
   }, [mobileMenuOpen])
 
   return (
@@ -54,8 +54,8 @@ export default function Layout() {
       {/* Conteúdo à Direita: cabeçalho fino superior + área de páginas */}
       <div
         className={cn(
-          'flex flex-col flex-1 min-h-screen w-full transition-all duration-300 ease-in-out',
-          sidebarCollapsed ? 'md:pl-18' : 'md:pl-64',
+          "flex flex-col flex-1 min-h-screen w-full transition-all duration-300 ease-in-out",
+          sidebarCollapsed ? "md:pl-18" : "md:pl-64",
         )}
       >
         <Header

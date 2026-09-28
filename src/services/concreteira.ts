@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase/client'
+import { supabase } from "@/lib/supabase/client"
 import type {
   Material,
   Traco,
@@ -13,29 +13,29 @@ import type {
   Cliente,
   OrdemServico,
   MetaProducao,
-} from '@/types/concreteira'
+} from "@/types/concreteira"
 
 export const ConcreteiraService = {
   // Materiais e Estoque
   async getMateriais(empresaId?: string): Promise<Material[]> {
     let queryMat = (supabase as any)
-      .from('materiais')
-      .select('*')
-      .order('ordem', { ascending: true })
+      .from("materiais")
+      .select("*")
+      .order("ordem", { ascending: true })
 
     if (empresaId) {
-      queryMat = queryMat.eq('empresa_id', empresaId)
+      queryMat = queryMat.eq("empresa_id", empresaId)
     }
 
     const { data: materiais, error: matErr } = await queryMat
     if (matErr) throw matErr
 
     let queryMov = (supabase as any)
-      .from('movimentacoes_estoque')
-      .select('material_id, tipo, quantidade')
+      .from("movimentacoes_estoque")
+      .select("material_id, tipo, quantidade")
 
     if (empresaId) {
-      queryMov = queryMov.eq('empresa_id', empresaId)
+      queryMov = queryMov.eq("empresa_id", empresaId)
     }
 
     const { data: movs, error: movErr } = await queryMov
@@ -46,7 +46,7 @@ export const ConcreteiraService = {
     movs?.forEach((m: any) => {
       const qtd = Number(m.quantidade) || 0
       if (!saldos[m.material_id]) saldos[m.material_id] = 0
-      if (m.tipo === 'ENTRADA' || m.tipo === 'ABERTURA') {
+      if (m.tipo === "ENTRADA" || m.tipo === "ABERTURA") {
         saldos[m.material_id] += qtd
       } else {
         saldos[m.material_id] -= qtd
@@ -57,10 +57,10 @@ export const ConcreteiraService = {
       ...mat,
       controla_estoque:
         mat.controla_estoque ??
-        (mat.codigo === 'cimento' || mat.codigo === 'aditivo'),
+        (mat.codigo === "cimento" || mat.codigo === "aditivo"),
       estoque_minimo: Number(mat.estoque_minimo) || 0,
       densidade: mat.densidade != null ? Number(mat.densidade) : undefined,
-      unidade_compra: mat.unidade_compra ?? 'kg',
+      unidade_compra: mat.unidade_compra ?? "kg",
       preco_compra:
         mat.preco_compra != null ? Number(mat.preco_compra) : undefined,
       saldo: Number((saldos[mat.id] || 0).toFixed(2)),
@@ -69,9 +69,9 @@ export const ConcreteiraService = {
 
   async updateMaterialEstoqueMinimo(id: string, estoque_minimo: number) {
     const { data, error } = await (supabase as any)
-      .from('materiais')
+      .from("materiais")
       .update({ estoque_minimo })
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single()
     if (error) throw error
@@ -97,9 +97,9 @@ export const ConcreteiraService = {
     if (Object.keys(update).length === 0) return null
 
     const { data, error } = await (supabase as any)
-      .from('materiais')
+      .from("materiais")
       .update(update)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single()
     if (error) throw error
@@ -119,12 +119,12 @@ export const ConcreteiraService = {
     densidade?: number,
   ): number {
     const preco = Number(precoCompra) || 0
-    const unidade = (unidadeCompra || 'kg').toLowerCase()
+    const unidade = (unidadeCompra || "kg").toLowerCase()
 
-    if (unidade === 'kg') return preco
-    if (unidade === 'tonelada' || unidade === 'toneladas' || unidade === 't')
+    if (unidade === "kg") return preco
+    if (unidade === "tonelada" || unidade === "toneladas" || unidade === "t")
       return preco / 1000
-    if (unidade === 'm3' || unidade === 'm³') {
+    if (unidade === "m3" || unidade === "m³") {
       const d = Number(densidade) || 0
       if (d <= 0) return 0
       return preco / (d * 1000)
@@ -145,27 +145,27 @@ export const ConcreteiraService = {
     densidade?: number,
   ): number {
     const preco = Number(precoCompra) || 0
-    const unidade = (unidadeCompra || 'litros').toLowerCase()
+    const unidade = (unidadeCompra || "litros").toLowerCase()
     const d = Number(densidade) > 0 ? Number(densidade) : 1.0
 
     if (
-      unidade === 'litros' ||
-      unidade === 'l' ||
-      unidade === 'lt' ||
-      unidade === 'lts'
+      unidade === "litros" ||
+      unidade === "l" ||
+      unidade === "lt" ||
+      unidade === "lts"
     ) {
       return preco
     }
-    if (unidade === 'kg') {
+    if (unidade === "kg") {
       // 1 L tem peso de 'd' kg (ex: d = 1,05 kg/L => 1L = 1,05kg => custo/L = preco/kg * 1,05)
       // Se d = 1.0, 1kg = 1L => custo/L = preco
       return preco * d
     }
-    if (unidade === 'tonelada' || unidade === 'toneladas' || unidade === 't') {
+    if (unidade === "tonelada" || unidade === "toneladas" || unidade === "t") {
       // preco por tonelada (1000kg) => preco/kg = preco / 1000 => custo/L = (preco / 1000) * d
       return (preco / 1000) * d
     }
-    if (unidade === 'm3' || unidade === 'm³') {
+    if (unidade === "m3" || unidade === "m³") {
       // 1 m³ = 1.000 litros
       return preco / 1000
     }
@@ -174,11 +174,11 @@ export const ConcreteiraService = {
 
   // Quantidade de kg equivalente a 1 unidade de compra (ex.: 1 m³ de brita 12 = 1.380 kg)
   kgPorUnidadeCompra(unidadeCompra: string, densidade?: number): number {
-    const unidade = (unidadeCompra || 'kg').toLowerCase()
-    if (unidade === 'kg') return 1
-    if (unidade === 'tonelada' || unidade === 'toneladas' || unidade === 't')
+    const unidade = (unidadeCompra || "kg").toLowerCase()
+    if (unidade === "kg") return 1
+    if (unidade === "tonelada" || unidade === "toneladas" || unidade === "t")
       return 1000
-    if (unidade === 'm3' || unidade === 'm³')
+    if (unidade === "m3" || unidade === "m³")
       return (Number(densidade) || 0) * 1000
     return 1
   },
@@ -189,17 +189,17 @@ export const ConcreteiraService = {
     apenasControlados = true,
   ): Promise<MovimentacaoEstoque[]> {
     let query = (supabase as any)
-      .from('movimentacoes_estoque')
-      .select('*, material:materiais(*)')
-      .order('created_at', { ascending: false })
+      .from("movimentacoes_estoque")
+      .select("*, material:materiais(*)")
+      .order("created_at", { ascending: false })
       .limit(300)
 
     if (empresaId) {
-      query = query.eq('empresa_id', empresaId)
+      query = query.eq("empresa_id", empresaId)
     }
 
-    if (materialId && materialId !== 'ALL') {
-      query = query.eq('material_id', materialId)
+    if (materialId && materialId !== "ALL") {
+      query = query.eq("material_id", materialId)
     }
 
     const { data, error } = await query
@@ -207,12 +207,12 @@ export const ConcreteiraService = {
     let result = (data || []) as MovimentacaoEstoque[]
 
     // Se apenasControlados for true, filtra movimentações para materiais de estoque controlado (cimento e aditivo)
-    if (apenasControlados && (!materialId || materialId === 'ALL')) {
+    if (apenasControlados && (!materialId || materialId === "ALL")) {
       result = result.filter((m) => {
         const mat = m.material
         if (!mat) return true
         if (mat.controla_estoque !== undefined) return mat.controla_estoque
-        return mat.codigo === 'cimento' || mat.codigo === 'aditivo'
+        return mat.codigo === "cimento" || mat.codigo === "aditivo"
       })
     }
 
@@ -228,15 +228,15 @@ export const ConcreteiraService = {
     observacao?: string
   }) {
     const { data, error } = await (supabase as any)
-      .from('movimentacoes_estoque')
+      .from("movimentacoes_estoque")
       .insert({
         empresa_id: payload.empresa_id || null,
         material_id: payload.material_id,
-        tipo: 'ENTRADA',
+        tipo: "ENTRADA",
         quantidade: payload.quantidade,
         data: payload.data,
-        documento: payload.documento || 'NOTA-REPOSICAO',
-        observacao: payload.observacao || 'Reposição de estoque',
+        documento: payload.documento || "NOTA-REPOSICAO",
+        observacao: payload.observacao || "Reposição de estoque",
       })
       .select()
       .single()
@@ -248,12 +248,12 @@ export const ConcreteiraService = {
   // Traços
   async getTracos(empresaId?: string): Promise<Traco[]> {
     let query = (supabase as any)
-      .from('tracos')
-      .select('*')
-      .order('nome', { ascending: true })
+      .from("tracos")
+      .select("*")
+      .order("nome", { ascending: true })
 
     if (empresaId) {
-      query = query.eq('empresa_id', empresaId)
+      query = query.eq("empresa_id", empresaId)
     }
 
     const { data, error } = await query
@@ -264,7 +264,7 @@ export const ConcreteiraService = {
   async salvarTraco(traco: Partial<Traco>, empresaId?: string) {
     if (traco.id) {
       const { data, error } = await (supabase as any)
-        .from('tracos')
+        .from("tracos")
         .update({
           nome: traco.nome,
           descricao: traco.descricao,
@@ -278,14 +278,14 @@ export const ConcreteiraService = {
           ativo: traco.ativo ?? true,
           ...(empresaId ? { empresa_id: empresaId } : {}),
         })
-        .eq('id', traco.id)
+        .eq("id", traco.id)
         .select()
         .single()
       if (error) throw error
       return data
     } else {
       const { data, error } = await (supabase as any)
-        .from('tracos')
+        .from("tracos")
         .insert({
           empresa_id: empresaId || traco.empresa_id || null,
           nome: traco.nome,
@@ -310,13 +310,13 @@ export const ConcreteiraService = {
   async getMetaProducao(empresaId: string): Promise<MetaProducao | null> {
     if (!empresaId) return null
     const { data, error } = await (supabase as any)
-      .from('metas_producao')
-      .select('*')
-      .eq('empresa_id', empresaId)
+      .from("metas_producao")
+      .select("*")
+      .eq("empresa_id", empresaId)
       .maybeSingle()
 
     if (error) {
-      console.error('Erro ao buscar meta de produção:', error)
+      console.error("Erro ao buscar meta de produção:", error)
       return null
     }
 
@@ -326,7 +326,7 @@ export const ConcreteiraService = {
         empresa_id: empresaId,
         meta_diaria_m3: 50,
         meta_mensal_m3: 1000,
-        observacao: 'Meta padrão inicial',
+        observacao: "Meta padrão inicial",
       }
     }
 
@@ -352,8 +352,8 @@ export const ConcreteiraService = {
     }
 
     const { data, error } = await (supabase as any)
-      .from('metas_producao')
-      .upsert(payload, { onConflict: 'empresa_id' })
+      .from("metas_producao")
+      .upsert(payload, { onConflict: "empresa_id" })
       .select()
       .single()
 
@@ -367,10 +367,10 @@ export const ConcreteiraService = {
 
   // Cadastros
   async getMotoristas(empresaId?: string): Promise<Motorista[]> {
-    let query = (supabase as any).from('motoristas').select('*').order('nome')
+    let query = (supabase as any).from("motoristas").select("*").order("nome")
 
     if (empresaId) {
-      query = query.eq('empresa_id', empresaId)
+      query = query.eq("empresa_id", empresaId)
     }
 
     const { data, error } = await query
@@ -386,20 +386,20 @@ export const ConcreteiraService = {
   ) {
     if (id) {
       const { data, error } = await (supabase as any)
-        .from('motoristas')
+        .from("motoristas")
         .update({
           nome,
           ativo,
           ...(empresaId ? { empresa_id: empresaId } : {}),
         })
-        .eq('id', id)
+        .eq("id", id)
         .select()
         .single()
       if (error) throw error
       return data
     }
     const { data, error } = await (supabase as any)
-      .from('motoristas')
+      .from("motoristas")
       .insert({ nome, ativo, empresa_id: empresaId || null })
       .select()
       .single()
@@ -408,10 +408,10 @@ export const ConcreteiraService = {
   },
 
   async getVeiculos(empresaId?: string): Promise<Veiculo[]> {
-    let query = (supabase as any).from('veiculos').select('*').order('placa')
+    let query = (supabase as any).from("veiculos").select("*").order("placa")
 
     if (empresaId) {
-      query = query.eq('empresa_id', empresaId)
+      query = query.eq("empresa_id", empresaId)
     }
 
     const { data, error } = await query
@@ -428,21 +428,21 @@ export const ConcreteiraService = {
   ) {
     if (id) {
       const { data, error } = await (supabase as any)
-        .from('veiculos')
+        .from("veiculos")
         .update({
           placa,
           modelo,
           ativo,
           ...(empresaId ? { empresa_id: empresaId } : {}),
         })
-        .eq('id', id)
+        .eq("id", id)
         .select()
         .single()
       if (error) throw error
       return data
     }
     const { data, error } = await (supabase as any)
-      .from('veiculos')
+      .from("veiculos")
       .insert({ placa, modelo, ativo, empresa_id: empresaId || null })
       .select()
       .single()
@@ -451,10 +451,10 @@ export const ConcreteiraService = {
   },
 
   async getCidades(empresaId?: string): Promise<Cidade[]> {
-    let query = (supabase as any).from('cidades').select('*').order('nome')
+    let query = (supabase as any).from("cidades").select("*").order("nome")
 
     if (empresaId) {
-      query = query.eq('empresa_id', empresaId)
+      query = query.eq("empresa_id", empresaId)
     }
 
     const { data, error } = await query
@@ -462,19 +462,19 @@ export const ConcreteiraService = {
     return data || []
   },
 
-  async salvarCidade(nome: string, uf = 'PB', id?: string, empresaId?: string) {
+  async salvarCidade(nome: string, uf = "PB", id?: string, empresaId?: string) {
     if (id) {
       const { data, error } = await (supabase as any)
-        .from('cidades')
+        .from("cidades")
         .update({ nome, uf, ...(empresaId ? { empresa_id: empresaId } : {}) })
-        .eq('id', id)
+        .eq("id", id)
         .select()
         .single()
       if (error) throw error
       return data
     }
     const { data, error } = await (supabase as any)
-      .from('cidades')
+      .from("cidades")
       .insert({ nome, uf, empresa_id: empresaId || null })
       .select()
       .single()
@@ -494,21 +494,21 @@ export const ConcreteiraService = {
     apenasZeradas?: boolean
   }): Promise<Carga[]> {
     let query = (supabase as any)
-      .from('cargas')
-      .select('*')
-      .order('data', { ascending: false })
-      .order('numero_carga', { ascending: false })
+      .from("cargas")
+      .select("*")
+      .order("data", { ascending: false })
+      .order("numero_carga", { ascending: false })
 
-    if (filtros?.empresaId) query = query.eq('empresa_id', filtros.empresaId)
-    if (filtros?.dataInicio) query = query.gte('data', filtros.dataInicio)
-    if (filtros?.dataFim) query = query.lte('data', filtros.dataFim)
-    if (filtros?.cidade && filtros.cidade !== 'ALL')
-      query = query.eq('cidade_nome', filtros.cidade)
-    if (filtros?.motorista && filtros.motorista !== 'ALL')
-      query = query.eq('motorista_nome', filtros.motorista)
-    if (filtros?.veiculo && filtros.veiculo !== 'ALL')
-      query = query.eq('veiculo_placa', filtros.veiculo)
-    if (filtros?.apenasZeradas) query = query.eq('carga_zerada', true)
+    if (filtros?.empresaId) query = query.eq("empresa_id", filtros.empresaId)
+    if (filtros?.dataInicio) query = query.gte("data", filtros.dataInicio)
+    if (filtros?.dataFim) query = query.lte("data", filtros.dataFim)
+    if (filtros?.cidade && filtros.cidade !== "ALL")
+      query = query.eq("cidade_nome", filtros.cidade)
+    if (filtros?.motorista && filtros.motorista !== "ALL")
+      query = query.eq("motorista_nome", filtros.motorista)
+    if (filtros?.veiculo && filtros.veiculo !== "ALL")
+      query = query.eq("veiculo_placa", filtros.veiculo)
+    if (filtros?.apenasZeradas) query = query.eq("carga_zerada", true)
 
     const { data, error } = await query
     if (error) throw error
@@ -516,15 +516,15 @@ export const ConcreteiraService = {
     let cargas = (data || []) as Carga[]
 
     // Filtro adicional por material: apenas cargas que consumiram aquele material (> 0)
-    if (filtros?.material && filtros.material !== 'ALL') {
+    if (filtros?.material && filtros.material !== "ALL") {
       const matKey = filtros.material
       cargas = cargas.filter((c) => {
-        if (matKey === 'cimento') return Number(c.consumo_cimento) > 0
-        if (matKey === 'aditivo') return Number(c.consumo_aditivo) > 0
-        if (matKey === 'areia') return Number(c.consumo_areia) > 0
-        if (matKey === 'brita12') return Number(c.consumo_brita12) > 0
-        if (matKey === 'brita19') return Number(c.consumo_brita19) > 0
-        if (matKey === 'po_pedra') return Number(c.consumo_po_pedra) > 0
+        if (matKey === "cimento") return Number(c.consumo_cimento) > 0
+        if (matKey === "aditivo") return Number(c.consumo_aditivo) > 0
+        if (matKey === "areia") return Number(c.consumo_areia) > 0
+        if (matKey === "brita12") return Number(c.consumo_brita12) > 0
+        if (matKey === "brita19") return Number(c.consumo_brita19) > 0
+        if (matKey === "po_pedra") return Number(c.consumo_po_pedra) > 0
         return true
       })
     }
@@ -533,9 +533,9 @@ export const ConcreteiraService = {
     const [precos, ordensServico] = await Promise.all([
       this.getPrecosMaterial(filtros?.empresaId),
       (supabase as any)
-        .from('ordens_servico')
-        .select('*')
-        .not('carga_id', 'is', null)
+        .from("ordens_servico")
+        .select("*")
+        .not("carga_id", "is", null)
         .then(({ data }: any) => (data || []) as OrdemServico[]),
     ])
 
@@ -572,7 +572,7 @@ export const ConcreteiraService = {
     if (precosMat.length === 0) return 0
 
     // Extrair ano-mes da carga: '2026-09-15' -> '09/2026'
-    const [ano, mes] = dataStr ? dataStr.slice(0, 7).split('-') : ['', '']
+    const [ano, mes] = dataStr ? dataStr.slice(0, 7).split("-") : ["", ""]
     const mesAnoCarga = `${mes}/${ano}`
 
     // 1. Tentar encontrar preço exato do mês da carga
@@ -582,7 +582,7 @@ export const ConcreteiraService = {
     // 2. Se não houver, pegar o mais recente anterior à data da carga
     // Converte mes_ano 'MM/YYYY' para YYYY-MM para comparação cronológica
     const parseMesAno = (ma: string) => {
-      const [m, y] = ma.split('/')
+      const [m, y] = ma.split("/")
       return `${y}-${m}`
     }
     const targetYm = `${ano}-${mes}`
@@ -621,32 +621,32 @@ export const ConcreteiraService = {
     }
 
     const pCimento = this.getPrecoUnitarioParaData(
-      'cimento',
+      "cimento",
       carga.data,
       precos,
     )
     const pAditivo = this.getPrecoUnitarioParaData(
-      'aditivo',
+      "aditivo",
       carga.data,
       precos,
     )
-    const pAreia = this.getPrecoUnitarioParaData('areia', carga.data, precos)
+    const pAreia = this.getPrecoUnitarioParaData("areia", carga.data, precos)
     const pBrita12 = this.getPrecoUnitarioParaData(
-      'brita12',
+      "brita12",
       carga.data,
       precos,
     )
     const pBrita19 = this.getPrecoUnitarioParaData(
-      'brita19',
+      "brita19",
       carga.data,
       precos,
     )
     const pPoPedra = this.getPrecoUnitarioParaData(
-      'po_pedra',
+      "po_pedra",
       carga.data,
       precos,
     )
-    const pAgua = this.getPrecoUnitarioParaData('agua', carga.data, precos)
+    const pAgua = this.getPrecoUnitarioParaData("agua", carga.data, precos)
 
     const cCimento = Number(carga.consumo_cimento || 0) * pCimento
     const cAditivo = Number(carga.consumo_aditivo || 0) * pAditivo
@@ -675,21 +675,18 @@ export const ConcreteiraService = {
   },
 
   // Calcula custo teórico por m³ de um traço padrão
-  calcularCustoTracoM3(
-    traco: Traco,
-    precos: PrecoMaterial[],
-  ): {
+  calcularCustoTracoM3(traco: Traco, precos: PrecoMaterial[]): {
     totalPorM3: number
     detalhes: Record<string, number>
   } {
-    const hoje = new Date().toISOString().split('T')[0]
-    const pCimento = this.getPrecoUnitarioParaData('cimento', hoje, precos)
-    const pAditivo = this.getPrecoUnitarioParaData('aditivo', hoje, precos)
-    const pAreia = this.getPrecoUnitarioParaData('areia', hoje, precos)
-    const pBrita12 = this.getPrecoUnitarioParaData('brita12', hoje, precos)
-    const pBrita19 = this.getPrecoUnitarioParaData('brita19', hoje, precos)
-    const pPoPedra = this.getPrecoUnitarioParaData('po_pedra', hoje, precos)
-    const pAgua = this.getPrecoUnitarioParaData('agua', hoje, precos)
+    const hoje = new Date().toISOString().split("T")[0]
+    const pCimento = this.getPrecoUnitarioParaData("cimento", hoje, precos)
+    const pAditivo = this.getPrecoUnitarioParaData("aditivo", hoje, precos)
+    const pAreia = this.getPrecoUnitarioParaData("areia", hoje, precos)
+    const pBrita12 = this.getPrecoUnitarioParaData("brita12", hoje, precos)
+    const pBrita19 = this.getPrecoUnitarioParaData("brita19", hoje, precos)
+    const pPoPedra = this.getPrecoUnitarioParaData("po_pedra", hoje, precos)
+    const pAgua = this.getPrecoUnitarioParaData("agua", hoje, precos)
 
     const cCimento = Number(traco.consumo_cimento || 0) * pCimento
     const cAditivo = Number(traco.consumo_aditivo || 0) * pAditivo
@@ -718,18 +715,18 @@ export const ConcreteiraService = {
 
   async getProximoNumeroCarga(empresaId?: string): Promise<number> {
     let query = (supabase as any)
-      .from('cargas')
-      .select('numero_carga')
-      .order('numero_carga', { ascending: false })
+      .from("cargas")
+      .select("numero_carga")
+      .order("numero_carga", { ascending: false })
       .limit(1)
 
     if (empresaId) {
-      query = query.eq('empresa_id', empresaId)
+      query = query.eq("empresa_id", empresaId)
     }
 
     const { data, error } = await query
     if (error) {
-      console.error('Erro ao buscar próximo número de carga:', error)
+      console.error("Erro ao buscar próximo número de carga:", error)
       return 1
     }
     if (data && data.length > 0 && data[0].numero_carga) {
@@ -740,9 +737,9 @@ export const ConcreteiraService = {
 
   async getCargaPorId(id: string): Promise<Carga | null> {
     const { data: carga, error } = await (supabase as any)
-      .from('cargas')
-      .select('*')
-      .eq('id', id)
+      .from("cargas")
+      .select("*")
+      .eq("id", id)
       .single()
 
     if (error || !carga) return null
@@ -750,14 +747,14 @@ export const ConcreteiraService = {
     const [precos, { data: osData }] = await Promise.all([
       this.getPrecosMaterial(carga.empresa_id),
       (supabase as any)
-        .from('ordens_servico')
-        .select('*')
-        .eq('carga_id', id)
+        .from("ordens_servico")
+        .select("*")
+        .eq("carga_id", id)
         .maybeSingle(),
     ])
 
     const custo = this.calcularCustoCarga(carga, precos)
-    const osVinculada = (osData as OrdemServico) || null
+    const osVinculada = osData as OrdemServico || null
 
     return {
       ...carga,
@@ -791,7 +788,7 @@ export const ConcreteiraService = {
   ): Promise<Carga> {
     // 1. Atualiza registro na tabela cargas
     const { data: cargaAtualizada, error: cargaErr } = await (supabase as any)
-      .from('cargas')
+      .from("cargas")
       .update({
         data: payload.data,
         volume_m3: payload.volume_m3,
@@ -810,7 +807,7 @@ export const ConcreteiraService = {
         observacao: payload.observacao || null,
         carga_zerada: payload.carga_zerada || false,
       })
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single()
 
@@ -818,33 +815,33 @@ export const ConcreteiraService = {
 
     // 2. Estorna TODAS as movimentações de estoque antigas vinculadas a esta carga
     const { error: delErr } = await (supabase as any)
-      .from('movimentacoes_estoque')
+      .from("movimentacoes_estoque")
       .delete()
-      .eq('carga_id', id)
+      .eq("carga_id", id)
 
     if (delErr) {
-      console.error('Erro ao estornar movimentações antigas da carga:', delErr)
+      console.error("Erro ao estornar movimentações antigas da carga:", delErr)
     }
 
     // 3. Se a carga atualizada NÃO for zerada, grava as novas movimentações recalculadas (apenas cimento e aditivo)
     if (!payload.carga_zerada) {
       const empresaId = cargaAtualizada.empresa_id
       const materiais = await this.getMateriais(empresaId)
-      const docName = `CARGA-${String(cargaAtualizada.numero_carga).padStart(5, '0')}`
+      const docName = `CARGA-${String(cargaAtualizada.numero_carga).padStart(5, "0")}`
       const saídas: any[] = []
 
       const matCimento = materiais.find(
-        (m) => m.codigo === 'cimento' && m.controla_estoque !== false,
+        (m) => m.codigo === "cimento" && m.controla_estoque !== false,
       )
       const matAditivo = materiais.find(
-        (m) => m.codigo === 'aditivo' && m.controla_estoque !== false,
+        (m) => m.codigo === "aditivo" && m.controla_estoque !== false,
       )
 
       if (payload.consumo_cimento > 0 && matCimento) {
         saídas.push({
           empresa_id: empresaId || null,
           material_id: matCimento.id,
-          tipo: 'SAIDA',
+          tipo: "SAIDA",
           quantidade: payload.consumo_cimento,
           data: payload.data,
           carga_id: id,
@@ -856,7 +853,7 @@ export const ConcreteiraService = {
         saídas.push({
           empresa_id: empresaId || null,
           material_id: matAditivo.id,
-          tipo: 'SAIDA',
+          tipo: "SAIDA",
           quantidade: payload.consumo_aditivo,
           data: payload.data,
           carga_id: id,
@@ -866,71 +863,71 @@ export const ConcreteiraService = {
       }
 
       if (saídas.length > 0) {
-        await (supabase as any).from('movimentacoes_estoque').insert(saídas)
+        await (supabase as any).from("movimentacoes_estoque").insert(saídas)
       }
     }
 
     // 4. Se houver Ordem de Serviço vinculada a essa carga, sincroniza seus itens e insumos detalhados
     const { data: osVinculada } = await (supabase as any)
-      .from('ordens_servico')
-      .select('*')
-      .eq('carga_id', id)
+      .from("ordens_servico")
+      .select("*")
+      .eq("carga_id", id)
       .maybeSingle()
 
     if (osVinculada) {
       const discriminacao =
         payload.traco_nome ||
         (osVinculada.itens && osVinculada.itens[0]?.discriminacao) ||
-        'CONCRETO USINADO'
+        "CONCRETO USINADO"
 
       const itensAtualizados = [
         {
           quantidade: Number(payload.volume_m3) || 8.0,
-          unidade: 'm3',
+          unidade: "m3",
           discriminacao,
         },
       ]
 
       const insumosDetalhados = [
         {
-          material: 'Cimento',
+          material: "Cimento",
           quantidade: payload.consumo_cimento,
-          unidade: 'kg',
+          unidade: "kg",
         },
         {
-          material: 'Aditivo',
+          material: "Aditivo",
           quantidade: payload.consumo_aditivo,
-          unidade: 'L',
+          unidade: "L",
         },
         {
-          material: 'Água',
+          material: "Água",
           quantidade: payload.consumo_agua || 0,
-          unidade: 'L',
+          unidade: "L",
         },
         {
-          material: 'Areia',
+          material: "Areia",
           quantidade: payload.consumo_areia,
-          unidade: 'kg',
+          unidade: "kg",
         },
         {
-          material: 'Brita 12',
+          material: "Brita 12",
           quantidade: payload.consumo_brita12,
-          unidade: 'kg',
+          unidade: "kg",
         },
         {
-          material: 'Brita 19',
+          material: "Brita 19",
           quantidade: payload.consumo_brita19,
-          unidade: 'kg',
+          unidade: "kg",
         },
         {
-          material: 'Pó de Pedra',
+          material: "Pó de Pedra",
           quantidade: payload.consumo_po_pedra,
-          unidade: 'kg',
+          unidade: "kg",
         },
       ].filter((ins) => ins.quantidade > 0)
 
       await (supabase as any)
-        .from('ordens_servico')
+        .from("ordens_servico")
         .update({
           data_emissao: payload.data,
           itens: itensAtualizados,
@@ -938,7 +935,7 @@ export const ConcreteiraService = {
           motorista_nome: payload.motorista_nome || osVinculada.motorista_nome,
           veiculo_placa: payload.veiculo_placa || osVinculada.veiculo_placa,
         })
-        .eq('id', osVinculada.id)
+        .eq("id", osVinculada.id)
     }
 
     return cargaAtualizada
@@ -968,7 +965,7 @@ export const ConcreteiraService = {
 
     // 1. Inserir carga
     const { data: carga, error: cargaErr } = await (supabase as any)
-      .from('cargas')
+      .from("cargas")
       .insert({
         empresa_id: payload.empresa_id || null,
         numero_carga: proximoNum,
@@ -997,22 +994,22 @@ export const ConcreteiraService = {
     // 2. Se não for zerada, gerar saídas de estoque SOMENTE para materiais com controla_estoque === true (cimento e aditivo)
     if (!payload.carga_zerada) {
       const materiais = await this.getMateriais(payload.empresa_id)
-      const docName = `CARGA-${String(carga.numero_carga).padStart(5, '0')}`
+      const docName = `CARGA-${String(carga.numero_carga).padStart(5, "0")}`
       const saídas: any[] = []
 
       // Materiais controlados: cimento e aditivo
       const matCimento = materiais.find(
-        (m) => m.codigo === 'cimento' && m.controla_estoque !== false,
+        (m) => m.codigo === "cimento" && m.controla_estoque !== false,
       )
       const matAditivo = materiais.find(
-        (m) => m.codigo === 'aditivo' && m.controla_estoque !== false,
+        (m) => m.codigo === "aditivo" && m.controla_estoque !== false,
       )
 
       if (payload.consumo_cimento > 0 && matCimento) {
         saídas.push({
           empresa_id: payload.empresa_id || null,
           material_id: matCimento.id,
-          tipo: 'SAIDA',
+          tipo: "SAIDA",
           quantidade: payload.consumo_cimento,
           data: payload.data,
           carga_id: carga.id,
@@ -1024,7 +1021,7 @@ export const ConcreteiraService = {
         saídas.push({
           empresa_id: payload.empresa_id || null,
           material_id: matAditivo.id,
-          tipo: 'SAIDA',
+          tipo: "SAIDA",
           quantidade: payload.consumo_aditivo,
           data: payload.data,
           carga_id: carga.id,
@@ -1036,7 +1033,7 @@ export const ConcreteiraService = {
       // IMPORTANTE: Britas, Areia e Pó de Pedra NÃO geram movimentação de saída de estoque!
 
       if (saídas.length > 0) {
-        await (supabase as any).from('movimentacoes_estoque').insert(saídas)
+        await (supabase as any).from("movimentacoes_estoque").insert(saídas)
       }
     }
 
@@ -1099,7 +1096,10 @@ export const ConcreteiraService = {
       observacoes?: string | null
       exibir_insumos_os?: boolean
     }
-  }): Promise<{ carga: Carga; ordemServico: OrdemServico }> {
+  }): Promise<{
+    carga: Carga
+    ordemServico: OrdemServico
+  }> {
     const empresaId = payload.carga.empresa_id!
     // 1. Criar a Carga
     const carga = await this.criarCarga(payload.carga)
@@ -1111,12 +1111,12 @@ export const ConcreteiraService = {
     const discriminacao =
       payload.entrega.discriminacao_produto ||
       payload.carga.traco_nome ||
-      'CONCRETO USINADO'
+      "CONCRETO USINADO"
 
     const itens = [
       {
         quantidade: Number(payload.carga.volume_m3) || 8.0,
-        unidade: 'm3',
+        unidade: "m3",
         discriminacao,
       },
     ]
@@ -1128,39 +1128,39 @@ export const ConcreteiraService = {
       unidade: string
     }> = [
       {
-        material: 'Cimento',
+        material: "Cimento",
         quantidade: payload.carga.consumo_cimento,
-        unidade: 'kg',
+        unidade: "kg",
       },
       {
-        material: 'Aditivo',
+        material: "Aditivo",
         quantidade: payload.carga.consumo_aditivo,
-        unidade: 'L',
+        unidade: "L",
       },
       {
-        material: 'Água',
+        material: "Água",
         quantidade: payload.carga.consumo_agua || 0,
-        unidade: 'L',
+        unidade: "L",
       },
       {
-        material: 'Areia',
+        material: "Areia",
         quantidade: payload.carga.consumo_areia,
-        unidade: 'kg',
+        unidade: "kg",
       },
       {
-        material: 'Brita 12',
+        material: "Brita 12",
         quantidade: payload.carga.consumo_brita12,
-        unidade: 'kg',
+        unidade: "kg",
       },
       {
-        material: 'Brita 19',
+        material: "Brita 19",
         quantidade: payload.carga.consumo_brita19,
-        unidade: 'kg',
+        unidade: "kg",
       },
       {
-        material: 'Pó de Pedra',
+        material: "Pó de Pedra",
         quantidade: payload.carga.consumo_po_pedra,
-        unidade: 'kg',
+        unidade: "kg",
       },
     ].filter((ins) => ins.quantidade > 0)
 
@@ -1173,7 +1173,7 @@ export const ConcreteiraService = {
         cliente_id: payload.entrega.cliente_id || null,
         carga_id: carga.id,
         destinatario_nome:
-          payload.entrega.destinatario_nome || 'CONSUMIDOR FINAL',
+          payload.entrega.destinatario_nome || "CONSUMIDOR FINAL",
         destinatario_cpf_cnpj: payload.entrega.destinatario_cpf_cnpj || null,
         destinatario_telefone: payload.entrega.destinatario_telefone || null,
         destinatario_endereco: payload.entrega.destinatario_endereco || null,
@@ -1182,7 +1182,7 @@ export const ConcreteiraService = {
           payload.entrega.destinatario_cidade ||
           payload.carga.cidade_nome ||
           null,
-        destinatario_uf: payload.entrega.destinatario_uf || 'PB',
+        destinatario_uf: payload.entrega.destinatario_uf || "PB",
         destinatario_cep: payload.entrega.destinatario_cep || null,
         nome_obra: payload.entrega.nome_obra || null,
         local_descarga: payload.entrega.local_descarga || null,
@@ -1191,16 +1191,16 @@ export const ConcreteiraService = {
         insumos_detalhados: insumosDetalhados,
         slump_central_medido: payload.entrega.slump_central_medido || null,
         slump_central_saida: payload.entrega.slump_central_saida || null,
-        slump_tolerancia: payload.entrega.slump_tolerancia || '+-2',
+        slump_tolerancia: payload.entrega.slump_tolerancia || "+-2",
         agua_adic_central: 0,
-        moldagem_central: payload.entrega.moldagem_central || 'SIM',
+        moldagem_central: payload.entrega.moldagem_central || "SIM",
         visto_motorista_central:
           payload.entrega.visto_motorista_central ||
           payload.carga.motorista_nome ||
           null,
         slump_peca_medido: payload.entrega.slump_peca_medido || null,
         slump_peca_saida: payload.entrega.slump_peca_saida || null,
-        peca_concretada: payload.entrega.peca_concretada || 'PISO / ESTRUTURAL',
+        peca_concretada: payload.entrega.peca_concretada || "PISO / ESTRUTURAL",
         veiculo_placa: payload.carga.veiculo_placa || null,
         motorista_nome: payload.carga.motorista_nome || null,
         lacre: payload.entrega.lacre || null,
@@ -1235,12 +1235,12 @@ export const ConcreteiraService = {
   // Custos / Preços Unitários
   async getPrecosMaterial(empresaId?: string): Promise<PrecoMaterial[]> {
     let query = (supabase as any)
-      .from('precos_material')
-      .select('*')
-      .order('mes_ano', { ascending: true })
+      .from("precos_material")
+      .select("*")
+      .order("mes_ano", { ascending: true })
 
     if (empresaId) {
-      query = query.eq('empresa_id', empresaId)
+      query = query.eq("empresa_id", empresaId)
     }
 
     const { data, error } = await query
@@ -1257,16 +1257,16 @@ export const ConcreteiraService = {
     unidade?: string
   }) {
     const { data, error } = await (supabase as any)
-      .from('precos_material')
+      .from("precos_material")
       .upsert(
         {
           empresa_id: payload.empresa_id || null,
           material_codigo: payload.material_codigo,
           mes_ano: payload.mes_ano,
           preco_unitario: payload.preco_unitario,
-          unidade: payload.unidade || 'kg',
+          unidade: payload.unidade || "kg",
         },
-        { onConflict: 'empresa_id, material_codigo, mes_ano' },
+        { onConflict: "empresa_id, material_codigo, mes_ano" },
       )
       .select()
       .single()
@@ -1289,18 +1289,18 @@ export const ConcreteiraService = {
   }> {
     // Busca todas as empresas ativas
     const { data: empresas, error: empErr } = await (supabase as any)
-      .from('empresas')
-      .select('*')
-      .eq('ativo', true)
-      .order('nome')
+      .from("empresas")
+      .select("*")
+      .eq("ativo", true)
+      .order("nome")
 
     if (empErr) throw empErr
 
     // Busca todas as cargas no período sem filtrar por empresa
-    let cargasQuery = (supabase as any).from('cargas').select('*')
+    let cargasQuery = (supabase as any).from("cargas").select("*")
     if (filtros?.dataInicio)
-      cargasQuery = cargasQuery.gte('data', filtros.dataInicio)
-    if (filtros?.dataFim) cargasQuery = cargasQuery.lte('data', filtros.dataFim)
+      cargasQuery = cargasQuery.gte("data", filtros.dataInicio)
+    if (filtros?.dataFim) cargasQuery = cargasQuery.lte("data", filtros.dataFim)
 
     const { data: todasCargas, error: crgErr } = await cargasQuery
     if (crgErr) throw crgErr
@@ -1310,8 +1310,8 @@ export const ConcreteiraService = {
       { data: todosPrecos, error: prcErr },
       { data: todosMateriais, error: matErr },
     ] = await Promise.all([
-      (supabase as any).from('precos_material').select('*'),
-      (supabase as any).from('materiais').select('*'),
+      (supabase as any).from("precos_material").select("*"),
+      (supabase as any).from("materiais").select("*"),
     ])
     if (prcErr) throw prcErr
     if (matErr) throw matErr
@@ -1329,9 +1329,9 @@ export const ConcreteiraService = {
 
       // Densidades reais com fallback para conversão kg -> m³
       // Fallbacks padrão: brita12 = 1.38 t/m³, brita19 = 1.44 t/m³, areia = 1.50 t/m³
-      const matBrita12 = materiaisEmpresa.find((m) => m.codigo === 'brita12')
-      const matBrita19 = materiaisEmpresa.find((m) => m.codigo === 'brita19')
-      const matAreia = materiaisEmpresa.find((m) => m.codigo === 'areia')
+      const matBrita12 = materiaisEmpresa.find((m) => m.codigo === "brita12")
+      const matBrita19 = materiaisEmpresa.find((m) => m.codigo === "brita19")
+      const matAreia = materiaisEmpresa.find((m) => m.codigo === "areia")
 
       const densidadeBrita12 =
         matBrita12 && Number(matBrita12.densidade) > 0
@@ -1370,15 +1370,12 @@ export const ConcreteiraService = {
         po_pedra: 0,
         agua: 0,
       }
-      const tracosMap: Record<
-        string,
-        {
-          tracoNome: string
-          volume: number
-          cargas: number
-          custoTotal: number
-        }
-      > = {}
+      const tracosMap: Record<string, {
+        tracoNome: string
+        volume: number
+        cargas: number
+        custoTotal: number
+      }> = {}
 
       cargasEmpresa.forEach((c) => {
         if (c.carga_zerada) {
@@ -1414,7 +1411,7 @@ export const ConcreteiraService = {
         custosPorMaterial.brita19 += custoBreakdown.brita19
         custosPorMaterial.po_pedra += custoBreakdown.po_pedra
         custosPorMaterial.agua += custoBreakdown.agua
-        const tNome = c.traco_nome || 'Não identificado'
+        const tNome = c.traco_nome || "Não identificado"
         if (!tracosMap[tNome]) {
           tracosMap[tNome] = {
             tracoNome: tNome,
@@ -1489,12 +1486,12 @@ export const ConcreteiraService = {
   // =========================================================
   async getClientes(empresaId?: string): Promise<Cliente[]> {
     let query = (supabase as any)
-      .from('clientes')
-      .select('*')
-      .order('nome', { ascending: true })
+      .from("clientes")
+      .select("*")
+      .order("nome", { ascending: true })
 
     if (empresaId) {
-      query = query.eq('empresa_id', empresaId)
+      query = query.eq("empresa_id", empresaId)
     }
 
     const { data, error } = await query
@@ -1508,9 +1505,9 @@ export const ConcreteiraService = {
   ): Promise<Cliente> {
     if (cliente.id) {
       const { data, error } = await (supabase as any)
-        .from('clientes')
+        .from("clientes")
         .update({
-          tipo: cliente.tipo || 'PJ',
+          tipo: cliente.tipo || "PJ",
           cpf_cnpj: cliente.cpf_cnpj,
           nome: cliente.nome,
           nome_fantasia: cliente.nome_fantasia || null,
@@ -1522,23 +1519,23 @@ export const ConcreteiraService = {
           complemento: cliente.complemento || null,
           bairro: cliente.bairro || null,
           cidade: cliente.cidade || null,
-          uf: cliente.uf || 'PB',
+          uf: cliente.uf || "PB",
           observacoes: cliente.observacoes || null,
           ativo: cliente.ativo ?? true,
           exibir_insumos_os: cliente.exibir_insumos_os ?? true,
           ...(empresaId ? { empresa_id: empresaId } : {}),
         })
-        .eq('id', cliente.id)
+        .eq("id", cliente.id)
         .select()
         .single()
       if (error) throw error
       return data
     } else {
       const { data, error } = await (supabase as any)
-        .from('clientes')
+        .from("clientes")
         .insert({
           empresa_id: empresaId || cliente.empresa_id,
-          tipo: cliente.tipo || 'PJ',
+          tipo: cliente.tipo || "PJ",
           cpf_cnpj: cliente.cpf_cnpj,
           nome: cliente.nome,
           nome_fantasia: cliente.nome_fantasia || null,
@@ -1550,7 +1547,7 @@ export const ConcreteiraService = {
           complemento: cliente.complemento || null,
           bairro: cliente.bairro || null,
           cidade: cliente.cidade || null,
-          uf: cliente.uf || 'PB',
+          uf: cliente.uf || "PB",
           observacoes: cliente.observacoes || null,
           ativo: cliente.ativo ?? true,
           exibir_insumos_os: cliente.exibir_insumos_os ?? true,
@@ -1565,10 +1562,10 @@ export const ConcreteiraService = {
   async excluirCliente(id: string, empresaId?: string): Promise<void> {
     // 1. Verificar vínculos com ordens de serviço
     let queryOs = (supabase as any)
-      .from('ordens_servico')
-      .select('numero_os', { count: 'exact' })
-      .eq('cliente_id', id)
-    if (empresaId) queryOs = queryOs.eq('empresa_id', empresaId)
+      .from("ordens_servico")
+      .select("numero_os", { count: "exact" })
+      .eq("cliente_id", id)
+    if (empresaId) queryOs = queryOs.eq("empresa_id", empresaId)
     const { count: totalOs, error: errOs } = await queryOs
     if (errOs) throw errOs
     if (totalOs && totalOs > 0) {
@@ -1577,8 +1574,8 @@ export const ConcreteiraService = {
       )
     }
 
-    let queryDel = (supabase as any).from('clientes').delete().eq('id', id)
-    if (empresaId) queryDel = queryDel.eq('empresa_id', empresaId)
+    let queryDel = (supabase as any).from("clientes").delete().eq("id", id)
+    if (empresaId) queryDel = queryDel.eq("empresa_id", empresaId)
     const { error } = await queryDel
     if (error) throw error
   },
@@ -1586,28 +1583,28 @@ export const ConcreteiraService = {
   async excluirMotorista(id: string, empresaId?: string): Promise<void> {
     // 1. Obter nome do motorista para checar vínculos por ID ou por nome nas cargas
     const { data: mot } = await (supabase as any)
-      .from('motoristas')
-      .select('nome')
-      .eq('id', id)
+      .from("motoristas")
+      .select("nome")
+      .eq("id", id)
       .maybeSingle()
 
     // 2. Verificar cargas vinculadas por motorista_id
     let queryCargasId = (supabase as any)
-      .from('cargas')
-      .select('id', { count: 'exact', head: true })
-      .eq('motorista_id', id)
-    if (empresaId) queryCargasId = queryCargasId.eq('empresa_id', empresaId)
+      .from("cargas")
+      .select("id", { count: "exact", head: true })
+      .eq("motorista_id", id)
+    if (empresaId) queryCargasId = queryCargasId.eq("empresa_id", empresaId)
     const { count: countCargasId } = await queryCargasId
 
     // Também verificar por motorista_nome se existir
     let countCargasNome = 0
     if (mot?.nome) {
       let queryCargasNome = (supabase as any)
-        .from('cargas')
-        .select('id', { count: 'exact', head: true })
-        .eq('motorista_nome', mot.nome)
+        .from("cargas")
+        .select("id", { count: "exact", head: true })
+        .eq("motorista_nome", mot.nome)
       if (empresaId)
-        queryCargasNome = queryCargasNome.eq('empresa_id', empresaId)
+        queryCargasNome = queryCargasNome.eq("empresa_id", empresaId)
       const { count } = await queryCargasNome
       countCargasNome = count || 0
     }
@@ -1620,8 +1617,8 @@ export const ConcreteiraService = {
     }
 
     // 3. Excluir motorista
-    let queryDel = (supabase as any).from('motoristas').delete().eq('id', id)
-    if (empresaId) queryDel = queryDel.eq('empresa_id', empresaId)
+    let queryDel = (supabase as any).from("motoristas").delete().eq("id", id)
+    if (empresaId) queryDel = queryDel.eq("empresa_id", empresaId)
     const { error } = await queryDel
     if (error) throw error
   },
@@ -1629,27 +1626,27 @@ export const ConcreteiraService = {
   async excluirVeiculo(id: string, empresaId?: string): Promise<void> {
     // 1. Obter placa do veículo para checar vínculos
     const { data: vei } = await (supabase as any)
-      .from('veiculos')
-      .select('placa')
-      .eq('id', id)
+      .from("veiculos")
+      .select("placa")
+      .eq("id", id)
       .maybeSingle()
 
     // 2. Verificar cargas vinculadas por veiculo_id
     let queryCargasId = (supabase as any)
-      .from('cargas')
-      .select('id', { count: 'exact', head: true })
-      .eq('veiculo_id', id)
-    if (empresaId) queryCargasId = queryCargasId.eq('empresa_id', empresaId)
+      .from("cargas")
+      .select("id", { count: "exact", head: true })
+      .eq("veiculo_id", id)
+    if (empresaId) queryCargasId = queryCargasId.eq("empresa_id", empresaId)
     const { count: countCargasId } = await queryCargasId
 
     let countCargasPlaca = 0
     if (vei?.placa) {
       let queryCargasPlaca = (supabase as any)
-        .from('cargas')
-        .select('id', { count: 'exact', head: true })
-        .eq('veiculo_placa', vei.placa)
+        .from("cargas")
+        .select("id", { count: "exact", head: true })
+        .eq("veiculo_placa", vei.placa)
       if (empresaId)
-        queryCargasPlaca = queryCargasPlaca.eq('empresa_id', empresaId)
+        queryCargasPlaca = queryCargasPlaca.eq("empresa_id", empresaId)
       const { count } = await queryCargasPlaca
       countCargasPlaca = count || 0
     }
@@ -1657,38 +1654,38 @@ export const ConcreteiraService = {
     const totalCargas = Math.max(countCargasId || 0, countCargasPlaca)
     if (totalCargas > 0) {
       throw new Error(
-        `Não é possível excluir o veículo placa "${vei?.placa || ''}" porque existem ${totalCargas} carga(s) associada(s) a ele. Desative o veículo para manter o histórico da frota.`,
+        `Não é possível excluir o veículo placa "${vei?.placa || ""}" porque existem ${totalCargas} carga(s) associada(s) a ele. Desative o veículo para manter o histórico da frota.`,
       )
     }
 
-    let queryDel = (supabase as any).from('veiculos').delete().eq('id', id)
-    if (empresaId) queryDel = queryDel.eq('empresa_id', empresaId)
+    let queryDel = (supabase as any).from("veiculos").delete().eq("id", id)
+    if (empresaId) queryDel = queryDel.eq("empresa_id", empresaId)
     const { error } = await queryDel
     if (error) throw error
   },
 
   async excluirCidade(id: string, empresaId?: string): Promise<void> {
     const { data: cid } = await (supabase as any)
-      .from('cidades')
-      .select('nome')
-      .eq('id', id)
+      .from("cidades")
+      .select("nome")
+      .eq("id", id)
       .maybeSingle()
 
     let queryCargasId = (supabase as any)
-      .from('cargas')
-      .select('id', { count: 'exact', head: true })
-      .eq('cidade_id', id)
-    if (empresaId) queryCargasId = queryCargasId.eq('empresa_id', empresaId)
+      .from("cargas")
+      .select("id", { count: "exact", head: true })
+      .eq("cidade_id", id)
+    if (empresaId) queryCargasId = queryCargasId.eq("empresa_id", empresaId)
     const { count: countCargasId } = await queryCargasId
 
     let countCargasNome = 0
     if (cid?.nome) {
       let queryCargasNome = (supabase as any)
-        .from('cargas')
-        .select('id', { count: 'exact', head: true })
-        .eq('cidade_nome', cid.nome)
+        .from("cargas")
+        .select("id", { count: "exact", head: true })
+        .eq("cidade_nome", cid.nome)
       if (empresaId)
-        queryCargasNome = queryCargasNome.eq('empresa_id', empresaId)
+        queryCargasNome = queryCargasNome.eq("empresa_id", empresaId)
       const { count } = await queryCargasNome
       countCargasNome = count || 0
     }
@@ -1696,33 +1693,33 @@ export const ConcreteiraService = {
     const totalCargas = Math.max(countCargasId || 0, countCargasNome)
     if (totalCargas > 0) {
       throw new Error(
-        `Não é possível excluir a cidade "${cid?.nome || ''}" porque constam ${totalCargas} carga(s) expedida(s) para este destino.`,
+        `Não é possível excluir a cidade "${cid?.nome || ""}" porque constam ${totalCargas} carga(s) expedida(s) para este destino.`,
       )
     }
 
-    let queryDel = (supabase as any).from('cidades').delete().eq('id', id)
-    if (empresaId) queryDel = queryDel.eq('empresa_id', empresaId)
+    let queryDel = (supabase as any).from("cidades").delete().eq("id", id)
+    if (empresaId) queryDel = queryDel.eq("empresa_id", empresaId)
     const { error } = await queryDel
     if (error) throw error
   },
 
   async excluirMaterial(id: string, empresaId?: string): Promise<void> {
     const { data: mat } = await (supabase as any)
-      .from('materiais')
-      .select('codigo, nome')
-      .eq('id', id)
+      .from("materiais")
+      .select("codigo, nome")
+      .eq("id", id)
       .maybeSingle()
 
     if (!mat) {
-      throw new Error('Insumo não encontrado.')
+      throw new Error("Insumo não encontrado.")
     }
 
     // 1. Checar movimentações de estoque
     let queryMov = (supabase as any)
-      .from('movimentacoes_estoque')
-      .select('id', { count: 'exact', head: true })
-      .eq('material_id', id)
-    if (empresaId) queryMov = queryMov.eq('empresa_id', empresaId)
+      .from("movimentacoes_estoque")
+      .select("id", { count: "exact", head: true })
+      .eq("material_id", id)
+    if (empresaId) queryMov = queryMov.eq("empresa_id", empresaId)
     const { count: countMov } = await queryMov
     if (countMov && countMov > 0) {
       throw new Error(
@@ -1732,32 +1729,32 @@ export const ConcreteiraService = {
 
     // 2. Checar se o código é um dos pilares do sistema (cimento, aditivo, etc.)
     const insumosBasicos = [
-      'cimento',
-      'aditivo',
-      'areia',
-      'brita12',
-      'brita19',
-      'po_pedra',
-      'agua',
+      "cimento",
+      "aditivo",
+      "areia",
+      "brita12",
+      "brita19",
+      "po_pedra",
+      "agua",
     ]
     if (insumosBasicos.includes(mat.codigo)) {
       // Checar se existem cargas no sistema usando esse insumo
       const colMap: Record<string, string> = {
-        cimento: 'consumo_cimento',
-        aditivo: 'consumo_aditivo',
-        areia: 'consumo_areia',
-        brita12: 'consumo_brita12',
-        brita19: 'consumo_brita19',
-        po_pedra: 'consumo_po_pedra',
-        agua: 'consumo_agua',
+        cimento: "consumo_cimento",
+        aditivo: "consumo_aditivo",
+        areia: "consumo_areia",
+        brita12: "consumo_brita12",
+        brita19: "consumo_brita19",
+        po_pedra: "consumo_po_pedra",
+        agua: "consumo_agua",
       }
       const col = colMap[mat.codigo]
       if (col) {
         let qCargas = (supabase as any)
-          .from('cargas')
-          .select('id', { count: 'exact', head: true })
+          .from("cargas")
+          .select("id", { count: "exact", head: true })
           .gt(col, 0)
-        if (empresaId) qCargas = qCargas.eq('empresa_id', empresaId)
+        if (empresaId) qCargas = qCargas.eq("empresa_id", empresaId)
         const { count: countCargas } = await qCargas
         if (countCargas && countCargas > 0) {
           throw new Error(
@@ -1770,41 +1767,41 @@ export const ConcreteiraService = {
     // 3. Excluir histórico de preços correspondente
     if (mat.codigo) {
       let qPreco = (supabase as any)
-        .from('precos_material')
+        .from("precos_material")
         .delete()
-        .eq('material_codigo', mat.codigo)
-      if (empresaId) qPreco = qPreco.eq('empresa_id', empresaId)
+        .eq("material_codigo", mat.codigo)
+      if (empresaId) qPreco = qPreco.eq("empresa_id", empresaId)
       await qPreco
     }
 
-    let queryDel = (supabase as any).from('materiais').delete().eq('id', id)
-    if (empresaId) queryDel = queryDel.eq('empresa_id', empresaId)
+    let queryDel = (supabase as any).from("materiais").delete().eq("id", id)
+    if (empresaId) queryDel = queryDel.eq("empresa_id", empresaId)
     const { error } = await queryDel
     if (error) throw error
   },
 
   async excluirTraco(id: string, empresaId?: string): Promise<void> {
     const { data: traco } = await (supabase as any)
-      .from('tracos')
-      .select('nome')
-      .eq('id', id)
+      .from("tracos")
+      .select("nome")
+      .eq("id", id)
       .maybeSingle()
 
     let queryCargasId = (supabase as any)
-      .from('cargas')
-      .select('id', { count: 'exact', head: true })
-      .eq('traco_id', id)
-    if (empresaId) queryCargasId = queryCargasId.eq('empresa_id', empresaId)
+      .from("cargas")
+      .select("id", { count: "exact", head: true })
+      .eq("traco_id", id)
+    if (empresaId) queryCargasId = queryCargasId.eq("empresa_id", empresaId)
     const { count: countCargasId } = await queryCargasId
 
     let countCargasNome = 0
     if (traco?.nome) {
       let queryCargasNome = (supabase as any)
-        .from('cargas')
-        .select('id', { count: 'exact', head: true })
-        .eq('traco_nome', traco.nome)
+        .from("cargas")
+        .select("id", { count: "exact", head: true })
+        .eq("traco_nome", traco.nome)
       if (empresaId)
-        queryCargasNome = queryCargasNome.eq('empresa_id', empresaId)
+        queryCargasNome = queryCargasNome.eq("empresa_id", empresaId)
       const { count } = await queryCargasNome
       countCargasNome = count || 0
     }
@@ -1812,21 +1809,21 @@ export const ConcreteiraService = {
     const totalCargas = Math.max(countCargasId || 0, countCargasNome)
     if (totalCargas > 0) {
       throw new Error(
-        `Não é possível excluir o traço "${traco?.nome || ''}" porque existem ${totalCargas} carga(s) expedida(s) com esta receita. Desative o traço para mantê-lo fora de novas seleções sem corromper o histórico.`,
+        `Não é possível excluir o traço "${traco?.nome || ""}" porque existem ${totalCargas} carga(s) expedida(s) com esta receita. Desative o traço para mantê-lo fora de novas seleções sem corromper o histórico.`,
       )
     }
 
-    let queryDel = (supabase as any).from('tracos').delete().eq('id', id)
-    if (empresaId) queryDel = queryDel.eq('empresa_id', empresaId)
+    let queryDel = (supabase as any).from("tracos").delete().eq("id", id)
+    if (empresaId) queryDel = queryDel.eq("empresa_id", empresaId)
     const { error } = await queryDel
     if (error) throw error
   },
 
   async excluirMetaProducao(empresaId: string): Promise<void> {
     const { error } = await (supabase as any)
-      .from('metas_producao')
+      .from("metas_producao")
       .delete()
-      .eq('empresa_id', empresaId)
+      .eq("empresa_id", empresaId)
     if (error) throw error
   },
 
@@ -1836,12 +1833,12 @@ export const ConcreteiraService = {
   ): Promise<void> {
     // 1. Obter dados do usuário a ser excluído
     const { data: userApp, error: errGet } = await (supabase as any)
-      .from('usuarios_app')
-      .select('*')
-      .eq('id', id)
+      .from("usuarios_app")
+      .select("*")
+      .eq("id", id)
       .maybeSingle()
     if (errGet) throw errGet
-    if (!userApp) throw new Error('Usuário não encontrado.')
+    if (!userApp) throw new Error("Usuário não encontrado.")
 
     // 2. Não permitir que o usuário exclua a si mesmo
     if (
@@ -1850,30 +1847,30 @@ export const ConcreteiraService = {
         usuarioLogadoEmail.trim().toLowerCase()
     ) {
       throw new Error(
-        'Você não pode excluir seu próprio usuário logado. Solicite a outro Administrador se necessário.',
+        "Você não pode excluir seu próprio usuário logado. Solicite a outro Administrador se necessário.",
       )
     }
 
     // 3. Garantir que permanece pelo menos um Administrador ativo no sistema
-    if (userApp.perfil === 'administrador') {
+    if (userApp.perfil === "administrador") {
       const { data: outrosAdmins } = await (supabase as any)
-        .from('usuarios_app')
-        .select('id')
-        .eq('perfil', 'administrador')
-        .neq('id', id)
-        .eq('ativo', true)
+        .from("usuarios_app")
+        .select("id")
+        .eq("perfil", "administrador")
+        .neq("id", id)
+        .eq("ativo", true)
       if (!outrosAdmins || outrosAdmins.length === 0) {
         throw new Error(
-          'Não é possível excluir este usuário pois ele é o único Administrador ativo no sistema.',
+          "Não é possível excluir este usuário pois ele é o único Administrador ativo no sistema.",
         )
       }
     }
 
     // 4. Executar exclusão da tabela usuarios_app
     const { error } = await (supabase as any)
-      .from('usuarios_app')
+      .from("usuarios_app")
       .delete()
-      .eq('id', id)
+      .eq("id", id)
     if (error) throw error
   },
 
@@ -1882,12 +1879,12 @@ export const ConcreteiraService = {
   // =========================================================
   async getOrdensServico(empresaId?: string): Promise<OrdemServico[]> {
     let query = (supabase as any)
-      .from('ordens_servico')
-      .select('*')
-      .order('numero_os', { ascending: false })
+      .from("ordens_servico")
+      .select("*")
+      .order("numero_os", { ascending: false })
 
     if (empresaId) {
-      query = query.eq('empresa_id', empresaId)
+      query = query.eq("empresa_id", empresaId)
     }
 
     const { data, error } = await query
@@ -1896,16 +1893,16 @@ export const ConcreteiraService = {
   },
 
   async getProximoNumeroOS(empresaId: string): Promise<number> {
-    const { data, error } = await (supabase as any).rpc('proximo_numero_os', {
+    const { data, error } = await (supabase as any).rpc("proximo_numero_os", {
       p_empresa_id: empresaId,
     })
     if (error) {
       // Fallback em caso de erro na RPC
       const { data: ultimas } = await (supabase as any)
-        .from('ordens_servico')
-        .select('numero_os')
-        .eq('empresa_id', empresaId)
-        .order('numero_os', { ascending: false })
+        .from("ordens_servico")
+        .select("numero_os")
+        .eq("empresa_id", empresaId)
+        .order("numero_os", { ascending: false })
         .limit(1)
       const maxNum =
         ultimas && ultimas[0]?.numero_os ? Number(ultimas[0].numero_os) : 4336
@@ -1921,7 +1918,7 @@ export const ConcreteiraService = {
     const payload = {
       empresa_id: empresaId,
       numero_os: os.numero_os,
-      data_emissao: os.data_emissao || new Date().toISOString().split('T')[0],
+      data_emissao: os.data_emissao || new Date().toISOString().split("T")[0],
       cliente_id: os.cliente_id || null,
       carga_id: os.carga_id || null,
       destinatario_nome: os.destinatario_nome,
@@ -1930,7 +1927,7 @@ export const ConcreteiraService = {
       destinatario_endereco: os.destinatario_endereco || null,
       destinatario_bairro: os.destinatario_bairro || null,
       destinatario_cidade: os.destinatario_cidade || null,
-      destinatario_uf: os.destinatario_uf || 'PB',
+      destinatario_uf: os.destinatario_uf || "PB",
       destinatario_cep: os.destinatario_cep || null,
       nome_obra: os.nome_obra || null,
       local_descarga: os.local_descarga || null,
@@ -1939,7 +1936,7 @@ export const ConcreteiraService = {
       insumos_detalhados: os.insumos_detalhados || [],
       slump_central_medido: os.slump_central_medido || null,
       slump_central_saida: os.slump_central_saida || null,
-      slump_tolerancia: os.slump_tolerancia || '+-2',
+      slump_tolerancia: os.slump_tolerancia || "+-2",
       agua_adic_central:
         os.agua_adic_central != null ? Number(os.agua_adic_central) : 0,
       moldagem_central: os.moldagem_central || null,
@@ -1974,16 +1971,16 @@ export const ConcreteiraService = {
 
     if (os.id) {
       const { data, error } = await (supabase as any)
-        .from('ordens_servico')
+        .from("ordens_servico")
         .update(payload)
-        .eq('id', os.id)
+        .eq("id", os.id)
         .select()
         .single()
       if (error) throw error
       return data
     } else {
       const { data, error } = await (supabase as any)
-        .from('ordens_servico')
+        .from("ordens_servico")
         .insert(payload)
         .select()
         .single()
@@ -1994,7 +1991,7 @@ export const ConcreteiraService = {
 
   async excluirOrdemServico(_id: string): Promise<void> {
     throw new Error(
-      'O Recibo/OS sequencial não pode ser excluído para não quebrar a sequência contínua de numeração da empresa.',
+      "O Recibo/OS sequencial não pode ser excluído para não quebrar a sequência contínua de numeração da empresa.",
     )
   },
 
@@ -2003,9 +2000,9 @@ export const ConcreteiraService = {
   // ==========================================
   async listarUsuariosApp(): Promise<any[]> {
     const { data, error } = await (supabase as any)
-      .from('usuarios_app')
-      .select('*, empresas(id, nome, slug)')
-      .order('nome', { ascending: true })
+      .from("usuarios_app")
+      .select("*, empresas(id, nome, slug)")
+      .order("nome", { ascending: true })
 
     if (error) throw error
     return (data || []).map((u: any) => ({
@@ -2019,10 +2016,10 @@ export const ConcreteiraService = {
     email?: string,
   ): Promise<any | null> {
     let query = (supabase as any)
-      .from('usuarios_app')
-      .select('*, empresas(id, nome, slug)')
+      .from("usuarios_app")
+      .select("*, empresas(id, nome, slug)")
     if (userId) {
-      const { data, error } = await query.eq('user_id', userId).maybeSingle()
+      const { data, error } = await query.eq("user_id", userId).maybeSingle()
       if (!error && data) {
         return {
           ...data,
@@ -2032,9 +2029,9 @@ export const ConcreteiraService = {
     }
     if (email) {
       const { data, error } = await (supabase as any)
-        .from('usuarios_app')
-        .select('*, empresas(id, nome, slug)')
-        .eq('email', email.trim().toLowerCase())
+        .from("usuarios_app")
+        .select("*, empresas(id, nome, slug)")
+        .eq("email", email.trim().toLowerCase())
         .maybeSingle()
       if (!error && data) {
         return {
@@ -2048,8 +2045,8 @@ export const ConcreteiraService = {
 
   async contarUsuariosApp(): Promise<number> {
     const { count, error } = await (supabase as any)
-      .from('usuarios_app')
-      .select('*', { count: 'exact', head: true })
+      .from("usuarios_app")
+      .select("*", { count: "exact", head: true })
     if (error) return 0
     return count || 0
   },
@@ -2059,7 +2056,7 @@ export const ConcreteiraService = {
     user_id?: string | null
     nome: string
     email: string
-    perfil: 'administrador' | 'balanceiro'
+    perfil: "administrador" | "balanceiro"
     empresa_id?: string | null
     ativo?: boolean
   }): Promise<any> {
@@ -2077,7 +2074,7 @@ export const ConcreteiraService = {
       // invoca a RPC que atualiza com segurança em auth.users, auth.identities e usuarios_app
       const emailNovo = payload.email
       const { data: resRpc, error: errRpc } = await (supabase as any).rpc(
-        'atualizar_email_usuario',
+        "atualizar_email_usuario",
         {
           p_usuario_app_id: dados.id,
           p_novo_email: emailNovo,
@@ -2085,12 +2082,12 @@ export const ConcreteiraService = {
       )
       if (errRpc) throw errRpc
       if (resRpc && resRpc.success === false) {
-        throw new Error(resRpc.error || 'Erro ao atualizar e-mail do usuário.')
+        throw new Error(resRpc.error || "Erro ao atualizar e-mail do usuário.")
       }
 
       // Atualiza os demais campos cadastrais
       const { data, error } = await (supabase as any)
-        .from('usuarios_app')
+        .from("usuarios_app")
         .update({
           nome: payload.nome,
           perfil: payload.perfil,
@@ -2098,14 +2095,14 @@ export const ConcreteiraService = {
           ativo: payload.ativo,
           updated_at: payload.updated_at,
         })
-        .eq('id', dados.id)
+        .eq("id", dados.id)
         .select()
         .single()
       if (error) throw error
       return data
     } else {
       const { data, error } = await (supabase as any)
-        .from('usuarios_app')
+        .from("usuarios_app")
         .insert({
           ...payload,
           user_id: dados.user_id || null,
@@ -2119,18 +2116,18 @@ export const ConcreteiraService = {
 
   async alternarStatusUsuarioApp(id: string, ativo: boolean): Promise<void> {
     const { error } = await (supabase as any)
-      .from('usuarios_app')
+      .from("usuarios_app")
       .update({ ativo, updated_at: new Date().toISOString() })
-      .eq('id', id)
+      .eq("id", id)
     if (error) throw error
   },
 
   async vincularAuthAUsuarioApp(userId: string, email: string): Promise<void> {
     await (supabase as any)
-      .from('usuarios_app')
+      .from("usuarios_app")
       .update({ user_id: userId, updated_at: new Date().toISOString() })
-      .eq('email', email.trim().toLowerCase())
-      .is('user_id', null)
+      .eq("email", email.trim().toLowerCase())
+      .is("user_id", null)
   },
 
   // Importação em Lote de Cargas do Controle Diário (com deduplicação e auto-cadastro)
@@ -2192,11 +2189,11 @@ export const ConcreteiraService = {
       // Cargas existentes para deduplicação (data, volume, traco_nome ou consumo_cimento)
       deduplicar
         ? (supabase as any)
-            .from('cargas')
+            .from("cargas")
             .select(
-              'id, data, volume_m3, consumo_cimento, consumo_brita12, consumo_brita19, traco_nome',
+              "id, data, volume_m3, consumo_cimento, consumo_brita12, consumo_brita19, traco_nome",
             )
-            .eq('empresa_id', empresaId)
+            .eq("empresa_id", empresaId)
             .then(({ data }: any) => (data || []) as any[])
         : Promise.resolve([]),
       gerarBaixa ? this.getMateriais(empresaId) : Promise.resolve([]),
@@ -2217,7 +2214,10 @@ export const ConcreteiraService = {
       cidadesMap.set(c.nome.toUpperCase().trim(), c.id),
     )
 
-    const tracosMap = new Map<string, { id: string; nome: string }>()
+    const tracosMap = new Map<string, {
+      id: string
+      nome: string
+    }>()
     tracosExistentes.forEach((t) => {
       // Indexa tanto por nome quanto por combinação de dosagem
       tracosMap.set(t.nome.toLowerCase().trim(), { id: t.id, nome: t.nome })
@@ -2249,7 +2249,7 @@ export const ConcreteiraService = {
             motoristasCriados++
           }
         } catch (e) {
-          console.warn('Motorista já existente ou conflito:', nomeMot, e)
+          console.warn("Motorista já existente ou conflito:", nomeMot, e)
         }
       }
 
@@ -2261,7 +2261,7 @@ export const ConcreteiraService = {
         try {
           const novo = await this.salvarVeiculo(
             placa,
-            'Betoneira',
+            "Betoneira",
             true,
             undefined,
             empresaId,
@@ -2271,7 +2271,7 @@ export const ConcreteiraService = {
             veiculosCriados++
           }
         } catch (e) {
-          console.warn('Veículo já existente ou conflito:', placa, e)
+          console.warn("Veículo já existente ou conflito:", placa, e)
         }
       }
 
@@ -2283,7 +2283,7 @@ export const ConcreteiraService = {
         try {
           const nova = await this.salvarCidade(
             nomeCid,
-            'PB',
+            "PB",
             undefined,
             empresaId,
           )
@@ -2292,7 +2292,7 @@ export const ConcreteiraService = {
             cidadesCriadas++
           }
         } catch (e) {
-          console.warn('Cidade já existente ou conflito:', nomeCid, e)
+          console.warn("Cidade já existente ou conflito:", nomeCid, e)
         }
       }
 
@@ -2332,7 +2332,7 @@ export const ConcreteiraService = {
             }
           } catch (e) {
             console.warn(
-              'Traço já existente ou conflito:',
+              "Traço já existente ou conflito:",
               c.tracoSugeridoNome,
               e,
             )
@@ -2353,10 +2353,10 @@ export const ConcreteiraService = {
 
     // Materiais controlados para estoque (cimento e aditivo)
     const matCimento = materiaisExistentes.find(
-      (m) => m.codigo === 'cimento' && m.controla_estoque !== false,
+      (m) => m.codigo === "cimento" && m.controla_estoque !== false,
     )
     const matAditivo = materiaisExistentes.find(
-      (m) => m.codigo === 'aditivo' && m.controla_estoque !== false,
+      (m) => m.codigo === "aditivo" && m.controla_estoque !== false,
     )
 
     let importadas = 0
@@ -2394,14 +2394,14 @@ export const ConcreteiraService = {
           null
 
       const tracoNomeFinal = c.carga_zerada
-        ? 'Carga Zerada'
+        ? "Carga Zerada"
         : tracoInfo?.nome || c.tracoSugeridoNome
 
       const numeroCargaAtual = proximoNum++
 
       // Gravar carga
       const { data: cargaSalva, error: errCarga } = await (supabase as any)
-        .from('cargas')
+        .from("cargas")
         .insert({
           empresa_id: empresaId,
           numero_carga: numeroCargaAtual,
@@ -2423,14 +2423,14 @@ export const ConcreteiraService = {
           consumo_aditivo: c.consumo_aditivo,
           consumo_agua: 0,
           observacao:
-            c.observacao || 'Importado via planilha de Controle Diário',
+            c.observacao || "Importado via planilha de Controle Diário",
           carga_zerada: c.carga_zerada,
         })
         .select()
         .single()
 
       if (errCarga) {
-        console.error('Erro ao gravar carga na importação:', errCarga)
+        console.error("Erro ao gravar carga na importação:", errCarga)
         continue
       }
 
@@ -2440,14 +2440,14 @@ export const ConcreteiraService = {
 
       // Gerar saída de estoque para cimento e aditivo (se configurado)
       if (gerarBaixa && !c.carga_zerada && cargaSalva?.id) {
-        const docName = `CARGA-${String(numeroCargaAtual).padStart(5, '0')}`
+        const docName = `CARGA-${String(numeroCargaAtual).padStart(5, "0")}`
         const movimentacoes: any[] = []
 
         if (c.consumo_cimento > 0 && matCimento?.id) {
           movimentacoes.push({
             empresa_id: empresaId,
             material_id: matCimento.id,
-            tipo: 'SAIDA',
+            tipo: "SAIDA",
             quantidade: c.consumo_cimento,
             data: c.dataIso,
             carga_id: cargaSalva.id,
@@ -2460,7 +2460,7 @@ export const ConcreteiraService = {
           movimentacoes.push({
             empresa_id: empresaId,
             material_id: matAditivo.id,
-            tipo: 'SAIDA',
+            tipo: "SAIDA",
             quantidade: c.consumo_aditivo,
             data: c.dataIso,
             carga_id: cargaSalva.id,
@@ -2471,7 +2471,7 @@ export const ConcreteiraService = {
 
         if (movimentacoes.length > 0) {
           await (supabase as any)
-            .from('movimentacoes_estoque')
+            .from("movimentacoes_estoque")
             .insert(movimentacoes)
         }
       }

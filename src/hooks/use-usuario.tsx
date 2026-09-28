@@ -5,12 +5,12 @@ import {
   useEffect,
   useCallback,
   ReactNode,
-} from 'react'
-import { useAuth } from '@/hooks/use-auth'
-import { ConcreteiraService } from '@/services/concreteira'
-import type { UsuarioApp } from '@/types/concreteira'
+} from "react"
+import { useAuth } from "@/hooks/use-auth"
+import { ConcreteiraService } from "@/services/concreteira"
+import type { UsuarioApp } from "@/types/concreteira"
 
-export type PerfilUsuario = 'administrador' | 'balanceiro'
+export type PerfilUsuario = "administrador" | "balanceiro"
 
 interface UsuarioContextType {
   usuarioApp: UsuarioApp | null
@@ -34,20 +34,20 @@ const UsuarioContext = createContext<UsuarioContextType | undefined>(undefined)
 export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
   const { user, loading: loadingAuth } = useAuth()
   const [usuarioApp, setUsuarioApp] = useState<UsuarioApp | null>(null)
-  const [perfilAtivo, setPerfilAtivo] = useState<PerfilUsuario>('administrador')
+  const [perfilAtivo, setPerfilAtivo] = useState<PerfilUsuario>("administrador")
   const [loadingUsuario, setLoadingUsuario] = useState(true)
 
   const carregarDadosUsuario = useCallback(async () => {
     if (!user) {
       setUsuarioApp(null)
-      setPerfilAtivo('administrador')
+      setPerfilAtivo("administrador")
       setLoadingUsuario(false)
       return
     }
 
     try {
       setLoadingUsuario(true)
-      const email = user.email || ''
+      const email = user.email || ""
       let appUser = await ConcreteiraService.buscarUsuarioAppPorAuth(
         user.id,
         email,
@@ -68,16 +68,16 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
         const fallbackUser: UsuarioApp = {
           id: user.id,
           user_id: user.id,
-          nome: user.user_metadata?.name || email.split('@')[0] || 'Usuário',
+          nome: user.user_metadata?.name || email.split("@")[0] || "Usuário",
           email,
-          perfil: 'administrador',
+          perfil: "administrador",
           ativo: true,
         }
         setUsuarioApp(fallbackUser)
-        setPerfilAtivo('administrador')
+        setPerfilAtivo("administrador")
       }
     } catch (err) {
-      console.error('Erro ao buscar dados do usuário na base:', err)
+      console.error("Erro ao buscar dados do usuário na base:", err)
     } finally {
       setLoadingUsuario(false)
     }
@@ -92,21 +92,21 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
   // Se o usuário logado for balanceiro, ele nunca pode forçar admin
   const alternarPerfil = (novoPerfil: PerfilUsuario) => {
     // Se no cadastro o usuário for balanceiro, ele não pode mudar para admin
-    if (usuarioApp?.perfil === 'balanceiro' && novoPerfil === 'administrador') {
+    if (usuarioApp?.perfil === "balanceiro" && novoPerfil === "administrador") {
       return
     }
     setPerfilAtivo(novoPerfil)
   }
 
-  const isBalanceiro = perfilAtivo === 'balanceiro'
-  const isAdministrador = perfilAtivo === 'administrador'
-  const nomePerfil = isBalanceiro ? 'Balanceiro' : 'Administrador'
+  const isBalanceiro = perfilAtivo === "balanceiro"
+  const isAdministrador = perfilAtivo === "administrador"
+  const nomePerfil = isBalanceiro ? "Balanceiro" : "Administrador"
   const nomeUsuario =
     usuarioApp?.nome ||
     user?.user_metadata?.name ||
-    user?.email?.split('@')[0] ||
-    'Usuário'
-  const emailUsuario = usuarioApp?.email || user?.email || ''
+    user?.email?.split("@")[0] ||
+    "Usuário"
+  const emailUsuario = usuarioApp?.email || user?.email || ""
   // Administrador tem acesso irrestrito e multicompany (pode alternar livremente entre Monteiro, SJE ou qualquer outra unidade).
   // Apenas o Balanceiro fica estritamente restrito à sua empresa vinculada.
   const empresaVinculadaId = isBalanceiro
@@ -143,7 +143,7 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
 export const useUsuario = () => {
   const context = useContext(UsuarioContext)
   if (!context) {
-    throw new Error('useUsuario deve ser usado dentro de um UsuarioProvider')
+    throw new Error("useUsuario deve ser usado dentro de um UsuarioProvider")
   }
   return context
 }

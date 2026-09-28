@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef } from "react"
 import {
   Dialog,
   DialogContent,
@@ -6,13 +6,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Upload,
   FileSpreadsheet,
@@ -26,15 +26,15 @@ import {
   Layers,
   Briefcase,
   UserCheck,
-} from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
-import { useEmpresa } from '@/hooks/use-empresa'
+} from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { useEmpresa } from "@/hooks/use-empresa"
 import {
   parseFolhaPagamentoCSV,
   PreviewImportacaoFolhaCSV,
-} from '@/lib/csv-folha-parser'
-import { FolhaService } from '@/services/folha'
-import { FolhaPagamentoLinha } from '@/types/folha'
+} from "@/lib/csv-folha-parser"
+import { FolhaService } from "@/services/folha"
+import { FolhaPagamentoLinha } from "@/types/folha"
 
 interface ModalImportarFolhaCSVProps {
   open: boolean
@@ -56,9 +56,9 @@ export function ModalImportarFolhaCSV({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [arquivoNome, setArquivoNome] = useState<string | null>(null)
-  const [conteudoCsv, setConteudoCsv] = useState<string>('')
+  const [conteudoCsv, setConteudoCsv] = useState<string>("")
   const [competenciaSelecionada, setCompetenciaSelecionada] = useState<string>(
-    competenciaAtiva || '2026-09',
+    competenciaAtiva || "2026-09",
   )
   const [preview, setPreview] = useState<PreviewImportacaoFolhaCSV | null>(null)
   const [salvando, setSalvando] = useState(false)
@@ -70,11 +70,11 @@ export function ModalImportarFolhaCSV({
 
   const resetar = () => {
     setArquivoNome(null)
-    setConteudoCsv('')
+    setConteudoCsv("")
     setPreview(null)
     setSalvando(false)
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+      fileInputRef.current.value = ""
     }
   }
 
@@ -98,22 +98,22 @@ export function ModalImportarFolhaCSV({
 
       if (resultado.totalColaboradoresValidos === 0) {
         toast({
-          title: 'Nenhum colaborador identificado',
+          title: "Nenhum colaborador identificado",
           description:
-            'Verifique se o arquivo possui colunas com Tipo, Nome e valores salariais.',
-          variant: 'destructive',
+            "Verifique se o arquivo possui colunas com Tipo, Nome e valores salariais.",
+          variant: "destructive",
         })
       } else {
         toast({
-          title: 'Arquivo da folha processado com sucesso!',
+          title: "Arquivo da folha processado com sucesso!",
           description: `${resultado.totalFuncionarios} funcionários e ${resultado.totalTerceiros} terceiros na prévia (${compAlvo}).`,
         })
       }
     } catch (err: any) {
       toast({
-        title: 'Erro ao processar folha',
+        title: "Erro ao processar folha",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     }
   }
@@ -126,20 +126,20 @@ export function ModalImportarFolhaCSV({
 
     const reader = new FileReader()
     reader.onload = async (event) => {
-      const text = (event.target?.result as string) || ''
+      const text = event.target?.result as string || ""
       setConteudoCsv(text)
       handleProcessarArquivo(text, file.name)
     }
 
     reader.onerror = () => {
       toast({
-        title: 'Falha na leitura',
-        description: 'Não foi possível ler o arquivo selecionado.',
-        variant: 'destructive',
+        title: "Falha na leitura",
+        description: "Não foi possível ler o arquivo selecionado.",
+        variant: "destructive",
       })
     }
 
-    reader.readAsText(file, 'UTF-8')
+    reader.readAsText(file, "UTF-8")
   }
 
   const handleCompetenciaChange = (novaComp: string) => {
@@ -161,7 +161,7 @@ export function ModalImportarFolhaCSV({
       )
 
       toast({
-        title: 'Folha gravada com sucesso!',
+        title: "Folha gravada com sucesso!",
         description: `${res.totalInseridos} inseridos e ${res.totalAtualizados} atualizados na empresa ativa (${empresaAtiva.nome}).`,
       })
 
@@ -170,9 +170,9 @@ export function ModalImportarFolhaCSV({
       resetar()
     } catch (err: any) {
       toast({
-        title: 'Erro ao salvar folha no banco',
+        title: "Erro ao salvar folha no banco",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -210,7 +210,8 @@ export function ModalImportarFolhaCSV({
               <DialogDescription className="text-xs">
                 Carregue o CSV da folha mensal. Aceita o padrão real GC MIX (com
                 distinção de Funcionário e Terceiro). A Unidade do CSV é
-                informativa; a gravação ocorre na <strong>Empresa Ativa</strong>.
+                informativa; a gravação ocorre na <strong>Empresa Ativa</strong>
+                .
               </DialogDescription>
             </div>
           </div>
@@ -250,7 +251,8 @@ export function ModalImportarFolhaCSV({
                 </div>
                 <div>
                   <p className="font-semibold text-sm text-foreground">
-                    Clique para selecionar o arquivo CSV da folha ou arraste aqui
+                    Clique para selecionar o arquivo CSV da folha ou arraste
+                    aqui
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     Formato aceito: CSV com separador ponto-e-vírgula (;) ou
@@ -277,12 +279,13 @@ export function ModalImportarFolhaCSV({
                     Tipo;Nome;Funcao;Unidade;Bruto;Filhos;INSS;Familia;IR;Quinzena;Adiantamento;Gratificacao;MensalLiquido;Producao;Comissao;Conta;PIX
                   </p>
                   <p className="font-sans text-[11px]">
-                    • <strong>Tipo:</strong> Funcionario ou Terceiro (Terceiros não
-                    possuem Bruto/INSS).
+                    • <strong>Tipo:</strong> Funcionario ou Terceiro (Terceiros
+                    não possuem Bruto/INSS).
                   </p>
                   <p className="font-sans text-[11px]">
                     • <strong>Deduplicação Inteligente:</strong> Ao reimportar,
-                    registros com mesmo nome na mesma competência são atualizados.
+                    registros com mesmo nome na mesma competência são
+                    atualizados.
                   </p>
                 </AlertDescription>
               </Alert>
@@ -300,9 +303,9 @@ export function ModalImportarFolhaCSV({
                       {arquivoNome}
                     </h4>
                     <p className="text-[11px] text-muted-foreground">
-                      Competência: <strong>{competenciaSelecionada}</strong> •{' '}
+                      Competência: <strong>{competenciaSelecionada}</strong> •{" "}
                       {preview.totalColaboradoresValidos} colaboradores (
-                      {preview.totalFuncionarios} funcionários +{' '}
+                      {preview.totalFuncionarios} funcionários +{" "}
                       {preview.totalTerceiros} terceiros)
                     </p>
                   </div>
@@ -331,8 +334,8 @@ export function ModalImportarFolhaCSV({
                       {preview.totalColaboradoresValidos}
                     </div>
                     <span className="text-[10px] text-muted-foreground">
-                      {preview.totalFuncionarios} Func. | {preview.totalTerceiros}{' '}
-                      Terc.
+                      {preview.totalFuncionarios} Func. |{" "}
+                      {preview.totalTerceiros} Terc.
                     </span>
                   </CardContent>
                 </Card>
@@ -344,8 +347,8 @@ export function ModalImportarFolhaCSV({
                       Total Bruto
                     </div>
                     <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
-                      R${' '}
-                      {preview.totais.totalBruto.toLocaleString('pt-BR', {
+                      R${" "}
+                      {preview.totais.totalBruto.toLocaleString("pt-BR", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
@@ -363,16 +366,16 @@ export function ModalImportarFolhaCSV({
                       INSS + IR
                     </div>
                     <div className="text-xl font-bold font-mono text-rose-600 dark:text-rose-400 mt-1">
-                      R${' '}
+                      R${" "}
                       {(
                         preview.totais.totalInss + preview.totais.totalIr
-                      ).toLocaleString('pt-BR', {
+                      ).toLocaleString("pt-BR", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
                     </div>
                     <span className="text-[10px] text-muted-foreground">
-                      INSS: R$ {preview.totais.totalInss.toFixed(2)} | IR: R${' '}
+                      INSS: R$ {preview.totais.totalInss.toFixed(2)} | IR: R${" "}
                       {preview.totais.totalIr.toFixed(2)}
                     </span>
                   </CardContent>
@@ -385,11 +388,14 @@ export function ModalImportarFolhaCSV({
                       Líquido a Pagar
                     </div>
                     <div className="text-xl font-black font-mono text-foreground mt-1">
-                      R${' '}
-                      {preview.totais.totalMensalLiquido.toLocaleString('pt-BR', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      R${" "}
+                      {preview.totais.totalMensalLiquido.toLocaleString(
+                        "pt-BR",
+                        {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        },
+                      )}
                     </div>
                     <span className="text-[10px] text-muted-foreground">
                       Total somatório final
@@ -421,7 +427,7 @@ export function ModalImportarFolhaCSV({
                     Prévia dos Registros a Gravar ({preview.linhas.length})
                   </span>
                   <span className="text-[10px] text-muted-foreground">
-                    {preview.totalNovos} novos •{' '}
+                    {preview.totalNovos} novos •{" "}
                     {preview.totalExistentesAtualizados} já cadastrados
                   </span>
                 </div>
@@ -449,7 +455,7 @@ export function ModalImportarFolhaCSV({
                           className="hover:bg-muted/20 transition-colors"
                         >
                           <td className="py-2 px-2.5 font-sans">
-                            {l.tipo === 'Terceiro' ? (
+                            {l.tipo === "Terceiro" ? (
                               <Badge
                                 variant="outline"
                                 className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-bold"
@@ -472,22 +478,22 @@ export function ModalImportarFolhaCSV({
                             {l.funcao}
                           </td>
                           <td className="py-2 px-2.5 text-right">
-                            {l.bruto > 0 ? l.bruto.toFixed(2) : '—'}
+                            {l.bruto > 0 ? l.bruto.toFixed(2) : "—"}
                           </td>
                           <td className="py-2 px-2.5 text-right text-rose-500">
-                            {l.inss > 0 ? l.inss.toFixed(2) : '—'}
+                            {l.inss > 0 ? l.inss.toFixed(2) : "—"}
                           </td>
                           <td className="py-2 px-2.5 text-right text-muted-foreground">
-                            {l.quinzena > 0 ? l.quinzena.toFixed(2) : '—'}
+                            {l.quinzena > 0 ? l.quinzena.toFixed(2) : "—"}
                           </td>
                           <td className="py-2 px-2.5 text-right text-emerald-600 dark:text-emerald-400">
-                            {l.producao > 0 ? l.producao.toFixed(2) : '—'}
+                            {l.producao > 0 ? l.producao.toFixed(2) : "—"}
                           </td>
                           <td className="py-2 px-2.5 text-right font-bold text-foreground">
                             {l.mensal_liquido.toFixed(2)}
                           </td>
                           <td className="py-2 px-2.5 text-[10px] text-muted-foreground truncate max-w-[120px]">
-                            {l.pix || l.conta || '—'}
+                            {l.pix || l.conta || "—"}
                           </td>
                         </tr>
                       ))}
@@ -503,8 +509,10 @@ export function ModalImportarFolhaCSV({
           <div className="text-xs text-muted-foreground">
             {preview && (
               <span>
-                Total a gravar na empresa{' '}
-                <strong className="text-foreground">{empresaAtiva?.nome}</strong>
+                Total a gravar na empresa{" "}
+                <strong className="text-foreground">
+                  {empresaAtiva?.nome}
+                </strong>
                 : <strong>{preview.linhas.length} colaboradores</strong>
               </span>
             )}

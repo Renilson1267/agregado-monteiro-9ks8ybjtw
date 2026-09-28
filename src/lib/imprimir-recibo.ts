@@ -31,27 +31,27 @@ export async function printElementInIsolatedIframe(
   options: PrintElementOptions = {},
 ): Promise<void> {
   const {
-    title = 'Recibo de Concreto Usinado — GC MIX',
+    title = "Recibo de Concreto Usinado — GC MIX",
     waitForImages = true,
     delayMs = 350,
   } = options
 
   // Remove eventuais iframes anteriores que possam ter ficado órfãos
   const existingIframes = document.querySelectorAll(
-    'iframe[data-print-isolated]',
+    "iframe[data-print-isolated]",
   )
   existingIframes.forEach((el) => el.remove())
 
   // Cria um iframe invisível posicionado fora da tela visível
-  const iframe = document.createElement('iframe')
-  iframe.setAttribute('data-print-isolated', 'true')
-  iframe.style.position = 'fixed'
-  iframe.style.right = '0'
-  iframe.style.bottom = '0'
-  iframe.style.width = '0'
-  iframe.style.height = '0'
-  iframe.style.border = '0'
-  iframe.style.visibility = 'hidden'
+  const iframe = document.createElement("iframe")
+  iframe.setAttribute("data-print-isolated", "true")
+  iframe.style.position = "fixed"
+  iframe.style.right = "0"
+  iframe.style.bottom = "0"
+  iframe.style.width = "0"
+  iframe.style.height = "0"
+  iframe.style.border = "0"
+  iframe.style.visibility = "hidden"
 
   document.body.appendChild(iframe)
 
@@ -68,9 +68,9 @@ export async function printElementInIsolatedIframe(
     document.querySelectorAll('style, link[rel="stylesheet"]'),
   )
 
-  let stylesHtml = ''
+  let stylesHtml = ""
   styleNodes.forEach((node) => {
-    stylesHtml += node.outerHTML + '\n'
+    stylesHtml += node.outerHTML + "\n"
   })
 
   // Estilos de base reforçados para o documento do iframe em A4
@@ -139,7 +139,7 @@ export async function printElementInIsolatedIframe(
 
   // Aguarda carregamento de estilos e recursos do iframe
   await new Promise<void>((resolve) => {
-    if (iframe.contentWindow?.document.readyState === 'complete') {
+    if (iframe.contentWindow?.document.readyState === "complete") {
       resolve()
     } else {
       iframe.onload = () => resolve()
@@ -153,7 +153,7 @@ export async function printElementInIsolatedIframe(
     await Promise.all(
       images.map(async (img) => {
         if (img.complete && img.naturalWidth > 0) {
-          if ('decode' in img) {
+          if ("decode" in img) {
             try {
               await img.decode()
             } catch {
@@ -164,7 +164,7 @@ export async function printElementInIsolatedIframe(
         }
         await new Promise<void>((res) => {
           img.onload = async () => {
-            if ('decode' in img) {
+            if ("decode" in img) {
               try {
                 await img.decode()
               } catch {
@@ -197,7 +197,7 @@ export async function printElementInIsolatedIframe(
     }
   } catch (err) {
     // Fallback se houver bloqueio de cross-window
-    console.warn('Falha no iframe.print(), acionando window.print():', err)
+    console.warn("Falha no iframe.print(), acionando window.print():", err)
     window.print()
   } finally {
     // Remove o iframe após o diálogo fechar (ou após 15 segundos se fechar rápido)

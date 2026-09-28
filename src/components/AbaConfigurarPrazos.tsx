@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react"
 import {
   Clock,
   ShieldCheck,
@@ -9,28 +9,28 @@ import {
   Scale,
   Building2,
   Lock,
-} from 'lucide-react'
+} from "lucide-react"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { useToast } from '@/hooks/use-toast'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { useUsuario } from '@/hooks/use-usuario'
-import { ExamesService } from '@/services/exames'
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useToast } from "@/hooks/use-toast"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { useUsuario } from "@/hooks/use-usuario"
+import { ExamesService } from "@/services/exames"
 import {
   TipoExame,
   PrazoExameEmpresa,
   TIPOS_EXAME_CATALOGO,
-} from '@/types/exames'
+} from "@/types/exames"
 
 interface AbaConfigurarPrazosProps {
   onPrazosAtualizados?: () => void
@@ -92,9 +92,9 @@ export function AbaConfigurarPrazos({
       setValoresMeses(mapa)
     } catch (err: any) {
       toast({
-        title: 'Erro ao carregar prazos da empresa',
+        title: "Erro ao carregar prazos da empresa",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setLoading(false)
@@ -117,10 +117,10 @@ export function AbaConfigurarPrazos({
   const handleSalvar = async () => {
     if (!isAdministrador) {
       toast({
-        title: 'Permissão necessária',
+        title: "Permissão necessária",
         description:
-          'Apenas usuários com perfil Administrador podem alterar as configurações de prazos da unidade.',
-        variant: 'destructive',
+          "Apenas usuários com perfil Administrador podem alterar as configurações de prazos da unidade.",
+        variant: "destructive",
       })
       return
     }
@@ -129,12 +129,12 @@ export function AbaConfigurarPrazos({
 
     // Validar se todos (exceto demissional) são maiores que zero
     for (const [tipo, meses] of Object.entries(valoresMeses)) {
-      if (tipo !== 'demissional' && (!meses || meses <= 0)) {
+      if (tipo !== "demissional" && (!meses || meses <= 0)) {
         const item = TIPOS_EXAME_CATALOGO.find((c) => c.tipo === tipo)
         toast({
-          title: 'Prazo inválido',
+          title: "Prazo inválido",
           description: `O exame "${item?.nome || tipo}" deve possuir prazo de validade maior que zero.`,
-          variant: 'destructive',
+          variant: "destructive",
         })
         return
       }
@@ -145,7 +145,7 @@ export function AbaConfigurarPrazos({
       const listaParaSalvar = prazos.map((p) => ({
         tipo_exame: p.tipo_exame,
         validade_padrao_meses:
-          p.tipo_exame === 'demissional'
+          p.tipo_exame === "demissional"
             ? (valoresMeses[p.tipo_exame] ?? 0)
             : valoresMeses[p.tipo_exame] || 12,
         norma_referencia: p.norma_referencia,
@@ -155,7 +155,7 @@ export function AbaConfigurarPrazos({
       await ExamesService.salvarPrazosEmpresa(empresaAtiva.id, listaParaSalvar)
 
       toast({
-        title: 'Prazos salvos com sucesso!',
+        title: "Prazos salvos com sucesso!",
         description: `Os prazos de validade da unidade ${empresaAtiva.nome} foram atualizados e aplicados imediatamente aos colaboradores.`,
       })
 
@@ -165,9 +165,9 @@ export function AbaConfigurarPrazos({
       }
     } catch (err: any) {
       toast({
-        title: 'Erro ao salvar prazos',
+        title: "Erro ao salvar prazos",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -177,10 +177,10 @@ export function AbaConfigurarPrazos({
   const handleRestaurarPadroes = async () => {
     if (!isAdministrador) {
       toast({
-        title: 'Permissão necessária',
+        title: "Permissão necessária",
         description:
-          'Apenas administradores podem restaurar as configurações padrão.',
-        variant: 'destructive',
+          "Apenas administradores podem restaurar as configurações padrão.",
+        variant: "destructive",
       })
       return
     }
@@ -196,7 +196,7 @@ export function AbaConfigurarPrazos({
     try {
       await ExamesService.restaurarPrazosPadroesNormativos(empresaAtiva.id)
       toast({
-        title: 'Valores normativos restaurados!',
+        title: "Valores normativos restaurados!",
         description: `Prazos da unidade ${empresaAtiva.nome} redefinidos com sucesso para as normas oficiais vigentes (NR-7, CLT, CONTRAN).`,
       })
       await carregarPrazos()
@@ -205,9 +205,9 @@ export function AbaConfigurarPrazos({
       }
     } catch (err: any) {
       toast({
-        title: 'Erro ao restaurar padrões',
+        title: "Erro ao restaurar padrões",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setRestaurando(false)
@@ -236,7 +236,7 @@ export function AbaConfigurarPrazos({
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
               Os prazos aqui definidos são isolados por empresa ativa (Monteiro
-              e SJE podem ter parâmetros distintos). Eles servem como{' '}
+              e SJE podem ter parâmetros distintos). Eles servem como{" "}
               <strong>fallback padrão</strong> para o cálculo de vencimento e
               status de cada colaborador quando o exame individual não
               especificar uma periodicidade customizada.
@@ -267,7 +267,7 @@ export function AbaConfigurarPrazos({
                 className="text-xs h-9 gap-1.5 bg-primary text-primary-foreground font-semibold shadow-sm"
               >
                 <Save className="w-3.5 h-3.5" />
-                <span>{salvando ? 'Salvando...' : 'Salvar Alterações'}</span>
+                <span>{salvando ? "Salvando..." : "Salvar Alterações"}</span>
               </Button>
             </>
           ) : (
@@ -311,11 +311,11 @@ export function AbaConfigurarPrazos({
         {prazos.map((item) => {
           const meses =
             valoresMeses[item.tipo_exame] ??
-            (item.tipo_exame === 'demissional' ? 0 : 12)
-          const isDemissional = item.tipo_exame === 'demissional'
+            (item.tipo_exame === "demissional" ? 0 : 12)
+          const isDemissional = item.tipo_exame === "demissional"
           const anosEquiv = isDemissional
-            ? '0'
-            : (meses / 12).toFixed(1).replace('.0', '')
+            ? "0"
+            : (meses / 12).toFixed(1).replace(".0", "")
           const defPadrao = TIPOS_EXAME_CATALOGO.find(
             (c) => c.tipo === item.tipo_exame,
           )
@@ -324,7 +324,7 @@ export function AbaConfigurarPrazos({
             <Card
               key={item.tipo_exame}
               className={`border-border/40 bg-card/70 hover:border-primary/40 transition-colors shadow-sm ${
-                isDemissional ? 'border-sky-500/30 bg-sky-500/[0.02]' : ''
+                isDemissional ? "border-sky-500/30 bg-sky-500/[0.02]" : ""
               }`}
             >
               <CardHeader className="pb-3">
@@ -351,13 +351,15 @@ export function AbaConfigurarPrazos({
                     variant="outline"
                     className={`font-mono text-xs px-2 py-0.5 shrink-0 ${
                       isDemissional
-                        ? 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30'
-                        : 'bg-primary/10 text-primary border-primary/20'
+                        ? "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30"
+                        : "bg-primary/10 text-primary border-primary/20"
                     }`}
                   >
                     {isDemissional
-                      ? 'Na Rescisão'
-                      : `${meses} meses (${anosEquiv} ${anosEquiv === '1' ? 'ano' : 'anos'})`}
+                      ? "Na Rescisão"
+                      : `${meses} meses (${anosEquiv} ${
+                          anosEquiv === "1" ? "ano" : "anos"
+                        })`}
                   </Badge>
                 </div>
               </CardHeader>
@@ -372,8 +374,8 @@ export function AbaConfigurarPrazos({
                       Validade padrão (meses)
                       <span className="text-[10px] text-muted-foreground font-normal">
                         {isDemissional
-                          ? '(0 = sem vencimento periódico / na rescisão)'
-                          : '(editável)'}
+                          ? "(0 = sem vencimento periódico / na rescisão)"
+                          : "(editável)"}
                       </span>
                     </Label>
                     <div className="flex items-center gap-2">
@@ -382,7 +384,7 @@ export function AbaConfigurarPrazos({
                         type="number"
                         min={isDemissional ? 0 : 1}
                         max={120}
-                        value={meses !== undefined ? meses : ''}
+                        value={meses !== undefined ? meses : ""}
                         disabled={!isAdministrador || loading || salvando}
                         onChange={(e) =>
                           handleMudarMeses(item.tipo_exame, e.target.value)
@@ -391,8 +393,8 @@ export function AbaConfigurarPrazos({
                       />
                       <span className="text-xs text-muted-foreground">
                         {isDemissional
-                          ? 'meses (0 = exame na rescisão)'
-                          : 'meses de validade'}
+                          ? "meses (0 = exame na rescisão)"
+                          : "meses de validade"}
                       </span>
                     </div>
                   </div>
@@ -404,11 +406,11 @@ export function AbaConfigurarPrazos({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleMudarMeses(item.tipo_exame, '6')}
+                        onClick={() => handleMudarMeses(item.tipo_exame, "6")}
                         className={`h-7 px-2 text-[10px] font-mono ${
                           meses === 6
-                            ? 'bg-primary/20 text-primary font-bold'
-                            : ''
+                            ? "bg-primary/20 text-primary font-bold"
+                            : ""
                         }`}
                         title="6 meses (semestral)"
                       >
@@ -418,11 +420,11 @@ export function AbaConfigurarPrazos({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleMudarMeses(item.tipo_exame, '12')}
+                        onClick={() => handleMudarMeses(item.tipo_exame, "12")}
                         className={`h-7 px-2 text-[10px] font-mono ${
                           meses === 12
-                            ? 'bg-primary/20 text-primary font-bold'
-                            : ''
+                            ? "bg-primary/20 text-primary font-bold"
+                            : ""
                         }`}
                         title="12 meses (anual)"
                       >
@@ -432,11 +434,11 @@ export function AbaConfigurarPrazos({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleMudarMeses(item.tipo_exame, '24')}
+                        onClick={() => handleMudarMeses(item.tipo_exame, "24")}
                         className={`h-7 px-2 text-[10px] font-mono ${
                           meses === 24
-                            ? 'bg-primary/20 text-primary font-bold'
-                            : ''
+                            ? "bg-primary/20 text-primary font-bold"
+                            : ""
                         }`}
                         title="24 meses (bienal)"
                       >
@@ -446,11 +448,11 @@ export function AbaConfigurarPrazos({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleMudarMeses(item.tipo_exame, '30')}
+                        onClick={() => handleMudarMeses(item.tipo_exame, "30")}
                         className={`h-7 px-2 text-[10px] font-mono ${
                           meses === 30
-                            ? 'bg-primary/20 text-primary font-bold'
-                            : ''
+                            ? "bg-primary/20 text-primary font-bold"
+                            : ""
                         }`}
                         title="30 meses (2,5 anos - Motoristas)"
                       >
@@ -465,11 +467,11 @@ export function AbaConfigurarPrazos({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleMudarMeses(item.tipo_exame, '0')}
+                        onClick={() => handleMudarMeses(item.tipo_exame, "0")}
                         className={`h-7 px-2.5 text-[11px] font-mono ${
                           meses === 0
-                            ? 'bg-sky-500/20 text-sky-700 dark:text-sky-400 font-bold'
-                            : ''
+                            ? "bg-sky-500/20 text-sky-700 dark:text-sky-400 font-bold"
+                            : ""
                         }`}
                         title="Sem validade periódica (exame demissional na rescisão)"
                       >
@@ -484,7 +486,7 @@ export function AbaConfigurarPrazos({
                   <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/30 px-2.5 py-1.5 rounded-md border border-border/20">
                     <Scale className="w-3.5 h-3.5 text-primary shrink-0" />
                     <span>
-                      <strong>Base Legal / Norma:</strong>{' '}
+                      <strong>Base Legal / Norma:</strong>{" "}
                       {item.norma_referencia || defPadrao?.normaReferencia}
                     </span>
                   </div>
@@ -501,7 +503,7 @@ export function AbaConfigurarPrazos({
           <div className="text-xs text-muted-foreground flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
             <span>
-              Alterações salvas serão sincronizadas na tela{' '}
+              Alterações salvas serão sincronizadas na tela{" "}
               <strong>Controle de Exames</strong> e na prévia de importação CSV
               da unidade {empresaAtiva?.nome}.
             </span>
@@ -525,7 +527,7 @@ export function AbaConfigurarPrazos({
               className="text-xs h-9 gap-1.5 bg-primary text-primary-foreground font-semibold shadow-sm"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              {salvando ? 'Salvando...' : 'Salvar Prazos da Unidade'}
+              {salvando ? "Salvando..." : "Salvar Prazos da Unidade"}
             </Button>
           </div>
         </div>

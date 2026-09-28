@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef } from "react"
 import {
   Dialog,
   DialogContent,
@@ -6,12 +6,12 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -26,14 +26,14 @@ import {
   Info,
   ChevronRight,
   ArrowRight,
-} from 'lucide-react'
+} from "lucide-react"
 import {
   parseControleDiarioCSV,
   PreviewImportacaoCSV,
-} from '@/lib/csv-cargas-parser'
-import { ConcreteiraService } from '@/services/concreteira'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { toast } from '@/hooks/use-toast'
+} from "@/lib/csv-cargas-parser"
+import { ConcreteiraService } from "@/services/concreteira"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { toast } from "@/hooks/use-toast"
 
 interface ModalImportarCargasCSVProps {
   open: boolean
@@ -63,7 +63,7 @@ export function ModalImportarCargasCSV({
     setImportando(false)
     setProgresso(null)
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+      fileInputRef.current.value = ""
     }
   }
 
@@ -83,16 +83,16 @@ export function ModalImportarCargasCSV({
 
         if (resultadoPreview.erros.length > 0) {
           toast({
-            title: 'Aviso no processamento do arquivo',
-            description: resultadoPreview.erros.join('; '),
-            variant: 'destructive',
+            title: "Aviso no processamento do arquivo",
+            description: resultadoPreview.erros.join("; "),
+            variant: "destructive",
           })
         }
       } catch (err: any) {
         toast({
-          title: 'Erro ao interpretar CSV',
-          description: err.message || 'Arquivo corrompido ou formato ilegível.',
-          variant: 'destructive',
+          title: "Erro ao interpretar CSV",
+          description: err.message || "Arquivo corrompido ou formato ilegível.",
+          variant: "destructive",
         })
       } finally {
         setCarregandoArquivo(false)
@@ -101,22 +101,22 @@ export function ModalImportarCargasCSV({
 
     reader.onerror = () => {
       toast({
-        title: 'Falha na leitura',
-        description: 'Não foi possível ler o arquivo local.',
-        variant: 'destructive',
+        title: "Falha na leitura",
+        description: "Não foi possível ler o arquivo local.",
+        variant: "destructive",
       })
       setCarregandoArquivo(false)
     }
 
     // Leitura como texto com suporte a UTF-8 / ISO-8859-1
-    reader.readAsText(file, 'UTF-8')
+    reader.readAsText(file, "UTF-8")
   }
 
   const handleConfirmarImportacao = async () => {
     if (!empresaAtiva?.id || !preview || preview.cargas.length === 0) return
 
     setImportando(true)
-    setProgresso('Validando cadastros e gravando cargas...')
+    setProgresso("Validando cadastros e gravando cargas...")
 
     try {
       const resultado = await ConcreteiraService.importarCargasControleDiario(
@@ -147,7 +147,7 @@ export function ModalImportarCargasCSV({
           : null,
       ]
         .filter(Boolean)
-        .join(', ')
+        .join(", ")
 
       toast({
         title: `Importação concluída para ${empresaAtiva.nome}!`,
@@ -159,9 +159,9 @@ export function ModalImportarCargasCSV({
       resetar()
     } catch (err: any) {
       toast({
-        title: 'Erro durante a importação',
-        description: err.message || 'Falha ao gravar cargas no banco de dados.',
-        variant: 'destructive',
+        title: "Erro durante a importação",
+        description: err.message || "Falha ao gravar cargas no banco de dados.",
+        variant: "destructive",
       })
     } finally {
       setImportando(false)
@@ -189,7 +189,7 @@ export function ModalImportarCargasCSV({
               <DialogTitle className="text-lg font-bold flex items-center gap-2">
                 Importar Controle Diário de Materiais
                 <Badge variant="outline" className="text-primary font-bold">
-                  {empresaAtiva?.nome || 'Empresa Ativa'}
+                  {empresaAtiva?.nome || "Empresa Ativa"}
                 </Badge>
               </DialogTitle>
               <DialogDescription className="text-xs">
@@ -223,7 +223,7 @@ export function ModalImportarCargasCSV({
                 <p className="text-sm font-semibold text-foreground">
                   {arquivoNome
                     ? `Arquivo: ${arquivoNome}`
-                    : 'Clique para selecionar o arquivo .csv da Concreteira'}
+                    : "Clique para selecionar o arquivo .csv da Concreteira"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Formato esperado: Data, Volume (m³), Brita 12, Brita 19,
@@ -238,7 +238,7 @@ export function ModalImportarCargasCSV({
                 className="mt-1 gap-1 text-xs"
                 disabled={importando || carregandoArquivo}
               >
-                {arquivoNome ? 'Substituir Arquivo' : 'Buscar no Computador'}
+                {arquivoNome ? "Substituir Arquivo" : "Buscar no Computador"}
               </Button>
             </label>
           </div>
@@ -280,7 +280,7 @@ export function ModalImportarCargasCSV({
                       Volume Total
                     </p>
                     <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                      {preview.volumeTotalM3.toLocaleString('pt-BR')} m³
+                      {preview.volumeTotalM3.toLocaleString("pt-BR")} m³
                     </p>
                     <p className="text-[10px] text-muted-foreground">
                       Concreto expedido
@@ -296,12 +296,12 @@ export function ModalImportarCargasCSV({
                     </p>
                     <p className="text-xs font-bold text-foreground mt-1 truncate">
                       {preview.periodoInicio
-                        ? preview.periodoInicio.split('-').reverse().join('/')
-                        : '—'}{' '}
-                      a{' '}
+                        ? preview.periodoInicio.split("-").reverse().join("/")
+                        : "—"}{" "}
+                      a{" "}
                       {preview.periodoFim
-                        ? preview.periodoFim.split('-').reverse().join('/')
-                        : '—'}
+                        ? preview.periodoFim.split("-").reverse().join("/")
+                        : "—"}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
                       Detectado nas cargas
@@ -349,16 +349,16 @@ export function ModalImportarCargasCSV({
                           {tr.nomeSugerido}
                         </span>
                         <span className="text-[10px] text-muted-foreground font-mono">
-                          Cim: {Math.round(tr.cimentoM3)} kg/m³ | B12:{' '}
-                          {Math.round(tr.brita12M3)} | B19:{' '}
-                          {Math.round(tr.brita19M3)} | Areia:{' '}
+                          Cim: {Math.round(tr.cimentoM3)} kg/m³ | B12:{" "}
+                          {Math.round(tr.brita12M3)} | B19:{" "}
+                          {Math.round(tr.brita19M3)} | Areia:{" "}
                           {Math.round(tr.areiaM3)}
                           {tr.poPedraM3 > 0
                             ? ` | Pó: ${Math.round(tr.poPedraM3)}`
-                            : ''}
+                            : ""}
                           {tr.aditivoM3 > 0
                             ? ` | Adit: ${tr.aditivoM3} L/m³`
-                            : ''}
+                            : ""}
                         </span>
                       </div>
                       <Badge
@@ -381,8 +381,8 @@ export function ModalImportarCargasCSV({
                   </span>
                   <p className="text-[11px] text-muted-foreground truncate">
                     {preview.motoristasEncontrados.length > 0
-                      ? preview.motoristasEncontrados.join(', ')
-                      : 'Nenhum identificado na planilha'}
+                      ? preview.motoristasEncontrados.join(", ")
+                      : "Nenhum identificado na planilha"}
                   </p>
                 </div>
 
@@ -393,8 +393,8 @@ export function ModalImportarCargasCSV({
                   </span>
                   <p className="text-[11px] text-muted-foreground truncate">
                     {preview.veiculosEncontrados.length > 0
-                      ? preview.veiculosEncontrados.join(', ')
-                      : 'Nenhum identificado na planilha'}
+                      ? preview.veiculosEncontrados.join(", ")
+                      : "Nenhum identificado na planilha"}
                   </p>
                 </div>
 
@@ -405,8 +405,8 @@ export function ModalImportarCargasCSV({
                   </span>
                   <p className="text-[11px] text-muted-foreground truncate">
                     {preview.cidadesEncontradas.length > 0
-                      ? preview.cidadesEncontradas.join(', ')
-                      : 'Nenhuma identificada na planilha'}
+                      ? preview.cidadesEncontradas.join(", ")
+                      : "Nenhuma identificada na planilha"}
                   </p>
                 </div>
               </div>
@@ -474,7 +474,7 @@ export function ModalImportarCargasCSV({
             <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-center space-y-2">
               <div className="flex items-center justify-center gap-2 text-primary font-semibold text-xs">
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                {progresso || 'Processando importação...'}
+                {progresso || "Processando importação..."}
               </div>
               <p className="text-[11px] text-muted-foreground">
                 Por favor, aguarde enquanto todas as cargas, traços e cadastros
@@ -514,7 +514,7 @@ export function ModalImportarCargasCSV({
             ) : (
               <>
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Confirmar Importação ({preview ? preview.cargas.length : 0}{' '}
+                Confirmar Importação ({preview ? preview.cargas.length : 0}{" "}
                 Cargas)
               </>
             )}

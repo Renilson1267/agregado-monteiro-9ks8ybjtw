@@ -1,4 +1,4 @@
-import backupData from '@/assets/backup-folha-2026-09-28-46d43.json'
+import backupData from "@/assets/backup-folha-2026-09-28-46d43.json"
 
 export interface BackupFuncionarioCad {
   id: string
@@ -44,7 +44,7 @@ export interface BackupLancItem {
   gratif?: number
 }
 
-export const SJE_EMPRESA_ID = '22222222-2222-2222-2222-222222222222'
-export const MONTEIRO_EMPRESA_ID = '11111111-1111-1111-1111-111111111111'
+export const SJE_EMPRESA_ID = "22222222-2222-2222-2222-222222222222"
+export const MONTEIRO_EMPRESA_ID = "11111111-1111-1111-1111-111111111111"
 
 export const FOLHA_BACKUP_DATA = backupData

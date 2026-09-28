@@ -35,10 +35,10 @@ function getTagText(parent: Element | Document, tagName: string): string {
   // Procura por tagName direto ou por localName para contornar namespaces como nfe:infNFe
   const el =
     parent.getElementsByTagName(tagName)[0] ||
-    Array.from(parent.getElementsByTagName('*')).find(
+    Array.from(parent.getElementsByTagName("*")).find(
       (node) => node.localName?.toLowerCase() === tagName.toLowerCase(),
     )
-  return el ? el.textContent?.trim() || '' : ''
+  return el ? el.textContent?.trim() || "" : ""
 }
 
 /**
@@ -46,7 +46,7 @@ function getTagText(parent: Element | Document, tagName: string): string {
  */
 function parseNumero(str: string): number {
   if (!str) return 0
-  const clean = str.replace(',', '.')
+  const clean = str.replace(",", ".")
   const num = parseFloat(clean)
   return isNaN(num) ? 0 : num
 }
@@ -55,58 +55,58 @@ function parseNumero(str: string): number {
  * Faz o parse da string XML da NF-e
  */
 export function parseNFeXML(xmlString: string): DadosNFe {
-  if (!xmlString || typeof xmlString !== 'string' || !xmlString.trim()) {
-    throw new Error('O conteúdo XML informado está vazio.')
+  if (!xmlString || typeof xmlString !== "string" || !xmlString.trim()) {
+    throw new Error("O conteúdo XML informado está vazio.")
   }
 
   const parser = new DOMParser()
-  const xmlDoc = parser.parseFromString(xmlString, 'text/xml')
+  const xmlDoc = parser.parseFromString(xmlString, "text/xml")
 
   // Verifica erro de parse de XML
-  const parserError = xmlDoc.getElementsByTagName('parsererror')[0]
+  const parserError = xmlDoc.getElementsByTagName("parsererror")[0]
   if (parserError) {
     throw new Error(
-      'Não foi possível ler o arquivo XML. O formato é inválido ou está corrompido.',
+      "Não foi possível ler o arquivo XML. O formato é inválido ou está corrompido.",
     )
   }
 
   // Verifica se é um documento de NF-e / NFC-e / CFe (busca infNFe ou infCFe ou infMDFe)
-  const allElements = Array.from(xmlDoc.getElementsByTagName('*'))
+  const allElements = Array.from(xmlDoc.getElementsByTagName("*"))
   const infNFeNode = allElements.find(
     (el) =>
-      el.localName?.toLowerCase() === 'infnfe' ||
-      el.localName?.toLowerCase() === 'infcfe',
+      el.localName?.toLowerCase() === "infnfe" ||
+      el.localName?.toLowerCase() === "infcfe",
   )
 
   if (!infNFeNode) {
     // Tenta encontrar tags essenciais como vNF ou det
     const temVNF = allElements.some(
-      (el) => el.localName?.toLowerCase() === 'vnf',
+      (el) => el.localName?.toLowerCase() === "vnf",
     )
     const temDet = allElements.some(
-      (el) => el.localName?.toLowerCase() === 'det',
+      (el) => el.localName?.toLowerCase() === "det",
     )
 
     if (!temVNF && !temDet) {
       throw new Error(
-        'O XML enviado não aparenta ser uma NF-e ou CF-e válida (tag infNFe/infCFe não encontrada).',
+        "O XML enviado não aparenta ser uma NF-e ou CF-e válida (tag infNFe/infCFe não encontrada).",
       )
     }
   }
 
   // Identificação da Nota
   const ideNode = allElements.find(
-    (el) => el.localName?.toLowerCase() === 'ide',
+    (el) => el.localName?.toLowerCase() === "ide",
   )
-  const nNF = ideNode ? getTagText(ideNode, 'nNF') : getTagText(xmlDoc, 'nNF')
+  const nNF = ideNode ? getTagText(ideNode, "nNF") : getTagText(xmlDoc, "nNF")
   const serie = ideNode
-    ? getTagText(ideNode, 'serie')
-    : getTagText(xmlDoc, 'serie')
+    ? getTagText(ideNode, "serie")
+    : getTagText(xmlDoc, "serie")
 
   // Data de emissão: dhEmi (ex: 2026-09-20T10:30:00-03:00) ou dEmi (2026-09-20)
   let rawData = ideNode
-    ? getTagText(ideNode, 'dhEmi') || getTagText(ideNode, 'dEmi')
-    : getTagText(xmlDoc, 'dhEmi') || getTagText(xmlDoc, 'dEmi')
+    ? getTagText(ideNode, "dhEmi") || getTagText(ideNode, "dEmi")
+    : getTagText(xmlDoc, "dhEmi") || getTagText(xmlDoc, "dEmi")
 
   let dataEmissao: string | undefined
   let dataEmissaoFormatada: string | undefined
@@ -127,8 +127,8 @@ export function parseNFeXML(xmlString: string): DadosNFe {
   if (!dataEmissao) {
     const hoje = new Date()
     const ano = hoje.getFullYear()
-    const mes = String(hoje.getMonth() + 1).padStart(2, '0')
-    const dia = String(hoje.getDate()).padStart(2, '0')
+    const mes = String(hoje.getMonth() + 1).padStart(2, "0")
+    const dia = String(hoje.getDate()).padStart(2, "0")
     dataEmissao = `${ano}-${mes}-${dia}`
     dataEmissaoFormatada = `${dia}/${mes}/${ano}`
     mesAno = `${mes}/${ano}`
@@ -136,25 +136,25 @@ export function parseNFeXML(xmlString: string): DadosNFe {
 
   // Emitente
   const emitNode = allElements.find(
-    (el) => el.localName?.toLowerCase() === 'emit',
+    (el) => el.localName?.toLowerCase() === "emit",
   )
   const emitenteNome = emitNode
-    ? getTagText(emitNode, 'xNome')
-    : getTagText(xmlDoc, 'xNome')
+    ? getTagText(emitNode, "xNome")
+    : getTagText(xmlDoc, "xNome")
   const emitenteCNPJ = emitNode
-    ? getTagText(emitNode, 'CNPJ') || getTagText(emitNode, 'CPF')
-    : ''
+    ? getTagText(emitNode, "CNPJ") || getTagText(emitNode, "CPF")
+    : ""
 
   // Total da nota (tag vNF dentro de total/ICMSTot ou similar)
   let valorTotalNota = 0
-  const vNFStr = getTagText(xmlDoc, 'vNF')
+  const vNFStr = getTagText(xmlDoc, "vNF")
   if (vNFStr) {
     valorTotalNota = parseNumero(vNFStr)
   }
 
   // Itens da nota (tags <det>)
   const detNodes = allElements.filter(
-    (el) => el.localName?.toLowerCase() === 'det',
+    (el) => el.localName?.toLowerCase() === "det",
   )
   const itens: ItemNFe[] = []
 
@@ -162,17 +162,17 @@ export function parseNFeXML(xmlString: string): DadosNFe {
 
   detNodes.forEach((detNode, index) => {
     const prodNode = Array.from(detNode.children).find(
-      (c) => c.localName?.toLowerCase() === 'prod',
+      (c) => c.localName?.toLowerCase() === "prod",
     )
     if (!prodNode) return
 
-    const cProd = getTagText(prodNode, 'cProd')
-    const xProd = getTagText(prodNode, 'xProd')
-    const NCM = getTagText(prodNode, 'NCM')
-    const uCom = getTagText(prodNode, 'uCom')
-    const qCom = parseNumero(getTagText(prodNode, 'qCom'))
-    const vUnCom = parseNumero(getTagText(prodNode, 'vUnCom'))
-    const vProd = parseNumero(getTagText(prodNode, 'vProd'))
+    const cProd = getTagText(prodNode, "cProd")
+    const xProd = getTagText(prodNode, "xProd")
+    const NCM = getTagText(prodNode, "NCM")
+    const uCom = getTagText(prodNode, "uCom")
+    const qCom = parseNumero(getTagText(prodNode, "qCom"))
+    const vUnCom = parseNumero(getTagText(prodNode, "vUnCom"))
+    const vProd = parseNumero(getTagText(prodNode, "vProd"))
 
     somaItens += vProd
 
@@ -195,7 +195,7 @@ export function parseNFeXML(xmlString: string): DadosNFe {
 
   if (itens.length === 0 && valorTotalNota <= 0) {
     throw new Error(
-      'Não foram encontrados produtos nem valores válidos no XML da NF-e.',
+      "Não foram encontrados produtos nem valores válidos no XML da NF-e.",
     )
   }
 
@@ -219,40 +219,42 @@ export function parseNFeXML(xmlString: string): DadosNFe {
  * - 'm3', 'm³', 'metro cubico', 'mt3' -> 'm3'
  * - 'l', 'lt', 'lts', 'litro', 'litros' -> 'litros'
  */
-export function normalizarUnidadeXml(uCom: string): {
-  unidade: 'kg' | 'tonelada' | 'm3' | 'litros'
+export function normalizarUnidadeXml(
+  uCom: string,
+): {
+  unidade: "kg" | "tonelada" | "m3" | "litros"
   multiplicadorParaKg?: number
 } {
-  const u = (uCom || '').trim().toLowerCase()
+  const u = (uCom || "").trim().toLowerCase()
 
   if (
-    u === 'ton' ||
-    u === 't' ||
-    u === 'tonelada' ||
-    u === 'toneladas' ||
-    u === 'to'
+    u === "ton" ||
+    u === "t" ||
+    u === "tonelada" ||
+    u === "toneladas" ||
+    u === "to"
   ) {
-    return { unidade: 'tonelada', multiplicadorParaKg: 1000 }
+    return { unidade: "tonelada", multiplicadorParaKg: 1000 }
   }
-  if (u === 'm3' || u === 'm³' || u.includes('cub') || u === 'mt3') {
-    return { unidade: 'm3' }
+  if (u === "m3" || u === "m³" || u.includes("cub") || u === "mt3") {
+    return { unidade: "m3" }
   }
   if (
-    u === 'l' ||
-    u === 'lt' ||
-    u === 'lts' ||
-    u === 'litro' ||
-    u === 'litros'
+    u === "l" ||
+    u === "lt" ||
+    u === "lts" ||
+    u === "litro" ||
+    u === "litros"
   ) {
-    return { unidade: 'litros' }
+    return { unidade: "litros" }
   }
   // Saco de 50kg comum em cimento
-  if (u === 'sc' || u === 'saco' || u === 'sacos' || u === 'sc50') {
-    return { unidade: 'kg', multiplicadorParaKg: 50 }
+  if (u === "sc" || u === "saco" || u === "sacos" || u === "sc50") {
+    return { unidade: "kg", multiplicadorParaKg: 50 }
   }
 
   // Padrão kg
-  return { unidade: 'kg', multiplicadorParaKg: 1 }
+  return { unidade: "kg", multiplicadorParaKg: 1 }
 }
 
 /**
@@ -271,64 +273,64 @@ export function sugerirItemParaMaterial(
     return termos.some((t) => s.includes(t.toLowerCase()))
   }
 
-  if (materialCodigo === 'cimento') {
+  if (materialCodigo === "cimento") {
     const match = itens.find((it) =>
       termMatch(it.xProd, [
-        'cimento',
-        'cp ii',
-        'cp v',
-        'ari',
-        'f-40',
-        'cp-ii',
-        'cp-v',
+        "cimento",
+        "cp ii",
+        "cp v",
+        "ari",
+        "f-40",
+        "cp-ii",
+        "cp-v",
       ]),
     )
     if (match) return match
   }
 
-  if (materialCodigo === 'aditivo') {
+  if (materialCodigo === "aditivo") {
     const match = itens.find((it) =>
       termMatch(it.xProd, [
-        'aditivo',
-        'plastificante',
-        'polifuncional',
-        'superplastificante',
-        'retardador',
-        'acelerador',
-        'incorporador',
-        'hidrofugo',
-        'densificador',
-        'adit.',
-        'adt',
+        "aditivo",
+        "plastificante",
+        "polifuncional",
+        "superplastificante",
+        "retardador",
+        "acelerador",
+        "incorporador",
+        "hidrofugo",
+        "densificador",
+        "adit.",
+        "adt",
       ]),
     )
     if (match) return match
   }
 
-  if (materialCodigo === 'areia') {
+  if (materialCodigo === "areia") {
     const match = itens.find((it) =>
-      termMatch(it.xProd, ['areia', 'lavada', 'media', 'média']),
+      termMatch(it.xProd, ["areia", "lavada", "media", "média"]),
     )
     if (match) return match
   }
 
-  if (materialCodigo === 'brita12') {
+  if (materialCodigo === "brita12") {
     const match = itens.find((it) =>
-      termMatch(it.xProd, ['brita 1', 'brita 12', 'pedra 1', 'brita 01']),
+      termMatch(it.xProd, ["brita 1", "brita 12", "pedra 1", "brita 01"]),
     )
     if (match) return match
   }
 
-  if (materialCodigo === 'brita19') {
+  if (materialCodigo === "brita19") {
     const match = itens.find((it) =>
-      termMatch(it.xProd, ['brita 2', 'brita 19', 'pedra 2', 'brita 02']),
+      termMatch(it.xProd, ["brita 2", "brita 19", "pedra 2", "brita 02"]),
     )
     if (match) return match
   }
 
-  if (materialCodigo === 'po_pedra') {
+  if (materialCodigo === "po_pedra") {
     const match = itens.find((it) =>
-      termMatch(it.xProd, ['po', 'pó', 'pedra', 'pedrisco']),
+      termMatch(it.xProd, ["po", "pó", "pedra", "pedrisco"]),
     )
     if (match) return match
   }

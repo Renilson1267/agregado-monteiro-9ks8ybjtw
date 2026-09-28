@@ -1,7 +1,7 @@
-import { forwardRef } from 'react'
-import type { OrdemServico, Empresa } from '@/types/concreteira'
-import { Scissors } from 'lucide-react'
-import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from '@/assets/logos'
+import { forwardRef } from "react"
+import type { OrdemServico, Empresa } from "@/types/concreteira"
+import { Scissors } from "lucide-react"
+import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from "@/assets/logos"
 
 interface ReciboImpressaoProps {
   ordem: OrdemServico
@@ -29,35 +29,35 @@ function ViaRecibo({
   // Dados da empresa emissora
   const nomeEmpresa =
     empresa?.razao_social ||
-    (empresa?.slug === 'sje'
-      ? 'CALDAS & AMARAL CONSTRUCOES LTDA'
-      : 'AGREGADO MONTEIRO CONSTRUCOES E CONCRETO LTDA')
+    (empresa?.slug === "sje"
+      ? "CALDAS & AMARAL CONSTRUCOES LTDA"
+      : "AGREGADO MONTEIRO CONSTRUCOES E CONCRETO LTDA")
 
   const enderecoEmpresa =
     empresa?.endereco ||
-    (empresa?.slug === 'sje'
-      ? 'SITIO PAPAGAIO, - SAO JOSE DO EGITO, PE'
-      : 'RODOVIA PB-264, KM 02 - MONTEIRO, PB')
+    (empresa?.slug === "sje"
+      ? "SITIO PAPAGAIO, - SAO JOSE DO EGITO, PE"
+      : "RODOVIA PB-264, KM 02 - MONTEIRO, PB")
 
   const telefoneEmpresa =
     empresa?.telefone ||
-    (empresa?.slug === 'sje' ? '0800-083-1200' : '(83) 3351-1000')
+    (empresa?.slug === "sje" ? "0800-083-1200" : "(83) 3351-1000")
 
   const cnpjEmpresa =
     empresa?.cnpj ||
-    (empresa?.slug === 'sje' ? '33.534.028/0001-68' : '12.345.678/0001-90')
+    (empresa?.slug === "sje" ? "33.534.028/0001-68" : "12.345.678/0001-90")
 
   const dataEmissaoFormatada = ordem.data_emissao
-    ? ordem.data_emissao.split('-').reverse().join('/')
-    : new Date().toLocaleDateString('pt-BR')
+    ? ordem.data_emissao.split("-").reverse().join("/")
+    : new Date().toLocaleDateString("pt-BR")
 
   return (
     <div
       className="via-recibo-card bg-white text-black font-sans leading-tight border border-black p-1 rounded-none text-[6.5pt] shadow-none"
       style={{
-        backgroundColor: '#ffffff',
-        color: '#000000',
-        fontSize: '6.5pt',
+        backgroundColor: "#ffffff",
+        color: "#000000",
+        fontSize: "6.5pt",
         lineHeight: 1.1,
       }}
     >
@@ -83,7 +83,7 @@ function ViaRecibo({
             src={LOGO_GC_MIX_HORIZONTAL}
             alt={LOGO_ALT_TEXT}
             className="h-8 w-auto max-w-[130px] sm:max-w-[150px] object-contain shrink-0 rounded-[2px] border border-black/10"
-            style={{ imageRendering: 'auto' }}
+            style={{ imageRendering: "auto" }}
           />
           <div className="leading-tight min-w-0 flex-1">
             <h1 className="font-extrabold text-[7.5pt] uppercase tracking-tight text-black truncate">
@@ -152,13 +152,13 @@ function ViaRecibo({
               Endereço:
             </span>
             <span className="uppercase flex-1 text-black truncate">
-              {ordem.destinatario_endereco || '—'}
+              {ordem.destinatario_endereco || "—"}
             </span>
           </div>
           <div className="col-span-4 flex items-baseline">
             <span className="font-bold w-12 text-black shrink-0">Bairro:</span>
             <span className="uppercase flex-1 text-black truncate">
-              {ordem.destinatario_bairro || '—'}
+              {ordem.destinatario_bairro || "—"}
             </span>
           </div>
 
@@ -168,14 +168,14 @@ function ViaRecibo({
             </span>
             <span className="uppercase flex-1 text-black truncate">
               {ordem.destinatario_cidade
-                ? `${ordem.destinatario_cidade}, ${ordem.destinatario_uf || 'PB'}`
-                : '—'}
+                ? `${ordem.destinatario_cidade}, ${ordem.destinatario_uf || "PB"}`
+                : "—"}
             </span>
           </div>
           <div className="col-span-4 flex items-baseline">
             <span className="font-bold w-12 text-black shrink-0">CEP:</span>
             <span className="font-mono flex-1 text-black">
-              {ordem.destinatario_cep || '—'}
+              {ordem.destinatario_cep || "—"}
             </span>
           </div>
 
@@ -184,13 +184,13 @@ function ViaRecibo({
               CNPJ/CPF:
             </span>
             <span className="font-mono flex-1 text-black">
-              {ordem.destinatario_cpf_cnpj || '—'}
+              {ordem.destinatario_cpf_cnpj || "—"}
             </span>
           </div>
           <div className="col-span-4 flex items-baseline">
             <span className="font-bold w-12 text-black shrink-0">Fone:</span>
             <span className="flex-1 text-black truncate">
-              {ordem.destinatario_telefone || '—'}
+              {ordem.destinatario_telefone || "—"}
             </span>
           </div>
         </div>
@@ -200,9 +200,9 @@ function ViaRecibo({
       <div className="border border-black mb-0.5">
         <table className="w-full table-fixed text-[6.5pt] border-collapse leading-tight">
           <colgroup>
-            <col style={{ width: '22%' }} />
-            <col style={{ width: '15%' }} />
-            <col style={{ width: '63%' }} />
+            <col style={{ width: "22%" }} />
+            <col style={{ width: "15%" }} />
+            <col style={{ width: "63%" }} />
           </colgroup>
           <thead>
             <tr className="border-b border-black bg-gray-50">
@@ -222,7 +222,7 @@ function ViaRecibo({
               ordem.itens.map((it, idx) => (
                 <tr key={idx} className="border-b border-black last:border-b-0">
                   <td className="py-0.5 px-1.5 text-right font-mono font-bold border-r border-black text-black">
-                    {Number(it.quantidade).toLocaleString('pt-BR', {
+                    {Number(it.quantidade).toLocaleString("pt-BR", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
@@ -265,7 +265,7 @@ function ViaRecibo({
                       {ins.material}:
                     </span>
                     <span className="font-mono font-bold shrink-0 text-black">
-                      {Number(ins.quantidade).toLocaleString('pt-BR')}{' '}
+                      {Number(ins.quantidade).toLocaleString("pt-BR")}{" "}
                       {ins.unidade}
                     </span>
                   </div>
@@ -282,11 +282,11 @@ function ViaRecibo({
         </div>
         <table className="w-full table-fixed text-[6pt] border-collapse text-center leading-tight">
           <colgroup>
-            <col style={{ width: '20%' }} />
-            <col style={{ width: '20%' }} />
-            <col style={{ width: '20%' }} />
-            <col style={{ width: '20%' }} />
-            <col style={{ width: '20%' }} />
+            <col style={{ width: "20%" }} />
+            <col style={{ width: "20%" }} />
+            <col style={{ width: "20%" }} />
+            <col style={{ width: "20%" }} />
+            <col style={{ width: "20%" }} />
           </colgroup>
           <thead>
             <tr className="border-b border-black bg-gray-50 font-bold text-black">
@@ -306,22 +306,26 @@ function ViaRecibo({
             <tr className="border-b border-black h-3.5 text-black">
               <td className="border-r border-black font-semibold truncate px-0.5">
                 {ordem.slump_central_medido
-                  ? `${ordem.slump_central_medido} ${ordem.slump_tolerancia ? `(${ordem.slump_tolerancia})` : ''}`
-                  : ''}
+                  ? `${ordem.slump_central_medido} ${
+                      ordem.slump_tolerancia
+                        ? `(${ordem.slump_tolerancia})`
+                        : ""
+                    }`
+                  : ""}
               </td>
               <td className="border-r border-black font-semibold truncate px-0.5">
-                {ordem.slump_central_saida || ''}
+                {ordem.slump_central_saida || ""}
               </td>
               <td className="border-r border-black font-mono truncate px-0.5">
                 {ordem.agua_adic_central != null && ordem.agua_adic_central > 0
                   ? `${ordem.agua_adic_central} L`
-                  : ''}
+                  : ""}
               </td>
               <td className="border-r border-black truncate px-0.5">
-                {ordem.moldagem_central || ''}
+                {ordem.moldagem_central || ""}
               </td>
               <td className="truncate px-0.5">
-                {ordem.visto_motorista_central || ''}
+                {ordem.visto_motorista_central || ""}
               </td>
             </tr>
             {/* Linha 2: Peça Concretada */}
@@ -334,21 +338,21 @@ function ViaRecibo({
             </tr>
             <tr className="h-3.5 text-black">
               <td className="border-r border-black font-semibold truncate px-0.5">
-                {ordem.slump_peca_medido || ''}
+                {ordem.slump_peca_medido || ""}
               </td>
               <td className="border-r border-black font-semibold truncate px-0.5">
-                {ordem.slump_peca_saida || ''}
+                {ordem.slump_peca_saida || ""}
               </td>
               <td className="border-r border-black font-mono truncate px-0.5">
                 {ordem.agua_adic_peca != null && ordem.agua_adic_peca > 0
                   ? `${ordem.agua_adic_peca} L`
-                  : ''}
+                  : ""}
               </td>
               <td className="border-r border-black uppercase truncate px-0.5">
-                {ordem.peca_concretada || ''}
+                {ordem.peca_concretada || ""}
               </td>
               <td className="truncate px-0.5">
-                {ordem.visto_motorista_peca || ''}
+                {ordem.visto_motorista_peca || ""}
               </td>
             </tr>
           </tbody>
@@ -362,12 +366,12 @@ function ViaRecibo({
         </div>
         <table className="w-full table-fixed text-[6pt] border-collapse text-center leading-tight">
           <colgroup>
-            <col style={{ width: '16.66%' }} />
-            <col style={{ width: '33.34%' }} />
-            <col style={{ width: '16.66%' }} />
-            <col style={{ width: '8.33%' }} />
-            <col style={{ width: '8.33%' }} />
-            <col style={{ width: '16.68%' }} />
+            <col style={{ width: "16.66%" }} />
+            <col style={{ width: "33.34%" }} />
+            <col style={{ width: "16.66%" }} />
+            <col style={{ width: "8.33%" }} />
+            <col style={{ width: "8.33%" }} />
+            <col style={{ width: "16.68%" }} />
           </colgroup>
           <thead>
             <tr className="border-b border-black bg-gray-50 font-bold text-black">
@@ -382,22 +386,22 @@ function ViaRecibo({
           <tbody>
             <tr className="border-b border-black h-3.5 text-black">
               <td className="border-r border-black font-mono font-bold text-[6.5pt] truncate px-0.5">
-                {ordem.veiculo_placa || ''}
+                {ordem.veiculo_placa || ""}
               </td>
               <td className="border-r border-black uppercase font-semibold truncate px-0.5">
-                {ordem.motorista_nome || ''}
+                {ordem.motorista_nome || ""}
               </td>
               <td className="border-r border-black font-mono truncate px-0.5">
-                {ordem.lacre || ''}
+                {ordem.lacre || ""}
               </td>
               <td className="border-r border-black font-mono truncate px-0.5">
-                {ordem.km_inicial ?? ''}
+                {ordem.km_inicial ?? ""}
               </td>
               <td className="border-r border-black font-mono truncate px-0.5">
-                {ordem.km_final ?? ''}
+                {ordem.km_final ?? ""}
               </td>
               <td className="font-mono truncate px-0.5">
-                {ordem.hora_carga || ''}
+                {ordem.hora_carga || ""}
               </td>
             </tr>
             {/* Horários */}
@@ -411,22 +415,22 @@ function ViaRecibo({
             </tr>
             <tr className="border-b border-black h-3.5 text-[6pt] font-mono text-black">
               <td className="border-r border-black truncate px-0.5">
-                {ordem.hora_saida_central || ''}
+                {ordem.hora_saida_central || ""}
               </td>
               <td className="border-r border-black truncate px-0.5">
-                {ordem.hora_chegada_obra || ''}
+                {ordem.hora_chegada_obra || ""}
               </td>
               <td className="border-r border-black truncate px-0.5">
-                {ordem.hora_inicio_descarga || ''}
+                {ordem.hora_inicio_descarga || ""}
               </td>
               <td className="border-r border-black truncate px-0.5">
-                {ordem.hora_fim_descarga || ''}
+                {ordem.hora_fim_descarga || ""}
               </td>
               <td className="border-r border-black truncate px-0.5">
-                {ordem.hora_saida_obra || ''}
+                {ordem.hora_saida_obra || ""}
               </td>
               <td className="truncate px-0.5">
-                {ordem.hora_chegada_central || ''}
+                {ordem.hora_chegada_central || ""}
               </td>
             </tr>
             {/* Visto Obra */}
@@ -434,7 +438,7 @@ function ViaRecibo({
               <td colSpan={6} className="px-1 py-0.5">
                 <span className="font-bold text-[6pt]">VISTO OBRA: </span>
                 <span className="uppercase text-[6pt]">
-                  {ordem.visto_obra || ''}
+                  {ordem.visto_obra || ""}
                 </span>
               </td>
             </tr>
@@ -447,7 +451,7 @@ function ViaRecibo({
         <span className="font-bold">Observações: </span>
         <span className="uppercase font-mono text-[5.5pt]">
           {ordem.observacoes ||
-            `FOLGA DE ÁGUA: 15L/m3 VENDEDOR: ${ordem.vendedor_nome || '—'} CONTRATANTE: ${ordem.destinatario_nome} - CNPJ/CPF: ${ordem.destinatario_cpf_cnpj || '—'} - MOTORISTA: ${ordem.motorista_nome || '—'} - LACRE: ${ordem.lacre || '—'} - PLACA: ${ordem.veiculo_placa || '—'} - BOMBA: ${ordem.bomba_estacionaria || '—'}`}
+            `FOLGA DE ÁGUA: 15L/m3 VENDEDOR: ${ordem.vendedor_nome || "—"} CONTRATANTE: ${ordem.destinatario_nome} - CNPJ/CPF: ${ordem.destinatario_cpf_cnpj || "—"} - MOTORISTA: ${ordem.motorista_nome || "—"} - LACRE: ${ordem.lacre || "—"} - PLACA: ${ordem.veiculo_placa || "—"} - BOMBA: ${ordem.bomba_estacionaria || "—"}`}
         </span>
       </div>
 
@@ -465,12 +469,12 @@ function ViaRecibo({
           TERMO DE RESPONSABILIDADE (ADIÇÃO DE ÁGUA)
         </div>
         <div className="font-medium leading-tight">
-          DETERMINO A ADIÇÃO DE{' '}
+          DETERMINO A ADIÇÃO DE{" "}
           <span className="font-mono font-bold underline px-1">
             {ordem.agua_adicional_termo != null
               ? `${ordem.agua_adicional_termo}`
-              : '________'}
-          </span>{' '}
+              : "________"}
+          </span>{" "}
           LITROS DE ÁGUA NESTA CARGA. TENHO CIÊNCIA DA ALTERAÇÃO NAS
           PROPRIEDADES DO CONCRETO.
         </div>
@@ -505,7 +509,7 @@ function ViaRecibo({
 
 export const ReciboImpressao = forwardRef<HTMLDivElement, ReciboImpressaoProps>(
   ({ ordem, empresa, viaUnica = false }, ref) => {
-    const agoraDataHora = new Date().toLocaleString('pt-BR')
+    const agoraDataHora = new Date().toLocaleString("pt-BR")
 
     return (
       <div
@@ -513,11 +517,11 @@ export const ReciboImpressao = forwardRef<HTMLDivElement, ReciboImpressaoProps>(
         id="recibo-impressao-raiz"
         className="recibo-container-impressao bg-white text-black font-sans leading-tight mx-auto p-0 max-w-[210mm]"
         style={{
-          color: '#000000',
-          backgroundColor: '#ffffff',
-          width: '100%',
-          display: 'block',
-          visibility: 'visible',
+          color: "#000000",
+          backgroundColor: "#ffffff",
+          width: "100%",
+          display: "block",
+          visibility: "visible",
         }}
       >
         {/* VIA 1 — EMPRESA */}
@@ -560,8 +564,8 @@ export const ReciboImpressao = forwardRef<HTMLDivElement, ReciboImpressaoProps>(
           <span>SISTEMA DE CONCRETO USINADO — GC MIX</span>
           <span>
             {viaUnica
-              ? 'Recibo de Concreto (Via Única)'
-              : 'Ordem de Serviço em 2 Vias (Empresa e Cliente)'}
+              ? "Recibo de Concreto (Via Única)"
+              : "Ordem de Serviço em 2 Vias (Empresa e Cliente)"}
           </span>
           <span>Impresso em {agoraDataHora}</span>
         </div>
@@ -570,4 +574,4 @@ export const ReciboImpressao = forwardRef<HTMLDivElement, ReciboImpressaoProps>(
   },
 )
 
-ReciboImpressao.displayName = 'ReciboImpressao'
+ReciboImpressao.displayName = "ReciboImpressao"

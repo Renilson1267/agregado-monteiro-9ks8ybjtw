@@ -1,5 +1,5 @@
-export type TipoColaboradorFolha = 'Funcionario' | 'Terceiro'
-export type ModoCalculoFolha = 'Calculado' | 'Digitado'
+export type TipoColaboradorFolha = "Funcionario" | "Terceiro"
+export type ModoCalculoFolha = "Calculado" | "Digitado"
 
 export interface FolhaCompetencia {
   id: string
@@ -13,8 +13,37 @@ export interface FolhaCompetencia {
   total_liquido: number
   total_fgts: number
   total_inss_empresa: number
-  status: 'ABERTA' | 'FECHADA'
+  status: "ABERTA" | "FECHADA"
   observacoes?: string | null
+  data_competencia?: string | null
+  percentual_quinzena?: number
+  created_at?: string
+  updated_at?: string
+}
+
+export interface FaixaTabelaOficial {
+  de: number
+  ate: number
+  aliquota: number
+  deducao: number
+}
+
+export interface FolhaTabelaOficial {
+  id: string
+  empresa_id?: string | null
+  ano: number
+  descricao: string
+  salario_minimo: number
+  teto_inss: number
+  familia_cota_por_filho: number
+  familia_teto_salario: number
+  ir_isento_ate: number
+  ir_desconto_gradual_ate: number
+  ir_parcela_fixa_reducao: number
+  ir_coeficiente_reducao: number
+  inss_faixas: FaixaTabelaOficial[]
+  irrf_faixas: FaixaTabelaOficial[]
+  ativo?: boolean
   created_at?: string
   updated_at?: string
 }
@@ -53,6 +82,7 @@ export interface FolhaPagamentoLinha {
   // Benefícios e adicionais
   limpeza: number
   sabado: number
+  feriado?: number
   ferias: number
   ajuda_custo: number
 
@@ -72,6 +102,7 @@ export interface FolhaPagamentoLinha {
   modo_calculo?: ModoCalculoFolha // 'Calculado' | 'Digitado'
   oculto?: boolean
   inativo?: boolean
+  observacao_linha?: string | null
   backup_id?: string | null
 
   // Campos auxiliares opcionais
@@ -100,6 +131,7 @@ export interface FolhaTotaisCalculados {
   totalProducao: number
   totalLimpeza?: number
   totalSabado?: number
+  totalFeriado?: number
   totalFerias?: number
   totalAjudaCusto?: number
   totalVendas?: number
@@ -141,7 +173,8 @@ export function calcularMensalLiquido(linha: {
   const gratificacao = Number(linha.gratificacao || 0)
   const obras = Number(linha.obras || 0)
   const valorObra = Number(linha.valor_obra ?? 20)
-  const producao = linha.producao !== undefined ? Number(linha.producao) : obras * valorObra
+  const producao =
+    linha.producao !== undefined ? Number(linha.producao) : obras * valorObra
   const limpeza = Number(linha.limpeza || 0)
   const sabado = Number(linha.sabado || 0)
   const ferias = Number(linha.ferias || 0)

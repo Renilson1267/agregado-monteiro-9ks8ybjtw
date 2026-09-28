@@ -1,24 +1,24 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { Toaster } from '@/components/ui/toaster'
-import { Toaster as Sonner } from '@/components/ui/sonner'
-import { TooltipProvider } from '@/components/ui/tooltip'
-import { ThemeProvider } from '@/components/theme-provider'
-import { AuthProvider } from '@/hooks/use-auth'
-import { UsuarioProvider } from '@/hooks/use-usuario'
-import { EmpresaProvider } from '@/hooks/use-empresa'
-import { ProtectedRoute } from '@/components/ProtectedRoute'
-import Layout from './components/Layout'
-import Login from './pages/Login'
-import Index from './pages/Index'
-import LancamentoCargas from './pages/LancamentoCargas'
-import Tracos from './pages/Tracos'
-import Estoque from './pages/Estoque'
-import Cadastros from './pages/Cadastros'
-import Ordens from './pages/Ordens'
-import Relatorios from './pages/Relatorios'
-import ControleExames from './pages/ControleExames'
-import FolhaPagamento from './pages/FolhaPagamento'
-import NotFound from './pages/NotFound'
+import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { Toaster } from "@/components/ui/toaster"
+import { Toaster as Sonner } from "@/components/ui/sonner"
+import { TooltipProvider } from "@/components/ui/tooltip"
+import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/hooks/use-auth"
+import { UsuarioProvider } from "@/hooks/use-usuario"
+import { EmpresaProvider } from "@/hooks/use-empresa"
+import { ProtectedRoute } from "@/components/ProtectedRoute"
+import Layout from "./components/Layout"
+import Login from "./pages/Login"
+import Index from "./pages/Index"
+import LancamentoCargas from "./pages/LancamentoCargas"
+import Tracos from "./pages/Tracos"
+import Estoque from "./pages/Estoque"
+import Cadastros from "./pages/Cadastros"
+import Ordens from "./pages/Ordens"
+import Relatorios from "./pages/Relatorios"
+import ControleExames from "./pages/ControleExames"
+import FolhaPagamento from "./pages/FolhaPagamento"
+import NotFound from "./pages/NotFound"
 
 const App = () => (
   <BrowserRouter
@@ -44,7 +44,6 @@ const App = () => (
                     <Route path="/estoque" element={<Estoque />} />
                     <Route path="/ordens" element={<Ordens />} />
                     <Route path="/exames" element={<ControleExames />} />
-
                     {/* Rotas Restritas a Administrador */}
                     <Route
                       element={<ProtectedRoute permitirApenasAdmin={true} />}
@@ -53,7 +52,8 @@ const App = () => (
                       <Route path="/relatorios" element={<Relatorios />} />
                       <Route path="/folha" element={<FolhaPagamento />} />
                       <Route path="/cadastros" element={<Cadastros />} />
-                    </Route>                  </Route>
+                    </Route>{" "}
+                  </Route>
                 </Route>
 
                 <Route path="*" element={<NotFound />} />

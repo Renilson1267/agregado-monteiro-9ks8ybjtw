@@ -1,29 +1,29 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { useSearchParams } from 'react-router-dom'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { PainelUsuarios } from '@/components/PainelUsuarios'
-import { UserCog } from 'lucide-react'
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { useSearchParams } from "react-router-dom"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { PainelUsuarios } from "@/components/PainelUsuarios"
+import { UserCog } from "lucide-react"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog'
-import { ConcreteiraService } from '@/services/concreteira'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { useUsuario } from '@/hooks/use-usuario'
+} from "@/components/ui/dialog"
+import { ConcreteiraService } from "@/services/concreteira"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { useUsuario } from "@/hooks/use-usuario"
 import type {
   Motorista,
   Veiculo,
@@ -31,7 +31,7 @@ import type {
   Material,
   PrecoMaterial,
   MetaProducao,
-} from '@/types/concreteira'
+} from "@/types/concreteira"
 import {
   Users,
   Truck,
@@ -55,7 +55,7 @@ import {
   Trash2,
   FileSpreadsheet,
   Target,
-} from 'lucide-react'
+} from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,8 +65,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { ModalImportarCargasCSV } from '@/components/ModalImportarCargasCSV'
+} from "@/components/ui/alert-dialog"
+import { ModalImportarCargasCSV } from "@/components/ModalImportarCargasCSV"
 import {
   formatarCpfCnpj,
   formatarCep,
@@ -76,37 +76,53 @@ import {
   limparMascara,
   consultarCNPJ,
   consultarCEP,
-} from '@/lib/documentos'
-import type { Cliente } from '@/types/concreteira'
-import { Textarea } from '@/components/ui/textarea'
+} from "@/lib/documentos"
+import type { Cliente } from "@/types/concreteira"
+import { Textarea } from "@/components/ui/textarea"
 import {
   parseNFeXML,
   sugerirItemParaMaterial,
   normalizarUnidadeXml,
   type DadosNFe,
   type ItemNFe,
-} from '@/lib/nfe-parser'
+} from "@/lib/nfe-parser"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { toast } from '@/hooks/use-toast'
+} from "@/components/ui/select"
+import { toast } from "@/hooks/use-toast"
 
 export default function Cadastros() {
   const { empresaAtiva } = useEmpresa()
   const { isAdministrador } = useUsuario()
   const [searchParams, setSearchParams] = useSearchParams()
-  const abaUrl = searchParams.get('tab')
+  const abaUrl = searchParams.get("tab")
   const [abaAtiva, setAbaAtiva] = useState<string>(() => {
-    const permitidas = ['usuarios', 'metas', 'clientes', 'insumos', 'motoristas', 'veiculos', 'cidades']
-    return abaUrl && permitidas.includes(abaUrl) ? abaUrl : 'usuarios'
+    const permitidas = [
+      "usuarios",
+      "metas",
+      "clientes",
+      "insumos",
+      "motoristas",
+      "veiculos",
+      "cidades",
+    ]
+    return abaUrl && permitidas.includes(abaUrl) ? abaUrl : "usuarios"
   })
 
   useEffect(() => {
-    const permitidas = ['usuarios', 'metas', 'clientes', 'insumos', 'motoristas', 'veiculos', 'cidades']
+    const permitidas = [
+      "usuarios",
+      "metas",
+      "clientes",
+      "insumos",
+      "motoristas",
+      "veiculos",
+      "cidades",
+    ]
     if (abaUrl && permitidas.includes(abaUrl) && abaUrl !== abaAtiva) {
       setAbaAtiva(abaUrl)
     }
@@ -123,30 +139,30 @@ export default function Cadastros() {
   const [metaProducao, setMetaProducao] = useState<MetaProducao | null>(null)
   const [metaDiariaInput, setMetaDiariaInput] = useState<number>(50)
   const [metaMensalInput, setMetaMensalInput] = useState<number>(1000)
-  const [observacaoMetaInput, setObservacaoMetaInput] = useState<string>('')
+  const [observacaoMetaInput, setObservacaoMetaInput] = useState<string>("")
   const [salvandoMeta, setSalvandoMeta] = useState(false)
 
   // Estado do Modal de Cliente
   const [openCliente, setOpenCliente] = useState(false)
   const [clienteEditando, setClienteEditando] = useState<Cliente | null>(null)
-  const [tipoCliente, setTipoCliente] = useState<'PF' | 'PJ'>('PJ')
-  const [cpfCnpjCliente, setCpfCnpjCliente] = useState('')
-  const [nomeCliente, setNomeCliente] = useState('')
-  const [nomeFantasiaCliente, setNomeFantasiaCliente] = useState('')
-  const [telefoneCliente, setTelefoneCliente] = useState('')
-  const [emailCliente, setEmailCliente] = useState('')
-  const [cepCliente, setCepCliente] = useState('')
-  const [logradouroCliente, setLogradouroCliente] = useState('')
-  const [numeroCliente, setNumeroCliente] = useState('')
-  const [complementoCliente, setComplementoCliente] = useState('')
-  const [bairroCliente, setBairroCliente] = useState('')
-  const [cidadeCliente, setCidadeCliente] = useState('')
-  const [ufCliente, setUfCliente] = useState('PB')
-  const [observacoesCliente, setObservacoesCliente] = useState('')
+  const [tipoCliente, setTipoCliente] = useState<"PF" | "PJ">("PJ")
+  const [cpfCnpjCliente, setCpfCnpjCliente] = useState("")
+  const [nomeCliente, setNomeCliente] = useState("")
+  const [nomeFantasiaCliente, setNomeFantasiaCliente] = useState("")
+  const [telefoneCliente, setTelefoneCliente] = useState("")
+  const [emailCliente, setEmailCliente] = useState("")
+  const [cepCliente, setCepCliente] = useState("")
+  const [logradouroCliente, setLogradouroCliente] = useState("")
+  const [numeroCliente, setNumeroCliente] = useState("")
+  const [complementoCliente, setComplementoCliente] = useState("")
+  const [bairroCliente, setBairroCliente] = useState("")
+  const [cidadeCliente, setCidadeCliente] = useState("")
+  const [ufCliente, setUfCliente] = useState("PB")
+  const [observacoesCliente, setObservacoesCliente] = useState("")
   const [exibirInsumosOsCliente, setExibirInsumosOsCliente] = useState(true)
   const [buscandoCnpj, setBuscandoCnpj] = useState(false)
   const [buscandoCep, setBuscandoCep] = useState(false)
-  const [filtroClientes, setFiltroClientes] = useState('')
+  const [filtroClientes, setFiltroClientes] = useState("")
 
   // Modal Insumo / Material
   const [openMaterial, setOpenMaterial] = useState(false)
@@ -154,18 +170,18 @@ export default function Cadastros() {
     null,
   )
   const [densidadeMat, setDensidadeMat] = useState<number>(1.0)
-  const [unidadeCompraMat, setUnidadeCompraMat] = useState<string>('m3')
+  const [unidadeCompraMat, setUnidadeCompraMat] = useState<string>("m3")
   const [precoCompraMat, setPrecoCompraMat] = useState<number>(0)
 
   // Modal XML da Nota Fiscal (NF-e)
   const [openXmlModal, setOpenXmlModal] = useState(false)
   const [materialXml, setMaterialXml] = useState<Material | null>(null)
-  const [xmlTexto, setXmlTexto] = useState('')
+  const [xmlTexto, setXmlTexto] = useState("")
   const [xmlParseado, setXmlParseado] = useState<DadosNFe | null>(null)
   const [itemSelecionado, setItemSelecionado] = useState<ItemNFe | null>(null)
   const [erroXml, setErroXml] = useState<string | null>(null)
-  const [modoEntradaXml, setModoEntradaXml] = useState<'upload' | 'colar'>(
-    'upload',
+  const [modoEntradaXml, setModoEntradaXml] = useState<"upload" | "colar">(
+    "upload",
   )
   const [aplicandoXml, setAplicandoXml] = useState(false)
 
@@ -196,7 +212,7 @@ export default function Cadastros() {
     } catch (err: any) {
       setErroXml(
         err.message ||
-          'Formato de XML inválido. Não foi possível processar a nota fiscal.',
+          "Formato de XML inválido. Não foi possível processar a nota fiscal.",
       )
     }
   }
@@ -212,7 +228,7 @@ export default function Cadastros() {
       processarTextoXml(text)
     }
     reader.onerror = () => {
-      setErroXml('Erro ao ler o arquivo selecionado no seu dispositivo.')
+      setErroXml("Erro ao ler o arquivo selecionado no seu dispositivo.")
     }
     reader.readAsText(file)
   }
@@ -233,16 +249,13 @@ export default function Cadastros() {
     const precoUnitarioCompra =
       qtdComprada > 0 ? valorNota / qtdComprada : valorNota
 
-    const isAditivo = materialXml.codigo === 'aditivo'
+    const isAditivo = materialXml.codigo === "aditivo"
 
     // Normalização de unidade se disponível
     const unidadeDetectada = item
       ? normalizarUnidadeXml(item.uCom).unidade
-      : ((materialXml.unidade_compra || (isAditivo ? 'litros' : 'kg')) as
-          | 'kg'
-          | 'tonelada'
-          | 'm3'
-          | 'litros')
+      : (materialXml.unidade_compra ||
+          (isAditivo ? "litros" : "kg")) as "kg" | "tonelada" | "m3" | "litros"
 
     // Densidade do material
     const densidadeUsada =
@@ -263,13 +276,13 @@ export default function Cadastros() {
           densidadeUsada,
         )
 
-    const unidadeFinal = isAditivo ? 'litros' : materialXml.unidade || 'kg'
-    const unidadeFinalRotulo = isAditivo ? 'L' : 'kg'
+    const unidadeFinal = isAditivo ? "litros" : materialXml.unidade || "kg"
+    const unidadeFinalRotulo = isAditivo ? "L" : "kg"
 
     // Data da nota para o histórico de preços
     const mesAnoPreco =
       xmlParseado.mesAno ||
-      `${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()}`
+      `${String(new Date().getMonth() + 1).padStart(2, "0")}/${new Date().getFullYear()}`
 
     setAplicandoXml(true)
     try {
@@ -290,21 +303,21 @@ export default function Cadastros() {
       })
 
       toast({
-        title: 'Preço atualizado com sucesso via NF-e!',
+        title: "Preço atualizado com sucesso via NF-e!",
         description: `${materialXml.nome}: R$ ${precoUnitarioCompra.toFixed(2)}/${unidadeDetectada} → R$ ${custoConvertido.toFixed(4)}/${unidadeFinalRotulo} (Vigência: ${mesAnoPreco}).`,
       })
 
       setOpenXmlModal(false)
       setMaterialXml(null)
-      setXmlTexto('')
+      setXmlTexto("")
       setXmlParseado(null)
       setItemSelecionado(null)
       carregarTudo()
     } catch (err: any) {
       toast({
-        title: 'Erro ao aplicar preço da nota',
+        title: "Erro ao aplicar preço da nota",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setAplicandoXml(false)
@@ -313,15 +326,15 @@ export default function Cadastros() {
 
   // Modais de Cadastro
   const [openMotorista, setOpenMotorista] = useState(false)
-  const [nomeMotorista, setNomeMotorista] = useState('')
+  const [nomeMotorista, setNomeMotorista] = useState("")
 
   const [openVeiculo, setOpenVeiculo] = useState(false)
-  const [placaVeiculo, setPlacaVeiculo] = useState('')
-  const [modeloVeiculo, setModeloVeiculo] = useState('')
+  const [placaVeiculo, setPlacaVeiculo] = useState("")
+  const [modeloVeiculo, setModeloVeiculo] = useState("")
 
   const [openCidade, setOpenCidade] = useState(false)
-  const [nomeCidade, setNomeCidade] = useState('')
-  const [ufCidade, setUfCidade] = useState('PB')
+  const [nomeCidade, setNomeCidade] = useState("")
+  const [ufCidade, setUfCidade] = useState("PB")
 
   const [salvando, setSalvando] = useState(false)
   const [openImportarCsv, setOpenImportarCsv] = useState(false)
@@ -329,16 +342,16 @@ export default function Cadastros() {
   // Estado para confirmação de exclusão genérica com AlertDialog
   const [dialogExclusao, setDialogExclusao] = useState<{
     open: boolean
-    tipo: 'cliente' | 'motorista' | 'veiculo' | 'cidade' | 'material' | 'meta'
+    tipo: "cliente" | "motorista" | "veiculo" | "cidade" | "material" | "meta"
     id: string
     titulo: string
     descricao: string
   }>({
     open: false,
-    tipo: 'cliente',
-    id: '',
-    titulo: '',
-    descricao: '',
+    tipo: "cliente",
+    id: "",
+    titulo: "",
+    descricao: "",
   })
   const [excluindo, setExcluindo] = useState(false)
 
@@ -365,13 +378,13 @@ export default function Cadastros() {
         setMetaProducao(meta)
         setMetaDiariaInput(meta.meta_diaria_m3)
         setMetaMensalInput(meta.meta_mensal_m3)
-        setObservacaoMetaInput(meta.observacao || '')
+        setObservacaoMetaInput(meta.observacao || "")
       }
     } catch (e: any) {
       toast({
-        title: 'Erro ao carregar cadastros',
+        title: "Erro ao carregar cadastros",
         description: e.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setLoading(false)
@@ -396,15 +409,15 @@ export default function Cadastros() {
         undefined,
         empresaAtiva?.id,
       )
-      toast({ title: 'Motorista cadastrado com sucesso!' })
-      setNomeMotorista('')
+      toast({ title: "Motorista cadastrado com sucesso!" })
+      setNomeMotorista("")
       setOpenMotorista(false)
       carregarTudo()
     } catch (err: any) {
       toast({
-        title: 'Erro ao cadastrar',
+        title: "Erro ao cadastrar",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -423,16 +436,16 @@ export default function Cadastros() {
         undefined,
         empresaAtiva?.id,
       )
-      toast({ title: 'Veículo cadastrado com sucesso!' })
-      setPlacaVeiculo('')
-      setModeloVeiculo('')
+      toast({ title: "Veículo cadastrado com sucesso!" })
+      setPlacaVeiculo("")
+      setModeloVeiculo("")
       setOpenVeiculo(false)
       carregarTudo()
     } catch (err: any) {
       toast({
-        title: 'Erro ao cadastrar',
+        title: "Erro ao cadastrar",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -452,14 +465,14 @@ export default function Cadastros() {
       })
       setMetaProducao(salva)
       toast({
-        title: 'Metas de produção salvas!',
+        title: "Metas de produção salvas!",
         description: `Diária: ${salva.meta_diaria_m3} m³ | Mensal: ${salva.meta_mensal_m3} m³ salvas para a unidade ${empresaAtiva.nome}.`,
       })
     } catch (err: any) {
       toast({
-        title: 'Erro ao salvar metas',
+        title: "Erro ao salvar metas",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setSalvandoMeta(false)
@@ -477,15 +490,15 @@ export default function Cadastros() {
         undefined,
         empresaAtiva?.id,
       )
-      toast({ title: 'Cidade cadastrada com sucesso!' })
-      setNomeCidade('')
+      toast({ title: "Cidade cadastrada com sucesso!" })
+      setNomeCidade("")
       setOpenCidade(false)
       carregarTudo()
     } catch (err: any) {
       toast({
-        title: 'Erro ao cadastrar',
+        title: "Erro ao cadastrar",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -495,40 +508,40 @@ export default function Cadastros() {
   // Abertura do modal de cliente
   const handleNovoCliente = () => {
     setClienteEditando(null)
-    setTipoCliente('PJ')
-    setCpfCnpjCliente('')
-    setNomeCliente('')
-    setNomeFantasiaCliente('')
-    setTelefoneCliente('')
-    setEmailCliente('')
-    setCepCliente('')
-    setLogradouroCliente('')
-    setNumeroCliente('')
-    setComplementoCliente('')
-    setBairroCliente('')
-    setCidadeCliente('')
-    setUfCliente('PB')
-    setObservacoesCliente('')
+    setTipoCliente("PJ")
+    setCpfCnpjCliente("")
+    setNomeCliente("")
+    setNomeFantasiaCliente("")
+    setTelefoneCliente("")
+    setEmailCliente("")
+    setCepCliente("")
+    setLogradouroCliente("")
+    setNumeroCliente("")
+    setComplementoCliente("")
+    setBairroCliente("")
+    setCidadeCliente("")
+    setUfCliente("PB")
+    setObservacoesCliente("")
     setExibirInsumosOsCliente(true)
     setOpenCliente(true)
   }
 
   const handleEditarCliente = (cli: Cliente) => {
     setClienteEditando(cli)
-    setTipoCliente(cli.tipo || 'PJ')
+    setTipoCliente(cli.tipo || "PJ")
     setCpfCnpjCliente(formatarCpfCnpj(cli.cpf_cnpj))
-    setNomeCliente(cli.nome || '')
-    setNomeFantasiaCliente(cli.nome_fantasia || '')
-    setTelefoneCliente(cli.telefone ? formatarTelefone(cli.telefone) : '')
-    setEmailCliente(cli.email || '')
-    setCepCliente(cli.cep ? formatarCep(cli.cep) : '')
-    setLogradouroCliente(cli.logradouro || '')
-    setNumeroCliente(cli.numero || '')
-    setComplementoCliente(cli.complemento || '')
-    setBairroCliente(cli.bairro || '')
-    setCidadeCliente(cli.cidade || '')
-    setUfCliente(cli.uf || 'PB')
-    setObservacoesCliente(cli.observacoes || '')
+    setNomeCliente(cli.nome || "")
+    setNomeFantasiaCliente(cli.nome_fantasia || "")
+    setTelefoneCliente(cli.telefone ? formatarTelefone(cli.telefone) : "")
+    setEmailCliente(cli.email || "")
+    setCepCliente(cli.cep ? formatarCep(cli.cep) : "")
+    setLogradouroCliente(cli.logradouro || "")
+    setNumeroCliente(cli.numero || "")
+    setComplementoCliente(cli.complemento || "")
+    setBairroCliente(cli.bairro || "")
+    setCidadeCliente(cli.cidade || "")
+    setUfCliente(cli.uf || "PB")
+    setObservacoesCliente(cli.observacoes || "")
     setExibirInsumosOsCliente(cli.exibir_insumos_os ?? true)
     setOpenCliente(true)
   }
@@ -538,14 +551,14 @@ export default function Cadastros() {
     const raw = limparMascara(cpfCnpjCliente)
     if (!raw) return
 
-    if (tipoCliente === 'PF') {
+    if (tipoCliente === "PF") {
       if (raw.length === 11) {
         if (!validarCPF(raw)) {
           toast({
-            title: 'CPF com dígitos inválidos',
+            title: "CPF com dígitos inválidos",
             description:
-              'Verifique se os 11 números foram digitados corretamente.',
-            variant: 'destructive',
+              "Verifique se os 11 números foram digitados corretamente.",
+            variant: "destructive",
           })
         }
       }
@@ -554,9 +567,9 @@ export default function Cadastros() {
       if (raw.length === 14) {
         if (!validarCNPJ(raw)) {
           toast({
-            title: 'CNPJ inválido',
-            description: 'Verifique o número digitado.',
-            variant: 'destructive',
+            title: "CNPJ inválido",
+            description: "Verifique o número digitado.",
+            variant: "destructive",
           })
           return
         }
@@ -577,12 +590,12 @@ export default function Cadastros() {
           if (dados.uf) setUfCliente(dados.uf)
 
           toast({
-            title: 'Dados do CNPJ preenchidos!',
+            title: "Dados do CNPJ preenchidos!",
             description: dados.razao_social,
           })
         } catch (err: any) {
           toast({
-            title: 'Consulta automática indisponível',
+            title: "Consulta automática indisponível",
             description: err.message,
           })
         } finally {
@@ -608,12 +621,12 @@ export default function Cadastros() {
         setComplementoCliente(dados.complemento)
 
       toast({
-        title: 'Endereço localizado via CEP!',
+        title: "Endereço localizado via CEP!",
         description: `${dados.localidade} - ${dados.uf}`,
       })
     } catch (err: any) {
       toast({
-        title: 'Aviso de CEP',
+        title: "Aviso de CEP",
         description: err.message,
       })
     } finally {
@@ -626,9 +639,9 @@ export default function Cadastros() {
     e.preventDefault()
     if (!nomeCliente.trim()) {
       toast({
-        title: 'Campo obrigatório',
-        description: 'Informe o Nome ou Razão Social do cliente.',
-        variant: 'destructive',
+        title: "Campo obrigatório",
+        description: "Informe o Nome ou Razão Social do cliente.",
+        variant: "destructive",
       })
       return
     }
@@ -636,29 +649,31 @@ export default function Cadastros() {
     const docLimpo = limparMascara(cpfCnpjCliente)
     if (!docLimpo) {
       toast({
-        title: 'Campo obrigatório',
-        description: `Informe o ${tipoCliente === 'PF' ? 'CPF' : 'CNPJ'} do cliente.`,
-        variant: 'destructive',
+        title: "Campo obrigatório",
+        description: `Informe o ${
+          tipoCliente === "PF" ? "CPF" : "CNPJ"
+        } do cliente.`,
+        variant: "destructive",
       })
       return
     }
 
-    if (tipoCliente === 'PF' && !validarCPF(docLimpo)) {
+    if (tipoCliente === "PF" && !validarCPF(docLimpo)) {
       toast({
-        title: 'CPF Inválido',
+        title: "CPF Inválido",
         description:
-          'O número de CPF informado possui dígitos verificadores incorretos.',
-        variant: 'destructive',
+          "O número de CPF informado possui dígitos verificadores incorretos.",
+        variant: "destructive",
       })
       return
     }
 
-    if (tipoCliente === 'PJ' && !validarCNPJ(docLimpo)) {
+    if (tipoCliente === "PJ" && !validarCNPJ(docLimpo)) {
       toast({
-        title: 'CNPJ Inválido',
+        title: "CNPJ Inválido",
         description:
-          'O número de CNPJ informado possui dígitos verificadores incorretos.',
-        variant: 'destructive',
+          "O número de CNPJ informado possui dígitos verificadores incorretos.",
+        variant: "destructive",
       })
       return
     }
@@ -680,7 +695,7 @@ export default function Cadastros() {
           complemento: complementoCliente.trim() || null,
           bairro: bairroCliente.trim() || null,
           cidade: cidadeCliente.trim() || null,
-          uf: ufCliente.trim().toUpperCase() || 'PB',
+          uf: ufCliente.trim().toUpperCase() || "PB",
           observacoes: observacoesCliente.trim() || null,
           ativo: true,
           exibir_insumos_os: exibirInsumosOsCliente,
@@ -690,16 +705,16 @@ export default function Cadastros() {
 
       toast({
         title: clienteEditando
-          ? 'Cliente atualizado com sucesso!'
-          : 'Cliente cadastrado com sucesso!',
+          ? "Cliente atualizado com sucesso!"
+          : "Cliente cadastrado com sucesso!",
       })
       setOpenCliente(false)
       carregarTudo()
     } catch (err: any) {
       toast({
-        title: 'Erro ao salvar cliente',
+        title: "Erro ao salvar cliente",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -708,32 +723,32 @@ export default function Cadastros() {
 
   const confirmarExclusao = async () => {
     const { tipo, id, titulo } = dialogExclusao
-    if (!id && tipo !== 'meta') return
+    if (!id && tipo !== "meta") return
     setExcluindo(true)
     try {
-      if (tipo === 'cliente') {
+      if (tipo === "cliente") {
         await ConcreteiraService.excluirCliente(id, empresaAtiva?.id)
-        toast({ title: 'Cliente excluído com sucesso!' })
-      } else if (tipo === 'motorista') {
+        toast({ title: "Cliente excluído com sucesso!" })
+      } else if (tipo === "motorista") {
         await ConcreteiraService.excluirMotorista(id, empresaAtiva?.id)
-        toast({ title: 'Motorista excluído com sucesso!' })
-      } else if (tipo === 'veiculo') {
+        toast({ title: "Motorista excluído com sucesso!" })
+      } else if (tipo === "veiculo") {
         await ConcreteiraService.excluirVeiculo(id, empresaAtiva?.id)
-        toast({ title: 'Veículo excluído com sucesso!' })
-      } else if (tipo === 'cidade') {
+        toast({ title: "Veículo excluído com sucesso!" })
+      } else if (tipo === "cidade") {
         await ConcreteiraService.excluirCidade(id, empresaAtiva?.id)
-        toast({ title: 'Cidade excluída com sucesso!' })
-      } else if (tipo === 'material') {
+        toast({ title: "Cidade excluída com sucesso!" })
+      } else if (tipo === "material") {
         await ConcreteiraService.excluirMaterial(id, empresaAtiva?.id)
-        toast({ title: 'Insumo excluído com sucesso!' })
-      } else if (tipo === 'meta') {
+        toast({ title: "Insumo excluído com sucesso!" })
+      } else if (tipo === "meta") {
         if (empresaAtiva?.id) {
           await ConcreteiraService.excluirMetaProducao(empresaAtiva.id)
           setMetaProducao(null)
           setMetaDiariaInput(50)
           setMetaMensalInput(1000)
-          setObservacaoMetaInput('')
-          toast({ title: 'Metas de produção redefinidas com sucesso!' })
+          setObservacaoMetaInput("")
+          toast({ title: "Metas de produção redefinidas com sucesso!" })
         }
       }
       setDialogExclusao((prev) => ({ ...prev, open: false }))
@@ -742,7 +757,7 @@ export default function Cadastros() {
       toast({
         title: `Erro ao excluir ${titulo}`,
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setExcluindo(false)
@@ -776,7 +791,7 @@ export default function Cadastros() {
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Gerencie motoristas, frota de caminhões betoneira e cidades
-            atendidas da unidade {empresaAtiva?.nome || ''}
+            atendidas da unidade {empresaAtiva?.nome || ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -798,7 +813,7 @@ export default function Cadastros() {
             disabled={loading}
             className="gap-2"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
         </div>
@@ -857,7 +872,7 @@ export default function Cadastros() {
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <Target className="w-4 h-4 text-primary" />
                     Metas de Produção de Concreto Usinado (
-                    {empresaAtiva?.nome || 'Unidade'})
+                    {empresaAtiva?.nome || "Unidade"})
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Defina a meta diária e mensal em metros cúbicos (m³) para a
@@ -870,10 +885,10 @@ export default function Cadastros() {
                     variant="outline"
                     className="font-mono text-xs bg-primary/10 text-primary border-primary/30 shrink-0"
                   >
-                    Última atualização:{' '}
+                    Última atualização:{" "}
                     {new Date(
-                      metaProducao.updated_at || metaProducao.created_at || '',
-                    ).toLocaleDateString('pt-BR')}
+                      metaProducao.updated_at || metaProducao.created_at || "",
+                    ).toLocaleDateString("pt-BR")}
                   </Badge>
                 )}
               </div>
@@ -967,7 +982,7 @@ export default function Cadastros() {
                   <div className="text-muted-foreground">
                     <strong className="text-foreground">
                       Unidade Configurada:
-                    </strong>{' '}
+                    </strong>{" "}
                     {empresaAtiva?.nome} ({empresaAtiva?.slug?.toUpperCase()})
                     <span className="block text-[11px] mt-0.5">
                       Multi-empresa: Monteiro e SJE têm metas individuais e
@@ -983,9 +998,9 @@ export default function Cadastros() {
                         onClick={() =>
                           setDialogExclusao({
                             open: true,
-                            tipo: 'meta',
+                            tipo: "meta",
                             id: metaProducao.id,
-                            titulo: 'Metas de Produção',
+                            titulo: "Metas de Produção",
                             descricao: `Deseja realmente remover/redefinir as metas de produção configuradas para a unidade ${empresaAtiva?.nome}? Os valores voltarão aos padrões iniciais.`,
                           })
                         }
@@ -1002,7 +1017,7 @@ export default function Cadastros() {
                       className="bg-primary text-primary-foreground font-semibold gap-1.5 text-xs shadow-sm"
                     >
                       <CheckCircle2 className="w-4 h-4" />
-                      {salvandoMeta ? 'Salvando...' : 'Salvar Metas'}
+                      {salvandoMeta ? "Salvando..." : "Salvar Metas"}
                     </Button>
                   </div>
                 </div>
@@ -1075,11 +1090,11 @@ export default function Cadastros() {
                           <td className="py-2.5 px-3">
                             <Badge
                               variant={
-                                cli.tipo === 'PJ' ? 'default' : 'secondary'
+                                cli.tipo === "PJ" ? "default" : "secondary"
                               }
                               className="text-[10px] uppercase font-bold"
                             >
-                              {cli.tipo === 'PJ' ? 'PJ' : 'PF'}
+                              {cli.tipo === "PJ" ? "PJ" : "PF"}
                             </Badge>
                           </td>
                           <td className="py-2.5 px-3">
@@ -1096,31 +1111,31 @@ export default function Cadastros() {
                             {cli.cpf_cnpj}
                           </td>
                           <td className="py-2.5 px-3 text-muted-foreground">
-                            {cli.telefone || '—'}
+                            {cli.telefone || "—"}
                           </td>
                           <td className="py-2.5 px-3 text-muted-foreground">
                             {cli.cidade
-                              ? `${cli.cidade} - ${cli.uf || 'PB'}`
-                              : '—'}
-                            {cli.bairro ? ` (${cli.bairro})` : ''}
+                              ? `${cli.cidade} - ${cli.uf || "PB"}`
+                              : "—"}
+                            {cli.bairro ? ` (${cli.bairro})` : ""}
                           </td>
                           <td className="py-2.5 px-3 font-mono text-muted-foreground">
-                            {cli.cep || '—'}
+                            {cli.cep || "—"}
                           </td>
                           <td className="py-2.5 px-3">
                             <Badge
                               variant={
                                 cli.exibir_insumos_os !== false
-                                  ? 'outline'
-                                  : 'secondary'
+                                  ? "outline"
+                                  : "secondary"
                               }
                               className={
                                 cli.exibir_insumos_os !== false
-                                  ? 'text-emerald-600 border-emerald-500/40 bg-emerald-500/10 text-[10px]'
-                                  : 'text-muted-foreground text-[10px]'
+                                  ? "text-emerald-600 border-emerald-500/40 bg-emerald-500/10 text-[10px]"
+                                  : "text-muted-foreground text-[10px]"
                               }
                             >
-                              {cli.exibir_insumos_os !== false ? 'Sim' : 'Não'}
+                              {cli.exibir_insumos_os !== false ? "Sim" : "Não"}
                             </Badge>
                           </td>
                           <td className="py-2.5 px-3 text-right">
@@ -1142,9 +1157,9 @@ export default function Cadastros() {
                                   onClick={() =>
                                     setDialogExclusao({
                                       open: true,
-                                      tipo: 'cliente',
+                                      tipo: "cliente",
                                       id: cli.id,
-                                      titulo: 'Cliente',
+                                      titulo: "Cliente",
                                       descricao: `Deseja realmente excluir o cadastro do cliente "${cli.nome}"? Ordens de Serviço vinculadas a ele impedirão a exclusão direta para manter o histórico fiscal e operacional.`,
                                     })
                                   }
@@ -1189,23 +1204,23 @@ export default function Cadastros() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-1 text-muted-foreground font-mono text-[11px]">
                   <div className="p-2 rounded bg-background/60 border border-border/40">
-                    <strong className="text-foreground">Sólidos em kg:</strong>{' '}
+                    <strong className="text-foreground">Sólidos em kg:</strong>{" "}
                     custo/kg = Preço Unitário
                   </div>
                   <div className="p-2 rounded bg-background/60 border border-border/40">
                     <strong className="text-foreground">
                       Sólidos em Tonelada:
-                    </strong>{' '}
+                    </strong>{" "}
                     custo/kg = Preço / 1.000
                   </div>
                   <div className="p-2 rounded bg-background/60 border border-border/40">
-                    <strong className="text-foreground">Sólidos em m³:</strong>{' '}
+                    <strong className="text-foreground">Sólidos em m³:</strong>{" "}
                     custo/kg = Preço / (Densidade × 1.000)
                   </div>
                   <div className="p-2 rounded bg-background/60 border border-primary/30 bg-primary/5">
                     <strong className="text-primary font-bold">
                       Aditivo Químico:
-                    </strong>{' '}
+                    </strong>{" "}
                     custo/L = direto em Litros (ou R$/kg × densidade)
                   </div>
                 </div>
@@ -1215,9 +1230,9 @@ export default function Cadastros() {
                 {materiais.map((mat) => {
                   const dens =
                     mat.densidade != null ? Number(mat.densidade) : 1.0
-                  const isAditivo = mat.codigo === 'aditivo'
+                  const isAditivo = mat.codigo === "aditivo"
                   const unCompra =
-                    mat.unidade_compra || (isAditivo ? 'litros' : 'kg')
+                    mat.unidade_compra || (isAditivo ? "litros" : "kg")
                   const precoCompra =
                     mat.preco_compra != null ? Number(mat.preco_compra) : 0
 
@@ -1252,19 +1267,19 @@ export default function Cadastros() {
                               {mat.nome}
                             </p>
                             <p className="text-[11px] text-muted-foreground font-mono">
-                              Código: {mat.codigo} | Unidade Carga:{' '}
+                              Código: {mat.codigo} | Unidade Carga:{" "}
                               {mat.unidade}
                             </p>
                           </div>
                           <Badge
                             variant={
-                              mat.controla_estoque ? 'default' : 'secondary'
+                              mat.controla_estoque ? "default" : "secondary"
                             }
                             className="text-[10px]"
                           >
                             {mat.controla_estoque
-                              ? 'Estoque Controlado'
-                              : 'Apenas Consumo'}
+                              ? "Estoque Controlado"
+                              : "Apenas Consumo"}
                           </Badge>
                         </div>
 
@@ -1301,10 +1316,10 @@ export default function Cadastros() {
                             <span>Equivalência:</span>
                             <span className="font-bold">
                               {isAditivo
-                                ? unCompra === 'litros'
-                                  ? '1 L = 1 Litro consumido'
+                                ? unCompra === "litros"
+                                  ? "1 L = 1 Litro consumido"
                                   : `1 ${unCompra} = ${dens.toFixed(2)} kg/L`
-                                : `1 ${unCompra} = ${kgEquiv.toLocaleString('pt-BR')} kg`}
+                                : `1 ${unCompra} = ${kgEquiv.toLocaleString("pt-BR")} kg`}
                             </span>
                           </div>
                         </div>
@@ -1313,11 +1328,11 @@ export default function Cadastros() {
                         <div className="mt-2.5 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/20 flex justify-between items-center text-xs">
                           <span className="text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1">
                             <DollarSign className="w-3.5 h-3.5" />
-                            {isAditivo ? 'Custo por Litro:' : 'Custo por kg:'}
+                            {isAditivo ? "Custo por Litro:" : "Custo por kg:"}
                           </span>
                           <span className="text-sm font-bold font-mono text-foreground">
-                            R$ {custoConvertido.toFixed(4)} /{' '}
-                            {isAditivo ? 'L' : 'kg'}
+                            R$ {custoConvertido.toFixed(4)} /{" "}
+                            {isAditivo ? "L" : "kg"}
                           </span>
                         </div>
                       </div>
@@ -1330,11 +1345,11 @@ export default function Cadastros() {
                             className="h-7 text-xs gap-1 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 font-medium"
                             onClick={() => {
                               setMaterialXml(mat)
-                              setXmlTexto('')
+                              setXmlTexto("")
                               setXmlParseado(null)
                               setItemSelecionado(null)
                               setErroXml(null)
-                              setModoEntradaXml('upload')
+                              setModoEntradaXml("upload")
                               setOpenXmlModal(true)
                             }}
                             title="Importar NF-e em XML para calcular custo unitário automaticamente"
@@ -1350,9 +1365,9 @@ export default function Cadastros() {
                               onClick={() =>
                                 setDialogExclusao({
                                   open: true,
-                                  tipo: 'material',
+                                  tipo: "material",
                                   id: mat.id,
-                                  titulo: 'Insumo / Material',
+                                  titulo: "Insumo / Material",
                                   descricao: `Deseja realmente excluir o insumo "${mat.nome}"? Se houver cargas, movimentações de estoque ou dosagens vinculadas, a exclusão será bloqueada pelo sistema.`,
                                 })
                               }
@@ -1374,7 +1389,7 @@ export default function Cadastros() {
                                 ? Number(mat.densidade)
                                 : 1.0,
                             )
-                            setUnidadeCompraMat(mat.unidade_compra || 'kg')
+                            setUnidadeCompraMat(mat.unidade_compra || "kg")
                             setPrecoCompraMat(
                               mat.preco_compra != null
                                 ? Number(mat.preco_compra)
@@ -1446,9 +1461,9 @@ export default function Cadastros() {
                           onClick={() =>
                             setDialogExclusao({
                               open: true,
-                              tipo: 'motorista',
+                              tipo: "motorista",
                               id: m.id,
-                              titulo: 'Motorista',
+                              titulo: "Motorista",
                               descricao: `Deseja realmente excluir o motorista "${m.nome}"? Se ele possuir cargas expedidas associadas, a exclusão será bloqueada para manter a rastreabilidade das entregas.`,
                             })
                           }
@@ -1498,7 +1513,7 @@ export default function Cadastros() {
                         {v.placa}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {v.modelo || 'Betoneira'}
+                        {v.modelo || "Betoneira"}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1516,9 +1531,9 @@ export default function Cadastros() {
                           onClick={() =>
                             setDialogExclusao({
                               open: true,
-                              tipo: 'veiculo',
+                              tipo: "veiculo",
                               id: v.id,
-                              titulo: 'Veículo',
+                              titulo: "Veículo",
                               descricao: `Deseja realmente excluir o veículo placa "${v.placa}"? Cargas associadas a este veículo impedirão a exclusão para preservar o histórico da frota.`,
                             })
                           }
@@ -1581,9 +1596,9 @@ export default function Cadastros() {
                           onClick={() =>
                             setDialogExclusao({
                               open: true,
-                              tipo: 'cidade',
+                              tipo: "cidade",
                               id: c.id,
-                              titulo: 'Cidade',
+                              titulo: "Cidade",
                               descricao: `Deseja realmente excluir a cidade "${c.nome} - ${c.uf}"? Se houver cargas registradas com destino a esta cidade, a exclusão será bloqueada.`,
                             })
                           }
@@ -1629,7 +1644,7 @@ export default function Cadastros() {
                   )
 
                   // 2. Atualizar ou refletir o custo unitário convertido na tabela precos_material do mês atual
-                  const isAdt = materialEditando.codigo === 'aditivo'
+                  const isAdt = materialEditando.codigo === "aditivo"
                   const custoCalculado = isAdt
                     ? ConcreteiraService.converterCustoAditivoPorLitro(
                         Number(precoCompraMat),
@@ -1643,11 +1658,11 @@ export default function Cadastros() {
                       )
 
                   const unAlvo = isAdt
-                    ? 'litros'
-                    : materialEditando.unidade || 'kg'
-                  const unAlvoRotulo = isAdt ? 'L' : 'kg'
+                    ? "litros"
+                    : materialEditando.unidade || "kg"
+                  const unAlvoRotulo = isAdt ? "L" : "kg"
 
-                  const mesAnoAtual = `${String(new Date().getMonth() + 1).padStart(2, '0')}/${new Date().getFullYear()}`
+                  const mesAnoAtual = `${String(new Date().getMonth() + 1).padStart(2, "0")}/${new Date().getFullYear()}`
                   await ConcreteiraService.salvarPrecoMaterial({
                     empresa_id: empresaAtiva?.id,
                     material_codigo: materialEditando.codigo,
@@ -1657,7 +1672,7 @@ export default function Cadastros() {
                   })
 
                   toast({
-                    title: 'Insumo atualizado!',
+                    title: "Insumo atualizado!",
                     description: `Densidade ${densidadeMat} e custo R$ ${custoCalculado.toFixed(4)}/${unAlvoRotulo} salvos.`,
                   })
                   setOpenMaterial(false)
@@ -1665,9 +1680,9 @@ export default function Cadastros() {
                   carregarTudo()
                 } catch (err: any) {
                   toast({
-                    title: 'Erro ao atualizar insumo',
+                    title: "Erro ao atualizar insumo",
                     description: err.message,
-                    variant: 'destructive',
+                    variant: "destructive",
                   })
                 } finally {
                   setSalvando(false)
@@ -1689,9 +1704,9 @@ export default function Cadastros() {
                   required
                 />
                 <span className="text-[11px] text-muted-foreground block">
-                  {materialEditando?.codigo === 'aditivo'
-                    ? 'Aditivo químico padrão: 1,00 a 1,15 kg/L (usado quando a compra vier faturada em kg).'
-                    : 'Padrões sugeridos: Brita 12 = 1,38 | Brita 19 = 1,44 | Areia = 1,50 | Pó de Pedra = 1,40'}
+                  {materialEditando?.codigo === "aditivo"
+                    ? "Aditivo químico padrão: 1,00 a 1,15 kg/L (usado quando a compra vier faturada em kg)."
+                    : "Padrões sugeridos: Brita 12 = 1,38 | Brita 19 = 1,44 | Areia = 1,50 | Pó de Pedra = 1,40"}
                 </span>
               </div>
 
@@ -1736,25 +1751,25 @@ export default function Cadastros() {
                     Equivalência calculada:
                   </span>
                   <span className="font-mono font-semibold">
-                    {materialEditando?.codigo === 'aditivo'
-                      ? unidadeCompraMat === 'litros'
-                        ? '1 L = 1 Litro consumido'
+                    {materialEditando?.codigo === "aditivo"
+                      ? unidadeCompraMat === "litros"
+                        ? "1 L = 1 Litro consumido"
                         : `1 ${unidadeCompraMat} = ${Number(densidadeMat).toFixed(2)} kg/L`
                       : `1 ${unidadeCompraMat} = ${ConcreteiraService.kgPorUnidadeCompra(
                           unidadeCompraMat,
                           densidadeMat,
-                        ).toLocaleString('pt-BR')} kg`}
+                        ).toLocaleString("pt-BR")} kg`}
                   </span>
                 </div>
                 <div className="flex justify-between font-bold text-emerald-600 dark:text-emerald-400">
                   <span>
-                    {materialEditando?.codigo === 'aditivo'
-                      ? 'Custo convertido por Litro:'
-                      : 'Custo convertido por kg:'}
+                    {materialEditando?.codigo === "aditivo"
+                      ? "Custo convertido por Litro:"
+                      : "Custo convertido por kg:"}
                   </span>
                   <span className="font-mono text-sm">
-                    R${' '}
-                    {materialEditando?.codigo === 'aditivo'
+                    R${" "}
+                    {materialEditando?.codigo === "aditivo"
                       ? ConcreteiraService.converterCustoAditivoPorLitro(
                           precoCompraMat,
                           unidadeCompraMat,
@@ -1764,8 +1779,8 @@ export default function Cadastros() {
                           precoCompraMat,
                           unidadeCompraMat,
                           densidadeMat,
-                        ).toFixed(4)}{' '}
-                    / {materialEditando?.codigo === 'aditivo' ? 'L' : 'kg'}
+                        ).toFixed(4)}{" "}
+                    / {materialEditando?.codigo === "aditivo" ? "L" : "kg"}
                   </span>
                 </div>
               </div>
@@ -1783,7 +1798,7 @@ export default function Cadastros() {
                   disabled={salvando}
                   className="bg-primary text-primary-foreground"
                 >
-                  {salvando ? 'Salvando...' : 'Salvar Alterações'}
+                  {salvando ? "Salvando..." : "Salvar Alterações"}
                 </Button>
               </DialogFooter>
             </form>
@@ -1936,8 +1951,8 @@ export default function Cadastros() {
             </DialogTitle>
             <CardDescription className="text-xs">
               Carregue ou cole o XML da NF-e para calcular automaticamente o
-              preço unitário e o custo{' '}
-              {materialXml?.codigo === 'aditivo' ? 'por Litro' : 'por kg'} com
+              preço unitário e o custo{" "}
+              {materialXml?.codigo === "aditivo" ? "por Litro" : "por kg"} com
               base no volume e densidade.
             </CardDescription>
           </DialogHeader>
@@ -1947,27 +1962,27 @@ export default function Cadastros() {
             <div className="flex items-center gap-2 border-b border-border/40 pb-2">
               <Button
                 type="button"
-                variant={modoEntradaXml === 'upload' ? 'default' : 'outline'}
+                variant={modoEntradaXml === "upload" ? "default" : "outline"}
                 size="sm"
                 className="text-xs gap-1.5 h-8"
-                onClick={() => setModoEntradaXml('upload')}
+                onClick={() => setModoEntradaXml("upload")}
               >
                 <Upload className="w-3.5 h-3.5" />
                 Upload de Arquivo .XML
               </Button>
               <Button
                 type="button"
-                variant={modoEntradaXml === 'colar' ? 'default' : 'outline'}
+                variant={modoEntradaXml === "colar" ? "default" : "outline"}
                 size="sm"
                 className="text-xs gap-1.5 h-8"
-                onClick={() => setModoEntradaXml('colar')}
+                onClick={() => setModoEntradaXml("colar")}
               >
                 <FileText className="w-3.5 h-3.5" />
                 Colar Código XML
               </Button>
             </div>
 
-            {modoEntradaXml === 'upload' ? (
+            {modoEntradaXml === "upload" ? (
               <div className="p-4 border-2 border-dashed border-border/60 hover:border-primary/50 transition-colors rounded-lg bg-background/50 text-center space-y-2">
                 <Upload className="w-8 h-8 text-muted-foreground mx-auto" />
                 <div>
@@ -2026,22 +2041,22 @@ export default function Cadastros() {
                   <div className="flex items-center justify-between font-semibold text-foreground">
                     <span className="flex items-center gap-1.5 text-primary">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      NF-e Identificada{' '}
+                      NF-e Identificada{" "}
                       {xmlParseado.numeroNota
                         ? `Nº ${xmlParseado.numeroNota}`
-                        : ''}
-                      {xmlParseado.serie ? ` (Série ${xmlParseado.serie})` : ''}
+                        : ""}
+                      {xmlParseado.serie ? ` (Série ${xmlParseado.serie})` : ""}
                     </span>
                     <span className="text-muted-foreground font-mono">
-                      Emissão: {xmlParseado.dataEmissaoFormatada || 'Hoje'}
+                      Emissão: {xmlParseado.dataEmissaoFormatada || "Hoje"}
                     </span>
                   </div>
                   {xmlParseado.emitenteNome && (
                     <div className="text-muted-foreground truncate">
-                      <strong>Fornecedor:</strong> {xmlParseado.emitenteNome}{' '}
+                      <strong>Fornecedor:</strong> {xmlParseado.emitenteNome}{" "}
                       {xmlParseado.emitenteCNPJ
                         ? `(CNPJ: ${xmlParseado.emitenteCNPJ})`
-                        : ''}
+                        : ""}
                     </div>
                   )}
                   <div className="flex justify-between items-center pt-1 font-mono">
@@ -2049,8 +2064,8 @@ export default function Cadastros() {
                       Valor Total da Nota (vNF):
                     </span>
                     <span className="font-bold text-foreground text-sm">
-                      R${' '}
-                      {xmlParseado.valorTotalNota.toLocaleString('pt-BR', {
+                      R${" "}
+                      {xmlParseado.valorTotalNota.toLocaleString("pt-BR", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
@@ -2079,8 +2094,8 @@ export default function Cadastros() {
                             onClick={() => setItemSelecionado(it)}
                             className={`p-2.5 flex items-center justify-between text-xs cursor-pointer transition-colors ${
                               selecionado
-                                ? 'bg-primary/10 border-l-4 border-primary text-foreground'
-                                : 'hover:bg-muted/30 text-muted-foreground'
+                                ? "bg-primary/10 border-l-4 border-primary text-foreground"
+                                : "hover:bg-muted/30 text-muted-foreground"
                             }`}
                           >
                             <div className="max-w-[340px]">
@@ -2088,7 +2103,7 @@ export default function Cadastros() {
                                 Item {it.numeroItem}: {it.xProd}
                               </p>
                               <p className="text-[11px] text-muted-foreground font-mono">
-                                Qtd: {it.qCom.toLocaleString('pt-BR')} {it.uCom}{' '}
+                                Qtd: {it.qCom.toLocaleString("pt-BR")} {it.uCom}{" "}
                                 | Unitário: R$ {it.vUnCom.toFixed(4)}
                               </p>
                             </div>
@@ -2121,17 +2136,14 @@ export default function Cadastros() {
                     qtdComprada > 0 ? valorTotal / qtdComprada : valorTotal
                   const unDetectada = it
                     ? normalizarUnidadeXml(it.uCom).unidade
-                    : ((materialXml?.unidade_compra || 'kg') as
-                        | 'kg'
-                        | 'tonelada'
-                        | 'm3'
-                        | 'litros')
+                    : (materialXml?.unidade_compra ||
+                        "kg") as "kg" | "tonelada" | "m3" | "litros"
                   const dens =
                     materialXml?.densidade != null
                       ? Number(materialXml.densidade)
                       : 1.0
 
-                  const isAdt = materialXml?.codigo === 'aditivo'
+                  const isAdt = materialXml?.codigo === "aditivo"
                   const custoCalculado = isAdt
                     ? ConcreteiraService.converterCustoAditivoPorLitro(
                         precoUnitario,
@@ -2148,8 +2160,8 @@ export default function Cadastros() {
                     <div className="p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 space-y-2">
                       <div className="font-semibold text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
                         <Calculator className="w-4 h-4" />
-                        Cálculo Automático de Preço e Custo{' '}
-                        {isAdt ? 'por Litro (L)' : 'por kg'}:
+                        Cálculo Automático de Preço e Custo{" "}
+                        {isAdt ? "por Litro (L)" : "por kg"}:
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
@@ -2158,8 +2170,8 @@ export default function Cadastros() {
                             Valor Total do Insumo:
                           </span>
                           <span className="font-bold text-foreground">
-                            R${' '}
-                            {valorTotal.toLocaleString('pt-BR', {
+                            R${" "}
+                            {valorTotal.toLocaleString("pt-BR", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
@@ -2171,7 +2183,7 @@ export default function Cadastros() {
                             Quantidade / Volume:
                           </span>
                           <span className="font-bold text-foreground">
-                            {qtdComprada.toLocaleString('pt-BR')}{' '}
+                            {qtdComprada.toLocaleString("pt-BR")}{" "}
                             {it?.uCom || unDetectada}
                           </span>
                         </div>
@@ -2191,21 +2203,21 @@ export default function Cadastros() {
                         <div className="text-muted-foreground">
                           {isAdt ? (
                             <span>
-                              {unDetectada === 'litros'
-                                ? 'Compra faturada diretamente em Litros'
-                                : `Densidade do aditivo: ${dens.toFixed(2)} kg/L`}{' '}
-                              | Vigência:{' '}
+                              {unDetectada === "litros"
+                                ? "Compra faturada diretamente em Litros"
+                                : `Densidade do aditivo: ${dens.toFixed(2)} kg/L`}{" "}
+                              | Vigência:{" "}
                               <strong className="text-foreground">
                                 {xmlParseado.mesAno}
                               </strong>
                             </span>
                           ) : (
                             <span>
-                              Densidade cadastrada:{' '}
+                              Densidade cadastrada:{" "}
                               <strong className="text-foreground">
                                 {dens.toFixed(2)} t/m³
-                              </strong>{' '}
-                              | Vigência:{' '}
+                              </strong>{" "}
+                              | Vigência:{" "}
                               <strong className="text-foreground">
                                 {xmlParseado.mesAno}
                               </strong>
@@ -2213,8 +2225,8 @@ export default function Cadastros() {
                           )}
                         </div>
                         <div className="text-sm font-bold font-mono text-emerald-700 dark:text-emerald-300">
-                          Custo Final: R$ {custoCalculado.toFixed(4)} /{' '}
-                          {isAdt ? 'L' : 'kg'}
+                          Custo Final: R$ {custoCalculado.toFixed(4)} /{" "}
+                          {isAdt ? "L" : "kg"}
                         </div>
                       </div>
                     </div>
@@ -2239,7 +2251,7 @@ export default function Cadastros() {
               className="bg-primary text-primary-foreground gap-1.5"
             >
               <CheckCircle2 className="w-4 h-4" />
-              {aplicandoXml ? 'Aplicando...' : 'Aplicar ao Cadastro'}
+              {aplicandoXml ? "Aplicando..." : "Aplicar ao Cadastro"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2250,7 +2262,7 @@ export default function Cadastros() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserCheck className="w-5 h-5 text-primary" />
-              {clienteEditando ? 'Editar Cliente' : 'Novo Cadastro de Cliente'}
+              {clienteEditando ? "Editar Cliente" : "Novo Cadastro de Cliente"}
             </DialogTitle>
             <CardDescription className="text-xs">
               Preencha os dados cadastrais. Ao digitar o CNPJ ou CEP, os dados
@@ -2265,9 +2277,9 @@ export default function Cadastros() {
                 <Label className="text-xs">Tipo de Pessoa *</Label>
                 <Select
                   value={tipoCliente}
-                  onValueChange={(val: 'PF' | 'PJ') => {
+                  onValueChange={(val: "PF" | "PJ") => {
                     setTipoCliente(val)
-                    setCpfCnpjCliente('')
+                    setCpfCnpjCliente("")
                   }}
                 >
                   <SelectTrigger className="h-9 text-xs">
@@ -2283,9 +2295,9 @@ export default function Cadastros() {
               <div className="sm:col-span-2 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="docCliente" className="text-xs">
-                    {tipoCliente === 'PF'
-                      ? 'CPF *'
-                      : 'CNPJ (Busca Automática) *'}
+                    {tipoCliente === "PF"
+                      ? "CPF *"
+                      : "CNPJ (Busca Automática) *"}
                   </Label>
                   {buscandoCnpj && (
                     <span className="text-[10px] text-primary flex items-center gap-1 animate-pulse">
@@ -2298,9 +2310,9 @@ export default function Cadastros() {
                   <Input
                     id="docCliente"
                     placeholder={
-                      tipoCliente === 'PF'
-                        ? '000.000.000-00'
-                        : '00.000.000/0000-00'
+                      tipoCliente === "PF"
+                        ? "000.000.000-00"
+                        : "00.000.000/0000-00"
                     }
                     value={cpfCnpjCliente}
                     onChange={(e) =>
@@ -2310,7 +2322,7 @@ export default function Cadastros() {
                     className="h-9 text-xs font-mono"
                     required
                   />
-                  {tipoCliente === 'PJ' && (
+                  {tipoCliente === "PJ" && (
                     <Button
                       type="button"
                       variant="ghost"
@@ -2330,14 +2342,14 @@ export default function Cadastros() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="nomeCli" className="text-xs">
-                  {tipoCliente === 'PJ' ? 'Razão Social *' : 'Nome Completo *'}
+                  {tipoCliente === "PJ" ? "Razão Social *" : "Nome Completo *"}
                 </Label>
                 <Input
                   id="nomeCli"
                   placeholder={
-                    tipoCliente === 'PJ'
-                      ? 'Ex: CABRAL LEITE CONSTRUCOES LTDA'
-                      : 'Ex: João da Silva'
+                    tipoCliente === "PJ"
+                      ? "Ex: CABRAL LEITE CONSTRUCOES LTDA"
+                      : "Ex: João da Silva"
                   }
                   value={nomeCliente}
                   onChange={(e) => setNomeCliente(e.target.value)}
@@ -2543,7 +2555,7 @@ export default function Cadastros() {
                   className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
                 />
                 <span className="text-xs font-medium">
-                  {exibirInsumosOsCliente ? 'Sim' : 'Não'}
+                  {exibirInsumosOsCliente ? "Sim" : "Não"}
                 </span>
               </div>
             </div>
@@ -2562,10 +2574,10 @@ export default function Cadastros() {
                 className="bg-primary text-primary-foreground"
               >
                 {salvando
-                  ? 'Salvando...'
+                  ? "Salvando..."
                   : clienteEditando
-                    ? 'Salvar Alterações'
-                    : 'Cadastrar Cliente'}
+                    ? "Salvar Alterações"
+                    : "Cadastrar Cliente"}
               </Button>
             </DialogFooter>
           </form>
@@ -2608,7 +2620,7 @@ export default function Cadastros() {
               disabled={excluindo}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {excluindo ? 'Excluindo...' : 'Sim, Excluir'}
+              {excluindo ? "Excluindo..." : "Sim, Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

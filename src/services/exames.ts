@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase/client'
+import { supabase } from "@/lib/supabase/client"
 import {
   Funcionario,
   ExameFuncionario,
@@ -9,7 +9,7 @@ import {
   ResumoExamesEmpresa,
   PrazoExameEmpresa,
   TIPOS_EXAME_CATALOGO,
-} from '@/types/exames'
+} from "@/types/exames"
 
 /**
  * Calcula a data de validade somando N meses a uma data YYYY-MM-DD
@@ -18,13 +18,13 @@ export function calcularDataValidade(
   dataRealizacao: string,
   validadeMeses: number,
 ): string {
-  const [ano, mes, dia] = dataRealizacao.split('-').map(Number)
+  const [ano, mes, dia] = dataRealizacao.split("-").map(Number)
   const data = new Date(ano, mes - 1, dia)
   data.setMonth(data.getMonth() + validadeMeses)
 
   const y = data.getFullYear()
-  const m = String(data.getMonth() + 1).padStart(2, '0')
-  const d = String(data.getDate()).padStart(2, '0')
+  const m = String(data.getMonth() + 1).padStart(2, "0")
+  const d = String(data.getDate()).padStart(2, "0")
   return `${y}-${m}-${d}`
 }
 
@@ -32,7 +32,7 @@ export function calcularDataValidade(
  * Calcula a diferença em dias entre a data de validade e hoje
  */
 export function calcularDiasAteValidade(dataValidade: string): number {
-  const [ano, mes, dia] = dataValidade.split('-').map(Number)
+  const [ano, mes, dia] = dataValidade.split("-").map(Number)
   const validade = new Date(ano, mes - 1, dia, 23, 59, 59)
   const agora = new Date()
   const hoje = new Date(
@@ -65,7 +65,7 @@ export function calcularStatusExame(
 } {
   if (!dataRealizacao) {
     return {
-      status: 'PENDENTE',
+      status: "PENDENTE",
       dataValidade: null,
       diasParaVencer: null,
     }
@@ -73,9 +73,9 @@ export function calcularStatusExame(
 
   // Se validade_meses for 0 ou null, ou se for exame demissional
   // Não vence: exibe status NA_RESCISAO (badge neutro/azul)
-  if (!validadeMeses || validadeMeses <= 0 || tipoExame === 'demissional') {
+  if (!validadeMeses || validadeMeses <= 0 || tipoExame === "demissional") {
     return {
-      status: 'NA_RESCISAO',
+      status: "NA_RESCISAO",
       dataValidade: null,
       diasParaVencer: null,
     }
@@ -86,14 +86,14 @@ export function calcularStatusExame(
 
   if (dias < 0) {
     return {
-      status: 'VENCIDO',
+      status: "VENCIDO",
       dataValidade,
       diasParaVencer: dias,
     }
   }
 
   return {
-    status: 'NO_PRAZO',
+    status: "NO_PRAZO",
     dataValidade,
     diasParaVencer: dias,
   }
@@ -126,7 +126,7 @@ export function processarFuncionarioComExames(
     // 2. Prazo configurado para o tipo de exame na empresa
     // 3. Validade padrão geral da norma/catálogo
     let validadeMeses: number
-    if (tipoDef.tipo === 'demissional') {
+    if (tipoDef.tipo === "demissional") {
       validadeMeses =
         reg?.validade_meses ?? (prazoEmpresa !== undefined ? prazoEmpresa : 0)
     } else {
@@ -159,9 +159,9 @@ export function processarFuncionarioComExames(
 
     examesMapa[tipoDef.tipo] = exameCalc
 
-    if (calc.status === 'VENCIDO') {
+    if (calc.status === "VENCIDO") {
       totalVencidos++
-    } else if (calc.status === 'NO_PRAZO') {
+    } else if (calc.status === "NO_PRAZO") {
       totalNoPrazo++
       // Alerta de 30 dias: vence entre hoje e 30 dias
       if (calc.diasParaVencer !== null && calc.diasParaVencer <= 30) {
@@ -176,18 +176,18 @@ export function processarFuncionarioComExames(
   // Se tem algum vencido -> VENCIDO
   // Senão, se o ASO ou admissional estiver no prazo -> NO_PRAZO (se nenhum vencido)
   // Se tudo pendente ou ASO pendente sem nada vencido -> PENDENTE
-  let statusGeralAso: StatusExame = 'PENDENTE'
+  let statusGeralAso: StatusExame = "PENDENTE"
   if (totalVencidos > 0) {
-    statusGeralAso = 'VENCIDO'
+    statusGeralAso = "VENCIDO"
   } else if (
-    examesMapa.aso?.status === 'NO_PRAZO' ||
-    examesMapa.admissional?.status === 'NO_PRAZO' ||
+    examesMapa.aso?.status === "NO_PRAZO" ||
+    examesMapa.admissional?.status === "NO_PRAZO" ||
     totalNoPrazo > 0
   ) {
     // Se há pelo menos exames em dia e nenhum vencido
-    statusGeralAso = 'NO_PRAZO'
+    statusGeralAso = "NO_PRAZO"
   } else {
-    statusGeralAso = 'PENDENTE'
+    statusGeralAso = "PENDENTE"
   }
 
   return {
@@ -222,13 +222,13 @@ export const ExamesService = {
 
     try {
       const { data, error } = await (supabase as any)
-        .from('prazos_exame_por_empresa')
-        .select('*')
-        .eq('empresa_id', empresaId)
+        .from("prazos_exame_por_empresa")
+        .select("*")
+        .eq("empresa_id", empresaId)
 
       if (error) {
         console.warn(
-          'Erro ao carregar prazos da empresa, usando fallback:',
+          "Erro ao carregar prazos da empresa, usando fallback:",
           error,
         )
         return mapaPadrao
@@ -244,7 +244,7 @@ export const ExamesService = {
           p.validade_padrao_meses !== null &&
           p.validade_padrao_meses !== undefined
         ) {
-          mapaPadrao[p.tipo_exame as TipoExame] = Number(
+          mapaPadrao[(p.tipo_exame as TipoExame)] = Number(
             p.validade_padrao_meses,
           )
         }
@@ -252,7 +252,7 @@ export const ExamesService = {
 
       return mapaPadrao
     } catch (err) {
-      console.warn('Falha na consulta de prazos_exame_por_empresa:', err)
+      console.warn("Falha na consulta de prazos_exame_por_empresa:", err)
       return mapaPadrao
     }
   },
@@ -264,10 +264,10 @@ export const ExamesService = {
     if (!empresaId) return []
 
     const { data, error } = await (supabase as any)
-      .from('prazos_exame_por_empresa')
-      .select('*')
-      .eq('empresa_id', empresaId)
-      .order('tipo_exame', { ascending: true })
+      .from("prazos_exame_por_empresa")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("tipo_exame", { ascending: true })
 
     if (error) throw error
 
@@ -332,7 +332,7 @@ export const ExamesService = {
         tipo_exame: p.tipo_exame,
         nome_exame: def?.nome || p.tipo_exame,
         validade_padrao_meses:
-          p.tipo_exame === 'demissional'
+          p.tipo_exame === "demissional"
             ? Math.max(0, Math.round(Number(p.validade_padrao_meses) || 0))
             : Math.max(1, Math.round(Number(p.validade_padrao_meses) || 12)),
         norma_referencia: p.norma_referencia ?? def?.normaReferencia ?? null,
@@ -342,8 +342,8 @@ export const ExamesService = {
     })
 
     const { error } = await (supabase as any)
-      .from('prazos_exame_por_empresa')
-      .upsert(rows, { onConflict: 'empresa_id,tipo_exame' })
+      .from("prazos_exame_por_empresa")
+      .upsert(rows, { onConflict: "empresa_id,tipo_exame" })
 
     if (error) throw error
   },
@@ -362,8 +362,8 @@ export const ExamesService = {
     }))
 
     const { error } = await (supabase as any)
-      .from('prazos_exame_por_empresa')
-      .upsert(defaults, { onConflict: 'empresa_id,tipo_exame' })
+      .from("prazos_exame_por_empresa")
+      .upsert(defaults, { onConflict: "empresa_id,tipo_exame" })
 
     if (error) throw error
   },
@@ -374,12 +374,12 @@ export const ExamesService = {
     prazosPreCarregados?: Record<TipoExame, number>,
   ): Promise<FuncionarioComExames[]> {
     let queryFunc = (supabase as any)
-      .from('funcionarios')
-      .select('*')
-      .order('nome', { ascending: true })
+      .from("funcionarios")
+      .select("*")
+      .order("nome", { ascending: true })
 
     if (empresaId) {
-      queryFunc = queryFunc.eq('empresa_id', empresaId)
+      queryFunc = queryFunc.eq("empresa_id", empresaId)
     }
 
     const { data: funcs, error: funcErr } = await queryFunc
@@ -391,9 +391,9 @@ export const ExamesService = {
     // Buscar exames de todos esses funcionários e os prazos configurados em paralelo
     const [examesResult, prazosEmpresa] = await Promise.all([
       (supabase as any)
-        .from('exames_funcionario')
-        .select('*')
-        .in('funcionario_id', funcionarioIds),
+        .from("exames_funcionario")
+        .select("*")
+        .in("funcionario_id", funcionarioIds),
       prazosPreCarregados
         ? Promise.resolve(prazosPreCarregados)
         : this.getPrazosEmpresa(empresaId),
@@ -463,7 +463,7 @@ export const ExamesService = {
     const dados = {
       empresa_id: payload.empresa_id,
       nome: payload.nome.trim(),
-      funcao: payload.funcao.trim() || 'Geral',
+      funcao: payload.funcao.trim() || "Geral",
       cpf: payload.cpf?.trim() || null,
       data_admissao: payload.data_admissao || null,
       ativo: payload.ativo ?? true,
@@ -473,9 +473,9 @@ export const ExamesService = {
 
     if (payload.id) {
       const { data, error } = await (supabase as any)
-        .from('funcionarios')
+        .from("funcionarios")
         .update(dados)
-        .eq('id', payload.id)
+        .eq("id", payload.id)
         .select()
         .single()
 
@@ -483,7 +483,7 @@ export const ExamesService = {
       return data
     } else {
       const { data, error } = await (supabase as any)
-        .from('funcionarios')
+        .from("funcionarios")
         .insert(dados)
         .select()
         .single()
@@ -524,8 +524,8 @@ export const ExamesService = {
     }
 
     const { data, error } = await (supabase as any)
-      .from('exames_funcionario')
-      .upsert(dados, { onConflict: 'funcionario_id,tipo_exame' })
+      .from("exames_funcionario")
+      .upsert(dados, { onConflict: "funcionario_id,tipo_exame" })
       .select()
       .single()
 
@@ -565,8 +565,8 @@ export const ExamesService = {
     })
 
     const { error } = await (supabase as any)
-      .from('exames_funcionario')
-      .upsert(rows, { onConflict: 'funcionario_id,tipo_exame' })
+      .from("exames_funcionario")
+      .upsert(rows, { onConflict: "funcionario_id,tipo_exame" })
 
     if (error) throw error
   },
@@ -574,10 +574,10 @@ export const ExamesService = {
   // 6. Verificar se o funcionário possui exames com data ou registros vinculados
   async verificarExamesVinculados(funcionarioId: string): Promise<number> {
     const { count, error } = await (supabase as any)
-      .from('exames_funcionario')
-      .select('id', { count: 'exact', head: true })
-      .eq('funcionario_id', funcionarioId)
-      .not('data_realizacao', 'is', null)
+      .from("exames_funcionario")
+      .select("id", { count: "exact", head: true })
+      .eq("funcionario_id", funcionarioId)
+      .not("data_realizacao", "is", null)
 
     if (error) throw error
     return count || 0
@@ -590,12 +590,12 @@ export const ExamesService = {
     empresaId?: string,
   ): Promise<Funcionario> {
     let query = (supabase as any)
-      .from('funcionarios')
+      .from("funcionarios")
       .update({ ativo, updated_at: new Date().toISOString() })
-      .eq('id', id)
+      .eq("id", id)
 
     if (empresaId) {
-      query = query.eq('empresa_id', empresaId)
+      query = query.eq("empresa_id", empresaId)
     }
 
     const { data, error } = await query.select().single()
@@ -615,13 +615,13 @@ export const ExamesService = {
 
     // 2. Se não tem exames com data, remove os registros em branco da exames_funcionario e o funcionário
     await (supabase as any)
-      .from('exames_funcionario')
+      .from("exames_funcionario")
       .delete()
-      .eq('funcionario_id', id)
+      .eq("funcionario_id", id)
 
-    let query = (supabase as any).from('funcionarios').delete().eq('id', id)
+    let query = (supabase as any).from("funcionarios").delete().eq("id", id)
     if (empresaId) {
-      query = query.eq('empresa_id', empresaId)
+      query = query.eq("empresa_id", empresaId)
     }
     const { error } = await query
     if (error) throw error

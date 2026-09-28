@@ -76,22 +76,22 @@ export interface PreviewImportacaoCSV {
  */
 export function parseNumeroBr(val: string | number | null | undefined): number {
   if (val === null || val === undefined) return 0
-  if (typeof val === 'number') {
+  if (typeof val === "number") {
     return isNaN(val) ? 0 : val
   }
   const limpo = String(val).trim()
   if (!limpo) return 0
 
   // Se contém ponto de milhar e vírgula decimal ex: "2.880,50"
-  if (limpo.includes('.') && limpo.includes(',')) {
-    const semPonto = limpo.replace(/\./g, '').replace(',', '.')
+  if (limpo.includes(".") && limpo.includes(",")) {
+    const semPonto = limpo.replace(/\./g, "").replace(",", ".")
     const parsed = parseFloat(semPonto)
     return isNaN(parsed) ? 0 : parsed
   }
 
   // Se contém apenas vírgula decimal ex: "8,0" ou "7,5"
-  if (limpo.includes(',')) {
-    const parsed = parseFloat(limpo.replace(',', '.'))
+  if (limpo.includes(",")) {
+    const parsed = parseFloat(limpo.replace(",", "."))
     return isNaN(parsed) ? 0 : parsed
   }
 
@@ -117,8 +117,8 @@ export function parseDataBrParaIso(dataStr: string): string | null {
     return null
   }
 
-  const dia = match[1].padStart(2, '0')
-  const mes = match[2].padStart(2, '0')
+  const dia = match[1].padStart(2, "0")
+  const mes = match[2].padStart(2, "0")
   const ano = match[3]
 
   const diaNum = parseInt(dia, 10)
@@ -135,7 +135,7 @@ export function parseDataBrParaIso(dataStr: string): string | null {
  */
 export function splitCsvLine(linha: string): string[] {
   const campos: string[] = []
-  let campoAtual = ''
+  let campoAtual = ""
   let dentroDeAspas = false
 
   for (let i = 0; i < linha.length; i++) {
@@ -148,9 +148,9 @@ export function splitCsvLine(linha: string): string[] {
       } else {
         dentroDeAspas = !dentroDeAspas
       }
-    } else if (char === ',' && !dentroDeAspas) {
+    } else if (char === "," && !dentroDeAspas) {
       campos.push(campoAtual.trim())
-      campoAtual = ''
+      campoAtual = ""
     } else {
       campoAtual += char
     }
@@ -211,7 +211,7 @@ export function parseControleDiarioCSV(
       totalLinhasValidas: 0,
       totalLinhasIgnoradas: 0,
       avisos: [],
-      erros: ['Arquivo CSV vazio ou sem conteúdo legível.'],
+      erros: ["Arquivo CSV vazio ou sem conteúdo legível."],
       periodoInicio: null,
       periodoFim: null,
       volumeTotalM3: 0,
@@ -226,9 +226,9 @@ export function parseControleDiarioCSV(
 
   // Normaliza quebras de linha
   const linhasCruas = conteudoCsv
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .split('\n')
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
 
   let indiceLinhaCabecalho = -1
   let mapaColunas: Record<string, number> = {}
@@ -236,52 +236,51 @@ export function parseControleDiarioCSV(
   // Procura a linha de cabeçalho que contenha "Data" e "Volume"
   for (let i = 0; i < Math.min(linhasCruas.length, 10); i++) {
     const colunas = splitCsvLine(linhasCruas[i]).map((c) =>
-      c
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
+      c.toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
         .trim(),
     )
 
-    const temData = colunas.some((c) => c === 'data' || c.startsWith('data'))
-    const temVolume = colunas.some((c) => c.includes('volume'))
+    const temData = colunas.some((c) => c === "data" || c.startsWith("data"))
+    const temVolume = colunas.some((c) => c.includes("volume"))
 
     if (temData && temVolume) {
       indiceLinhaCabecalho = i
 
       // Mapeia índices exatos das colunas esperadas
       colunas.forEach((col, idx) => {
-        if (col === 'data' || col.startsWith('data')) mapaColunas['data'] = idx
-        else if (col.includes('volume')) mapaColunas['volume'] = idx
-        else if (col.includes('brita 12') && !col.includes('total'))
-          mapaColunas['brita12'] = idx
-        else if (col.includes('brita 19') && !col.includes('total'))
-          mapaColunas['brita19'] = idx
-        else if (col.includes('areia') && !col.includes('total'))
-          mapaColunas['areia'] = idx
+        if (col === "data" || col.startsWith("data")) mapaColunas["data"] = idx
+        else if (col.includes("volume")) mapaColunas["volume"] = idx
+        else if (col.includes("brita 12") && !col.includes("total"))
+          mapaColunas["brita12"] = idx
+        else if (col.includes("brita 19") && !col.includes("total"))
+          mapaColunas["brita19"] = idx
+        else if (col.includes("areia") && !col.includes("total"))
+          mapaColunas["areia"] = idx
         else if (
-          (col.includes('po de pedra') || col.includes('po (kg)')) &&
-          !col.includes('total')
+          (col.includes("po de pedra") || col.includes("po (kg)")) &&
+          !col.includes("total")
         )
-          mapaColunas['po_pedra'] = idx
+          mapaColunas["po_pedra"] = idx
         else if (
-          col.includes('cimento') &&
-          !col.includes('total') &&
-          !col.includes('acumulado') &&
-          !col.includes('saldo')
+          col.includes("cimento") &&
+          !col.includes("total") &&
+          !col.includes("acumulado") &&
+          !col.includes("saldo")
         )
-          mapaColunas['cimento'] = idx
+          mapaColunas["cimento"] = idx
         else if (
-          col.includes('aditivo') &&
-          !col.includes('total') &&
-          !col.includes('acumulado') &&
-          !col.includes('saldo')
+          col.includes("aditivo") &&
+          !col.includes("total") &&
+          !col.includes("acumulado") &&
+          !col.includes("saldo")
         )
-          mapaColunas['aditivo'] = idx
-        else if (col.includes('motorista')) mapaColunas['motorista'] = idx
-        else if (col.includes('placa')) mapaColunas['placa'] = idx
-        else if (col.includes('cidade')) mapaColunas['cidade'] = idx
-        else if (col.includes('observa')) mapaColunas['observacoes'] = idx
+          mapaColunas["aditivo"] = idx
+        else if (col.includes("motorista")) mapaColunas["motorista"] = idx
+        else if (col.includes("placa")) mapaColunas["placa"] = idx
+        else if (col.includes("cidade")) mapaColunas["cidade"] = idx
+        else if (col.includes("observa")) mapaColunas["observacoes"] = idx
       })
 
       break
@@ -293,18 +292,18 @@ export function parseControleDiarioCSV(
   if (indiceLinhaCabecalho === -1) {
     // Tenta assumir ordem posicional a partir da linha 1 ou 2 se linha 0 for título da planilha
     indiceLinhaCabecalho = 0
-    if (linhasCruas[0].toLowerCase().includes('concreteira')) {
+    if (linhasCruas[0].toLowerCase().includes("concreteira")) {
       indiceLinhaCabecalho = 1
     }
   }
 
   // Garante que, se a coluna de cimento não tiver sido mapeada ou tiver sido associada a coluna de saldo acumulado (>= 12),
   // usa a coluna 6 que é a posição padrão do Cimento nas planilhas do sistema.
-  if (mapaColunas['cimento'] === undefined || mapaColunas['cimento'] >= 12) {
-    mapaColunas['cimento'] = 6
+  if (mapaColunas["cimento"] === undefined || mapaColunas["cimento"] >= 12) {
+    mapaColunas["cimento"] = 6
   }
-  if (mapaColunas['aditivo'] === undefined || mapaColunas['aditivo'] >= 12) {
-    mapaColunas['aditivo'] = 7
+  if (mapaColunas["aditivo"] === undefined || mapaColunas["aditivo"] >= 12) {
+    mapaColunas["aditivo"] = 7
   }
   const getCol = (
     cols: string[],
@@ -313,7 +312,7 @@ export function parseControleDiarioCSV(
   ): string => {
     const idx =
       mapaColunas[chave] !== undefined ? mapaColunas[chave] : defaultIdx
-    return cols[idx] !== undefined ? cols[idx].trim() : ''
+    return cols[idx] !== undefined ? cols[idx].trim() : ""
   }
 
   let totalLinhasIgnoradas = 0
@@ -327,7 +326,7 @@ export function parseControleDiarioCSV(
     // Se toda a linha for vazia ou separadores vazios
     if (colunas.every((c) => !c)) continue
 
-    const dataOriginal = getCol(colunas, 'data', 0)
+    const dataOriginal = getCol(colunas, "data", 0)
     const dataIso = parseDataBrParaIso(dataOriginal)
 
     if (!dataIso) {
@@ -336,7 +335,7 @@ export function parseControleDiarioCSV(
       continue
     }
 
-    const volume_m3 = parseNumeroBr(getCol(colunas, 'volume', 1))
+    const volume_m3 = parseNumeroBr(getCol(colunas, "volume", 1))
     if (volume_m3 <= 0) {
       avisos.push(
         `Linha ${i + 1}: Volume inválido ou zero (${volume_m3}m³). Linha ignorada.`,
@@ -345,21 +344,21 @@ export function parseControleDiarioCSV(
       continue
     }
 
-    const consumo_brita12 = parseNumeroBr(getCol(colunas, 'brita12', 2))
-    const consumo_brita19 = parseNumeroBr(getCol(colunas, 'brita19', 3))
-    const consumo_areia = parseNumeroBr(getCol(colunas, 'areia', 4))
-    const consumo_po_pedra = parseNumeroBr(getCol(colunas, 'po_pedra', 5))
-    const consumo_cimento = parseNumeroBr(getCol(colunas, 'cimento', 6))
-    const consumo_aditivo = parseNumeroBr(getCol(colunas, 'aditivo', 7))
+    const consumo_brita12 = parseNumeroBr(getCol(colunas, "brita12", 2))
+    const consumo_brita19 = parseNumeroBr(getCol(colunas, "brita19", 3))
+    const consumo_areia = parseNumeroBr(getCol(colunas, "areia", 4))
+    const consumo_po_pedra = parseNumeroBr(getCol(colunas, "po_pedra", 5))
+    const consumo_cimento = parseNumeroBr(getCol(colunas, "cimento", 6))
+    const consumo_aditivo = parseNumeroBr(getCol(colunas, "aditivo", 7))
 
-    const motoristaCru = getCol(colunas, 'motorista', 8)
-    const veiculoCru = getCol(colunas, 'placa', 9)
-    const cidadeCru = getCol(colunas, 'cidade', 10)
-    const observacaoCru = getCol(colunas, 'observacoes', 11)
+    const motoristaCru = getCol(colunas, "motorista", 8)
+    const veiculoCru = getCol(colunas, "placa", 9)
+    const cidadeCru = getCol(colunas, "cidade", 10)
+    const observacaoCru = getCol(colunas, "observacoes", 11)
 
     const motorista_nome = motoristaCru ? motoristaCru.toUpperCase() : null
     const veiculo_placa = veiculoCru
-      ? veiculoCru.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+      ? veiculoCru.replace(/[^A-Za-z0-9]/g, "").toUpperCase()
       : null
     const cidade_nome = cidadeCru ? cidadeCru.toUpperCase() : null
     const observacao = observacaoCru || null
@@ -408,11 +407,11 @@ export function parseControleDiarioCSV(
     }
 
     const tracoChave = carga_zerada
-      ? 'ZERADA'
+      ? "ZERADA"
       : `${Math.round(cimentoM3)}_${Math.round(brita12M3)}_${Math.round(brita19M3)}_${Math.round(areiaM3)}_${Math.round(poPedraM3)}`
 
     const tracoSugeridoNome = carga_zerada
-      ? 'Carga Zerada / Descarte'
+      ? "Carga Zerada / Descarte"
       : sugerirNomeTraco(dosagemM3)
 
     // Consumo TOTAL da carga para armazenamento no banco

@@ -2,28 +2,28 @@
 // Usa Canvas no browser para renderizar a imagem oficial LOGO_GC_MIX_QUADRADA com qualidade máxima
 // e substitui/injeta nas tags de favicon e apple-touch-icon dinamicamente
 
-import { LOGO_GC_MIX_QUADRADA } from '@/assets/logos'
+import { LOGO_GC_MIX_QUADRADA } from "@/assets/logos"
 
 export function initializePwaAssets() {
-  if (typeof window === 'undefined') return
+  if (typeof window === "undefined") return
 
   // Gera ícone em Canvas a partir da logo oficial com bordas e fundo da identidade GC MIX
   const img = new Image()
-  img.crossOrigin = 'anonymous'
+  img.crossOrigin = "anonymous"
   img.onload = () => {
     try {
       const sizes = [32, 180, 192, 512]
       const icons: Record<number, string> = {}
 
       for (const size of sizes) {
-        const canvas = document.createElement('canvas')
+        const canvas = document.createElement("canvas")
         canvas.width = size
         canvas.height = size
-        const ctx = canvas.getContext('2d')
+        const ctx = canvas.getContext("2d")
         if (!ctx) continue
 
         // Fundo azul escuro profissional (#0d1b2a)
-        ctx.fillStyle = '#0d1b2a'
+        ctx.fillStyle = "#0d1b2a"
         ctx.fillRect(0, 0, size, size)
 
         // Moldura sutil com borda arredondada se for ícone maior
@@ -31,7 +31,7 @@ export function initializePwaAssets() {
         const innerSize = size - pad * 2
         ctx.drawImage(img, pad, pad, innerSize, innerSize)
 
-        icons[size] = canvas.toDataURL('image/png')
+        icons[size] = canvas.toDataURL("image/png")
       }
 
       // Atualizar favicon dinamicamente
@@ -39,11 +39,11 @@ export function initializePwaAssets() {
         let linkFavicon =
           document.querySelector<HTMLLinkElement>('link[rel="icon"]')
         if (!linkFavicon) {
-          linkFavicon = document.createElement('link')
-          linkFavicon.rel = 'icon'
+          linkFavicon = document.createElement("link")
+          linkFavicon.rel = "icon"
           document.head.appendChild(linkFavicon)
         }
-        linkFavicon.type = 'image/png'
+        linkFavicon.type = "image/png"
         linkFavicon.href = icons[32]
       }
 
@@ -53,14 +53,14 @@ export function initializePwaAssets() {
           'link[rel="apple-touch-icon"]',
         )
         if (!linkApple) {
-          linkApple = document.createElement('link')
-          linkApple.rel = 'apple-touch-icon'
+          linkApple = document.createElement("link")
+          linkApple.rel = "apple-touch-icon"
           document.head.appendChild(linkApple)
         }
         linkApple.href = icons[180]
       }
     } catch (e) {
-      console.warn('Falha ao processar assets PWA via Canvas:', e)
+      console.warn("Falha ao processar assets PWA via Canvas:", e)
     }
   }
 
@@ -69,47 +69,47 @@ export function initializePwaAssets() {
 
 // Registro e gerenciamento do Service Worker com ciclo de vida seguro
 export function registerPwaServiceWorker() {
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
     return
   }
 
   // Apenas registrar após o carregamento da janela para não impactar a inicialização do app
-  window.addEventListener('load', () => {
+  window.addEventListener("load", () => {
     navigator.serviceWorker
-      .register('/sw.js', { scope: '/' })
+      .register("/sw.js", { scope: "/" })
       .then((registration) => {
         // Verificar atualizações periódicas
-        registration.addEventListener('updatefound', () => {
+        registration.addEventListener("updatefound", () => {
           const installingWorker = registration.installing
           if (installingWorker == null) return
 
-          installingWorker.addEventListener('statechange', () => {
+          installingWorker.addEventListener("statechange", () => {
             if (
-              installingWorker.state === 'installed' &&
+              installingWorker.state === "installed" &&
               navigator.serviceWorker.controller
             ) {
               console.log(
-                'Nova versão do GC MIX PWA disponível. Pronto para atualizar.',
+                "Nova versão do GC MIX PWA disponível. Pronto para atualizar.",
               )
               // Notificar o SW para pular espera
-              installingWorker.postMessage({ type: 'SKIP_WAITING' })
+              installingWorker.postMessage({ type: "SKIP_WAITING" })
             }
           })
         })
       })
       .catch((error) => {
-        console.warn('Falha no registro do Service Worker:', error)
+        console.warn("Falha no registro do Service Worker:", error)
       })
 
     // Ao mudar o controller (SW assumiu uma nova versão)
     let refreshing = false
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (!refreshing) {
         refreshing = true
         // Não força recarregamento abrupto enquanto o usuário está preenchendo um formulário,
         // mas avisa nos logs e na próxima navegação ou recarregamento a nova versão estará ativa
         console.log(
-          'GC MIX PWA atualizado com sucesso para a versão mais recente.',
+          "GC MIX PWA atualizado com sucesso para a versão mais recente.",
         )
       }
     })

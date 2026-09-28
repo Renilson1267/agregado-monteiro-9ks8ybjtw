@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { cn } from '@/lib/utils'
+import { useState } from "react"
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
   Truck,
@@ -25,10 +25,10 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-} from 'lucide-react'
-import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from '@/assets/logos'
-import { useTheme } from 'next-themes'
-import { Button } from '@/components/ui/button'
+} from "lucide-react"
+import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from "@/assets/logos"
+import { useTheme } from "next-themes"
+import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,18 +36,18 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui/dropdown-menu"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { useAuth } from '@/hooks/use-auth'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { useUsuario } from '@/hooks/use-usuario'
-import { usePwaInstall } from '@/hooks/use-pwa-install'
-import { ModalGerenciarEmpresas } from '@/components/ModalGerenciarEmpresas'
+} from "@/components/ui/tooltip"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { useAuth } from "@/hooks/use-auth"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { useUsuario } from "@/hooks/use-usuario"
+import { usePwaInstall } from "@/hooks/use-pwa-install"
+import { ModalGerenciarEmpresas } from "@/components/ModalGerenciarEmpresas"
 
 interface SidebarProps {
   collapsed?: boolean
@@ -61,7 +61,7 @@ interface NavItemDef {
   label: string
   path: string
   badge?: string
-  section?: 'operacional' | 'gestao' | 'sistema'
+  section?: "operacional" | "gestao" | "sistema"
 }
 
 export function Sidebar({
@@ -95,115 +95,115 @@ export function Sidebar({
     ? [
         {
           icon: LayoutDashboard,
-          label: 'Dashboard Operacional',
-          path: '/',
-          section: 'operacional',
+          label: "Dashboard Operacional",
+          path: "/",
+          section: "operacional",
         },
         {
           icon: Truck,
-          label: 'Lançar Cargas',
-          path: '/lancamentos',
-          section: 'operacional',
+          label: "Lançar Cargas",
+          path: "/lancamentos",
+          section: "operacional",
         },
         {
           icon: FileText,
-          label: 'Ordens & Recibos',
-          path: '/ordens',
-          section: 'operacional',
+          label: "Ordens & Recibos",
+          path: "/ordens",
+          section: "operacional",
         },
         {
           icon: Boxes,
-          label: 'Estoque de Insumos',
-          path: '/estoque',
-          section: 'operacional',
+          label: "Estoque de Insumos",
+          path: "/estoque",
+          section: "operacional",
         },
         {
           icon: HeartPulse,
-          label: 'Controle de Exames (ASO)',
-          path: '/exames',
-          section: 'operacional',
+          label: "Controle de Exames (ASO)",
+          path: "/exames",
+          section: "operacional",
         },
       ]
     : [
         {
           icon: LayoutDashboard,
-          label: 'Dashboard',
-          path: '/',
-          section: 'operacional',
+          label: "Dashboard",
+          path: "/",
+          section: "operacional",
         },
         {
           icon: Truck,
-          label: 'Lançar Cargas',
-          path: '/lancamentos',
-          section: 'operacional',
+          label: "Lançar Cargas",
+          path: "/lancamentos",
+          section: "operacional",
         },
         {
           icon: FileText,
-          label: 'Ordens & Recibos',
-          path: '/ordens',
-          section: 'operacional',
+          label: "Ordens & Recibos",
+          path: "/ordens",
+          section: "operacional",
         },
         {
           icon: Boxes,
-          label: 'Estoque de Insumos',
-          path: '/estoque',
-          section: 'operacional',
+          label: "Estoque de Insumos",
+          path: "/estoque",
+          section: "operacional",
         },
         {
           icon: FlaskConical,
-          label: 'Traços / Dosagens',
-          path: '/tracos',
-          section: 'operacional',
+          label: "Traços / Dosagens",
+          path: "/tracos",
+          section: "operacional",
         },
         {
           icon: HeartPulse,
-          label: 'Controle de Exames (ASO)',
-          path: '/exames',
-          section: 'operacional',
+          label: "Controle de Exames (ASO)",
+          path: "/exames",
+          section: "operacional",
         },
         {
           icon: FileSpreadsheet,
-          label: 'Relatórios',
-          path: '/relatorios',
-          section: 'gestao',
+          label: "Relatórios",
+          path: "/relatorios",
+          section: "gestao",
         },
         {
           icon: Users,
-          label: 'Cadastros',
-          path: '/cadastros',
-          section: 'gestao',
+          label: "Cadastros",
+          path: "/cadastros",
+          section: "gestao",
         },
         {
           icon: Briefcase,
-          label: 'Folha de Pagamento',
-          path: '/folha',
-          section: 'gestao',
+          label: "Folha de Pagamento",
+          path: "/folha",
+          section: "gestao",
         },
         {
           icon: UserCog,
-          label: 'Usuários',
-          path: '/cadastros?tab=usuarios',
-          section: 'sistema',
+          label: "Usuários",
+          path: "/cadastros?tab=usuarios",
+          section: "sistema",
         },
       ]
 
   const handleLogout = async () => {
     await signOut()
-    navigate('/login', { replace: true })
+    navigate("/login", { replace: true })
   }
 
   const isItemActive = (path: string) => {
-    if (path.includes('?')) {
-      const [basePath, search] = path.split('?')
+    if (path.includes("?")) {
+      const [basePath, search] = path.split("?")
       const params = new URLSearchParams(search)
-      const tab = params.get('tab')
+      const tab = params.get("tab")
       const currentParams = new URLSearchParams(location.search)
-      return location.pathname === basePath && currentParams.get('tab') === tab
+      return location.pathname === basePath && currentParams.get("tab") === tab
     }
     // Caso especial de /cadastros sem ?tab=usuarios
-    if (path === '/cadastros' && location.pathname === '/cadastros') {
+    if (path === "/cadastros" && location.pathname === "/cadastros") {
       const currentParams = new URLSearchParams(location.search)
-      return currentParams.get('tab') !== 'usuarios'
+      return currentParams.get("tab") !== "usuarios"
     }
     return location.pathname === path
   }
@@ -231,18 +231,22 @@ export function Sidebar({
                 if (isMobileView && onMobileClose) onMobileClose()
               }}
               className={cn(
-                'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150',
-                collapsed && !isMobileView ? 'justify-center px-0 w-11 h-11 mx-auto' : 'w-full',
+                "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                collapsed && !isMobileView
+                  ? "justify-center px-0 w-11 h-11 mx-auto"
+                  : "w-full",
                 active
-                  ? 'bg-primary text-primary-foreground shadow-sm font-semibold'
-                  : 'text-muted-foreground hover:bg-accent/70 hover:text-foreground',
+                  ? "bg-primary text-primary-foreground shadow-sm font-semibold"
+                  : "text-muted-foreground hover:bg-accent/70 hover:text-foreground",
               )}
             >
               <item.icon
                 className={cn(
-                  'shrink-0 transition-transform duration-150 group-hover:scale-105',
-                  collapsed && !isMobileView ? 'w-5 h-5' : 'w-4 h-4',
-                  active ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground',
+                  "shrink-0 transition-transform duration-150 group-hover:scale-105",
+                  collapsed && !isMobileView ? "w-5 h-5" : "w-4 h-4",
+                  active
+                    ? "text-primary-foreground"
+                    : "text-muted-foreground group-hover:text-foreground",
                 )}
               />
 
@@ -272,11 +276,11 @@ export function Sidebar({
               {showSectionDivider && (
                 <div className="pt-3 pb-1 px-3">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                    {item.section === 'operacional'
-                      ? 'Operação'
-                      : item.section === 'gestao'
-                        ? 'Gestão & Controle'
-                        : 'Administração'}
+                    {item.section === "operacional"
+                      ? "Operação"
+                      : item.section === "gestao"
+                        ? "Gestão & Controle"
+                        : "Administração"}
                   </span>
                 </div>
               )}
@@ -295,22 +299,22 @@ export function Sidebar({
         id="app-sidebar"
         aria-label="Menu Principal"
         className={cn(
-          'no-print hidden md:flex flex-col h-screen fixed left-0 top-0 z-40 bg-card border-r border-border/40 shadow-sm transition-all duration-300 ease-in-out',
-          collapsed ? 'w-18' : 'w-64',
+          "no-print hidden md:flex flex-col h-screen fixed left-0 top-0 z-40 bg-card border-r border-border/40 shadow-sm transition-all duration-300 ease-in-out",
+          collapsed ? "w-18" : "w-64",
         )}
       >
         {/* TOPO: Logo e Marca GC MIX */}
         <div
           className={cn(
-            'flex items-center gap-3 px-3.5 py-4 border-b border-border/30 h-16 shrink-0',
-            collapsed ? 'justify-center px-2' : 'justify-between',
+            "flex items-center gap-3 px-3.5 py-4 border-b border-border/30 h-16 shrink-0",
+            collapsed ? "justify-center px-2" : "justify-between",
           )}
         >
           <Link
             to="/"
             className={cn(
-              'flex items-center gap-2.5 overflow-hidden group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg',
-              collapsed && 'justify-center',
+              "flex items-center gap-2.5 overflow-hidden group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg",
+              collapsed && "justify-center",
             )}
             title="GC MIX Concreto Usinado"
           >
@@ -352,7 +356,12 @@ export function Sidebar({
         </div>
 
         {/* SELETOR DE EMPRESA / UNIDADE */}
-        <div className={cn('p-2.5 border-b border-border/30 shrink-0', collapsed && 'p-2')}>
+        <div
+          className={cn(
+            "p-2.5 border-b border-border/30 shrink-0",
+            collapsed && "p-2",
+          )}
+        >
           {podeTrocarEmpresa ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -360,11 +369,11 @@ export function Sidebar({
                   <button
                     type="button"
                     className="w-11 h-11 mx-auto rounded-xl bg-primary/10 text-primary border border-primary/25 flex flex-col items-center justify-center gap-0.5 hover:bg-primary/20 transition-all cursor-pointer shadow-2xs"
-                    title={`Unidade: ${empresaAtiva?.nome || 'Trocar'} (clique para alternar)`}
+                    title={`Unidade: ${empresaAtiva?.nome || "Trocar"} (clique para alternar)`}
                   >
                     <Building2 className="w-4 h-4" />
                     <span className="text-[9px] font-black uppercase tracking-tight leading-none truncate max-w-[36px]">
-                      {empresaAtiva?.slug?.toUpperCase() || 'UNID'}
+                      {empresaAtiva?.slug?.toUpperCase() || "UNID"}
                     </span>
                   </button>
                 ) : (
@@ -378,12 +387,12 @@ export function Sidebar({
                       </div>
                       <div className="min-w-0 text-left">
                         <span className="block text-[11px] font-semibold text-foreground truncate leading-tight">
-                          {empresaAtiva?.nome || 'Selecionar Unidade'}
+                          {empresaAtiva?.nome || "Selecionar Unidade"}
                         </span>
                         <span className="block text-[10px] text-muted-foreground truncate leading-none">
                           {empresaAtiva?.cidade
-                            ? `${empresaAtiva.cidade} - ${empresaAtiva.uf || 'PB'}`
-                            : 'Unidade Operacional'}
+                            ? `${empresaAtiva.cidade} - ${empresaAtiva.uf || "PB"}`
+                            : "Unidade Operacional"}
                         </span>
                       </div>
                     </div>
@@ -391,7 +400,10 @@ export function Sidebar({
                   </Button>
                 )}
               </DropdownMenuTrigger>
-              <DropdownMenuContent align={collapsed ? 'start' : 'center'} className="w-56">
+              <DropdownMenuContent
+                align={collapsed ? "start" : "center"}
+                className="w-56"
+              >
                 <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">
                   Unidades Operacionais
                 </DropdownMenuLabel>
@@ -407,22 +419,27 @@ export function Sidebar({
                       <div className="flex items-center gap-2">
                         <div
                           className={cn(
-                            'w-6 h-6 rounded flex items-center justify-center font-bold text-xs shrink-0',
+                            "w-6 h-6 rounded flex items-center justify-center font-bold text-xs shrink-0",
                             isAtiva
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted text-muted-foreground',
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground",
                           )}
                         >
                           {emp.nome.slice(0, 1).toUpperCase()}
                         </div>
                         <div className="min-w-0">
                           <span
-                            className={cn('block truncate', isAtiva ? 'font-bold text-primary' : '')}
+                            className={cn(
+                              "block truncate",
+                              isAtiva ? "font-bold text-primary" : "",
+                            )}
                           >
                             {emp.nome}
                           </span>
                           <span className="text-[10px] text-muted-foreground block truncate">
-                            {emp.cidade ? `${emp.cidade} - ${emp.uf || 'PB'}` : emp.slug}
+                            {emp.cidade
+                              ? `${emp.cidade} - ${emp.uf || "PB"}`
+                              : emp.slug}
                           </span>
                         </div>
                       </div>
@@ -451,12 +468,12 @@ export function Sidebar({
           ) : (
             <div
               className={cn(
-                'rounded-xl border border-border/40 bg-background/50 flex items-center',
+                "rounded-xl border border-border/40 bg-background/50 flex items-center",
                 collapsed
-                  ? 'w-11 h-11 mx-auto justify-center flex-col gap-0.5'
-                  : 'p-2 gap-2',
+                  ? "w-11 h-11 mx-auto justify-center flex-col gap-0.5"
+                  : "p-2 gap-2",
               )}
-              title={`Unidade Fixa: ${empresaAtiva?.nome || ''}`}
+              title={`Unidade Fixa: ${empresaAtiva?.nome || ""}`}
             >
               <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
                 <Building2 className="w-4 h-4" />
@@ -464,7 +481,7 @@ export function Sidebar({
               {!collapsed && (
                 <div className="min-w-0 text-left">
                   <span className="block text-[11px] font-bold text-foreground truncate leading-tight">
-                    {empresaAtiva?.nome || 'Unidade'}
+                    {empresaAtiva?.nome || "Unidade"}
                   </span>
                   <span className="block text-[10px] text-muted-foreground truncate leading-none">
                     Unidade Vinculada
@@ -503,8 +520,10 @@ export function Sidebar({
               size="sm"
               onClick={installApp}
               className={cn(
-                'border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary font-bold shadow-2xs transition-all',
-                collapsed ? 'w-11 h-11 p-0 mx-auto justify-center' : 'w-full justify-start gap-2 h-9 text-xs',
+                "border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary font-bold shadow-2xs transition-all",
+                collapsed
+                  ? "w-11 h-11 p-0 mx-auto justify-center"
+                  : "w-full justify-start gap-2 h-9 text-xs",
               )}
               title="Instalar GC MIX como aplicativo no dispositivo"
             >
@@ -519,10 +538,10 @@ export function Sidebar({
               <button
                 type="button"
                 className={cn(
-                  'rounded-xl border border-border/40 bg-card hover:bg-accent/60 transition-colors text-left flex items-center cursor-pointer shadow-2xs group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                  "rounded-xl border border-border/40 bg-card hover:bg-accent/60 transition-colors text-left flex items-center cursor-pointer shadow-2xs group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                   collapsed
-                    ? 'w-11 h-11 mx-auto justify-center p-0'
-                    : 'w-full p-2 gap-2.5 justify-between',
+                    ? "w-11 h-11 mx-auto justify-center p-0"
+                    : "w-full p-2 gap-2.5 justify-between",
                 )}
                 title={`Usuário: ${nomeUsuario} (${nomePerfil})`}
               >
@@ -554,8 +573,8 @@ export function Sidebar({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-              side={collapsed ? 'right' : 'top'}
-              align={collapsed ? 'end' : 'center'}
+              side={collapsed ? "right" : "top"}
+              align={collapsed ? "end" : "center"}
               className="w-56"
             >
               <DropdownMenuLabel className="text-xs">
@@ -577,10 +596,10 @@ export function Sidebar({
               </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 className="text-xs cursor-pointer gap-2"
               >
-                {theme === 'dark' ? (
+                {theme === "dark" ? (
                   <>
                     <Sun className="w-4 h-4 text-amber-500" />
                     <span>Tema Claro</span>
@@ -615,7 +634,10 @@ export function Sidebar({
       </aside>
 
       {/* GAVETA MOBILE (SHEET) PARA TELAS PEQUENAS */}
-      <Sheet open={mobileOpen} onOpenChange={(open) => !open && onMobileClose && onMobileClose()}>
+      <Sheet
+        open={mobileOpen}
+        onOpenChange={(open) => !open && onMobileClose && onMobileClose()}
+      >
         <SheetContent
           side="left"
           className="no-print w-[280px] p-0 bg-card border-r-border/40 flex flex-col h-full"
@@ -635,7 +657,7 @@ export function Sidebar({
                   GC MIX ERP
                 </span>
                 <span className="block text-[10px] text-muted-foreground truncate">
-                  {empresaAtiva?.nome || 'Concreto Usinado'}
+                  {empresaAtiva?.nome || "Concreto Usinado"}
                 </span>
               </div>
             </div>
@@ -656,7 +678,7 @@ export function Sidebar({
                 Unidade Ativa
               </label>
               <select
-                value={empresaAtiva?.id || ''}
+                value={empresaAtiva?.id || ""}
                 onChange={(e) => {
                   selecionarEmpresa(e.target.value)
                   if (onMobileClose) onMobileClose()
@@ -691,11 +713,11 @@ export function Sidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 className="h-8 w-8 rounded-lg"
                 title="Alternar Tema"
               >
-                {theme === 'dark' ? (
+                {theme === "dark" ? (
                   <Sun className="h-4 w-4 text-amber-500" />
                 ) : (
                   <Moon className="h-4 w-4 text-blue-500" />

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef } from "react"
 import {
   Dialog,
   DialogContent,
@@ -6,11 +6,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Upload,
   FileSpreadsheet,
@@ -21,15 +21,15 @@ import {
   AlertCircle,
   HelpCircle,
   RefreshCw,
-} from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
-import { useEmpresa } from '@/hooks/use-empresa'
+} from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { useEmpresa } from "@/hooks/use-empresa"
 import {
   parseControleExamesCSV,
   PreviewImportacaoExamesCSV,
-} from '@/lib/csv-exames-parser'
-import { ExamesService } from '@/services/exames'
-import { FuncionarioComExames, TipoExame } from '@/types/exames'
+} from "@/lib/csv-exames-parser"
+import { ExamesService } from "@/services/exames"
+import { FuncionarioComExames, TipoExame } from "@/types/exames"
 
 interface ModalImportarExamesCSVProps {
   open: boolean
@@ -51,7 +51,7 @@ export function ModalImportarExamesCSV({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [arquivoNome, setArquivoNome] = useState<string | null>(null)
-  const [conteudoCsv, setConteudoCsv] = useState<string>('')
+  const [conteudoCsv, setConteudoCsv] = useState<string>("")
   const [preview, setPreview] = useState<PreviewImportacaoExamesCSV | null>(
     null,
   )
@@ -67,12 +67,12 @@ export function ModalImportarExamesCSV({
 
   const resetar = () => {
     setArquivoNome(null)
-    setConteudoCsv('')
+    setConteudoCsv("")
     setPreview(null)
     setProcessandoPreview(false)
     setSalvando(false)
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+      fileInputRef.current.value = ""
     }
   }
 
@@ -86,7 +86,7 @@ export function ModalImportarExamesCSV({
     const reader = new FileReader()
     reader.onload = async (event) => {
       try {
-        const text = (event.target?.result as string) || ''
+        const text = event.target?.result as string || ""
         setConteudoCsv(text)
         // Se prazosConfigurados não tiver sido passado, busca da empresa ativa
         const prazosAtivos =
@@ -101,22 +101,22 @@ export function ModalImportarExamesCSV({
 
         if (resultado.totalFuncionariosValidos === 0) {
           toast({
-            title: 'Nenhum funcionário identificado',
+            title: "Nenhum funcionário identificado",
             description:
-              'Verifique se o arquivo possui colunas como Nome, Função, CPF e Exames.',
-            variant: 'destructive',
+              "Verifique se o arquivo possui colunas como Nome, Função, CPF e Exames.",
+            variant: "destructive",
           })
         } else {
           toast({
-            title: 'Arquivo CSV processado com sucesso!',
+            title: "Arquivo CSV processado com sucesso!",
             description: `${resultado.totalFuncionariosValidos} colaboradores identificados para a unidade ${empresaAtiva?.nome}.`,
           })
         }
       } catch (err: any) {
         toast({
-          title: 'Erro ao ler arquivo CSV',
+          title: "Erro ao ler arquivo CSV",
           description: err.message,
-          variant: 'destructive',
+          variant: "destructive",
         })
       } finally {
         setProcessandoPreview(false)
@@ -125,14 +125,14 @@ export function ModalImportarExamesCSV({
 
     reader.onerror = () => {
       toast({
-        title: 'Falha na leitura',
-        description: 'Não foi possível ler o arquivo selecionado.',
-        variant: 'destructive',
+        title: "Falha na leitura",
+        description: "Não foi possível ler o arquivo selecionado.",
+        variant: "destructive",
       })
       setProcessandoPreview(false)
     }
 
-    reader.readAsText(file, 'ISO-8859-1') // Suporta acentos típicos de planilhas Excel em português
+    reader.readAsText(file, "ISO-8859-1") // Suporta acentos típicos de planilhas Excel em português
   }
 
   const handleConfirmarImportacao = async () => {
@@ -174,12 +174,12 @@ export function ModalImportarExamesCSV({
         }
 
         // Salvar exames do colaborador
-        const listaExamesParaSalvar = (
-          Object.entries(linha.exames) as [
-            TipoExame,
-            { dataIso: string | null; validadeMeses: number },
-          ][]
-        ).map(([tipo, dados]) => ({
+        const listaExamesParaSalvar = (Object.entries(
+          linha.exames,
+        ) as [TipoExame, {
+          dataIso: string | null
+          validadeMeses: number
+        }][]).map(([tipo, dados]) => ({
           tipo_exame: tipo,
           data_realizacao: dados.dataIso,
           validade_meses: dados.validadeMeses,
@@ -193,7 +193,7 @@ export function ModalImportarExamesCSV({
       }
 
       toast({
-        title: 'Importação concluída com sucesso!',
+        title: "Importação concluída com sucesso!",
         description: `${inseridos} funcionários novos cadastrados e ${atualizados} atualizados na unidade ${empresaAtiva.nome}.`,
       })
 
@@ -202,9 +202,9 @@ export function ModalImportarExamesCSV({
       resetar()
     } catch (err: any) {
       toast({
-        title: 'Erro na importação',
+        title: "Erro na importação",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -285,7 +285,7 @@ export function ModalImportarExamesCSV({
                 </AlertTitle>
                 <AlertDescription className="text-[11px] text-muted-foreground space-y-1 mt-1">
                   <p>
-                    •{' '}
+                    •{" "}
                     <strong>Colaborador / Função / CPF / Data Admissão</strong>:
                     dados cadastrais do funcionário.
                   </p>
@@ -296,7 +296,7 @@ export function ModalImportarExamesCSV({
                   </p>
                   <p>
                     • <strong>Datas no padrão brasileiro (dd/mm/aaaa)</strong>.
-                    Campos vazios serão marcados automaticamente como{' '}
+                    Campos vazios serão marcados automaticamente como{" "}
                     <span className="font-semibold text-muted-foreground">
                       PENDENTE
                     </span>
@@ -447,10 +447,10 @@ export function ModalImportarExamesCSV({
                             {linha.funcao}
                           </td>
                           <td className="py-2 px-3 font-mono text-muted-foreground">
-                            {linha.cpfFormatado || '—'}
+                            {linha.cpfFormatado || "—"}
                           </td>
                           <td className="py-2 px-3 font-mono text-muted-foreground">
-                            {linha.dataAdmissaoBr || '—'}
+                            {linha.dataAdmissaoBr || "—"}
                           </td>
                           <td className="py-2 px-3">
                             <BadgeStatus
@@ -507,7 +507,7 @@ export function ModalImportarExamesCSV({
             >
               <CheckCircle2 className="w-4 h-4" />
               {salvando
-                ? 'Gravando no Banco...'
+                ? "Gravando no Banco..."
                 : `Confirmar e Importar ${preview.totalFuncionariosValidos} Colaboradores`}
             </Button>
           )}
@@ -521,30 +521,30 @@ function BadgeStatus({
   status,
   dataBr,
 }: {
-  status: 'VENCIDO' | 'NO_PRAZO' | 'PENDENTE' | 'NA_RESCISAO'
+  status: "VENCIDO" | "NO_PRAZO" | "PENDENTE" | "NA_RESCISAO"
   dataBr: string | null
 }) {
-  if (status === 'NA_RESCISAO') {
+  if (status === "NA_RESCISAO") {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-sky-700 dark:text-sky-400 bg-sky-500/15 px-1.5 py-0.5 rounded border border-sky-500/30">
         <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
-        {dataBr || 'Na Rescisão'}
+        {dataBr || "Na Rescisão"}
       </span>
     )
   }
-  if (status === 'VENCIDO') {
+  if (status === "VENCIDO") {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded border border-destructive/20">
         <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
-        {dataBr || 'Vencido'}
+        {dataBr || "Vencido"}
       </span>
     )
   }
-  if (status === 'NO_PRAZO') {
+  if (status === "NO_PRAZO") {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-        {dataBr || 'No Prazo'}
+        {dataBr || "No Prazo"}
       </span>
     )
   }
@@ -558,9 +558,9 @@ function BadgeStatus({
 function BadgeStatusGeral({
   status,
 }: {
-  status: 'VENCIDO' | 'NO_PRAZO' | 'PENDENTE' | 'NA_RESCISAO'
+  status: "VENCIDO" | "NO_PRAZO" | "PENDENTE" | "NA_RESCISAO"
 }) {
-  if (status === 'NA_RESCISAO') {
+  if (status === "NA_RESCISAO") {
     return (
       <Badge
         variant="outline"
@@ -570,7 +570,7 @@ function BadgeStatusGeral({
       </Badge>
     )
   }
-  if (status === 'VENCIDO') {
+  if (status === "VENCIDO") {
     return (
       <Badge
         variant="destructive"
@@ -580,7 +580,7 @@ function BadgeStatusGeral({
       </Badge>
     )
   }
-  if (status === 'NO_PRAZO') {
+  if (status === "NO_PRAZO") {
     return (
       <Badge className="text-[10px] uppercase font-bold tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white">
         No Prazo

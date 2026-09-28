@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo } from "react"
 import {
   Users,
   Plus,
@@ -15,25 +15,25 @@ import {
   AlertTriangle,
   Info,
   CheckCircle2,
-} from 'lucide-react'
+} from "lucide-react"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -41,7 +41,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,23 +51,23 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { useToast } from '@/hooks/use-toast'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { useUsuario } from '@/hooks/use-usuario'
-import { ExamesService } from '@/services/exames'
-import { FuncionarioComExames } from '@/types/exames'
-import { formatarCpfCnpj, limparMascara, validarCPF } from '@/lib/documentos'
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { useUsuario } from "@/hooks/use-usuario"
+import { ExamesService } from "@/services/exames"
+import { FuncionarioComExames } from "@/types/exames"
+import { formatarCpfCnpj, limparMascara, validarCPF } from "@/lib/documentos"
 
 const SUGESTOES_FUNCOES = [
-  'Motorista',
-  'Balanceiro',
-  'Ajudante',
-  'Vendedor',
-  'Secretaria',
-  'Operador de Pá',
-  'Mecânico',
-  'Encarregado',
+  "Motorista",
+  "Balanceiro",
+  "Ajudante",
+  "Vendedor",
+  "Secretaria",
+  "Operador de Pá",
+  "Mecânico",
+  "Encarregado",
 ]
 
 interface AbaFuncionariosProps {
@@ -88,19 +88,19 @@ export function AbaFuncionarios({
   const { isAdministrador } = useUsuario()
 
   // Filtros
-  const [busca, setBusca] = useState('')
-  const [filtroFuncao, setFiltroFuncao] = useState<string>('TODAS')
-  const [filtroStatusAtivo, setFiltroStatusAtivo] = useState<string>('TODOS')
+  const [busca, setBusca] = useState("")
+  const [filtroFuncao, setFiltroFuncao] = useState<string>("TODAS")
+  const [filtroStatusAtivo, setFiltroStatusAtivo] = useState<string>("TODOS")
 
   // Modal Incluir / Editar Funcionário
   const [modalOpen, setModalOpen] = useState(false)
   const [funcionarioEditando, setFuncionarioEditando] =
     useState<FuncionarioComExames | null>(null)
-  const [formNome, setFormNome] = useState('')
-  const [formFuncao, setFormFuncao] = useState('')
-  const [formCpf, setFormCpf] = useState('')
-  const [formDataAdmissao, setFormDataAdmissao] = useState('')
-  const [formObservacoes, setFormObservacoes] = useState('')
+  const [formNome, setFormNome] = useState("")
+  const [formFuncao, setFormFuncao] = useState("")
+  const [formCpf, setFormCpf] = useState("")
+  const [formDataAdmissao, setFormDataAdmissao] = useState("")
+  const [formObservacoes, setFormObservacoes] = useState("")
   const [formAtivo, setFormAtivo] = useState(true)
   const [salvando, setSalvando] = useState(false)
 
@@ -108,9 +108,8 @@ export function AbaFuncionarios({
   const [dialogExclusaoOpen, setDialogExclusaoOpen] = useState(false)
   const [funcionarioParaExcluir, setFuncionarioParaExcluir] =
     useState<FuncionarioComExames | null>(null)
-  const [examesVinculadosCount, setExamesVinculadosCount] = useState<
-    number | null
-  >(null)
+  const [examesVinculadosCount, setExamesVinculadosCount] =
+    useState<number | null>(null)
   const [checandoVinculos, setChecandoVinculos] = useState(false)
   const [excluindo, setExcluindo] = useState(false)
 
@@ -142,7 +141,7 @@ export function AbaFuncionarios({
       // Busca por nome ou CPF
       if (busca) {
         const termo = busca.toLowerCase()
-        const cpfLimpo = f.cpf ? limparMascara(f.cpf) : ''
+        const cpfLimpo = f.cpf ? limparMascara(f.cpf) : ""
         const bateNome = f.nome.toLowerCase().includes(termo)
         const bateFuncao = f.funcao.toLowerCase().includes(termo)
         const bateCpf = f.cpf?.includes(termo) || cpfLimpo.includes(termo)
@@ -150,13 +149,13 @@ export function AbaFuncionarios({
       }
 
       // Filtro por Função
-      if (filtroFuncao !== 'TODAS' && f.funcao !== filtroFuncao) {
+      if (filtroFuncao !== "TODAS" && f.funcao !== filtroFuncao) {
         return false
       }
 
       // Filtro por Ativo/Inativo
-      if (filtroStatusAtivo === 'ATIVO' && !f.ativo) return false
-      if (filtroStatusAtivo === 'INATIVO' && f.ativo) return false
+      if (filtroStatusAtivo === "ATIVO" && !f.ativo) return false
+      if (filtroStatusAtivo === "INATIVO" && f.ativo) return false
 
       return true
     })
@@ -166,19 +165,19 @@ export function AbaFuncionarios({
   const handleNovo = () => {
     if (!isAdministrador) {
       toast({
-        title: 'Permissão necessária',
+        title: "Permissão necessária",
         description:
-          'Apenas Administradores podem cadastrar novos funcionários.',
-        variant: 'destructive',
+          "Apenas Administradores podem cadastrar novos funcionários.",
+        variant: "destructive",
       })
       return
     }
     setFuncionarioEditando(null)
-    setFormNome('')
-    setFormFuncao('')
-    setFormCpf('')
-    setFormDataAdmissao('')
-    setFormObservacoes('')
+    setFormNome("")
+    setFormFuncao("")
+    setFormCpf("")
+    setFormDataAdmissao("")
+    setFormObservacoes("")
     setFormAtivo(true)
     setModalOpen(true)
   }
@@ -187,19 +186,19 @@ export function AbaFuncionarios({
   const handleEditar = (func: FuncionarioComExames) => {
     if (!isAdministrador) {
       toast({
-        title: 'Permissão necessária',
+        title: "Permissão necessária",
         description:
-          'Apenas Administradores podem editar dados cadastrais de funcionários.',
-        variant: 'destructive',
+          "Apenas Administradores podem editar dados cadastrais de funcionários.",
+        variant: "destructive",
       })
       return
     }
     setFuncionarioEditando(func)
     setFormNome(func.nome)
     setFormFuncao(func.funcao)
-    setFormCpf(func.cpf ? formatarCpfCnpj(func.cpf) : '')
-    setFormDataAdmissao(func.data_admissao || '')
-    setFormObservacoes(func.observacoes || '')
+    setFormCpf(func.cpf ? formatarCpfCnpj(func.cpf) : "")
+    setFormDataAdmissao(func.data_admissao || "")
+    setFormObservacoes(func.observacoes || "")
     setFormAtivo(func.ativo)
     setModalOpen(true)
   }
@@ -211,9 +210,9 @@ export function AbaFuncionarios({
 
     if (!formNome.trim()) {
       toast({
-        title: 'Nome obrigatório',
-        description: 'Informe o nome completo do funcionário.',
-        variant: 'destructive',
+        title: "Nome obrigatório",
+        description: "Informe o nome completo do funcionário.",
+        variant: "destructive",
       })
       return
     }
@@ -222,18 +221,18 @@ export function AbaFuncionarios({
     if (cpfLimpo) {
       if (cpfLimpo.length !== 11) {
         toast({
-          title: 'CPF incompleto',
-          description: 'O CPF deve possuir exatamente 11 dígitos numéricos.',
-          variant: 'destructive',
+          title: "CPF incompleto",
+          description: "O CPF deve possuir exatamente 11 dígitos numéricos.",
+          variant: "destructive",
         })
         return
       }
       if (!validarCPF(cpfLimpo)) {
         toast({
-          title: 'CPF inválido',
+          title: "CPF inválido",
           description:
-            'Os dígitos verificadores do CPF informado são inválidos.',
-          variant: 'destructive',
+            "Os dígitos verificadores do CPF informado são inválidos.",
+          variant: "destructive",
         })
         return
       }
@@ -247,7 +246,7 @@ export function AbaFuncionarios({
         id: funcionarioEditando?.id,
         empresa_id: empresaAtiva.id,
         nome: formNome.trim().toUpperCase(),
-        funcao: formFuncao.trim() || 'Geral',
+        funcao: formFuncao.trim() || "Geral",
         cpf: cpfLimpo,
         data_admissao: formDataAdmissao || null,
         ativo: formAtivo,
@@ -256,8 +255,8 @@ export function AbaFuncionarios({
 
       toast({
         title: funcionarioEditando
-          ? 'Colaborador atualizado com sucesso!'
-          : 'Novo colaborador cadastrado com sucesso!',
+          ? "Colaborador atualizado com sucesso!"
+          : "Novo colaborador cadastrado com sucesso!",
         description: `${formNome.trim().toUpperCase()} na unidade ${empresaAtiva.nome}.`,
       })
 
@@ -265,9 +264,9 @@ export function AbaFuncionarios({
       onAtualizar()
     } catch (err: any) {
       toast({
-        title: 'Erro ao salvar colaborador',
+        title: "Erro ao salvar colaborador",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -278,10 +277,10 @@ export function AbaFuncionarios({
   const handleAlternarAtivo = async (func: FuncionarioComExames) => {
     if (!isAdministrador) {
       toast({
-        title: 'Permissão necessária',
+        title: "Permissão necessária",
         description:
-          'Apenas Administradores podem ativar ou desativar colaboradores.',
-        variant: 'destructive',
+          "Apenas Administradores podem ativar ou desativar colaboradores.",
+        variant: "destructive",
       })
       return
     }
@@ -295,15 +294,17 @@ export function AbaFuncionarios({
         empresaAtiva?.id,
       )
       toast({
-        title: novoStatus ? 'Colaborador reativado' : 'Colaborador desativado',
-        description: `${func.nome} agora está ${novoStatus ? 'ativo' : 'inativo'}.`,
+        title: novoStatus ? "Colaborador reativado" : "Colaborador desativado",
+        description: `${func.nome} agora está ${
+          novoStatus ? "ativo" : "inativo"
+        }.`,
       })
       onAtualizar()
     } catch (err: any) {
       toast({
-        title: 'Erro ao alterar status',
+        title: "Erro ao alterar status",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setAlterandoStatusId(null)
@@ -314,9 +315,9 @@ export function AbaFuncionarios({
   const handleIniciarExclusao = async (func: FuncionarioComExames) => {
     if (!isAdministrador) {
       toast({
-        title: 'Permissão necessária',
-        description: 'Apenas Administradores podem excluir funcionários.',
-        variant: 'destructive',
+        title: "Permissão necessária",
+        description: "Apenas Administradores podem excluir funcionários.",
+        variant: "destructive",
       })
       return
     }
@@ -330,7 +331,7 @@ export function AbaFuncionarios({
       const count = await ExamesService.verificarExamesVinculados(func.id)
       setExamesVinculadosCount(count)
     } catch (err: any) {
-      console.error('Erro ao verificar exames vinculados:', err)
+      console.error("Erro ao verificar exames vinculados:", err)
       setExamesVinculadosCount(0)
     } finally {
       setChecandoVinculos(false)
@@ -347,7 +348,7 @@ export function AbaFuncionarios({
         empresaAtiva.id,
       )
       toast({
-        title: 'Colaborador excluído!',
+        title: "Colaborador excluído!",
         description: `${funcionarioParaExcluir.nome} foi removido com sucesso.`,
       })
       setDialogExclusaoOpen(false)
@@ -355,9 +356,9 @@ export function AbaFuncionarios({
       onAtualizar()
     } catch (err: any) {
       toast({
-        title: 'Exclusão bloqueada',
+        title: "Exclusão bloqueada",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setExcluindo(false)
@@ -428,7 +429,7 @@ export function AbaFuncionarios({
               {totalFuncionarios}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Unidade {empresaAtiva?.nome || '—'}
+              Unidade {empresaAtiva?.nome || "—"}
             </p>
           </CardContent>
         </Card>
@@ -537,15 +538,15 @@ export function AbaFuncionarios({
             {/* Total e Limpar */}
             <div className="flex items-center justify-end gap-2">
               {(busca ||
-                filtroFuncao !== 'TODAS' ||
-                filtroStatusAtivo !== 'TODOS') && (
+                filtroFuncao !== "TODAS" ||
+                filtroStatusAtivo !== "TODOS") && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setBusca('')
-                    setFiltroFuncao('TODAS')
-                    setFiltroStatusAtivo('TODOS')
+                    setBusca("")
+                    setFiltroFuncao("TODAS")
+                    setFiltroStatusAtivo("TODOS")
                   }}
                   className="text-xs text-muted-foreground hover:text-foreground h-10"
                 >
@@ -580,7 +581,7 @@ export function AbaFuncionarios({
             </div>
           ) : funcionariosFiltrados.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground text-xs italic">
-              Nenhum colaborador encontrado com os filtros selecionados.{' '}
+              Nenhum colaborador encontrado com os filtros selecionados.{" "}
               {isAdministrador && (
                 <button
                   type="button"
@@ -615,7 +616,7 @@ export function AbaFuncionarios({
                       <tr
                         key={f.id}
                         className={`hover:bg-muted/20 transition-colors group ${
-                          !f.ativo ? 'opacity-65 bg-muted/10' : ''
+                          !f.ativo ? "opacity-65 bg-muted/10" : ""
                         }`}
                       >
                         {/* Status Ativo/Inativo */}
@@ -658,7 +659,7 @@ export function AbaFuncionarios({
 
                         {/* CPF */}
                         <td className="py-2.5 px-3 font-mono text-muted-foreground whitespace-nowrap">
-                          {f.cpf ? formatarCpfCnpj(f.cpf) : '—'}
+                          {f.cpf ? formatarCpfCnpj(f.cpf) : "—"}
                         </td>
 
                         {/* Data Admissão */}
@@ -674,8 +675,8 @@ export function AbaFuncionarios({
                             </span>
                             <span className="text-[11px] text-muted-foreground">
                               {examesComData === 1
-                                ? 'exame realizado'
-                                : 'exames realizados'}
+                                ? "exame realizado"
+                                : "exames realizados"}
                             </span>
                             {f.totalVencidos > 0 && (
                               <Badge
@@ -725,13 +726,13 @@ export function AbaFuncionarios({
                                 disabled={alterandoStatusId === f.id}
                                 className={`h-7 w-7 ${
                                   f.ativo
-                                    ? 'text-amber-600 hover:bg-amber-500/10'
-                                    : 'text-emerald-600 hover:bg-emerald-500/10'
+                                    ? "text-amber-600 hover:bg-amber-500/10"
+                                    : "text-emerald-600 hover:bg-emerald-500/10"
                                 }`}
                                 title={
                                   f.ativo
-                                    ? 'Desativar colaborador'
-                                    : 'Reativar colaborador'
+                                    ? "Desativar colaborador"
+                                    : "Reativar colaborador"
                                 }
                               >
                                 {f.ativo ? (
@@ -777,7 +778,7 @@ export function AbaFuncionarios({
               <UserCheck className="w-5 h-5 text-primary" />
               {funcionarioEditando
                 ? `Editar Colaborador: ${funcionarioEditando.nome}`
-                : 'Novo Colaborador'}
+                : "Novo Colaborador"}
               {empresaAtiva && (
                 <Badge
                   variant="outline"
@@ -834,8 +835,8 @@ export function AbaFuncionarios({
                     onClick={() => setFormFuncao(sug)}
                     className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
                       formFuncao.toLowerCase() === sug.toLowerCase()
-                        ? 'bg-primary text-primary-foreground border-primary font-semibold'
-                        : 'bg-muted/40 hover:bg-muted text-muted-foreground border-border/40'
+                        ? "bg-primary text-primary-foreground border-primary font-semibold"
+                        : "bg-muted/40 hover:bg-muted text-muted-foreground border-border/40"
                     }`}
                   >
                     {sug}
@@ -921,10 +922,10 @@ export function AbaFuncionarios({
               >
                 <CheckCircle2 className="w-4 h-4" />
                 {salvando
-                  ? 'Salvando...'
+                  ? "Salvando..."
                   : funcionarioEditando
-                    ? 'Salvar Alterações'
-                    : 'Cadastrar Funcionário'}
+                    ? "Salvar Alterações"
+                    : "Cadastrar Funcionário"}
               </Button>
             </DialogFooter>
           </form>
@@ -953,11 +954,11 @@ export function AbaFuncionarios({
                       Exclusão Bloqueada — Registros Vinculados
                     </p>
                     <p className="mt-1">
-                      O colaborador{' '}
-                      <strong>{funcionarioParaExcluir?.nome}</strong> possui{' '}
+                      O colaborador{" "}
+                      <strong>{funcionarioParaExcluir?.nome}</strong> possui{" "}
                       <strong>
                         {examesVinculadosCount} exame(s) realizado(s)
-                      </strong>{' '}
+                      </strong>{" "}
                       registrado(s) no sistema.
                     </p>
                   </div>
@@ -970,11 +971,11 @@ export function AbaFuncionarios({
                 </div>
               ) : (
                 <div>
-                  Deseja realmente excluir permanentemente o cadastro de{' '}
+                  Deseja realmente excluir permanentemente o cadastro de{" "}
                   <strong className="text-foreground">
                     {funcionarioParaExcluir?.nome}
-                  </strong>{' '}
-                  ({funcionarioParaExcluir?.funcao}) da unidade{' '}
+                  </strong>{" "}
+                  ({funcionarioParaExcluir?.funcao}) da unidade{" "}
                   <strong className="text-foreground">
                     {empresaAtiva?.nome}
                   </strong>
@@ -1016,7 +1017,7 @@ export function AbaFuncionarios({
                 disabled={excluindo || checandoVinculos}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                {excluindo ? 'Excluindo...' : 'Sim, Excluir Cadastro'}
+                {excluindo ? "Excluindo..." : "Sim, Excluir Cadastro"}
               </AlertDialogAction>
             )}
           </AlertDialogFooter>
@@ -1027,8 +1028,8 @@ export function AbaFuncionarios({
 }
 
 function formatarData(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const partes = iso.split('-')
+  if (!iso) return "—"
+  const partes = iso.split("-")
   if (partes.length !== 3) return iso
   return `${partes[2]}/${partes[1]}/${partes[0]}`
 }

@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -18,18 +18,18 @@ import {
   DialogDescription,
   DialogTrigger,
   DialogFooter,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { ConcreteiraService } from '@/services/concreteira'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { useUsuario } from '@/hooks/use-usuario'
-import type { Material, MovimentacaoEstoque } from '@/types/concreteira'
+} from "@/components/ui/select"
+import { ConcreteiraService } from "@/services/concreteira"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { useUsuario } from "@/hooks/use-usuario"
+import type { Material, MovimentacaoEstoque } from "@/types/concreteira"
 import {
   Boxes,
   PlusCircle,
@@ -39,27 +39,27 @@ import {
   TrendingUp,
   Settings2,
   RefreshCw,
-} from 'lucide-react'
-import { toast } from '@/hooks/use-toast'
+} from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 
 export default function Estoque() {
   const { empresaAtiva } = useEmpresa()
   const { isBalanceiro } = useUsuario()
   const [materiais, setMateriais] = useState<Material[]>([])
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([])
-  const [filtroMaterial, setFiltroMaterial] = useState<string>('ALL')
+  const [filtroMaterial, setFiltroMaterial] = useState<string>("ALL")
   const [loading, setLoading] = useState(true)
 
   // Dialog Registrar Entrada
   const [openEntrada, setOpenEntrada] = useState(false)
   const [salvandoEntrada, setSalvandoEntrada] = useState(false)
-  const [materialEntradaId, setMaterialEntradaId] = useState('')
+  const [materialEntradaId, setMaterialEntradaId] = useState("")
   const [quantidadeEntrada, setQuantidadeEntrada] = useState<number>(0)
   const [dataEntrada, setDataEntrada] = useState(
-    new Date().toISOString().split('T')[0],
+    new Date().toISOString().split("T")[0],
   )
-  const [documentoEntrada, setDocumentoEntrada] = useState('')
-  const [obsEntrada, setObsEntrada] = useState('')
+  const [documentoEntrada, setDocumentoEntrada] = useState("")
+  const [obsEntrada, setObsEntrada] = useState("")
 
   // Dialog Editar Mínimo
   const [openMinimo, setOpenMinimo] = useState(false)
@@ -95,9 +95,9 @@ export default function Estoque() {
     } catch (e: any) {
       console.error(e)
       toast({
-        title: 'Erro ao carregar estoque',
+        title: "Erro ao carregar estoque",
         description: e.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setLoading(false)
@@ -115,9 +115,9 @@ export default function Estoque() {
     e.preventDefault()
     if (!materialEntradaId || quantidadeEntrada <= 0) {
       toast({
-        title: 'Atenção',
-        description: 'Informe material e quantidade positiva.',
-        variant: 'destructive',
+        title: "Atenção",
+        description: "Informe material e quantidade positiva.",
+        variant: "destructive",
       })
       return
     }
@@ -133,19 +133,19 @@ export default function Estoque() {
         observacao: obsEntrada || undefined,
       })
       toast({
-        title: 'Entrada registrada com sucesso!',
-        description: 'Estoque atualizado com a reposição.',
+        title: "Entrada registrada com sucesso!",
+        description: "Estoque atualizado com a reposição.",
       })
       setOpenEntrada(false)
       setQuantidadeEntrada(0)
-      setDocumentoEntrada('')
-      setObsEntrada('')
+      setDocumentoEntrada("")
+      setObsEntrada("")
       carregarDados()
     } catch (err: any) {
       toast({
-        title: 'Erro ao registrar entrada',
+        title: "Erro ao registrar entrada",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setSalvandoEntrada(false)
@@ -163,7 +163,7 @@ export default function Estoque() {
         novoMinimo,
       )
       toast({
-        title: 'Estoque mínimo atualizado',
+        title: "Estoque mínimo atualizado",
         description: `Margem de segurança de ${materialEditando.nome} redefinida.`,
       })
       setOpenMinimo(false)
@@ -171,9 +171,9 @@ export default function Estoque() {
       carregarDados()
     } catch (err: any) {
       toast({
-        title: 'Erro ao atualizar',
+        title: "Erro ao atualizar",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setSalvandoMinimo(false)
@@ -196,7 +196,7 @@ export default function Estoque() {
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Acompanhe o saldo dos silos de cimento e tanques de aditivo da
-            unidade {empresaAtiva?.nome || ''}. (Agregados têm controle
+            unidade {empresaAtiva?.nome || ""}. (Agregados têm controle
             exclusivo por consumo).
           </p>
         </div>
@@ -209,7 +209,7 @@ export default function Estoque() {
             disabled={loading}
             className="gap-2"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
 
@@ -230,9 +230,9 @@ export default function Estoque() {
                   Registrar Entrada / Reposição de Insumo Controlado
                 </DialogTitle>
                 <DialogDescription>
-                  Gera uma movimentação de estoque para{' '}
-                  {materiais.find((m) => m.codigo === 'cimento')?.nome ||
-                    'CP II F-40 / CP V ARI'}{' '}
+                  Gera uma movimentação de estoque para{" "}
+                  {materiais.find((m) => m.codigo === "cimento")?.nome ||
+                    "CP II F-40 / CP V ARI"}{" "}
                   ou Aditivo no silo ou tanque correspondente.
                 </DialogDescription>
               </DialogHeader>
@@ -264,7 +264,7 @@ export default function Estoque() {
                     <Label htmlFor="quantidade">
                       Quantidade (
                       {materiais.find((m) => m.id === materialEntradaId)
-                        ?.unidade || 'kg'}
+                        ?.unidade || "kg"}
                       ) *
                     </Label>
                     <Input
@@ -272,7 +272,7 @@ export default function Estoque() {
                       type="number"
                       step="any"
                       min="1"
-                      value={quantidadeEntrada || ''}
+                      value={quantidadeEntrada || ""}
                       onChange={(e) =>
                         setQuantidadeEntrada(Number(e.target.value))
                       }
@@ -325,7 +325,7 @@ export default function Estoque() {
                     disabled={salvandoEntrada}
                     className="bg-primary text-primary-foreground"
                   >
-                    {salvandoEntrada ? 'Salvando...' : 'Salvar Entrada'}
+                    {salvandoEntrada ? "Salvando..." : "Salvar Entrada"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -361,10 +361,14 @@ export default function Estoque() {
               return (
                 <Card
                   key={mat.id}
-                  className={`border-border/40 bg-card/70 relative overflow-hidden shadow-sm ${critico ? 'border-destructive/40' : ''}`}
+                  className={`border-border/40 bg-card/70 relative overflow-hidden shadow-sm ${
+                    critico ? "border-destructive/40" : ""
+                  }`}
                 >
                   <div
-                    className={`h-1.5 w-full ${critico ? 'bg-destructive' : 'bg-primary'}`}
+                    className={`h-1.5 w-full ${
+                      critico ? "bg-destructive" : "bg-primary"
+                    }`}
                   />
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between">
@@ -373,16 +377,16 @@ export default function Estoque() {
                           {mat.nome}
                         </CardTitle>
                         <CardDescription className="text-xs uppercase tracking-wider font-mono">
-                          {mat.codigo === 'cimento'
+                          {mat.codigo === "cimento"
                             ? `Silo de ${mat.nome}`
-                            : 'Tanque de Aditivo Químico'}
+                            : "Tanque de Aditivo Químico"}
                         </CardDescription>
                       </div>
                       <Badge
-                        variant={critico ? 'destructive' : 'outline'}
+                        variant={critico ? "destructive" : "outline"}
                         className="text-xs"
                       >
-                        {critico ? 'Reposição Urgente' : 'Estoque Regular'}
+                        {critico ? "Reposição Urgente" : "Estoque Regular"}
                       </Badge>
                     </div>
                   </CardHeader>
@@ -390,13 +394,13 @@ export default function Estoque() {
                     <div className="flex items-baseline justify-between">
                       <div>
                         <span className="text-3xl font-extrabold text-foreground">
-                          {saldo.toLocaleString('pt-BR')}
-                        </span>{' '}
+                          {saldo.toLocaleString("pt-BR")}
+                        </span>{" "}
                         <span className="text-sm font-medium text-muted-foreground">
                           {mat.unidade}
                         </span>
                       </div>
-                      {saldo >= 1000 && mat.unidade === 'kg' && (
+                      {saldo >= 1000 && mat.unidade === "kg" && (
                         <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
                           {(saldo / 1000).toFixed(2)} t
                         </span>
@@ -407,7 +411,7 @@ export default function Estoque() {
                       <div className="flex justify-between text-muted-foreground">
                         <span>Estoque Mínimo (Alerta):</span>
                         <span className="font-semibold text-foreground">
-                          {mat.estoque_minimo.toLocaleString('pt-BR')}{' '}
+                          {mat.estoque_minimo.toLocaleString("pt-BR")}{" "}
                           {mat.unidade}
                         </span>
                       </div>
@@ -416,11 +420,11 @@ export default function Estoque() {
                         <span
                           className={
                             saldo - mat.estoque_minimo < 0
-                              ? 'text-destructive font-bold'
-                              : 'text-emerald-500 font-medium'
+                              ? "text-destructive font-bold"
+                              : "text-emerald-500 font-medium"
                           }
                         >
-                          {(saldo - mat.estoque_minimo).toLocaleString('pt-BR')}{' '}
+                          {(saldo - mat.estoque_minimo).toLocaleString("pt-BR")}{" "}
                           {mat.unidade}
                         </span>
                       </div>
@@ -443,7 +447,7 @@ export default function Estoque() {
                         </Button>
                       ) : (
                         <span className="text-[11px] text-muted-foreground">
-                          Mínimo: {mat.estoque_minimo.toLocaleString('pt-BR')}{' '}
+                          Mínimo: {mat.estoque_minimo.toLocaleString("pt-BR")}{" "}
                           {mat.unidade}
                         </span>
                       )}
@@ -517,8 +521,8 @@ export default function Estoque() {
                   {materialEditando.nome}
                 </span>
                 <p className="text-xs text-muted-foreground">
-                  Unidade: {materialEditando.unidade} | Saldo Atual:{' '}
-                  {materialEditando.saldo?.toLocaleString('pt-BR')}
+                  Unidade: {materialEditando.unidade} | Saldo Atual:{" "}
+                  {materialEditando.saldo?.toLocaleString("pt-BR")}
                 </p>
               </div>
 
@@ -550,7 +554,7 @@ export default function Estoque() {
                   disabled={salvandoMinimo}
                   className="bg-primary text-primary-foreground"
                 >
-                  {salvandoMinimo ? 'Salvando...' : 'Salvar Alteração'}
+                  {salvandoMinimo ? "Salvando..." : "Salvar Alteração"}
                 </Button>
               </DialogFooter>
             </form>
@@ -609,7 +613,7 @@ export default function Estoque() {
               <tbody className="divide-y divide-border/20">
                 {movimentacoes.map((mov) => {
                   const isEntrada =
-                    mov.tipo === 'ENTRADA' || mov.tipo === 'ABERTURA'
+                    mov.tipo === "ENTRADA" || mov.tipo === "ABERTURA"
                   const mat =
                     materiais.find((m) => m.id === mov.material_id) ||
                     mov.material
@@ -620,7 +624,7 @@ export default function Estoque() {
                       className="hover:bg-muted/20 transition-colors"
                     >
                       <td className="py-2.5 px-3 text-muted-foreground font-mono">
-                        {mov.data.split('-').reverse().join('/')}
+                        {mov.data.split("-").reverse().join("/")}
                       </td>
                       <td className="py-2.5 px-3">
                         {isEntrada ? (
@@ -642,27 +646,27 @@ export default function Estoque() {
                         )}
                       </td>
                       <td className="py-2.5 px-3 font-medium text-foreground">
-                        {mat?.nome || '—'}
+                        {mat?.nome || "—"}
                       </td>
                       <td className="py-2.5 px-3 font-mono font-bold">
                         <span
                           className={
-                            isEntrada ? 'text-emerald-500' : 'text-rose-500'
+                            isEntrada ? "text-emerald-500" : "text-rose-500"
                           }
                         >
-                          {isEntrada ? '+' : '-'}{' '}
-                          {Number(mov.quantidade).toLocaleString('pt-BR')}{' '}
-                          {mat?.unidade || ''}
+                          {isEntrada ? "+" : "-"}{" "}
+                          {Number(mov.quantidade).toLocaleString("pt-BR")}{" "}
+                          {mat?.unidade || ""}
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-muted-foreground font-mono text-[11px]">
-                        {mov.documento || '—'}
+                        {mov.documento || "—"}
                       </td>
                       <td
                         className="py-2.5 px-3 text-muted-foreground max-w-[250px] truncate"
-                        title={mov.observacao || ''}
+                        title={mov.observacao || ""}
                       >
-                        {mov.observacao || '—'}
+                        {mov.observacao || "—"}
                       </td>
                     </tr>
                   )

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '@/hooks/use-auth'
-import { ConcreteiraService } from '@/services/concreteira'
+import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
+import { useAuth } from "@/hooks/use-auth"
+import { ConcreteiraService } from "@/services/concreteira"
 import {
   Card,
   CardHeader,
@@ -9,11 +9,11 @@ import {
   CardDescription,
   CardContent,
   CardFooter,
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   ShieldCheck,
   Lock,
@@ -23,18 +23,18 @@ import {
   Sparkles,
   Building2,
   Download,
-} from 'lucide-react'
-import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from '@/assets/logos'
-import { usePwaInstall } from '@/hooks/use-pwa-install'
+} from "lucide-react"
+import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from "@/assets/logos"
+import { usePwaInstall } from "@/hooks/use-pwa-install"
 
 export default function Login() {
   const navigate = useNavigate()
   const { user, signIn, signUp, loading: authLoading } = useAuth()
   const { isInstallable, installApp } = usePwaInstall()
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [nome, setNome] = useState('')
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [nome, setNome] = useState("")
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
@@ -46,7 +46,7 @@ export default function Login() {
   useEffect(() => {
     // Se já estiver logado, redirecionar
     if (!authLoading && user) {
-      navigate('/', { replace: true })
+      navigate("/", { replace: true })
     }
   }, [user, authLoading, navigate])
 
@@ -66,7 +66,7 @@ export default function Login() {
     setSucesso(null)
 
     if (!email.trim() || !password) {
-      setErro('Por favor, informe e-mail e senha.')
+      setErro("Por favor, informe e-mail e senha.")
       return
     }
 
@@ -76,7 +76,7 @@ export default function Login() {
       if (modoPrimeiroAcesso) {
         // Criar primeiro administrador
         if (!nome.trim()) {
-          setErro('Informe o nome do primeiro administrador.')
+          setErro("Informe o nome do primeiro administrador.")
           setLoading(false)
           return
         }
@@ -86,7 +86,7 @@ export default function Login() {
         })
         if (signUpError) {
           setErro(
-            signUpError.message || 'Erro ao criar primeiro administrador.',
+            signUpError.message || "Erro ao criar primeiro administrador.",
           )
           setLoading(false)
           return
@@ -96,7 +96,7 @@ export default function Login() {
         const { error: signInError } = await signIn(email, password)
         if (signInError) {
           setSucesso(
-            'Administrador criado! Verifique a confirmação ou faça login com sua senha.',
+            "Administrador criado! Verifique a confirmação ou faça login com sua senha.",
           )
           setLoading(false)
           return
@@ -107,29 +107,29 @@ export default function Login() {
           await ConcreteiraService.salvarUsuarioApp({
             nome: nome.trim(),
             email: email.trim().toLowerCase(),
-            perfil: 'administrador',
+            perfil: "administrador",
             empresa_id: null,
             ativo: true,
           })
         } catch (dbErr) {
-          console.warn('Registro de perfil no banco:', dbErr)
+          console.warn("Registro de perfil no banco:", dbErr)
         }
 
-        navigate('/', { replace: true })
+        navigate("/", { replace: true })
         return
       }
 
       // Login normal
       const { data, error } = await signIn(email, password)
       if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          setErro('E-mail ou senha incorretos. Verifique suas credenciais.')
-        } else if (error.message.includes('Email not confirmed')) {
+        if (error.message.includes("Invalid login credentials")) {
+          setErro("E-mail ou senha incorretos. Verifique suas credenciais.")
+        } else if (error.message.includes("Email not confirmed")) {
           setErro(
-            'E-mail ainda não confirmado. Verifique sua caixa de entrada.',
+            "E-mail ainda não confirmado. Verifique sua caixa de entrada.",
           )
         } else {
-          setErro(error.message || 'Falha ao autenticar. Verifique seus dados.')
+          setErro(error.message || "Falha ao autenticar. Verifique seus dados.")
         }
         setLoading(false)
         return
@@ -144,32 +144,32 @@ export default function Login() {
 
         if (appUser && appUser.ativo === false) {
           setErro(
-            'Seu usuário está desativado pelo administrador. Contate a diretoria.',
+            "Seu usuário está desativado pelo administrador. Contate a diretoria.",
           )
           setLoading(false)
           return
         }
 
         // Se for balanceiro, já direciona para expedição
-        if (appUser?.perfil === 'balanceiro') {
-          navigate('/lancamentos', { replace: true })
+        if (appUser?.perfil === "balanceiro") {
+          navigate("/lancamentos", { replace: true })
         } else {
-          navigate('/', { replace: true })
+          navigate("/", { replace: true })
         }
       } else {
-        navigate('/', { replace: true })
+        navigate("/", { replace: true })
       }
     } catch (err: any) {
-      console.error('Erro no login:', err)
-      setErro('Ocorreu um erro inesperado ao conectar. Tente novamente.')
+      console.error("Erro no login:", err)
+      setErro("Ocorreu um erro inesperado ao conectar. Tente novamente.")
     } finally {
       setLoading(false)
     }
   }
 
   const preencherPadrao = () => {
-    setEmail('gcmixsje@gmail.com')
-    setPassword('Skip@Pass123')
+    setEmail("gcmixsje@gmail.com")
+    setPassword("Skip@Pass123")
   }
 
   return (
@@ -202,8 +202,8 @@ export default function Login() {
 
           <CardDescription className="text-xs sm:text-sm">
             {modoPrimeiroAcesso
-              ? 'Configuração inicial: crie o primeiro Administrador Geral'
-              : 'Gestão integrada de usinas, produção, expedição e insumos'}
+              ? "Configuração inicial: crie o primeiro Administrador Geral"
+              : "Gestão integrada de usinas, produção, expedição e insumos"}
           </CardDescription>
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-semibold text-primary mx-auto">
@@ -308,13 +308,13 @@ export default function Login() {
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   {modoPrimeiroAcesso
-                    ? 'Criando Administrador...'
-                    : 'Entrando...'}
+                    ? "Criando Administrador..."
+                    : "Entrando..."}
                 </>
               ) : modoPrimeiroAcesso ? (
-                'Criar e Acessar como Administrador'
+                "Criar e Acessar como Administrador"
               ) : (
-                'Entrar no Sistema'
+                "Entrar no Sistema"
               )}
             </Button>
 

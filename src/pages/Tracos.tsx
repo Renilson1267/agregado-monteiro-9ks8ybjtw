@@ -1,16 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
@@ -18,11 +18,11 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog'
-import { ConcreteiraService } from '@/services/concreteira'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { useUsuario } from '@/hooks/use-usuario'
-import type { Traco, PrecoMaterial, Carga, Material } from '@/types/concreteira'
+} from "@/components/ui/dialog"
+import { ConcreteiraService } from "@/services/concreteira"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { useUsuario } from "@/hooks/use-usuario"
+import type { Traco, PrecoMaterial, Carga, Material } from "@/types/concreteira"
 import {
   FlaskConical,
   PlusCircle,
@@ -32,8 +32,8 @@ import {
   TrendingUp,
   Trash2,
   AlertCircle,
-} from 'lucide-react'
-import { toast } from '@/hooks/use-toast'
+} from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,7 +43,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+} from "@/components/ui/alert-dialog"
 
 export default function Tracos() {
   const { empresaAtiva } = useEmpresa()
@@ -64,9 +64,9 @@ export default function Tracos() {
   const [excluindo, setExcluindo] = useState(false)
 
   // Campos do traço
-  const [nome, setNome] = useState('')
-  const [descricao, setDescricao] = useState('')
-  const [fckMpa, setFckMpa] = useState<number | ''>(25)
+  const [nome, setNome] = useState("")
+  const [descricao, setDescricao] = useState("")
+  const [fckMpa, setFckMpa] = useState<number | "">(25)
   const [brita12, setBrita12] = useState<number>(480)
   const [brita19, setBrita19] = useState<number>(480)
   const [areia, setAreia] = useState<number>(850)
@@ -90,9 +90,9 @@ export default function Tracos() {
       setMateriais(mats)
     } catch (err: any) {
       toast({
-        title: 'Erro ao carregar traços',
+        title: "Erro ao carregar traços",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setLoading(false)
@@ -108,8 +108,8 @@ export default function Tracos() {
 
   const abrirNovo = () => {
     setTracoEditandoId(null)
-    setNome('')
-    setDescricao('')
+    setNome("")
+    setDescricao("")
     setFckMpa(25)
     setBrita12(480)
     setBrita19(480)
@@ -129,16 +129,16 @@ export default function Tracos() {
         empresaAtiva?.id,
       )
       toast({
-        title: 'Traço excluído',
+        title: "Traço excluído",
         description: `O traço "${tracoParaExcluir.nome}" foi removido com sucesso.`,
       })
       setTracoParaExcluir(null)
       carregarTracos()
     } catch (err: any) {
       toast({
-        title: 'Não foi possível excluir o traço',
+        title: "Não foi possível excluir o traço",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setExcluindo(false)
@@ -148,8 +148,8 @@ export default function Tracos() {
   const abrirEdicao = (traco: Traco) => {
     setTracoEditandoId(traco.id)
     setNome(traco.nome)
-    setDescricao(traco.descricao || '')
-    setFckMpa(traco.fck_mpa || '')
+    setDescricao(traco.descricao || "")
+    setFckMpa(traco.fck_mpa || "")
     setBrita12(Number(traco.consumo_brita12))
     setBrita19(Number(traco.consumo_brita19))
     setAreia(Number(traco.consumo_areia))
@@ -163,9 +163,9 @@ export default function Tracos() {
     e.preventDefault()
     if (!nome) {
       toast({
-        title: 'Atenção',
-        description: 'O nome do traço é obrigatório',
-        variant: 'destructive',
+        title: "Atenção",
+        description: "O nome do traço é obrigatório",
+        variant: "destructive",
       })
       return
     }
@@ -191,18 +191,18 @@ export default function Tracos() {
       )
 
       toast({
-        title: 'Traço salvo com sucesso!',
+        title: "Traço salvo com sucesso!",
         description: tracoEditandoId
-          ? 'Dosagem atualizada.'
-          : 'Novo traço cadastrado para uso nas cargas.',
+          ? "Dosagem atualizada."
+          : "Novo traço cadastrado para uso nas cargas.",
       })
       setOpenDialog(false)
       carregarTracos()
     } catch (err: any) {
       toast({
-        title: 'Erro ao salvar traço',
+        title: "Erro ao salvar traço",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -224,8 +224,8 @@ export default function Tracos() {
             )}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Defina o consumo padrão por metro cúbico (m³) da unidade{' '}
-            {empresaAtiva?.nome || ''}
+            Defina o consumo padrão por metro cúbico (m³) da unidade{" "}
+            {empresaAtiva?.nome || ""}
           </p>
         </div>
 
@@ -337,7 +337,7 @@ export default function Tracos() {
                       <span className="font-mono font-medium text-foreground">
                         {custoMedioRealM3 > 0
                           ? `R$ ${custoMedioRealM3.toFixed(2)}/m³`
-                          : 'Sem histórico'}
+                          : "Sem histórico"}
                       </span>
                     </div>
                   </div>
@@ -353,78 +353,78 @@ export default function Tracos() {
                     <span
                       className="text-muted-foreground block text-[10px] truncate"
                       title={
-                        materiais.find((m) => m.codigo === 'cimento')?.nome ||
-                        'CP II F-40 / CP V ARI'
+                        materiais.find((m) => m.codigo === "cimento")?.nome ||
+                        "CP II F-40 / CP V ARI"
                       }
                     >
-                      {materiais.find((m) => m.codigo === 'cimento')?.nome ||
-                        'CP II F-40 / CP V ARI'}{' '}
+                      {materiais.find((m) => m.codigo === "cimento")?.nome ||
+                        "CP II F-40 / CP V ARI"}{" "}
                       {!isBalanceiro &&
                         `(R$ ${(calculoTeorico.detalhes.cimento || 0).toFixed(2)})`}
                     </span>
                     <span className="font-mono font-bold text-foreground text-sm">
                       {t.consumo_cimento}
-                    </span>{' '}
+                    </span>{" "}
                     kg/m³
                   </div>
 
                   <div className="p-2 rounded bg-background/60 border border-border/30">
                     <span className="text-muted-foreground block text-[10px]">
-                      Aditivo{' '}
+                      Aditivo{" "}
                       {!isBalanceiro &&
                         `(R$ ${(calculoTeorico.detalhes.aditivo || 0).toFixed(2)})`}
                     </span>
                     <span className="font-mono font-bold text-foreground text-sm">
                       {t.consumo_aditivo}
-                    </span>{' '}
+                    </span>{" "}
                     L/m³
                   </div>
 
                   <div className="p-2 rounded bg-background/60 border border-border/30">
                     <span className="text-muted-foreground block text-[10px]">
-                      Areia{' '}
+                      Areia{" "}
                       {!isBalanceiro &&
                         `(R$ ${(calculoTeorico.detalhes.areia || 0).toFixed(2)})`}
                     </span>
                     <span className="font-mono font-bold text-foreground text-sm">
                       {t.consumo_areia}
-                    </span>{' '}
+                    </span>{" "}
                     kg/m³
                   </div>
 
                   <div className="p-2 rounded bg-background/60 border border-border/30">
                     <span className="text-muted-foreground block text-[10px]">
-                      Brita 12{' '}
+                      Brita 12{" "}
                       {!isBalanceiro &&
                         `(R$ ${(calculoTeorico.detalhes.brita12 || 0).toFixed(2)})`}
                     </span>
                     <span className="font-mono font-bold text-foreground text-sm">
                       {t.consumo_brita12}
-                    </span>{' '}
+                    </span>{" "}
                     kg/m³
                   </div>
 
                   <div className="p-2 rounded bg-background/60 border border-border/30">
                     <span className="text-muted-foreground block text-[10px]">
-                      Brita 19{' '}
+                      Brita 19{" "}
                       {!isBalanceiro &&
                         `(R$ ${(calculoTeorico.detalhes.brita19 || 0).toFixed(2)})`}
                     </span>
                     <span className="font-mono font-bold text-foreground text-sm">
                       {t.consumo_brita19}
-                    </span>{' '}
+                    </span>{" "}
                     kg/m³
                   </div>
 
                   <div className="p-2 rounded bg-background/60 border border-border/30">
                     <span className="text-muted-foreground block text-[10px]">
-                      Pó de Pedra{' '}
+                      Pó de Pedra{" "}
                       {!isBalanceiro &&
                         `(R$ ${(calculoTeorico.detalhes.po_pedra || 0).toFixed(2)})`}
                     </span>
                     <span className="font-mono font-bold text-foreground text-sm">
                       {t.consumo_po_pedra}
-                    </span>{' '}
+                    </span>{" "}
                     kg/m³
                   </div>
                 </div>
@@ -448,7 +448,7 @@ export default function Tracos() {
               Confirmar Exclusão de Traço
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm pt-2 leading-relaxed">
-              Deseja realmente excluir a receita do traço{' '}
+              Deseja realmente excluir a receita do traço{" "}
               <strong className="text-foreground">
                 "{tracoParaExcluir?.nome}"
               </strong>
@@ -471,7 +471,7 @@ export default function Tracos() {
               disabled={excluindo}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {excluindo ? 'Excluindo...' : 'Sim, Excluir'}
+              {excluindo ? "Excluindo..." : "Sim, Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -483,8 +483,8 @@ export default function Tracos() {
           <DialogHeader>
             <DialogTitle>
               {tracoEditandoId
-                ? 'Editar Dosagem do Traço'
-                : 'Cadastrar Novo Traço de Concreto'}
+                ? "Editar Dosagem do Traço"
+                : "Cadastrar Novo Traço de Concreto"}
             </DialogTitle>
             <DialogDescription>
               Informe os parâmetros de consumo por metro cúbico. Ao despachar
@@ -515,7 +515,7 @@ export default function Tracos() {
                   value={fckMpa}
                   onChange={(e) =>
                     setFckMpa(
-                      e.target.value === '' ? '' : Number(e.target.value),
+                      e.target.value === "" ? "" : Number(e.target.value),
                     )
                   }
                 />
@@ -544,12 +544,12 @@ export default function Tracos() {
                     htmlFor="cimen"
                     className="text-xs truncate block"
                     title={
-                      materiais.find((m) => m.codigo === 'cimento')?.nome ||
-                      'CP II F-40 / CP V ARI'
+                      materiais.find((m) => m.codigo === "cimento")?.nome ||
+                      "CP II F-40 / CP V ARI"
                     }
                   >
-                    {materiais.find((m) => m.codigo === 'cimento')?.nome ||
-                      'CP II F-40 / CP V ARI'}{' '}
+                    {materiais.find((m) => m.codigo === "cimento")?.nome ||
+                      "CP II F-40 / CP V ARI"}{" "}
                     (kg/m³)
                   </Label>
                   <Input
@@ -642,7 +642,7 @@ export default function Tracos() {
                 disabled={salvando}
                 className="bg-primary text-primary-foreground"
               >
-                {salvando ? 'Salvando...' : 'Salvar Traço'}
+                {salvando ? "Salvando..." : "Salvar Traço"}
               </Button>
             </DialogFooter>
           </form>

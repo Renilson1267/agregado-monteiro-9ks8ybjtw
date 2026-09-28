@@ -1,16 +1,17 @@
-import { splitCsvLine } from '@/lib/csv-cargas-parser'
+import { splitCsvLine } from "@/lib/csv-cargas-parser"
 import {
   FolhaPagamentoLinha,
   TipoColaboradorFolha,
   FolhaTotaisCalculados,
   calcularMensalLiquido,
-} from '@/types/folha'
+} from "@/types/folha"
 
-export interface LinhaFolhaParsed extends Omit<FolhaPagamentoLinha, 'id' | 'empresa_id'> {
+export interface LinhaFolhaParsed
+  extends Omit<FolhaPagamentoLinha, "id" | "empresa_id"> { // se o MensalLiquido do CSV for diferente da fórmula
   linhaIndex: number
   erros: string[]
   avisos: string[]
-  diferencaCalculo?: number // se o MensalLiquido do CSV for diferente da fórmula
+  diferencaCalculo?: number
 }
 
 export interface PreviewImportacaoFolhaCSV {
@@ -30,10 +31,10 @@ export interface PreviewImportacaoFolhaCSV {
 }
 
 function normalizarTexto(txt: string): string {
-  return (txt || '')
+  return (txt || "")
     .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .trim()
 }
 
@@ -43,29 +44,29 @@ function normalizarTexto(txt: string): string {
  */
 export function parseMoedaBr(val: any): number {
   if (val === null || val === undefined) return 0
-  if (typeof val === 'number') return isNaN(val) ? 0 : val
+  if (typeof val === "number") return isNaN(val) ? 0 : val
 
   let str = String(val).trim()
-  if (!str || str === '-' || str === '—' || str === 'null') return 0
+  if (!str || str === "-" || str === "—" || str === "null") return 0
 
   let negativo = false
-  if (str.startsWith('(') && str.endsWith(')')) {
+  if (str.startsWith("(") && str.endsWith(")")) {
     negativo = true
     str = str.slice(1, -1).trim()
-  } else if (str.startsWith('-')) {
+  } else if (str.startsWith("-")) {
     negativo = true
     str = str.slice(1).trim()
   }
 
   // Remove "R$" e espaços
-  str = str.replace(/[R$\s]/gi, '')
+  str = str.replace(/[R$\s]/gi, "")
 
   // Se tem ponto e vírgula (ex: "1.253,42")
-  if (str.includes('.') && str.includes(',')) {
-    str = str.replace(/\./g, '').replace(',', '.')
-  } else if (str.includes(',')) {
+  if (str.includes(".") && str.includes(",")) {
+    str = str.replace(/\./g, "").replace(",", ".")
+  } else if (str.includes(",")) {
     // Ex: "1253,42"
-    str = str.replace(',', '.')
+    str = str.replace(",", ".")
   }
   // Se só tem ponto (ex: "192.58" ou "2410"), o parseFloat nativo já interpreta como decimal correto
 
@@ -91,7 +92,7 @@ export function extrairCompetenciaDoNomeArquivo(nomeArquivo?: string): string {
 
   const hoje = new Date()
   const ano = hoje.getFullYear()
-  const mes = String(hoje.getMonth() + 1).padStart(2, '0')
+  const mes = String(hoje.getMonth() + 1).padStart(2, "0")
   return `${ano}-${mes}`
 }
 
@@ -120,87 +121,93 @@ interface MapaColunasFolhaReal {
   pix?: number
 }
 
-function identificarColunasFolhaReal(cabecalho: string[]): MapaColunasFolhaReal {
+function identificarColunasFolhaReal(
+  cabecalho: string[],
+): MapaColunasFolhaReal {
   const mapa: MapaColunasFolhaReal = {}
 
   cabecalho.forEach((colCrua, idx) => {
-    const col = normalizarTexto(colCrua).replace(/[\s_-]/g, '')
+    const col = normalizarTexto(colCrua).replace(/[\s_-]/g, "")
 
-    if (col === 'tipo' || col === 'tipocolaborador') {
+    if (col === "tipo" || col === "tipocolaborador") {
       if (mapa.tipo === undefined) mapa.tipo = idx
     } else if (
-      col === 'nome' ||
-      col === 'colaborador' ||
-      col === 'funcionario' ||
-      col === 'empregado'
+      col === "nome" ||
+      col === "colaborador" ||
+      col === "funcionario" ||
+      col === "empregado"
     ) {
       if (mapa.nome === undefined) mapa.nome = idx
-    } else if (col === 'funcao' || col === 'cargo' || col === 'ocupacao') {
+    } else if (col === "funcao" || col === "cargo" || col === "ocupacao") {
       if (mapa.funcao === undefined) mapa.funcao = idx
-    } else if (col === 'unidade' || col === 'empresa' || col === 'filial') {
+    } else if (col === "unidade" || col === "empresa" || col === "filial") {
       if (mapa.unidade === undefined) mapa.unidade = idx
     } else if (
-      col === 'bruto' ||
-      col === 'salariobruto' ||
-      col === 'salariobase' ||
-      col === 'salario'
+      col === "bruto" ||
+      col === "salariobruto" ||
+      col === "salariobase" ||
+      col === "salario"
     ) {
       if (mapa.bruto === undefined) mapa.bruto = idx
-    } else if (col === 'filhos' || col === 'dependentes' || col === 'qtdfilhos') {
+    } else if (
+      col === "filhos" ||
+      col === "dependentes" ||
+      col === "qtdfilhos"
+    ) {
       if (mapa.filhos === undefined) mapa.filhos = idx
-    } else if (col === 'inss' || col === 'inssretido') {
+    } else if (col === "inss" || col === "inssretido") {
       if (mapa.inss === undefined) mapa.inss = idx
     } else if (
-      col === 'familia' ||
-      col === 'salariofamilia' ||
-      col === 'salfamilia'
+      col === "familia" ||
+      col === "salariofamilia" ||
+      col === "salfamilia"
     ) {
       if (mapa.familia === undefined) mapa.familia = idx
     } else if (
-      col === 'ir' ||
-      col === 'irrf' ||
-      col === 'impostoderenda' ||
-      col === 'irretido'
+      col === "ir" ||
+      col === "irrf" ||
+      col === "impostoderenda" ||
+      col === "irretido"
     ) {
       if (mapa.ir === undefined) mapa.ir = idx
     } else if (
-      col === 'quinzena' ||
-      col === '1quinzena' ||
-      col === 'primeiraquinzena'
+      col === "quinzena" ||
+      col === "1quinzena" ||
+      col === "primeiraquinzena"
     ) {
       if (mapa.quinzena === undefined) mapa.quinzena = idx
     } else if (
-      col === 'adiantamento' ||
-      col === 'vale' ||
-      col === 'adiantamentos'
+      col === "adiantamento" ||
+      col === "vale" ||
+      col === "adiantamentos"
     ) {
       if (mapa.adiantamento === undefined) mapa.adiantamento = idx
     } else if (
-      col === 'gratificacao' ||
-      col === 'gratificacoes' ||
-      col === 'premio' ||
-      col === 'premiacao'
+      col === "gratificacao" ||
+      col === "gratificacoes" ||
+      col === "premio" ||
+      col === "premiacao"
     ) {
       if (mapa.gratificacao === undefined) mapa.gratificacao = idx
     } else if (
-      col === 'mensalliquido' ||
-      col === 'liquido' ||
-      col === 'liquidomensal' ||
-      col === 'salarioliquido'
+      col === "mensalliquido" ||
+      col === "liquido" ||
+      col === "liquidomensal" ||
+      col === "salarioliquido"
     ) {
       if (mapa.mensalliquido === undefined) mapa.mensalliquido = idx
-    } else if (col === 'producao' || col === 'prod') {
+    } else if (col === "producao" || col === "prod") {
       if (mapa.producao === undefined) mapa.producao = idx
-    } else if (col === 'comissao' || col === 'comissoes') {
+    } else if (col === "comissao" || col === "comissoes") {
       if (mapa.comissao === undefined) mapa.comissao = idx
     } else if (
-      col === 'conta' ||
-      col === 'contabancaria' ||
-      col === 'agenciaconta' ||
-      col === 'banco'
+      col === "conta" ||
+      col === "contabancaria" ||
+      col === "agenciaconta" ||
+      col === "banco"
     ) {
       if (mapa.conta === undefined) mapa.conta = idx
-    } else if (col === 'pix' || col === 'chavepix') {
+    } else if (col === "pix" || col === "chavepix") {
       if (mapa.pix === undefined) mapa.pix = idx
     }
   })
@@ -281,15 +288,15 @@ export function parseFolhaPagamentoCSV(
   }
 
   if (!conteudoCsv || !conteudoCsv.trim()) {
-    emptyResult.erros.push('Arquivo CSV vazio ou sem conteúdo legível.')
+    emptyResult.erros.push("Arquivo CSV vazio ou sem conteúdo legível.")
     return emptyResult
   }
 
-  const textoTratado = conteudoCsv.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  const linhasCruas = textoTratado.split('\n')
+  const textoTratado = conteudoCsv.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+  const linhasCruas = textoTratado.split("\n")
 
   let indiceLinhaCabecalho = -1
-  let delimitador = ';'
+  let delimitador = ";"
 
   // Detecta linha do cabeçalho e delimitador (; ou ,)
   for (let i = 0; i < Math.min(linhasCruas.length, 10); i++) {
@@ -299,19 +306,21 @@ export function parseFolhaPagamentoCSV(
     const pontoVirgulas = (l.match(/;/g) || []).length
     const virgulas = (l.match(/,/g) || []).length
 
-    const delim = pontoVirgulas >= virgulas ? ';' : ','
-    const cols = (delim === ';' ? l.split(';') : splitCsvLine(l)).map(
+    const delim = pontoVirgulas >= virgulas ? ";" : ","
+    const cols = (delim === ";" ? l.split(";") : splitCsvLine(l)).map(
       normalizarTexto,
     )
 
-    const temNome = cols.some((c) => c.includes('nome'))
-    const temFuncao = cols.some((c) => c.includes('func') || c.includes('cargo'))
+    const temNome = cols.some((c) => c.includes("nome"))
+    const temFuncao = cols.some(
+      (c) => c.includes("func") || c.includes("cargo"),
+    )
     const temFinanceiro = cols.some(
       (c) =>
-        c.includes('bruto') ||
-        c.includes('inss') ||
-        c.includes('liquido') ||
-        c.includes('quinzena'),
+        c.includes("bruto") ||
+        c.includes("inss") ||
+        c.includes("liquido") ||
+        c.includes("quinzena"),
     )
 
     if (temNome && (temFuncao || temFinanceiro)) {
@@ -326,16 +335,16 @@ export function parseFolhaPagamentoCSV(
   }
 
   const cabecalhoBruto = (
-    delimitador === ';'
-      ? linhasCruas[indiceLinhaCabecalho].split(';')
+    delimitador === ";"
+      ? linhasCruas[indiceLinhaCabecalho].split(";")
       : splitCsvLine(linhasCruas[indiceLinhaCabecalho])
   ).map((c) => c.trim())
 
   const mapa = identificarColunasFolhaReal(cabecalhoBruto)
 
   const getCol = (cols: string[], idx?: number): string => {
-    if (idx === undefined || idx < 0 || idx >= cols.length) return ''
-    return cols[idx]?.trim() || ''
+    if (idx === undefined || idx < 0 || idx >= cols.length) return ""
+    return cols[idx]?.trim() || ""
   }
 
   const getNumCol = (cols: string[], idx?: number): number => {
@@ -358,18 +367,16 @@ export function parseFolhaPagamentoCSV(
     if (!linhaTexto) continue
 
     const colunas = (
-      delimitador === ';'
-        ? linhaTexto.split(';')
-        : splitCsvLine(linhaTexto)
+      delimitador === ";" ? linhaTexto.split(";") : splitCsvLine(linhaTexto)
     ).map((c) => c.trim())
 
     // Ignora linhas de totalizadores do rodapé da planilha (ex: "TOTAL;;;;;;2583.11...")
-    const primeiraColNorm = normalizarTexto(colunas[0] || '')
-    const segundaColNorm = normalizarTexto(colunas[1] || '')
+    const primeiraColNorm = normalizarTexto(colunas[0] || "")
+    const segundaColNorm = normalizarTexto(colunas[1] || "")
     if (
-      primeiraColNorm.startsWith('total') ||
-      primeiraColNorm.startsWith('subtotal') ||
-      segundaColNorm.startsWith('total')
+      primeiraColNorm.startsWith("total") ||
+      primeiraColNorm.startsWith("subtotal") ||
+      segundaColNorm.startsWith("total")
     ) {
       continue
     }
@@ -380,11 +387,14 @@ export function parseFolhaPagamentoCSV(
 
     const tipoCru = getCol(colunas, mapa.tipo)
     const tipoNorm = normalizarTexto(tipoCru)
-    const tipo: TipoColaboradorFolha =
-      tipoNorm.includes('terceiro') ? 'Terceiro' : 'Funcionario'
+    const tipo: TipoColaboradorFolha = tipoNorm.includes("terceiro")
+      ? "Terceiro"
+      : "Funcionario"
 
-    const funcaoCru = getCol(colunas, mapa.funcao) || (tipo === 'Terceiro' ? 'Terceiro' : 'Geral')
-    const unidadeCru = getCol(colunas, mapa.unidade) || 'SJE'
+    const funcaoCru =
+      getCol(colunas, mapa.funcao) ||
+      (tipo === "Terceiro" ? "Terceiro" : "Geral")
+    const unidadeCru = getCol(colunas, mapa.unidade) || "SJE"
 
     // Colunas financeiras
     const bruto = getNumCol(colunas, mapa.bruto)
@@ -420,30 +430,32 @@ export function parseFolhaPagamentoCSV(
 
     // Se no CSV veio um valor declarado de MensalLiquido diferente de 0, verifica se confere
     let mensalLiquidoFinal = mensalLiquidoCsv
-    let modoCalculo: 'Calculado' | 'Digitado' = 'Calculado'
+    let modoCalculo: "Calculado" | "Digitado" = "Calculado"
     const diferenca = Math.abs(mensalLiquidoCsv - mensalLiquidoCalculado)
 
     if (mensalLiquidoCsv !== 0 && diferenca > 0.05) {
-      modoCalculo = 'Digitado' // Usuário fixou na planilha um valor divergente da fórmula padrão
+      modoCalculo = "Digitado" // Usuário fixou na planilha um valor divergente da fórmula padrão
     } else if (mensalLiquidoCsv === 0 && mensalLiquidoCalculado !== 0) {
       mensalLiquidoFinal = mensalLiquidoCalculado
-      modoCalculo = 'Calculado'
+      modoCalculo = "Calculado"
     }
 
     const linhaErros: string[] = []
     const linhaAvisos: string[] = []
 
-    if (tipo === 'Terceiro') {
+    if (tipo === "Terceiro") {
       totalTerceiros++
       if (bruto > 0 || inss > 0) {
         linhaAvisos.push(
-          'Terceiro com valor de Bruto/INSS informado no arquivo; preservado conforme digitado.',
+          "Terceiro com valor de Bruto/INSS informado no arquivo; preservado conforme digitado.",
         )
       }
     } else {
       totalFuncionarios++
       if (bruto <= 0 && producao <= 0 && comissao <= 0) {
-        linhaAvisos.push('Funcionário sem valor de Bruto, Produção ou Comissão informado.')
+        linhaAvisos.push(
+          "Funcionário sem valor de Bruto, Produção ou Comissão informado.",
+        )
       }
     }
 
@@ -511,7 +523,7 @@ export function parseFolhaPagamentoCSV(
   const totais: FolhaTotaisCalculados = linhasUnicas.reduce(
     (acc, l) => {
       acc.totalRegistros += 1
-      if (l.tipo === 'Terceiro') {
+      if (l.tipo === "Terceiro") {
         acc.totalTerceiros += 1
       } else {
         acc.totalFuncionarios += 1

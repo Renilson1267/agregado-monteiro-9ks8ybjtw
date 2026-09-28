@@ -5,10 +5,10 @@ import {
   useEffect,
   useCallback,
   ReactNode,
-} from 'react'
-import { supabase } from '@/lib/supabase/client'
-import type { Empresa } from '@/types/concreteira'
-import { useUsuario } from '@/hooks/use-usuario'
+} from "react"
+import { supabase } from "@/lib/supabase/client"
+import type { Empresa } from "@/types/concreteira"
+import { useUsuario } from "@/hooks/use-usuario"
 
 interface EmpresaContextType {
   empresas: Empresa[]
@@ -26,7 +26,7 @@ interface EmpresaContextType {
 
 const EmpresaContext = createContext<EmpresaContextType | undefined>(undefined)
 
-const STORAGE_KEY = 'concreteira_empresa_ativa_id'
+const STORAGE_KEY = "concreteira_empresa_ativa_id"
 
 export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
   const { empresaVinculadaId, isBalanceiro } = useUsuario()
@@ -37,9 +37,9 @@ export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
   const carregarEmpresas = useCallback(async () => {
     try {
       const { data, error } = await (supabase as any)
-        .from('empresas')
-        .select('*')
-        .order('nome', { ascending: true })
+        .from("empresas")
+        .select("*")
+        .order("nome", { ascending: true })
 
       if (error) throw error
 
@@ -70,7 +70,7 @@ export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     } catch (err) {
-      console.error('Erro ao carregar empresas:', err)
+      console.error("Erro ao carregar empresas:", err)
     } finally {
       setLoading(false)
     }
@@ -109,16 +109,16 @@ export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
     slug: string
     ativo?: boolean
   }): Promise<Empresa> => {
-    const slugFormatado = dados.slug.toLowerCase().trim().replace(/\s+/g, '-')
+    const slugFormatado = dados.slug.toLowerCase().trim().replace(/\s+/g, "-")
     if (dados.id) {
       const { data, error } = await (supabase as any)
-        .from('empresas')
+        .from("empresas")
         .update({
           nome: dados.nome.trim(),
           slug: slugFormatado,
           ativo: dados.ativo ?? true,
         })
-        .eq('id', dados.id)
+        .eq("id", dados.id)
         .select()
         .single()
       if (error) throw error
@@ -126,7 +126,7 @@ export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
       return data
     } else {
       const { data, error } = await (supabase as any)
-        .from('empresas')
+        .from("empresas")
         .insert({
           nome: dados.nome.trim(),
           slug: slugFormatado,
@@ -159,7 +159,7 @@ export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
 export const useEmpresa = () => {
   const context = useContext(EmpresaContext)
   if (!context) {
-    throw new Error('useEmpresa deve ser usado dentro de um EmpresaProvider')
+    throw new Error("useEmpresa deve ser usado dentro de um EmpresaProvider")
   }
   return context
 }

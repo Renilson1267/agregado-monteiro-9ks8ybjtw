@@ -1,7 +1,7 @@
-import { parseDataBrParaIso, splitCsvLine } from '@/lib/csv-cargas-parser'
-import { limparMascara, formatarCpfCnpj } from '@/lib/documentos'
-import { TipoExame, StatusExame } from '@/types/exames'
-import { calcularStatusExame } from '@/services/exames'
+import { parseDataBrParaIso, splitCsvLine } from "@/lib/csv-cargas-parser"
+import { limparMascara, formatarCpfCnpj } from "@/lib/documentos"
+import { TipoExame, StatusExame } from "@/types/exames"
+import { calcularStatusExame } from "@/services/exames"
 
 export interface LinhaExameImportada {
   linhaIndex: number
@@ -11,15 +11,12 @@ export interface LinhaExameImportada {
   cpfFormatado: string | null
   dataAdmissaoIso: string | null
   dataAdmissaoBr: string | null
-  exames: Record<
-    TipoExame,
-    {
-      dataIso: string | null
-      dataBr: string | null
-      status: StatusExame
-      validadeMeses: number
-    }
-  >
+  exames: Record<TipoExame, {
+    dataIso: string | null
+    dataBr: string | null
+    status: StatusExame
+    validadeMeses: number
+  }>
   statusGeralAso: StatusExame
   erros: string[]
   avisos: string[]
@@ -43,8 +40,8 @@ export interface PreviewImportacaoExamesCSV {
 function normalizarTexto(txt: string): string {
   return txt
     .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .trim()
 }
 
@@ -74,61 +71,61 @@ function identificarColunas(cabecalho: string[]): MapaColunasExames {
     const col = normalizarTexto(colCrua)
 
     if (
-      col === 'nome' ||
-      col.startsWith('funcionario') ||
-      col.startsWith('colaborador') ||
-      col.includes('nome')
+      col === "nome" ||
+      col.startsWith("funcionario") ||
+      col.startsWith("colaborador") ||
+      col.includes("nome")
     ) {
       if (mapa.nome === undefined) mapa.nome = idx
     } else if (
-      col === 'funcao' ||
-      col.includes('cargo') ||
-      col.includes('ocupacao')
+      col === "funcao" ||
+      col.includes("cargo") ||
+      col.includes("ocupacao")
     ) {
       if (mapa.funcao === undefined) mapa.funcao = idx
-    } else if (col === 'cpf' || col.includes('documento')) {
+    } else if (col === "cpf" || col.includes("documento")) {
       if (mapa.cpf === undefined) mapa.cpf = idx
-    } else if (col.includes('admiss') && !col.includes('exame')) {
+    } else if (col.includes("admiss") && !col.includes("exame")) {
       if (mapa.admissao === undefined) mapa.admissao = idx
     } else if (
-      col.includes('admissional') ||
-      (col.includes('exame') && col.includes('admiss'))
+      col.includes("admissional") ||
+      (col.includes("exame") && col.includes("admiss"))
     ) {
       if (mapa.admissional === undefined) mapa.admissional = idx
     } else if (
-      col === 'aso' ||
-      col.includes('aso') ||
-      col.includes('periodico')
+      col === "aso" ||
+      col.includes("aso") ||
+      col.includes("periodico")
     ) {
       if (mapa.aso === undefined) mapa.aso = idx
     } else if (
-      col.includes('acuidade') ||
-      col.includes('visual') ||
-      col.includes('visao')
+      col.includes("acuidade") ||
+      col.includes("visual") ||
+      col.includes("visao")
     ) {
       if (mapa.acuidade_visual === undefined) mapa.acuidade_visual = idx
-    } else if (col.includes('audio') || col.includes('audiometria')) {
+    } else if (col.includes("audio") || col.includes("audiometria")) {
       if (mapa.audiometria === undefined) mapa.audiometria = idx
-    } else if (col.includes('clinica') || col.includes('avaliacao')) {
+    } else if (col.includes("clinica") || col.includes("avaliacao")) {
       if (mapa.avaliacao_clinica === undefined) mapa.avaliacao_clinica = idx
-    } else if (col.includes('toxico') || col.includes('tox')) {
+    } else if (col.includes("toxico") || col.includes("tox")) {
       if (mapa.toxicologico === undefined) mapa.toxicologico = idx
     } else if (
-      col.includes('rx') ||
-      col.includes('raio') ||
-      col.includes('torax')
+      col.includes("rx") ||
+      col.includes("raio") ||
+      col.includes("torax")
     ) {
       if (mapa.rx === undefined) mapa.rx = idx
     } else if (
-      col.includes('ecg') ||
-      col.includes('eletro') ||
-      col.includes('cardio')
+      col.includes("ecg") ||
+      col.includes("eletro") ||
+      col.includes("cardio")
     ) {
       if (mapa.ecg === undefined) mapa.ecg = idx
     } else if (
-      col.includes('demiss') ||
-      col.includes('rescis') ||
-      col.includes('demissional')
+      col.includes("demiss") ||
+      col.includes("rescis") ||
+      col.includes("demissional")
     ) {
       if (mapa.demissional === undefined) mapa.demissional = idx
     }
@@ -161,17 +158,17 @@ export function parseControleExamesCSV(
       totalNovos: 0,
       linhas: [],
       avisos: [],
-      erros: ['Arquivo CSV vazio ou sem conteúdo legível.'],
+      erros: ["Arquivo CSV vazio ou sem conteúdo legível."],
       funcoesDetectadas: [],
     }
   }
 
   // Normaliza quebras de linha e separadores (se vier separado por ;)
-  let textoTratado = conteudoCsv.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  const linhasCruas = textoTratado.split('\n')
+  let textoTratado = conteudoCsv.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+  const linhasCruas = textoTratado.split("\n")
 
   let indiceLinhaCabecalho = -1
-  let delimitador = ','
+  let delimitador = ","
 
   // Procura a linha de cabeçalho
   for (let i = 0; i < Math.min(linhasCruas.length, 10); i++) {
@@ -183,24 +180,24 @@ export function parseControleExamesCSV(
     const pontoVirgulas = (l.match(/;/g) || []).length
     const tabs = (l.match(/\t/g) || []).length
 
-    let delimTeste = ','
-    if (pontoVirgulas > virgulas && pontoVirgulas > tabs) delimTeste = ';'
-    else if (tabs > virgulas && tabs > pontoVirgulas) delimTeste = '\t'
+    let delimTeste = ","
+    if (pontoVirgulas > virgulas && pontoVirgulas > tabs) delimTeste = ";"
+    else if (tabs > virgulas && tabs > pontoVirgulas) delimTeste = "\t"
 
     const colunas = (
-      delimTeste === ';'
-        ? l.split(';')
-        : delimTeste === '\t'
-          ? l.split('\t')
+      delimTeste === ";"
+        ? l.split(";")
+        : delimTeste === "\t"
+          ? l.split("\t")
           : splitCsvLine(l)
     ).map(normalizarTexto)
 
     const temNome = colunas.some(
-      (c) => c === 'nome' || c.startsWith('func') || c.includes('nome'),
+      (c) => c === "nome" || c.startsWith("func") || c.includes("nome"),
     )
-    const temFuncao = colunas.some((c) => c === 'funcao' || c.includes('cargo'))
+    const temFuncao = colunas.some((c) => c === "funcao" || c.includes("cargo"))
     const temAsoOuExame = colunas.some(
-      (c) => c.includes('aso') || c.includes('exame') || c.includes('admiss'),
+      (c) => c.includes("aso") || c.includes("exame") || c.includes("admiss"),
     )
 
     if (temNome || (temFuncao && temAsoOuExame)) {
@@ -216,10 +213,10 @@ export function parseControleExamesCSV(
   }
 
   const cabecalhoBruto = (
-    delimitador === ';'
-      ? linhasCruas[indiceLinhaCabecalho].split(';')
-      : delimitador === '\t'
-        ? linhasCruas[indiceLinhaCabecalho].split('\t')
+    delimitador === ";"
+      ? linhasCruas[indiceLinhaCabecalho].split(";")
+      : delimitador === "\t"
+        ? linhasCruas[indiceLinhaCabecalho].split("\t")
         : splitCsvLine(linhasCruas[indiceLinhaCabecalho])
   ).map((c) => c.trim())
 
@@ -236,14 +233,14 @@ export function parseControleExamesCSV(
     mapaColunas.admissao = 3
 
   const getCol = (cols: string[], idx?: number): string => {
-    if (idx === undefined || idx < 0 || idx >= cols.length) return ''
-    return cols[idx]?.trim() || ''
+    if (idx === undefined || idx < 0 || idx >= cols.length) return ""
+    return cols[idx]?.trim() || ""
   }
 
-  const parseDataExame = (
-    cols: string[],
-    idx?: number,
-  ): { dataIso: string | null; dataBr: string | null } => {
+  const parseDataExame = (cols: string[], idx?: number): {
+    dataIso: string | null
+    dataBr: string | null
+  } => {
     const raw = getCol(cols, idx)
     if (!raw) return { dataIso: null, dataBr: null }
     const iso = parseDataBrParaIso(raw)
@@ -264,10 +261,10 @@ export function parseControleExamesCSV(
     if (!linhaTexto) continue
 
     const colunas = (
-      delimitador === ';'
-        ? linhaTexto.split(';')
-        : delimitador === '\t'
-          ? linhaTexto.split('\t')
+      delimitador === ";"
+        ? linhaTexto.split(";")
+        : delimitador === "\t"
+          ? linhaTexto.split("\t")
           : splitCsvLine(linhaTexto)
     ).map((c) => c.trim())
 
@@ -279,7 +276,7 @@ export function parseControleExamesCSV(
       continue
     }
 
-    const funcaoCru = getCol(colunas, mapaColunas.funcao) || 'Geral'
+    const funcaoCru = getCol(colunas, mapaColunas.funcao) || "Geral"
     const cpfCru = getCol(colunas, mapaColunas.cpf)
     const admissaoCru = getCol(colunas, mapaColunas.admissao)
 
@@ -335,25 +332,22 @@ export function parseControleExamesCSV(
       return v !== undefined && v !== null ? v : padrao
     }
 
-    const valAdm = getValidadeTipo('admissional', 12)
-    const valAso = getValidadeTipo('aso', 12)
-    const valAcuidade = getValidadeTipo('acuidade_visual', 12)
-    const valAudio = getValidadeTipo('audiometria', 12)
-    const valClinica = getValidadeTipo('avaliacao_clinica', 12)
-    const valTox = getValidadeTipo('toxicologico', 30)
-    const valRx = getValidadeTipo('rx', 12)
-    const valEcg = getValidadeTipo('ecg', 12)
-    const valDemissional = getValidadeTipo('demissional', 0)
+    const valAdm = getValidadeTipo("admissional", 12)
+    const valAso = getValidadeTipo("aso", 12)
+    const valAcuidade = getValidadeTipo("acuidade_visual", 12)
+    const valAudio = getValidadeTipo("audiometria", 12)
+    const valClinica = getValidadeTipo("avaliacao_clinica", 12)
+    const valTox = getValidadeTipo("toxicologico", 30)
+    const valRx = getValidadeTipo("rx", 12)
+    const valEcg = getValidadeTipo("ecg", 12)
+    const valDemissional = getValidadeTipo("demissional", 0)
 
-    const exames: Record<
-      TipoExame,
-      {
-        dataIso: string | null
-        dataBr: string | null
-        status: StatusExame
-        validadeMeses: number
-      }
-    > = {
+    const exames: Record<TipoExame, {
+      dataIso: string | null
+      dataBr: string | null
+      status: StatusExame
+      validadeMeses: number
+    }> = {
       admissional: {
         dataIso: adm.dataIso,
         dataBr: adm.dataBr,
@@ -408,23 +402,23 @@ export function parseControleExamesCSV(
         status: calcularStatusExame(
           demissional.dataIso,
           valDemissional,
-          'demissional',
+          "demissional",
         ).status,
         validadeMeses: valDemissional,
       },
     }
 
     // Calcula status geral
-    let statusGeral: StatusExame = 'PENDENTE'
+    let statusGeral: StatusExame = "PENDENTE"
     const statusValores = Object.values(exames).map((e) => e.status)
-    if (statusValores.includes('VENCIDO')) {
-      statusGeral = 'VENCIDO'
+    if (statusValores.includes("VENCIDO")) {
+      statusGeral = "VENCIDO"
     } else if (
-      exames.aso.status === 'NO_PRAZO' ||
-      exames.admissional.status === 'NO_PRAZO' ||
-      statusValores.includes('NO_PRAZO')
+      exames.aso.status === "NO_PRAZO" ||
+      exames.admissional.status === "NO_PRAZO" ||
+      statusValores.includes("NO_PRAZO")
     ) {
-      statusGeral = 'NO_PRAZO'
+      statusGeral = "NO_PRAZO"
     }
 
     linhasParseadas.push({

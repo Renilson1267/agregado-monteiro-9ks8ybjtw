@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react"
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[]
   readonly userChoice: Promise<{
-    outcome: 'accepted' | 'dismissed'
+    outcome: "accepted" | "dismissed"
     platform: string
   }>
   prompt(): Promise<void>
@@ -24,9 +24,9 @@ export function usePwaInstall() {
   useEffect(() => {
     // Verificar se já está rodando standalone (instalado)
     const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia("(display-mode: standalone)").matches ||
       (window.navigator as any).standalone === true ||
-      document.referrer.includes('android-app://')
+      document.referrer.includes("android-app://")
 
     if (isStandalone) {
       setIsInstalled(true)
@@ -47,15 +47,15 @@ export function usePwaInstall() {
       setIsInstalled(true)
     }
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-    window.addEventListener('appinstalled', handleAppInstalled)
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
+    window.addEventListener("appinstalled", handleAppInstalled)
 
     return () => {
       window.removeEventListener(
-        'beforeinstallprompt',
+        "beforeinstallprompt",
         handleBeforeInstallPrompt,
       )
-      window.removeEventListener('appinstalled', handleAppInstalled)
+      window.removeEventListener("appinstalled", handleAppInstalled)
     }
   }, [])
 
@@ -67,7 +67,7 @@ export function usePwaInstall() {
     await deferredPrompt.prompt()
     const choiceResult = await deferredPrompt.userChoice
 
-    if (choiceResult.outcome === 'accepted') {
+    if (choiceResult.outcome === "accepted") {
       setIsInstalled(true)
       setIsInstallable(false)
       setDeferredPrompt(null)

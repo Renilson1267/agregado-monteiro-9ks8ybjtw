@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -6,14 +6,14 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { Building2, Plus, Edit, Check, Shield } from 'lucide-react'
-import { toast } from '@/hooks/use-toast'
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { Building2, Plus, Edit, Check, Shield } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 
 interface ModalGerenciarEmpresasProps {
   open: boolean
@@ -27,12 +27,12 @@ export function ModalGerenciarEmpresas({
   const { empresas, empresaAtiva, selecionarEmpresa, salvarEmpresa } =
     useEmpresa()
   const [editandoId, setEditandoId] = useState<string | null>(null)
-  const [nome, setNome] = useState('')
-  const [slug, setSlug] = useState('')
+  const [nome, setNome] = useState("")
+  const [slug, setSlug] = useState("")
   const [salvando, setSalvando] = useState(false)
   const [modoNovo, setModoNovo] = useState(false)
 
-  const iniciarEdicao = (emp: { id: string; nome: string; slug: string }) => {
+  const iniciarEdicao = (emp: any) => {
     setEditandoId(emp.id)
     setNome(emp.nome)
     setSlug(emp.slug)
@@ -41,8 +41,8 @@ export function ModalGerenciarEmpresas({
 
   const iniciarNovo = () => {
     setEditandoId(null)
-    setNome('')
-    setSlug('')
+    setNome("")
+    setSlug("")
     setModoNovo(true)
   }
 
@@ -50,9 +50,9 @@ export function ModalGerenciarEmpresas({
     e.preventDefault()
     if (!nome.trim() || !slug.trim()) {
       toast({
-        title: 'Campos obrigatórios',
-        description: 'Informe o nome e o código identificador (slug).',
-        variant: 'destructive',
+        title: "Campos obrigatórios",
+        description: "Informe o nome e o código identificador (slug).",
+        variant: "destructive",
       })
       return
     }
@@ -66,18 +66,18 @@ export function ModalGerenciarEmpresas({
         ativo: true,
       })
       toast({
-        title: editandoId ? 'Empresa atualizada!' : 'Empresa cadastrada!',
-        description: 'Dados salvos com sucesso.',
+        title: editandoId ? "Empresa atualizada!" : "Empresa cadastrada!",
+        description: "Dados salvos com sucesso.",
       })
       setModoNovo(false)
       setEditandoId(null)
-      setNome('')
-      setSlug('')
+      setNome("")
+      setSlug("")
     } catch (err: any) {
       toast({
-        title: 'Erro ao salvar empresa',
-        description: err.message || 'Código/slug já em uso.',
-        variant: 'destructive',
+        title: "Erro ao salvar empresa",
+        description: err.message || "Código/slug já em uso.",
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -126,16 +126,16 @@ export function ModalGerenciarEmpresas({
                   key={emp.id}
                   className={`p-3 rounded-lg border transition-all flex items-center justify-between ${
                     isAtiva
-                      ? 'border-primary bg-primary/5 shadow-sm'
-                      : 'border-border/40 bg-card/60 hover:border-border'
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border/40 bg-card/60 hover:border-border"
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm ${
                         isAtiva
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground'
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
                       }`}
                     >
                       {emp.nome.slice(0, 2).toUpperCase()}
@@ -200,7 +200,7 @@ export function ModalGerenciarEmpresas({
           >
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-semibold text-foreground">
-                {editandoId ? 'Editar Empresa' : 'Cadastrar Nova Empresa'}
+                {editandoId ? "Editar Empresa" : "Cadastrar Nova Empresa"}
               </h4>
               <Button
                 type="button"
@@ -231,8 +231,8 @@ export function ModalGerenciarEmpresas({
                       setSlug(
                         e.target.value
                           .toLowerCase()
-                          .replace(/[^a-z0-9]/g, '-')
-                          .replace(/-+/g, '-'),
+                          .replace(/[^a-z0-9]/g, "-")
+                          .replace(/-+/g, "-"),
                       )
                     }
                   }}
@@ -263,7 +263,7 @@ export function ModalGerenciarEmpresas({
                 disabled={salvando}
                 className="h-8 text-xs bg-primary text-primary-foreground"
               >
-                {salvando ? 'Salvando...' : 'Salvar Empresa'}
+                {salvando ? "Salvando..." : "Salvar Empresa"}
               </Button>
             </div>
           </form>

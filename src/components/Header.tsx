@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useState } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 import {
   Building2,
   ChevronDown,
@@ -11,10 +11,10 @@ import {
   Sun,
   Moon,
   Menu,
-} from 'lucide-react'
-import { useTheme } from 'next-themes'
-import { usePwaInstall } from '@/hooks/use-pwa-install'
-import { Button } from '@/components/ui/button'
+} from "lucide-react"
+import { useTheme } from "next-themes"
+import { usePwaInstall } from "@/hooks/use-pwa-install"
+import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,11 +22,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { useAuth } from '@/hooks/use-auth'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { useUsuario } from '@/hooks/use-usuario'
-import { ModalGerenciarEmpresas } from '@/components/ModalGerenciarEmpresas'
+} from "@/components/ui/dropdown-menu"
+import { useAuth } from "@/hooks/use-auth"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { useUsuario } from "@/hooks/use-usuario"
+import { ModalGerenciarEmpresas } from "@/components/ModalGerenciarEmpresas"
 
 interface HeaderProps {
   onOpenMobileMenu?: () => void
@@ -57,33 +57,33 @@ export function Header({
   } = useUsuario()
   const [modalEmpresasOpen, setModalEmpresasOpen] = useState(false)
 
-  const nomeEmpresa = empresaAtiva?.nome || 'Selecione'
+  const nomeEmpresa = empresaAtiva?.nome || "Selecione"
 
   // Mapeamento do título da página atual
   const getPageTitle = () => {
     const path = location.pathname
     const search = location.search
-    if (path === '/') {
-      return isBalanceiro ? 'Dashboard Operacional' : 'Dashboard de Produção'
+    if (path === "/") {
+      return isBalanceiro ? "Dashboard Operacional" : "Dashboard de Produção"
     }
-    if (path === '/lancamentos') return 'Lançamento de Cargas'
-    if (path === '/ordens') return 'Ordens de Serviço & Recibos'
-    if (path === '/estoque') return 'Estoque de Insumos'
-    if (path === '/tracos') return 'Traços & Dosagens'
-    if (path === '/exames') return 'Controle de Exames (ASO)'
-    if (path === '/folha') return 'Folha de Pagamento'
-    if (path === '/relatorios') return 'Relatórios de Produção'
-    if (path === '/cadastros') {
+    if (path === "/lancamentos") return "Lançamento de Cargas"
+    if (path === "/ordens") return "Ordens de Serviço & Recibos"
+    if (path === "/estoque") return "Estoque de Insumos"
+    if (path === "/tracos") return "Traços & Dosagens"
+    if (path === "/exames") return "Controle de Exames (ASO)"
+    if (path === "/folha") return "Folha de Pagamento"
+    if (path === "/relatorios") return "Relatórios de Produção"
+    if (path === "/cadastros") {
       const params = new URLSearchParams(search)
-      if (params.get('tab') === 'usuarios') return 'Gestão de Usuários'
-      return 'Cadastros Operacionais'
+      if (params.get("tab") === "usuarios") return "Gestão de Usuários"
+      return "Cadastros Operacionais"
     }
-    return 'GC MIX Concreto Usinado'
+    return "GC MIX Concreto Usinado"
   }
 
   const handleLogout = async () => {
     await signOut()
-    navigate('/login', { replace: true })
+    navigate("/login", { replace: true })
   }
 
   return (
@@ -109,7 +109,11 @@ export function Header({
               size="icon"
               onClick={onToggleSidebar}
               className="hidden md:flex h-8 w-8 text-muted-foreground hover:text-foreground shrink-0 rounded-lg"
-              title={sidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+              title={
+                sidebarCollapsed
+                  ? "Expandir menu lateral"
+                  : "Recolher menu lateral"
+              }
             >
               <Menu className="h-4 w-4" />
               <span className="sr-only">Alternar menu</span>
@@ -148,7 +152,7 @@ export function Header({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-lg"
             title="Alternar entre modo claro e escuro"
           >
@@ -186,7 +190,7 @@ export function Header({
                       onClick={() => selecionarEmpresa(emp.id)}
                       className="flex items-center justify-between cursor-pointer py-1.5 text-xs"
                     >
-                      <span className={isAtiva ? 'font-bold text-primary' : ''}>
+                      <span className={isAtiva ? "font-bold text-primary" : ""}>
                         {emp.nome}
                       </span>
                       {isAtiva && (
@@ -220,8 +224,8 @@ export function Header({
           <div
             className={`hidden md:flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-semibold bg-card ${
               isBalanceiro
-                ? 'border-amber-500/40 bg-amber-500/5 text-amber-600 dark:text-amber-400'
-                : 'border-primary/40 bg-primary/5 text-primary'
+                ? "border-amber-500/40 bg-amber-500/5 text-amber-600 dark:text-amber-400"
+                : "border-primary/40 bg-primary/5 text-primary"
             }`}
           >
             {isBalanceiro ? (
@@ -244,7 +248,7 @@ export function Header({
                   {nomeUsuario.slice(0, 1).toUpperCase()}
                 </div>
                 <span className="font-semibold text-foreground truncate max-w-[80px] hidden sm:inline">
-                  {nomeUsuario.split(' ')[0]}
+                  {nomeUsuario.split(" ")[0]}
                 </span>
                 <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
               </Button>

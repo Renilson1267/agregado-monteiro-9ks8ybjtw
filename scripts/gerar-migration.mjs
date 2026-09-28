@@ -1,11 +1,11 @@
-import fs from 'fs'
-import path from 'path'
+import fs from "fs"
+import path from "path"
 
-const backupPath = path.resolve('src/assets/backup-folha-2026-09-27-40a44.json')
-const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'))
+const backupPath = path.resolve("src/assets/backup-folha-2026-09-27-40a44.json")
+const backupData = JSON.parse(fs.readFileSync(backupPath, "utf8"))
 
-const SJE_ID = '22222222-2222-2222-2222-222222222222'
-const MONTEIRO_ID = '11111111-1111-1111-1111-111111111111'
+const SJE_ID = "22222222-2222-2222-2222-222222222222"
+const MONTEIRO_ID = "11111111-1111-1111-1111-111111111111"
 
 const cadFuncs = backupData.cadastros?.funcionarios || []
 const folhaFuncs = backupData.folha?.func || {}
@@ -14,43 +14,43 @@ const lanc = backupData.folha?.lanc || {}
 const funcMap = {}
 for (const f of cadFuncs) {
   const fFolha = folhaFuncs[f.id] || {}
-  const unidade = (fFolha.unidade || f.unidade || 'SJE').toUpperCase()
-  const empresaId = unidade.includes('MONTEIRO') ? MONTEIRO_ID : SJE_ID
+  const unidade = (fFolha.unidade || f.unidade || "SJE").toUpperCase()
+  const empresaId = unidade.includes("MONTEIRO") ? MONTEIRO_ID : SJE_ID
 
   funcMap[f.id] = {
     ...f,
     ...fFolha,
     empresaId,
-    unidade: unidade.includes('MONTEIRO') ? 'MONTEIRO' : 'SJE',
-    cpfLimpo: f.doc ? f.doc.replace(/[^\d]/g, '') : null,
+    unidade: unidade.includes("MONTEIRO") ? "MONTEIRO" : "SJE",
+    cpfLimpo: f.doc ? f.doc.replace(/[^\d]/g, "") : null,
   }
 }
 
 const tercDefs = [
   {
-    backupKey: '1',
-    nome: 'RAIMUNDO MARIANO DA SILVA JUNIOR',
+    backupKey: "1",
+    nome: "RAIMUNDO MARIANO DA SILVA JUNIOR",
     empresaId: SJE_ID,
-    unidade: 'SJE',
+    unidade: "SJE",
     bruto: 4270,
-    pix: 'raimundojunior100@gmail.com',
-    conta: '',
+    pix: "raimundojunior100@gmail.com",
+    conta: "",
   },
   {
-    backupKey: '0',
-    nome: 'MARCIO LUAN DA SILVA',
+    backupKey: "0",
+    nome: "MARCIO LUAN DA SILVA",
     empresaId: MONTEIRO_ID,
-    unidade: 'MONTEIRO',
+    unidade: "MONTEIRO",
     bruto: 0,
-    pix: '12175804410',
-    conta: '',
+    pix: "12175804410",
+    conta: "",
   },
 ]
 
 const comps = Object.keys(lanc).sort()
 
 function escapeSql(str) {
-  if (str === null || str === undefined) return 'NULL'
+  if (str === null || str === undefined) return "NULL"
   return "'" + String(str).replace(/'/g, "''") + "'"
 }
 
@@ -67,19 +67,19 @@ BEGIN
 `
 
 for (const comp of comps) {
-  const [ano, mes] = comp.split('-').map(Number)
+  const [ano, mes] = comp.split("-").map(Number)
   const funcsLanc = lanc[comp].func || {}
   const tercLanc = lanc[comp].terc || {}
 
   for (const empId of [SJE_ID, MONTEIRO_ID]) {
     const isSje = empId === SJE_ID
-    const empVar = isSje ? 'v_sje_id' : 'v_monteiro_id'
-    const empName = isSje ? 'SJE' : 'MONTEIRO'
+    const empVar = isSje ? "v_sje_id" : "v_monteiro_id"
+    const empName = isSje ? "SJE" : "MONTEIRO"
 
     // Verifica se esta empresa tem lançamentos nessa competência
     const linhasParaEmpresa = []
     for (const [funcId, fL] of Object.entries(funcsLanc)) {
-      if (funcId === '__novo' || funcId === 'undefined') continue
+      if (funcId === "__novo" || funcId === "undefined") continue
       const fCad = funcMap[funcId]
       if (!fCad || fCad.empresaId !== empId) continue
 
@@ -109,22 +109,26 @@ for (const comp of comps) {
       // líquido = bruto − INSS − IR + família + gratificação − quinzena − adiantamento + (soma das obras: obras × valor/obra) + limpeza + sábado + férias + ajuda + produção + comissão, onde comissão = 0,5% × vendas
       const totalAjuda = ajuda + vendAjuda
       const comissaoCalculada = Math.round(vendObra * 0.005 * 100) / 100
-      const modoCalculo = (vendObra > 0 && Math.abs(comissao - comissaoCalculada) > 0.01) ? 'Digitado' : 'Calculado'
+      const modoCalculo =
+        vendObra > 0 && Math.abs(comissao - comissaoCalculada) > 0.01
+          ? "Digitado"
+          : "Calculado"
 
-      const totalProventos = bruto + gratif + producao + limp + sab + fer + totalAjuda + comissao
+      const totalProventos =
+        bruto + gratif + producao + limp + sab + fer + totalAjuda + comissao
       const totalDescontos = quinzena + adiant + inss + ir
       const liquido = totalProventos - totalDescontos
 
       linhasParaEmpresa.push({
-        tipo: 'Funcionario',
+        tipo: "Funcionario",
         nome: fCad.nome.trim().toUpperCase(),
-        cargo: (fCad.funcao || 'Geral').trim().toUpperCase(),
-        funcao: (fCad.funcao || 'Geral').trim().toUpperCase(),
+        cargo: (fCad.funcao || "Geral").trim().toUpperCase(),
+        funcao: (fCad.funcao || "Geral").trim().toUpperCase(),
         unidade: fCad.unidade,
         bruto,
         filhos,
-        conta: fCad.conta || '',
-        pix: fCad.pix || '',
+        conta: fCad.conta || "",
+        pix: fCad.pix || "",
         obras,
         valor_obra: valorObra,
         producao,
@@ -166,16 +170,19 @@ for (const comp of comps) {
       const ajudaCusto = vendAjuda
       const bruto = t.bruto
       const comissaoCalculada = Math.round(vendObra * 0.005 * 100) / 100
-      const modoCalculo = (vendObra > 0 && Math.abs(comissao - comissaoCalculada) > 0.01) ? 'Digitado' : 'Calculado'
+      const modoCalculo =
+        vendObra > 0 && Math.abs(comissao - comissaoCalculada) > 0.01
+          ? "Digitado"
+          : "Calculado"
 
       const totalProventos = bruto + comissao + ajudaCusto
       const liquido = totalProventos
 
       linhasParaEmpresa.push({
-        tipo: 'Terceiro',
+        tipo: "Terceiro",
         nome: t.nome.trim().toUpperCase(),
-        cargo: 'Terceiro',
-        funcao: 'Terceiro',
+        cargo: "Terceiro",
+        funcao: "Terceiro",
         unidade: t.unidade,
         bruto,
         filhos: 0,
@@ -224,7 +231,9 @@ for (const comp of comps) {
     for (const l of linhasParaEmpresa) {
       sql += `
   SELECT id INTO v_func_id FROM public.funcionarios WHERE empresa_id = ${empVar} AND ${
-    l.cpf ? `cpf = '${l.cpf}'` : `lower(trim(nome)) = lower(trim(${escapeSql(l.nome)}))`
+    l.cpf
+      ? `cpf = '${l.cpf}'`
+      : `lower(trim(nome)) = lower(trim(${escapeSql(l.nome)}))`
   } LIMIT 1;
 
   INSERT INTO public.folha_pagamento_linhas (
@@ -306,6 +315,8 @@ sql += `
 END $$;
 `
 
-const migrationPath = path.resolve('supabase/migrations/20260928023500_import_lancamentos_backup.sql')
-fs.writeFileSync(migrationPath, sql, 'utf8')
-console.log('Migration escrita com sucesso! Tamanho:', sql.length)
+const migrationPath = path.resolve(
+  "supabase/migrations/20260928023500_import_lancamentos_backup.sql",
+)
+fs.writeFileSync(migrationPath, sql, "utf8")
+console.log("Migration escrita com sucesso! Tamanho:", sql.length)

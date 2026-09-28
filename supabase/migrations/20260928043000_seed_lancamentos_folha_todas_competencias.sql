@@ -1,5 +1,6 @@
 -- Migration: Importar todos os lançamentos da Folha de Pagamento do Backup GC MIX (2023-07 a 2026-09)
 -- Multi-empresa (SJE e Monteiro), garantindo idempotência e cálculo exato das regras do backup legado.
+-- Execução da migração das 29 competências.
 
 DO $$
 BEGIN

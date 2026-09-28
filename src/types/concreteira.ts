@@ -15,7 +15,7 @@ export interface Empresa {
 export interface Cliente {
   id: string
   empresa_id: string
-  tipo: 'PF' | 'PJ'
+  tipo: "PF" | "PJ"
   cpf_cnpj: string
   nome: string
   nome_fantasia?: string | null
@@ -222,7 +222,7 @@ export interface MovimentacaoEstoque {
   id: string
   empresa_id?: string
   material_id: string
-  tipo: 'ENTRADA' | 'SAIDA' | 'ABERTURA' | 'AJUSTE'
+  tipo: "ENTRADA" | "SAIDA" | "ABERTURA" | "AJUSTE"
   quantidade: number
   data: string
   carga_id: string | null
@@ -266,7 +266,7 @@ export interface UsuarioApp {
   user_id?: string | null
   nome: string
   email: string
-  perfil: 'administrador' | 'balanceiro'
+  perfil: "administrador" | "balanceiro"
   empresa_id?: string | null
   empresa_nome?: string | null
   ativo: boolean

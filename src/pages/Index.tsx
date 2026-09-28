@@ -1,27 +1,27 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from "react"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+} from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { ConcreteiraService } from '@/services/concreteira'
-import { ExamesService } from '@/services/exames'
-import { useEmpresa } from '@/hooks/use-empresa'
-import type { Material, Carga } from '@/types/concreteira'
-import type { ResumoExamesEmpresa } from '@/types/exames'
+} from "@/components/ui/select"
+import { ConcreteiraService } from "@/services/concreteira"
+import { ExamesService } from "@/services/exames"
+import { useEmpresa } from "@/hooks/use-empresa"
+import type { Material, Carga } from "@/types/concreteira"
+import type { ResumoExamesEmpresa } from "@/types/exames"
 import {
   TrendingUp,
   Truck,
@@ -43,9 +43,9 @@ import {
   Activity,
   HeartPulse,
   Briefcase,
-} from 'lucide-react'
-import { Progress } from '@/components/ui/progress'
-import type { MetaProducao } from '@/types/concreteira'
+} from "lucide-react"
+import { Progress } from "@/components/ui/progress"
+import type { MetaProducao } from "@/types/concreteira"
 import {
   ResponsiveContainer,
   BarChart,
@@ -59,8 +59,8 @@ import {
   Line,
   ComposedChart,
   Legend,
-} from 'recharts'
-import { Link } from 'react-router-dom'
+} from "recharts"
+import { Link } from "react-router-dom"
 import {
   Dialog,
   DialogContent,
@@ -68,21 +68,16 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog'
-import { ReciboImpressao } from '@/components/ReciboImpressao'
-import { printElementInIsolatedIframe } from '@/lib/imprimir-recibo'
-import type { OrdemServico } from '@/types/concreteira'
-import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from '@/assets/logos'
+} from "@/components/ui/dialog"
+import { ReciboImpressao } from "@/components/ReciboImpressao"
+import { printElementInIsolatedIframe } from "@/lib/imprimir-recibo"
+import type { OrdemServico } from "@/types/concreteira"
+import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from "@/assets/logos"
 
-type PeriodoTipo =
-  | 'hoje'
-  | '7dias'
-  | 'mes_atual'
-  | 'mes_anterior'
-  | 'personalizado'
+type PeriodoTipo = "hoje" | "7dias" | "mes_atual" | "mes_anterior" | "personalizado"
 
-import { useNavigate } from 'react-router-dom'
-import { useUsuario } from '@/hooks/use-usuario'
+import { useNavigate } from "react-router-dom"
+import { useUsuario } from "@/hooks/use-usuario"
 
 export default function Index() {
   const navigate = useNavigate()
@@ -101,9 +96,9 @@ export default function Index() {
   const [modalReimpressaoAberta, setModalReimpressaoAberta] = useState(false)
 
   // Filtros de período
-  const [tipoPeriodo, setTipoPeriodo] = useState<PeriodoTipo>('mes_atual')
-  const [dataInicioPersonalizada, setDataInicioPersonalizada] = useState('')
-  const [dataFimPersonalizada, setDataFimPersonalizada] = useState('')
+  const [tipoPeriodo, setTipoPeriodo] = useState<PeriodoTipo>("mes_atual")
+  const [dataInicioPersonalizada, setDataInicioPersonalizada] = useState("")
+  const [dataFimPersonalizada, setDataFimPersonalizada] = useState("")
 
   const carregarDados = async () => {
     if (!empresaAtiva) return
@@ -120,7 +115,7 @@ export default function Index() {
       setMetaProducao(meta)
       setResumoExames(examesRes)
     } catch (e) {
-      console.error('Erro ao carregar dados do dashboard:', e)
+      console.error("Erro ao carregar dados do dashboard:", e)
     } finally {
       setLoading(false)
     }
@@ -136,39 +131,39 @@ export default function Index() {
   // Determinação das datas limites baseadas no período escolhido
   const { dataInicioEfetiva, dataFimEfetiva, labelPeriodo } = useMemo(() => {
     const hoje = new Date()
-    const hojeStr = hoje.toISOString().split('T')[0]
+    const hojeStr = hoje.toISOString().split("T")[0]
 
     // Se houver cargas, usamos a data mais recente das cargas ou hoje como âncora
     const dataMaisRecente = cargas.length > 0 ? cargas[0].data : hojeStr
-    const dataRefObj = new Date(dataMaisRecente + 'T12:00:00')
+    const dataRefObj = new Date(dataMaisRecente + "T12:00:00")
 
-    if (tipoPeriodo === 'hoje') {
+    if (tipoPeriodo === "hoje") {
       return {
         dataInicioEfetiva: dataMaisRecente,
         dataFimEfetiva: dataMaisRecente,
-        labelPeriodo: `Hoje / Última Data (${dataMaisRecente.split('-').reverse().join('/')})`,
+        labelPeriodo: `Hoje / Última Data (${dataMaisRecente.split("-").reverse().join("/")})`,
       }
     }
 
-    if (tipoPeriodo === '7dias') {
+    if (tipoPeriodo === "7dias") {
       const seteDiasAtras = new Date(dataRefObj)
       seteDiasAtras.setDate(seteDiasAtras.getDate() - 6)
-      const iniStr = seteDiasAtras.toISOString().split('T')[0]
+      const iniStr = seteDiasAtras.toISOString().split("T")[0]
       return {
         dataInicioEfetiva: iniStr,
         dataFimEfetiva: dataMaisRecente,
-        labelPeriodo: `Últimos 7 dias (${iniStr.split('-').reverse().join('/')} a ${dataMaisRecente.split('-').reverse().join('/')})`,
+        labelPeriodo: `Últimos 7 dias (${iniStr.split("-").reverse().join("/")} a ${dataMaisRecente.split("-").reverse().join("/")})`,
       }
     }
 
-    if (tipoPeriodo === 'mes_atual') {
+    if (tipoPeriodo === "mes_atual") {
       const ano = dataRefObj.getFullYear()
       const mes = dataRefObj.getMonth() // 0-11
-      const primeiroDia = new Date(ano, mes, 1).toISOString().split('T')[0]
-      const ultimoDia = new Date(ano, mes + 1, 0).toISOString().split('T')[0]
-      const nomeMes = dataRefObj.toLocaleString('pt-BR', {
-        month: 'long',
-        year: 'numeric',
+      const primeiroDia = new Date(ano, mes, 1).toISOString().split("T")[0]
+      const ultimoDia = new Date(ano, mes + 1, 0).toISOString().split("T")[0]
+      const nomeMes = dataRefObj.toLocaleString("pt-BR", {
+        month: "long",
+        year: "numeric",
       })
       return {
         dataInicioEfetiva: primeiroDia,
@@ -177,15 +172,15 @@ export default function Index() {
       }
     }
 
-    if (tipoPeriodo === 'mes_anterior') {
+    if (tipoPeriodo === "mes_anterior") {
       const ano = dataRefObj.getFullYear()
       const mes = dataRefObj.getMonth() - 1 // Mês anterior
-      const primeiroDia = new Date(ano, mes, 1).toISOString().split('T')[0]
-      const ultimoDia = new Date(ano, mes + 1, 0).toISOString().split('T')[0]
+      const primeiroDia = new Date(ano, mes, 1).toISOString().split("T")[0]
+      const ultimoDia = new Date(ano, mes + 1, 0).toISOString().split("T")[0]
       const dataAntObj = new Date(ano, mes, 1)
-      const nomeMes = dataAntObj.toLocaleString('pt-BR', {
-        month: 'long',
-        year: 'numeric',
+      const nomeMes = dataAntObj.toLocaleString("pt-BR", {
+        month: "long",
+        year: "numeric",
       })
       return {
         dataInicioEfetiva: primeiroDia,
@@ -195,12 +190,14 @@ export default function Index() {
     }
 
     // Personalizado
-    const ini = dataInicioPersonalizada || 'Início'
-    const fim = dataFimPersonalizada || 'Hoje'
+    const ini = dataInicioPersonalizada || "Início"
+    const fim = dataFimPersonalizada || "Hoje"
     return {
       dataInicioEfetiva: dataInicioPersonalizada || undefined,
       dataFimEfetiva: dataFimPersonalizada || undefined,
-      labelPeriodo: `Personalizado (${ini.includes('-') ? ini.split('-').reverse().join('/') : ini} a ${fim.includes('-') ? fim.split('-').reverse().join('/') : fim})`,
+      labelPeriodo: `Personalizado (${
+        ini.includes("-") ? ini.split("-").reverse().join("/") : ini
+      } a ${fim.includes("-") ? fim.split("-").reverse().join("/") : fim})`,
     }
   }, [tipoPeriodo, dataInicioPersonalizada, dataFimPersonalizada, cargas])
 
@@ -240,12 +237,12 @@ export default function Index() {
 
   // Cálculos de Metas de Produção (Opção 2)
   const dadosMetas = useMemo(() => {
-    const hojeStr = new Date().toISOString().split('T')[0]
+    const hojeStr = new Date().toISOString().split("T")[0]
     // Data de referência mais recente disponível nas cargas ou hoje
     const dataMaisRecente = cargas.length > 0 ? cargas[0].data : hojeStr
-    const dataRefObj = new Date(dataMaisRecente + 'T12:00:00')
+    const dataRefObj = new Date(dataMaisRecente + "T12:00:00")
     const ano = dataRefObj.getFullYear()
-    const mes = String(dataRefObj.getMonth() + 1).padStart(2, '0')
+    const mes = String(dataRefObj.getMonth() + 1).padStart(2, "0")
     const chaveMesRef = `${ano}-${mes}`
 
     // Produção do dia (usa a data mais recente com operação se hoje não tiver cargas)
@@ -273,9 +270,9 @@ export default function Index() {
     // Volume do período selecionado pelo filtro vs meta proporcional
     const volumeRecorte = volumePeriodo
     let metaRecorte = metaMensal
-    if (tipoPeriodo === 'hoje') {
+    if (tipoPeriodo === "hoje") {
       metaRecorte = metaDiaria
-    } else if (tipoPeriodo === '7dias') {
+    } else if (tipoPeriodo === "7dias") {
       metaRecorte = metaDiaria * 7
     }
     const pctRecorte = metaRecorte > 0 ? (volumeRecorte / metaRecorte) * 100 : 0
@@ -341,10 +338,11 @@ export default function Index() {
 
   // Gráfico 1: Evolução diária no período filtrado
   const dadosGraficoDias = useMemo(() => {
-    const diasAgrupados: Record<
-      string,
-      { data: string; volume: number; cargas: number }
-    > = {}
+    const diasAgrupados: Record<string, {
+      data: string
+      volume: number
+      cargas: number
+    }> = {}
 
     // Se tiver poucas datas no período filtrado, mostra as do período
     const baseCargas = cargasFiltradas.length > 0 ? cargasFiltradas : cargas
@@ -359,30 +357,29 @@ export default function Index() {
       diasAgrupados[c.data].cargas += 1
     })
 
-    return Object.values(diasAgrupados)
-      .sort((a, b) => a.data.localeCompare(b.data))
-      .slice(-20) // até 20 dias mais recentes do recorte
-      .map((d) => ({
-        ...d,
-        dataFormatada: d.data.slice(5).replace('-', '/'),
-        volume: Number(d.volume.toFixed(1)),
-      }))
+    return (
+      Object.values(diasAgrupados)
+        .sort((a, b) => a.data.localeCompare(b.data))
+        .slice(-20) // até 20 dias mais recentes do recorte
+        .map((d) => ({
+          ...d,
+          dataFormatada: d.data.slice(5).replace("-", "/"),
+          volume: Number(d.volume.toFixed(1)),
+        }))
+    )
   }, [cargasFiltradas, cargas])
 
   // Gráfico 3: Consumo Mensal Integrado (Volume m³, Aditivo L e Custo R$)
   // Respeita o filtro de período ativo do Dashboard (cargasFiltradas)
   const dadosGraficoMensal = useMemo(() => {
-    const mesesAgrupados: Record<
-      string,
-      {
-        mesChave: string
-        rotulo: string
-        volume_m3: number
-        aditivo_l: number
-        custo_total: number
-        cargas: number
-      }
-    > = {}
+    const mesesAgrupados: Record<string, {
+      mesChave: string
+      rotulo: string
+      volume_m3: number
+      aditivo_l: number
+      custo_total: number
+      cargas: number
+    }> = {}
 
     const baseCargas = cargasFiltradas.length > 0 ? cargasFiltradas : cargas
 
@@ -390,14 +387,14 @@ export default function Index() {
       if (!c.data) return
       const chave = c.data.slice(0, 7) // 'YYYY-MM'
       if (!mesesAgrupados[chave]) {
-        const [ano, mes] = chave.split('-')
+        const [ano, mes] = chave.split("-")
         const dataObj = new Date(Number(ano), Number(mes) - 1, 1)
         const rotulo = dataObj
-          .toLocaleDateString('pt-BR', {
-            month: 'short',
-            year: '2-digit',
+          .toLocaleDateString("pt-BR", {
+            month: "short",
+            year: "2-digit",
           })
-          .replace('.', '')
+          .replace(".", "")
         mesesAgrupados[chave] = {
           mesChave: chave,
           rotulo: rotulo.charAt(0).toUpperCase() + rotulo.slice(1),
@@ -428,45 +425,45 @@ export default function Index() {
 
   // Gráfico 2: Consumo por material no período
   const nomeCimento =
-    materiais.find((m) => m.codigo === 'cimento')?.nome ||
-    'CP II F-40 / CP V ARI'
+    materiais.find((m) => m.codigo === "cimento")?.nome ||
+    "CP II F-40 / CP V ARI"
 
   const dadosGraficoConsumo = useMemo(() => {
     return [
       {
         material: `${nomeCimento} (t)`,
         valor: Number((consumoPeriodo.cimento / 1000).toFixed(1)),
-        fill: '#f59e0b',
+        fill: "#f59e0b",
       },
       {
-        material: 'Areia (t)',
+        material: "Areia (t)",
         valor: Number((consumoPeriodo.areia / 1000).toFixed(1)),
-        fill: '#eab308',
+        fill: "#eab308",
       },
       {
-        material: 'Brita 12 (t)',
+        material: "Brita 12 (t)",
         valor: Number((consumoPeriodo.brita12 / 1000).toFixed(1)),
-        fill: '#64748b',
+        fill: "#64748b",
       },
       {
-        material: 'Brita 19 (t)',
+        material: "Brita 19 (t)",
         valor: Number((consumoPeriodo.brita19 / 1000).toFixed(1)),
-        fill: '#475569',
+        fill: "#475569",
       },
       {
-        material: 'Pó de Pedra (t)',
+        material: "Pó de Pedra (t)",
         valor: Number((consumoPeriodo.po_pedra / 1000).toFixed(1)),
-        fill: '#94a3b8',
+        fill: "#94a3b8",
       },
       {
-        material: 'Aditivo (×10 L)',
+        material: "Aditivo (×10 L)",
         valor: Number((consumoPeriodo.aditivo / 10).toFixed(1)),
-        fill: '#06b6d4',
+        fill: "#06b6d4",
       },
       {
-        material: 'Água (m³)',
+        material: "Água (m³)",
         valor: Number((consumoPeriodo.agua / 1000).toFixed(1)),
-        fill: '#0284c7',
+        fill: "#0284c7",
       },
     ]
   }, [consumoPeriodo, nomeCimento])
@@ -476,7 +473,7 @@ export default function Index() {
   }
 
   const handleImprimirReciboOS = async () => {
-    const el = document.getElementById('recibo-impressao-modal-index')
+    const el = document.getElementById("recibo-impressao-modal-index")
     if (el) {
       await printElementInIsolatedIframe(el, {
         title: `OS_${osParaReimpressao?.numero_os}_Recibo_GC_MIX`,
@@ -496,23 +493,23 @@ export default function Index() {
           <div>
             <h1 className="text-xl font-extrabold uppercase tracking-wider text-black">
               {empresaAtiva?.razao_social ||
-                `CONCRETEIRA ${empresaAtiva?.nome?.toUpperCase() || ''}`}
+                `CONCRETEIRA ${empresaAtiva?.nome?.toUpperCase() || ""}`}
             </h1>
             <p className="text-sm font-bold text-black">
               Dashboard Gerencial — Relatório de Consumo Mensal e Custos
             </p>
             {empresaAtiva?.cnpj && (
               <p className="text-xs text-black">
-                CNPJ: {empresaAtiva.cnpj}{' '}
-                {empresaAtiva.telefone ? `• Tel: ${empresaAtiva.telefone}` : ''}
+                CNPJ: {empresaAtiva.cnpj}{" "}
+                {empresaAtiva.telefone ? `• Tel: ${empresaAtiva.telefone}` : ""}
               </p>
             )}
           </div>
           <div className="text-right text-xs text-black">
             <p className="font-semibold">
-              Emissão: {new Date().toLocaleString('pt-BR')}
+              Emissão: {new Date().toLocaleString("pt-BR")}
             </p>
-            <p>Unidade: {empresaAtiva?.nome || 'Principal'}</p>
+            <p>Unidade: {empresaAtiva?.nome || "Principal"}</p>
           </div>
         </div>
         <div className="mt-2 p-2 bg-gray-100 border border-gray-300 rounded text-xs text-black flex justify-between items-center">
@@ -520,14 +517,14 @@ export default function Index() {
             <strong>Filtro de Período:</strong> {labelPeriodo}
           </div>
           <div className="text-right">
-            <strong>Volume:</strong> {volumePeriodo.toFixed(1)} m³ |{' '}
-            <strong>Aditivo:</strong>{' '}
-            {consumoPeriodo.aditivo.toLocaleString('pt-BR')} L
+            <strong>Volume:</strong> {volumePeriodo.toFixed(1)} m³ |{" "}
+            <strong>Aditivo:</strong>{" "}
+            {consumoPeriodo.aditivo.toLocaleString("pt-BR")} L
             {!isBalanceiro && (
               <>
-                {' '}
-                | <strong>Custos:</strong> R${' '}
-                {custoTotalPeriodo.toLocaleString('pt-BR', {
+                {" "}
+                | <strong>Custos:</strong> R${" "}
+                {custoTotalPeriodo.toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -571,7 +568,7 @@ export default function Index() {
                 stroke="#000000"
                 fontSize={11}
                 tickLine={true}
-                tick={{ fill: '#000000', fontWeight: 'bold' }}
+                tick={{ fill: "#000000", fontWeight: "bold" }}
               />
               {/* Eixo Esquerdo: Volume m³ e Aditivo L */}
               <YAxis
@@ -579,14 +576,14 @@ export default function Index() {
                 stroke="#000000"
                 fontSize={10}
                 tickLine={true}
-                tick={{ fill: '#000000' }}
+                tick={{ fill: "#000000" }}
                 label={{
-                  value: 'Volume (m³) / Aditivo (L)',
+                  value: "Volume (m³) / Aditivo (L)",
                   angle: -90,
-                  position: 'insideLeft',
-                  fill: '#000000',
+                  position: "insideLeft",
+                  fill: "#000000",
                   fontSize: 10,
-                  style: { textAnchor: 'middle' },
+                  style: { textAnchor: "middle" },
                 }}
               />
               {/* Eixo Direito: Custo Total R$ (apenas Administrador) */}
@@ -598,21 +595,21 @@ export default function Index() {
                   fontSize={10}
                   tickLine={false}
                   label={{
-                    value: 'Custo Total (R$)',
+                    value: "Custo Total (R$)",
                     angle: 90,
-                    position: 'insideRight',
-                    fill: '#000000',
+                    position: "insideRight",
+                    fill: "#000000",
                     fontSize: 10,
-                    style: { textAnchor: 'middle' },
+                    style: { textAnchor: "middle" },
                   }}
                 />
               )}
               <Tooltip />
               <Legend
                 wrapperStyle={{
-                  fontSize: '11px',
-                  color: '#000000',
-                  paddingTop: '6px',
+                  fontSize: "11px",
+                  color: "#000000",
+                  paddingTop: "6px",
                 }}
               />
               {/* Barras e Linhas com tons sólidos e contornos visíveis em impressão PB */}
@@ -638,9 +635,9 @@ export default function Index() {
                   name="Custo Total (R$)"
                   stroke="#000000"
                   strokeWidth={2.5}
-                  dot={{ r: 4, fill: '#000000' }}
+                  dot={{ r: 4, fill: "#000000" }}
                 />
-              )}{' '}
+              )}{" "}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -657,7 +654,9 @@ export default function Index() {
                 Volume (m³)
               </th>
               <th
-                className={`py-1 px-2 ${!isBalanceiro ? 'border-r border-black' : ''} text-right`}
+                className={`py-1 px-2 ${
+                  !isBalanceiro ? "border-r border-black" : ""
+                } text-right`}
               >
                 Aditivo (L)
               </th>
@@ -687,22 +686,24 @@ export default function Index() {
                     {m.volume_m3.toFixed(1)} m³
                   </td>
                   <td
-                    className={`py-1 px-2 ${!isBalanceiro ? 'border-r border-black' : ''} text-right font-mono font-semibold`}
+                    className={`py-1 px-2 ${
+                      !isBalanceiro ? "border-r border-black" : ""
+                    } text-right font-mono font-semibold`}
                   >
-                    {m.aditivo_l.toLocaleString('pt-BR')} L
+                    {m.aditivo_l.toLocaleString("pt-BR")} L
                   </td>
                   {!isBalanceiro && (
                     <>
                       <td className="py-1 px-2 border-r border-black text-right font-mono font-semibold">
-                        R${' '}
-                        {m.custo_total.toLocaleString('pt-BR', {
+                        R${" "}
+                        {m.custo_total.toLocaleString("pt-BR", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
                       </td>
                       <td className="py-1 px-2 text-right font-mono">
-                        R${' '}
-                        {custoMedioM3.toLocaleString('pt-BR', {
+                        R${" "}
+                        {custoMedioM3.toLocaleString("pt-BR", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
@@ -723,22 +724,24 @@ export default function Index() {
                 {volumePeriodo.toFixed(1)} m³
               </td>
               <td
-                className={`py-1.5 px-2 ${!isBalanceiro ? 'border-r border-black' : ''} text-right font-mono`}
+                className={`py-1.5 px-2 ${
+                  !isBalanceiro ? "border-r border-black" : ""
+                } text-right font-mono`}
               >
-                {consumoPeriodo.aditivo.toLocaleString('pt-BR')} L
+                {consumoPeriodo.aditivo.toLocaleString("pt-BR")} L
               </td>
               {!isBalanceiro && (
                 <>
                   <td className="py-1.5 px-2 border-r border-black text-right font-mono">
-                    R${' '}
-                    {custoTotalPeriodo.toLocaleString('pt-BR', {
+                    R${" "}
+                    {custoTotalPeriodo.toLocaleString("pt-BR", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
                   </td>
                   <td className="py-1.5 px-2 text-right font-mono">
-                    R${' '}
-                    {custoMedioPorM3Periodo.toLocaleString('pt-BR', {
+                    R${" "}
+                    {custoMedioPorM3Periodo.toLocaleString("pt-BR", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
@@ -770,14 +773,15 @@ export default function Index() {
                 variant="outline"
                 className="text-xs bg-card/80 border-border/60 font-semibold"
               >
-                Unidade Ativa: {empresaAtiva?.nome || 'Concreteira'}
+                Unidade Ativa: {empresaAtiva?.nome || "Concreteira"}
               </Badge>
             </div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground mt-1 flex items-center gap-2 flex-wrap">
               <span>Painel de Operações & Indicadores</span>
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Gestão de produção em m³, consumo de agregados/cimento, metas e expedição multi-empresa
+              Gestão de produção em m³, consumo de agregados/cimento, metas e
+              expedição multi-empresa
             </p>
           </div>
         </div>
@@ -814,7 +818,7 @@ export default function Index() {
             disabled={loading}
             className="gap-2 text-xs bg-card/60 hover:bg-card border-border/60"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
 
@@ -842,7 +846,7 @@ export default function Index() {
               <div>
                 <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2">
                   <span>
-                    Metas de Produção — {empresaAtiva?.nome || 'Unidade'}
+                    Metas de Produção — {empresaAtiva?.nome || "Unidade"}
                   </span>
                   <Badge
                     variant="outline"
@@ -879,8 +883,8 @@ export default function Index() {
             <div
               className={`p-4 rounded-xl border transition-all ${
                 dadosMetas.atingiuDiario
-                  ? 'bg-emerald-500/10 border-emerald-500/30'
-                  : 'bg-card/60 border-border/50'
+                  ? "bg-emerald-500/10 border-emerald-500/30"
+                  : "bg-card/60 border-border/50"
               }`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -891,13 +895,13 @@ export default function Index() {
                   </span>
                 </div>
                 <Badge
-                  variant={dadosMetas.atingiuDiario ? 'default' : 'secondary'}
+                  variant={dadosMetas.atingiuDiario ? "default" : "secondary"}
                   className={`text-[11px] font-mono font-bold ${
                     dadosMetas.atingiuDiario
-                      ? 'bg-emerald-600 text-white hover:bg-emerald-600'
+                      ? "bg-emerald-600 text-white hover:bg-emerald-600"
                       : dadosMetas.pctDiario >= 70
-                        ? 'bg-amber-500/15 text-amber-500 border-amber-500/30'
-                        : 'bg-rose-500/15 text-rose-500 border-rose-500/30'
+                        ? "bg-amber-500/15 text-amber-500 border-amber-500/30"
+                        : "bg-rose-500/15 text-rose-500 border-rose-500/30"
                   }`}
                 >
                   {dadosMetas.atingiuDiario ? (
@@ -913,7 +917,7 @@ export default function Index() {
 
               <div className="flex items-baseline justify-between mb-1.5">
                 <div className="text-2xl font-black font-mono text-foreground">
-                  {dadosMetas.volumeDia.toFixed(1)}{' '}
+                  {dadosMetas.volumeDia.toFixed(1)}{" "}
                   <span className="text-xs font-normal text-muted-foreground">
                     / {dadosMetas.metaDiaria} m³
                   </span>
@@ -931,8 +935,8 @@ export default function Index() {
               />
 
               <p className="text-[11px] text-muted-foreground mt-2">
-                Operação do dia{' '}
-                {dadosMetas.dataDiaConsiderada.split('-').reverse().join('/')}.
+                Operação do dia{" "}
+                {dadosMetas.dataDiaConsiderada.split("-").reverse().join("/")}.
               </p>
             </div>
 
@@ -940,8 +944,8 @@ export default function Index() {
             <div
               className={`p-4 rounded-xl border transition-all ${
                 dadosMetas.atingiuMensal
-                  ? 'bg-emerald-500/10 border-emerald-500/30'
-                  : 'bg-card/60 border-border/50'
+                  ? "bg-emerald-500/10 border-emerald-500/30"
+                  : "bg-card/60 border-border/50"
               }`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -952,13 +956,13 @@ export default function Index() {
                   </span>
                 </div>
                 <Badge
-                  variant={dadosMetas.atingiuMensal ? 'default' : 'secondary'}
+                  variant={dadosMetas.atingiuMensal ? "default" : "secondary"}
                   className={`text-[11px] font-mono font-bold ${
                     dadosMetas.atingiuMensal
-                      ? 'bg-emerald-600 text-white hover:bg-emerald-600'
+                      ? "bg-emerald-600 text-white hover:bg-emerald-600"
                       : dadosMetas.pctMensal >= 70
-                        ? 'bg-amber-500/15 text-amber-500 border-amber-500/30'
-                        : 'bg-rose-500/15 text-rose-500 border-rose-500/30'
+                        ? "bg-amber-500/15 text-amber-500 border-amber-500/30"
+                        : "bg-rose-500/15 text-rose-500 border-rose-500/30"
                   }`}
                 >
                   {dadosMetas.atingiuMensal ? (
@@ -974,7 +978,7 @@ export default function Index() {
 
               <div className="flex items-baseline justify-between mb-1.5">
                 <div className="text-2xl font-black font-mono text-foreground">
-                  {dadosMetas.volumeMes.toFixed(1)}{' '}
+                  {dadosMetas.volumeMes.toFixed(1)}{" "}
                   <span className="text-xs font-normal text-muted-foreground">
                     / {dadosMetas.metaMensal} m³
                   </span>
@@ -992,8 +996,8 @@ export default function Index() {
               />
 
               <p className="text-[11px] text-muted-foreground mt-2">
-                Consolidado do mês{' '}
-                {dadosMetas.chaveMesRef.split('-').reverse().join('/')}.
+                Consolidado do mês{" "}
+                {dadosMetas.chaveMesRef.split("-").reverse().join("/")}.
               </p>
             </div>
 
@@ -1001,8 +1005,8 @@ export default function Index() {
             <div
               className={`p-4 rounded-xl border transition-all md:col-span-2 lg:col-span-1 ${
                 dadosMetas.atingiuRecorte
-                  ? 'bg-emerald-500/10 border-emerald-500/30'
-                  : 'bg-card/60 border-border/50'
+                  ? "bg-emerald-500/10 border-emerald-500/30"
+                  : "bg-card/60 border-border/50"
               }`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -1013,11 +1017,11 @@ export default function Index() {
                   </span>
                 </div>
                 <Badge
-                  variant={dadosMetas.atingiuRecorte ? 'default' : 'secondary'}
+                  variant={dadosMetas.atingiuRecorte ? "default" : "secondary"}
                   className={`text-[11px] font-mono font-bold ${
                     dadosMetas.atingiuRecorte
-                      ? 'bg-emerald-600 text-white hover:bg-emerald-600'
-                      : 'bg-primary/10 text-primary border-primary/30'
+                      ? "bg-emerald-600 text-white hover:bg-emerald-600"
+                      : "bg-primary/10 text-primary border-primary/30"
                   }`}
                 >
                   {dadosMetas.pctRecorte}% do referencial
@@ -1026,7 +1030,7 @@ export default function Index() {
 
               <div className="flex items-baseline justify-between mb-1.5">
                 <div className="text-2xl font-black font-mono text-foreground">
-                  {dadosMetas.volumeRecorte.toFixed(1)}{' '}
+                  {dadosMetas.volumeRecorte.toFixed(1)}{" "}
                   <span className="text-xs font-normal text-muted-foreground">
                     / {dadosMetas.metaRecorte.toFixed(0)} m³
                   </span>
@@ -1078,7 +1082,7 @@ export default function Index() {
                 </SelectContent>
               </Select>
 
-              {tipoPeriodo === 'personalizado' && (
+              {tipoPeriodo === "personalizado" && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5">
                     <Label className="text-xs text-muted-foreground">De:</Label>
@@ -1123,7 +1127,7 @@ export default function Index() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <h4 className="font-bold text-sm">
-                Alerta Ocupacional: Exames (ASO) Vencidos na Unidade{' '}
+                Alerta Ocupacional: Exames (ASO) Vencidos na Unidade{" "}
                 {empresaAtiva?.nome}
               </h4>
               <Badge variant="destructive" className="font-mono text-xs">
@@ -1131,12 +1135,12 @@ export default function Index() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Existem{' '}
+              Existem{" "}
               {
                 resumoExames.funcionariosComVencimento.filter(
                   (f) => f.totalVencidos > 0,
                 ).length
-              }{' '}
+              }{" "}
               colaborador(es) com exames médicos vencidos na empresa ativa.
               Regularize para conformidade com as normas trabalhistas e de
               segurança.
@@ -1161,7 +1165,7 @@ export default function Index() {
                   +
                   {resumoExames.funcionariosComVencimento.filter(
                     (f) => f.totalVencidos > 0,
-                  ).length - 5}{' '}
+                  ).length - 5}{" "}
                   colaboradores
                 </span>
               )}
@@ -1197,8 +1201,8 @@ export default function Index() {
                   variant="destructive"
                   className="text-xs font-mono"
                 >
-                  {m.nome}: {m.saldo?.toLocaleString('pt-BR')} {m.unidade} (Mín:{' '}
-                  {m.estoque_minimo.toLocaleString('pt-BR')})
+                  {m.nome}: {m.saldo?.toLocaleString("pt-BR")} {m.unidade} (Mín:{" "}
+                  {m.estoque_minimo.toLocaleString("pt-BR")})
                 </Badge>
               ))}
             </div>
@@ -1226,7 +1230,7 @@ export default function Index() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-extrabold text-foreground">
-              {volumePeriodo.toFixed(1)}{' '}
+              {volumePeriodo.toFixed(1)}{" "}
               <span className="text-base font-normal text-muted-foreground">
                 m³
               </span>
@@ -1248,7 +1252,7 @@ export default function Index() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-extrabold text-foreground">
-              {cargasValidasPeriodo.length}{' '}
+              {cargasValidasPeriodo.length}{" "}
               <span className="text-base font-normal text-muted-foreground">
                 cargas
               </span>
@@ -1280,17 +1284,17 @@ export default function Index() {
           <CardContent>
             <div className="text-3xl font-extrabold text-foreground">
               {(
-                (materiais.find((m) => m.codigo === 'cimento')?.saldo || 0) /
+                (materiais.find((m) => m.codigo === "cimento")?.saldo || 0) /
                 1000
-              ).toFixed(2)}{' '}
+              ).toFixed(2)}{" "}
               <span className="text-base font-normal text-muted-foreground">
                 ton
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {(
-                materiais.find((m) => m.codigo === 'cimento')?.saldo || 0
-              ).toLocaleString('pt-BR')}{' '}
+                materiais.find((m) => m.codigo === "cimento")?.saldo || 0
+              ).toLocaleString("pt-BR")}{" "}
               kg em estoque atual
             </p>
           </CardContent>
@@ -1309,8 +1313,8 @@ export default function Index() {
           <CardContent>
             <div className="text-3xl font-extrabold text-foreground">
               {(
-                materiais.find((m) => m.codigo === 'aditivo')?.saldo || 0
-              ).toLocaleString('pt-BR')}{' '}
+                materiais.find((m) => m.codigo === "aditivo")?.saldo || 0
+              ).toLocaleString("pt-BR")}{" "}
               <span className="text-base font-normal text-muted-foreground">
                 L
               </span>
@@ -1334,8 +1338,8 @@ export default function Index() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold font-mono text-foreground">
-                R${' '}
-                {custoTotalPeriodo.toLocaleString('pt-BR', {
+                R${" "}
+                {custoTotalPeriodo.toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -1356,11 +1360,11 @@ export default function Index() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold font-mono text-foreground">
-                R${' '}
-                {custoMedioPorM3Periodo.toLocaleString('pt-BR', {
+                R${" "}
+                {custoMedioPorM3Periodo.toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
-                })}{' '}
+                })}{" "}
                 <span className="text-sm font-normal text-muted-foreground">
                   / m³
                 </span>
@@ -1380,13 +1384,13 @@ export default function Index() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold font-mono text-foreground">
-                {(consumoPeriodo.cimento / 1000).toFixed(2)}{' '}
+                {(consumoPeriodo.cimento / 1000).toFixed(2)}{" "}
                 <span className="text-sm font-normal text-muted-foreground">
                   toneladas
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1 font-mono">
-                Aditivo: {consumoPeriodo.aditivo.toLocaleString('pt-BR')} L |
+                Aditivo: {consumoPeriodo.aditivo.toLocaleString("pt-BR")} L |
                 Água: {(consumoPeriodo.agua / 1000).toFixed(1)} m³
               </p>
             </CardContent>
@@ -1403,13 +1407,13 @@ export default function Index() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold font-mono text-foreground">
-                {(consumoPeriodo.cimento / 1000).toFixed(2)}{' '}
+                {(consumoPeriodo.cimento / 1000).toFixed(2)}{" "}
                 <span className="text-sm font-normal text-muted-foreground">
                   toneladas
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1 font-mono">
-                {consumoPeriodo.cimento.toLocaleString('pt-BR')} kg aplicados
+                {consumoPeriodo.cimento.toLocaleString("pt-BR")} kg aplicados
                 nas cargas
               </p>
             </CardContent>
@@ -1424,14 +1428,14 @@ export default function Index() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold font-mono text-foreground">
-                {consumoPeriodo.aditivo.toLocaleString('pt-BR')}{' '}
+                {consumoPeriodo.aditivo.toLocaleString("pt-BR")}{" "}
                 <span className="text-sm font-normal text-muted-foreground">
                   L de aditivo
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1 font-mono">
                 Água total: {(consumoPeriodo.agua / 1000).toFixed(1)} m³ (
-                {consumoPeriodo.agua.toLocaleString('pt-BR')} L)
+                {consumoPeriodo.agua.toLocaleString("pt-BR")} L)
               </p>
             </CardContent>
           </Card>
@@ -1487,11 +1491,11 @@ export default function Index() {
                 <YAxis stroke="#888" fontSize={11} tickLine={false} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    borderColor: 'hsl(var(--border))',
-                    borderRadius: '8px',
+                    backgroundColor: "hsl(var(--card))",
+                    borderColor: "hsl(var(--border))",
+                    borderRadius: "8px",
                   }}
-                  formatter={(val: any) => [`${val} m³`, 'Volume Produzido']}
+                  formatter={(val: any) => [`${val} m³`, "Volume Produzido"]}
                 />
                 <Area
                   type="monotone"
@@ -1540,9 +1544,9 @@ export default function Index() {
                 <YAxis stroke="#888" fontSize={11} tickLine={false} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    borderColor: 'hsl(var(--border))',
-                    borderRadius: '8px',
+                    backgroundColor: "hsl(var(--card))",
+                    borderColor: "hsl(var(--border))",
+                    borderRadius: "8px",
                   }}
                 />
                 <Bar
@@ -1564,8 +1568,8 @@ export default function Index() {
               <TrendingUp className="w-4 h-4 text-primary" />
               <span>
                 {isBalanceiro
-                  ? 'Consumo Mensal: Volume (m³) e Aditivo (L)'
-                  : 'Consumo Mensal: Volume (m³), Aditivo (L) e Valores dos Custos (R$)'}
+                  ? "Consumo Mensal: Volume (m³) e Aditivo (L)"
+                  : "Consumo Mensal: Volume (m³), Aditivo (L) e Valores dos Custos (R$)"}
               </span>
             </CardTitle>
             <CardDescription className="text-xs">
@@ -1578,8 +1582,8 @@ export default function Index() {
               variant="outline"
               className="font-mono bg-primary/10 text-primary border-primary/30"
             >
-              {dadosGraficoMensal.length}{' '}
-              {dadosGraficoMensal.length === 1 ? 'mês' : 'meses'} no recorte
+              {dadosGraficoMensal.length}{" "}
+              {dadosGraficoMensal.length === 1 ? "mês" : "meses"} no recorte
             </Badge>
           </div>
         </CardHeader>
@@ -1613,12 +1617,12 @@ export default function Index() {
                   fontSize={11}
                   tickLine={false}
                   label={{
-                    value: 'Volume (m³) / Aditivo (L)',
+                    value: "Volume (m³) / Aditivo (L)",
                     angle: -90,
-                    position: 'insideLeft',
-                    fill: '#888',
+                    position: "insideLeft",
+                    fill: "#888",
                     fontSize: 10,
-                    style: { textAnchor: 'middle' },
+                    style: { textAnchor: "middle" },
                   }}
                 />
                 {/* Eixo Direito: Custos Totais (R$) - apenas Administrador */}
@@ -1630,40 +1634,40 @@ export default function Index() {
                     fontSize={11}
                     tickLine={false}
                     label={{
-                      value: 'Custo Total (R$)',
+                      value: "Custo Total (R$)",
                       angle: 90,
-                      position: 'insideRight',
-                      fill: '#10b981',
+                      position: "insideRight",
+                      fill: "#10b981",
                       fontSize: 10,
-                      style: { textAnchor: 'middle' },
+                      style: { textAnchor: "middle" },
                     }}
                   />
                 )}
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    borderColor: 'hsl(var(--border))',
-                    borderRadius: '8px',
-                    fontSize: '12px',
+                    backgroundColor: "hsl(var(--card))",
+                    borderColor: "hsl(var(--border))",
+                    borderRadius: "8px",
+                    fontSize: "12px",
                   }}
                   formatter={(val: any, name: any) => {
-                    if (name === 'Custo Total (R$)') {
+                    if (name === "Custo Total (R$)") {
                       return [
-                        `R$ ${Number(val).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                        `R$ ${Number(val).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                         name,
                       ]
                     }
-                    if (name === 'Volume (m³)') {
+                    if (name === "Volume (m³)") {
                       return [`${val} m³`, name]
                     }
-                    if (name === 'Aditivo (L)') {
-                      return [`${Number(val).toLocaleString('pt-BR')} L`, name]
+                    if (name === "Aditivo (L)") {
+                      return [`${Number(val).toLocaleString("pt-BR")} L`, name]
                     }
                     return [val, name]
                   }}
                 />
                 <Legend
-                  wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }}
+                  wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
                 />
                 <Bar
                   yAxisId="left"
@@ -1687,7 +1691,7 @@ export default function Index() {
                     name="Custo Total (R$)"
                     stroke="#10b981"
                     strokeWidth={2.5}
-                    dot={{ r: 4, fill: '#10b981' }}
+                    dot={{ r: 4, fill: "#10b981" }}
                   />
                 )}
               </ComposedChart>
@@ -1734,8 +1738,8 @@ export default function Index() {
                     key={mat.id}
                     className={`p-4 rounded-lg border transition-all ${
                       estaCritico
-                        ? 'border-destructive/40 bg-destructive/5'
-                        : 'border-border/40 bg-background/50'
+                        ? "border-destructive/40 bg-destructive/5"
+                        : "border-border/40 bg-background/50"
                     }`}
                   >
                     <div className="flex justify-between items-start">
@@ -1744,9 +1748,9 @@ export default function Index() {
                           {mat.nome}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {mat.codigo === 'cimento'
-                            ? 'Silo de Cimento'
-                            : 'Tanque de Aditivo'}
+                          {mat.codigo === "cimento"
+                            ? "Silo de Cimento"
+                            : "Tanque de Aditivo"}
                         </p>
                       </div>
                       {estaCritico ? (
@@ -1765,40 +1769,40 @@ export default function Index() {
                     </div>
                     <div className="mt-3 flex items-baseline gap-2">
                       <span className="text-3xl font-extrabold text-foreground">
-                        {mat.unidade === 'kg' && saldo >= 1000
-                          ? (saldo / 1000).toLocaleString('pt-BR', {
+                        {mat.unidade === "kg" && saldo >= 1000
+                          ? (saldo / 1000).toLocaleString("pt-BR", {
                               maximumFractionDigits: 2,
                             })
-                          : saldo.toLocaleString('pt-BR')}
+                          : saldo.toLocaleString("pt-BR")}
                       </span>
                       <span className="text-sm text-muted-foreground font-medium">
-                        {mat.unidade === 'kg' && saldo >= 1000
-                          ? 'toneladas (t)'
+                        {mat.unidade === "kg" && saldo >= 1000
+                          ? "toneladas (t)"
                           : mat.unidade}
                       </span>
-                      {mat.unidade === 'kg' && saldo >= 1000 && (
+                      {mat.unidade === "kg" && saldo >= 1000 && (
                         <span className="text-xs text-muted-foreground font-mono ml-auto">
-                          ({saldo.toLocaleString('pt-BR')} kg)
+                          ({saldo.toLocaleString("pt-BR")} kg)
                         </span>
                       )}
                     </div>
                     <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground border-t border-border/30 pt-2">
                       <span>
-                        Estoque Mínimo de Alerta:{' '}
+                        Estoque Mínimo de Alerta:{" "}
                         <strong className="text-foreground">
-                          {mat.estoque_minimo.toLocaleString('pt-BR')}{' '}
+                          {mat.estoque_minimo.toLocaleString("pt-BR")}{" "}
                           {mat.unidade}
                         </strong>
                       </span>
                       <span
                         className={
                           estaCritico
-                            ? 'text-destructive font-semibold'
-                            : 'text-emerald-500 font-medium'
+                            ? "text-destructive font-semibold"
+                            : "text-emerald-500 font-medium"
                         }
                       >
-                        Margem:{' '}
-                        {(saldo - mat.estoque_minimo).toLocaleString('pt-BR')}{' '}
+                        Margem:{" "}
+                        {(saldo - mat.estoque_minimo).toLocaleString("pt-BR")}{" "}
                         {mat.unidade}
                       </span>
                     </div>
@@ -1876,7 +1880,7 @@ export default function Index() {
                       className="hover:bg-muted/20 transition-colors"
                     >
                       <td className="py-2.5 px-3 font-mono font-medium text-foreground">
-                        #{String(c.numero_carga).padStart(4, '0')}
+                        #{String(c.numero_carga).padStart(4, "0")}
                       </td>
                       <td className="py-2.5 px-3">
                         {c.ordem_servico ? (
@@ -1901,38 +1905,38 @@ export default function Index() {
                         )}
                       </td>
                       <td className="py-2.5 px-3 text-muted-foreground">
-                        {c.data.split('-').reverse().join('/')}
+                        {c.data.split("-").reverse().join("/")}
                       </td>
                       <td className="py-2.5 px-3 font-semibold text-foreground">
                         {Number(c.volume_m3).toFixed(1)} m³
                       </td>
                       <td
                         className="py-2.5 px-3 max-w-[180px] truncate text-muted-foreground"
-                        title={c.traco_nome || '—'}
+                        title={c.traco_nome || "—"}
                       >
-                        {c.traco_nome || '—'}
+                        {c.traco_nome || "—"}
                       </td>
                       {!isBalanceiro && (
                         <>
                           <td className="py-2.5 px-3 font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                            {c.custo ? `R$ ${c.custo.total.toFixed(2)}` : '—'}
+                            {c.custo ? `R$ ${c.custo.total.toFixed(2)}` : "—"}
                           </td>
                           <td className="py-2.5 px-3 font-mono text-muted-foreground">
                             {c.custo && c.custo.custoPorM3 > 0
                               ? `R$ ${c.custo.custoPorM3.toFixed(2)}`
-                              : '—'}
+                              : "—"}
                           </td>
                         </>
                       )}
                       <td className="py-2.5 px-3 font-mono">
-                        {Number(c.consumo_cimento).toLocaleString('pt-BR')}
+                        {Number(c.consumo_cimento).toLocaleString("pt-BR")}
                       </td>
                       <td className="py-2.5 px-3 font-mono">
-                        {Number(c.consumo_aditivo).toLocaleString('pt-BR')}
+                        {Number(c.consumo_aditivo).toLocaleString("pt-BR")}
                       </td>
                       <td className="py-2.5 px-3 text-muted-foreground">
                         {c.motorista_nome ? (
-                          `${c.motorista_nome} (${c.veiculo_placa || '—'})`
+                          `${c.motorista_nome} (${c.veiculo_placa || "—"})`
                         ) : (
                           <span className="text-muted-foreground/50">
                             Não informado

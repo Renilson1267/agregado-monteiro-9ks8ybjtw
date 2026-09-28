@@ -149,12 +149,12 @@ export function buildPngDataUri(
   ihdr[11] = 0 // filter
   ihdr[12] = 0 // interlace
 
-  writeChunk('IHDR', ihdr)
-  writeChunk('IDAT', idatData)
-  writeChunk('IEND', new Uint8Array(0))
+  writeChunk("IHDR", ihdr)
+  writeChunk("IDAT", idatData)
+  writeChunk("IEND", new Uint8Array(0))
 
   // Converter para base64
-  let binary = ''
+  let binary = ""
   const len = png.byteLength
   for (let i = 0; i < len; i++) {
     binary += String.fromCharCode(png[i])
@@ -269,9 +269,9 @@ export function buildPngBytes(
   ihdr[11] = 0
   ihdr[12] = 0
 
-  writeChunk('IHDR', ihdr)
-  writeChunk('IDAT', idatData)
-  writeChunk('IEND', new Uint8Array(0))
+  writeChunk("IHDR", ihdr)
+  writeChunk("IDAT", idatData)
+  writeChunk("IEND", new Uint8Array(0))
 
   return png
 }

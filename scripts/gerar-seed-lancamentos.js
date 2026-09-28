@@ -1,63 +1,63 @@
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import fs from "fs"
+import path from "path"
+import { fileURLToPath } from "url"
 
 export function gerarMigrationSeed() {
   const __filename = fileURLToPath(import.meta.url)
   const __dirname = path.dirname(__filename)
-  const rootDir = path.resolve(__dirname, '..')
+  const rootDir = path.resolve(__dirname, "..")
 
   const backupCandidates = [
-    path.resolve(rootDir, 'src/assets/backup-folha-2026-09-28-46d43.json'),
-    path.resolve(rootDir, 'src/assets/backup-folha-2026-09-27-40a44.json'),
+    path.resolve(rootDir, "src/assets/backup-folha-2026-09-28-46d43.json"),
+    path.resolve(rootDir, "src/assets/backup-folha-2026-09-27-40a44.json"),
   ]
   const backupPath = backupCandidates.find((p) => fs.existsSync(p))
-  const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'))
+  const backupData = JSON.parse(fs.readFileSync(backupPath, "utf8"))
 
   const cadFuncs = backupData.cadastros?.funcionarios || []
   const folhaFuncs = backupData.folha?.func || {}
   const lanc = backupData.folha?.lanc || {}
 
-  const SJE_ID = '22222222-2222-2222-2222-222222222222'
-  const MONTEIRO_ID = '11111111-1111-1111-1111-111111111111'
+  const SJE_ID = "22222222-2222-2222-2222-222222222222"
+  const MONTEIRO_ID = "11111111-1111-1111-1111-111111111111"
 
   const funcMap = {}
   for (const f of cadFuncs) {
     const fFolha = folhaFuncs[f.id] || {}
-    const unidade = (fFolha.unidade || f.unidade || 'SJE').toUpperCase()
-    const empresaId = unidade.includes('MONTEIRO') ? MONTEIRO_ID : SJE_ID
+    const unidade = (fFolha.unidade || f.unidade || "SJE").toUpperCase()
+    const empresaId = unidade.includes("MONTEIRO") ? MONTEIRO_ID : SJE_ID
     funcMap[f.id] = {
       ...f,
       ...fFolha,
       empresaId,
-      unidade: unidade.includes('MONTEIRO') ? 'MONTEIRO' : 'SJE',
-      cpfLimpo: f.doc ? f.doc.replace(/[^\d]/g, '') : null,
+      unidade: unidade.includes("MONTEIRO") ? "MONTEIRO" : "SJE",
+      cpfLimpo: f.doc ? f.doc.replace(/[^\d]/g, "") : null,
     }
   }
 
   const tercDefs = [
     {
-      backupKey: '1',
-      nome: 'RAIMUNDO MARIANO DA SILVA JUNIOR',
+      backupKey: "1",
+      nome: "RAIMUNDO MARIANO DA SILVA JUNIOR",
       empresaId: SJE_ID,
-      unidade: 'SJE',
+      unidade: "SJE",
       bruto: 4270,
-      pix: 'raimundojunior100@gmail.com',
-      conta: '',
+      pix: "raimundojunior100@gmail.com",
+      conta: "",
     },
     {
-      backupKey: '0',
-      nome: 'MARCIO LUAN DA SILVA',
+      backupKey: "0",
+      nome: "MARCIO LUAN DA SILVA",
       empresaId: MONTEIRO_ID,
-      unidade: 'MONTEIRO',
+      unidade: "MONTEIRO",
       bruto: 0,
-      pix: '12175804410',
-      conta: '',
+      pix: "12175804410",
+      conta: "",
     },
   ]
 
   function esc(val) {
-    if (val === null || val === undefined) return 'NULL'
+    if (val === null || val === undefined) return "NULL"
     return `'${String(val).replace(/'/g, "''")}'`
   }
 
@@ -71,7 +71,7 @@ BEGIN
 `
 
   for (const comp of comps) {
-    const [anoStr, mesStr] = comp.split('-')
+    const [anoStr, mesStr] = comp.split("-")
     const ano = parseInt(anoStr, 10)
     const mes = parseInt(mesStr, 10)
     const funcsLanc = lanc[comp].func || {}
@@ -88,7 +88,7 @@ BEGIN
 
       // Funcionários
       for (const [funcId, fL] of Object.entries(funcsLanc)) {
-        if (funcId === '__novo' || funcId === 'undefined') continue
+        if (funcId === "__novo" || funcId === "undefined") continue
         const fCad = funcMap[funcId]
         if (!fCad || fCad.empresaId !== empId) continue
 
@@ -116,7 +116,16 @@ BEGIN
         const ir = 0
         const familia = 0
         const totalProventos =
-          bruto + familia + gratif + producao + limp + sab + fer + ajuda + vendAjuda + comissao
+          bruto +
+          familia +
+          gratif +
+          producao +
+          limp +
+          sab +
+          fer +
+          ajuda +
+          vendAjuda +
+          comissao
         const totalDescontos = adiant + inss + ir
         const liquido =
           Math.round(
@@ -137,22 +146,24 @@ BEGIN
           ) / 100
         const comissaoCalc = Math.round(vendObra * 0.005 * 100) / 100
         const modoCalculo =
-          vendObra > 0 && Math.abs(comissao - comissaoCalc) > 0.01 ? 'Digitado' : 'Calculado'
+          vendObra > 0 && Math.abs(comissao - comissaoCalc) > 0.01
+            ? "Digitado"
+            : "Calculado"
 
         rows.push({
           empresa_id: empId,
           competencia: comp,
           nome: fCad.nome.trim().toUpperCase(),
-          cargo: (fCad.funcao || 'Geral').trim().toUpperCase(),
-          tipo: 'Funcionario',
-          funcao: (fCad.funcao || 'Geral').trim().toUpperCase(),
+          cargo: (fCad.funcao || "Geral").trim().toUpperCase(),
+          tipo: "Funcionario",
+          funcao: (fCad.funcao || "Geral").trim().toUpperCase(),
           unidade: fCad.unidade,
           bruto,
           salario_base: bruto,
           filhos,
-          conta: fCad.conta || '',
-          chave_pix: fCad.pix || '',
-          pix: fCad.pix || '',
+          conta: fCad.conta || "",
+          chave_pix: fCad.pix || "",
+          pix: fCad.pix || "",
           obras,
           valor_obra: valorObra,
           producao,
@@ -193,16 +204,17 @@ BEGIN
         const bruto = t.bruto
         const totalProventos = bruto + comissao + ajudaCusto + gratif
         const totalDescontos = adiant
-        const liquido = Math.round((totalProventos - totalDescontos) * 100) / 100
+        const liquido =
+          Math.round((totalProventos - totalDescontos) * 100) / 100
 
         if (tL || bruto > 0 || vendObra > 0) {
           rows.push({
             empresa_id: empId,
             competencia: comp,
             nome: t.nome.trim().toUpperCase(),
-            cargo: 'Terceiro',
-            tipo: 'Terceiro',
-            funcao: 'Terceiro',
+            cargo: "Terceiro",
+            tipo: "Terceiro",
+            funcao: "Terceiro",
             unidade: t.unidade,
             bruto,
             salario_base: bruto,
@@ -227,9 +239,11 @@ BEGIN
             salario_liquido: liquido,
             mensal_liquido: liquido,
             modo_calculo:
-              vendObra > 0 && Math.abs(comissao - Math.round(vendObra * 0.005 * 100) / 100) > 0.01
-                ? 'Digitado'
-                : 'Calculado',
+              vendObra > 0 &&
+              Math.abs(comissao - Math.round(vendObra * 0.005 * 100) / 100) >
+                0.01
+                ? "Digitado"
+                : "Calculado",
             oculto: false,
             inativo: false,
             backup_id: `terc_${t.backupKey}`,
@@ -260,7 +274,7 @@ BEGIN
           return `    ('${r.empresa_id}'::uuid, ${esc(r.competencia)}, ${esc(r.nome)}, ${esc(r.cargo)}, ${esc(r.tipo)}, ${esc(r.funcao)}, ${esc(r.unidade)}, ${r.bruto}, ${r.salario_base}, ${r.filhos}, ${esc(r.conta)}, ${esc(r.chave_pix)}, ${esc(r.pix)}, ${r.obras}, ${r.valor_obra}, ${r.producao}, ${r.limpeza}, ${r.sabado}, ${r.ferias}, ${r.ajuda_custo}, ${r.vendas_obra}, ${r.comissao}, ${r.vendas_ajuda}, ${r.adiantamento}, ${r.gratificacao}, ${r.total_proventos}, ${r.total_descontos}, ${r.salario_liquido}, ${r.mensal_liquido}, ${esc(r.modo_calculo)}, ${r.oculto}, ${r.inativo}, ${esc(r.backup_id)}, ${esc(r.cpf)})`
         })
 
-        sql += valLines.join(',\n')
+        sql += valLines.join(",\n")
         sql += `
   ) AS v(empresa_id, competencia, nome, cargo, tipo, funcao, unidade, bruto, salario_base, filhos, conta, chave_pix, pix, obras, valor_obra, producao, limpeza, sabado, ferias, ajuda_custo, vendas_obra, comissao, vendas_ajuda, adiantamento, gratificacao, total_proventos, total_descontos, salario_liquido, mensal_liquido, modo_calculo, oculto, inativo, backup_id, cpf)
   JOIN public.folha_competencias c ON c.empresa_id = v.empresa_id AND c.competencia = v.competencia
@@ -337,68 +351,73 @@ BEGIN
 END $$;
 `
 
-  const outPath = path.resolve(rootDir, 'supabase/migrations/20260928043000_seed_lancamentos_folha_todas_competencias.sql')
-  fs.writeFileSync(outPath, sql, 'utf8')
-  console.log(`Migration gerada: ${sql.length} bytes, ${sql.split('\n').length} linhas em ${outPath}`)
+  const outPath = path.resolve(
+    rootDir,
+    "supabase/migrations/20260928043000_seed_lancamentos_folha_todas_competencias.sql",
+  )
+  fs.writeFileSync(outPath, sql, "utf8")
+  console.log(
+    `Migration gerada: ${sql.length} bytes, ${sql.split("\n").length} linhas em ${outPath}`,
+  )
   return { sql, comps, countComps: comps.length }
 }
 
 export function gerarChunksSQL(_chunkSize = 3) {
   const __filename = fileURLToPath(import.meta.url)
   const __dirname = path.dirname(__filename)
-  const rootDir = path.resolve(__dirname, '..')
+  const rootDir = path.resolve(__dirname, "..")
 
   const backupCandidates = [
-    path.resolve(rootDir, 'src/assets/backup-folha-2026-09-28-46d43.json'),
-    path.resolve(rootDir, 'src/assets/backup-folha-2026-09-27-40a44.json'),
+    path.resolve(rootDir, "src/assets/backup-folha-2026-09-28-46d43.json"),
+    path.resolve(rootDir, "src/assets/backup-folha-2026-09-27-40a44.json"),
   ]
   const backupPath = backupCandidates.find((p) => fs.existsSync(p))
-  const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'))
+  const backupData = JSON.parse(fs.readFileSync(backupPath, "utf8"))
 
   const cadFuncs = backupData.cadastros?.funcionarios || []
   const folhaFuncs = backupData.folha?.func || {}
   const lanc = backupData.folha?.lanc || {}
 
-  const SJE_ID = '22222222-2222-2222-2222-222222222222'
-  const MONTEIRO_ID = '11111111-1111-1111-1111-111111111111'
+  const SJE_ID = "22222222-2222-2222-2222-222222222222"
+  const MONTEIRO_ID = "11111111-1111-1111-1111-111111111111"
 
   const funcMap = {}
   for (const f of cadFuncs) {
     const fFolha = folhaFuncs[f.id] || {}
-    const unidade = (fFolha.unidade || f.unidade || 'SJE').toUpperCase()
-    const empresaId = unidade.includes('MONTEIRO') ? MONTEIRO_ID : SJE_ID
+    const unidade = (fFolha.unidade || f.unidade || "SJE").toUpperCase()
+    const empresaId = unidade.includes("MONTEIRO") ? MONTEIRO_ID : SJE_ID
     funcMap[f.id] = {
       ...f,
       ...fFolha,
       empresaId,
-      unidade: unidade.includes('MONTEIRO') ? 'MONTEIRO' : 'SJE',
-      cpfLimpo: f.doc ? f.doc.replace(/[^\d]/g, '') : null,
+      unidade: unidade.includes("MONTEIRO") ? "MONTEIRO" : "SJE",
+      cpfLimpo: f.doc ? f.doc.replace(/[^\d]/g, "") : null,
     }
   }
 
   const tercDefs = [
     {
-      backupKey: '1',
-      nome: 'RAIMUNDO MARIANO DA SILVA JUNIOR',
+      backupKey: "1",
+      nome: "RAIMUNDO MARIANO DA SILVA JUNIOR",
       empresaId: SJE_ID,
-      unidade: 'SJE',
+      unidade: "SJE",
       bruto: 4270,
-      pix: 'raimundojunior100@gmail.com',
-      conta: '',
+      pix: "raimundojunior100@gmail.com",
+      conta: "",
     },
     {
-      backupKey: '0',
-      nome: 'MARCIO LUAN DA SILVA',
+      backupKey: "0",
+      nome: "MARCIO LUAN DA SILVA",
       empresaId: MONTEIRO_ID,
-      unidade: 'MONTEIRO',
+      unidade: "MONTEIRO",
       bruto: 0,
-      pix: '12175804410',
-      conta: '',
+      pix: "12175804410",
+      conta: "",
     },
   ]
 
   function esc(val) {
-    if (val === null || val === undefined) return 'NULL'
+    if (val === null || val === undefined) return "NULL"
     return `'${String(val).replace(/'/g, "''")}'`
   }
 
@@ -409,12 +428,12 @@ export function gerarChunksSQL(_chunkSize = 3) {
   }
 
   return chunks.map((group, groupIdx) => {
-    let sql = `-- Migration: Importar lote ${groupIdx + 1} da Folha (${group.join(', ')})
+    let sql = `-- Migration: Importar lote ${groupIdx + 1} da Folha (${group.join(", ")})
 DO $$
 BEGIN
 `
     for (const comp of group) {
-      const [anoStr, mesStr] = comp.split('-')
+      const [anoStr, mesStr] = comp.split("-")
       const ano = parseInt(anoStr, 10)
       const mes = parseInt(mesStr, 10)
       const funcsLanc = lanc[comp].func || {}
@@ -431,7 +450,7 @@ BEGIN
 
         // Funcionários
         for (const [funcId, fL] of Object.entries(funcsLanc)) {
-          if (funcId === '__novo' || funcId === 'undefined') continue
+          if (funcId === "__novo" || funcId === "undefined") continue
           const fCad = funcMap[funcId]
           if (!fCad || fCad.empresaId !== empId) continue
 
@@ -457,7 +476,16 @@ BEGIN
           const ir = 0
           const familia = 0
           const totalProventos =
-            bruto + familia + gratif + producao + limp + sab + fer + ajuda + vendAjuda + comissao
+            bruto +
+            familia +
+            gratif +
+            producao +
+            limp +
+            sab +
+            fer +
+            ajuda +
+            vendAjuda +
+            comissao
           const totalDescontos = adiant + inss + ir
           const liquido =
             Math.round(
@@ -478,22 +506,24 @@ BEGIN
             ) / 100
           const comissaoCalc = Math.round(vendObra * 0.005 * 100) / 100
           const modoCalculo =
-            vendObra > 0 && Math.abs(comissao - comissaoCalc) > 0.01 ? 'Digitado' : 'Calculado'
+            vendObra > 0 && Math.abs(comissao - comissaoCalc) > 0.01
+              ? "Digitado"
+              : "Calculado"
 
           rows.push({
             empresa_id: empId,
             competencia: comp,
             nome: fCad.nome.trim().toUpperCase(),
-            cargo: (fCad.funcao || 'Geral').trim().toUpperCase(),
-            tipo: 'Funcionario',
-            funcao: (fCad.funcao || 'Geral').trim().toUpperCase(),
+            cargo: (fCad.funcao || "Geral").trim().toUpperCase(),
+            tipo: "Funcionario",
+            funcao: (fCad.funcao || "Geral").trim().toUpperCase(),
             unidade: fCad.unidade,
             bruto,
             salario_base: bruto,
             filhos,
-            conta: fCad.conta || '',
-            chave_pix: fCad.pix || '',
-            pix: fCad.pix || '',
+            conta: fCad.conta || "",
+            chave_pix: fCad.pix || "",
+            pix: fCad.pix || "",
             obras,
             valor_obra: valorObra,
             producao,
@@ -534,16 +564,17 @@ BEGIN
           const bruto = t.bruto
           const totalProventos = bruto + comissao + ajudaCusto + gratif
           const totalDescontos = adiant
-          const liquido = Math.round((totalProventos - totalDescontos) * 100) / 100
+          const liquido =
+            Math.round((totalProventos - totalDescontos) * 100) / 100
 
           if (tL || bruto > 0 || vendObra > 0) {
             rows.push({
               empresa_id: empId,
               competencia: comp,
               nome: t.nome.trim().toUpperCase(),
-              cargo: 'Terceiro',
-              tipo: 'Terceiro',
-              funcao: 'Terceiro',
+              cargo: "Terceiro",
+              tipo: "Terceiro",
+              funcao: "Terceiro",
               unidade: t.unidade,
               bruto,
               salario_base: bruto,
@@ -568,9 +599,11 @@ BEGIN
               salario_liquido: liquido,
               mensal_liquido: liquido,
               modo_calculo:
-                vendObra > 0 && Math.abs(comissao - Math.round(vendObra * 0.005 * 100) / 100) > 0.01
-                  ? 'Digitado'
-                  : 'Calculado',
+                vendObra > 0 &&
+                Math.abs(comissao - Math.round(vendObra * 0.005 * 100) / 100) >
+                  0.01
+                  ? "Digitado"
+                  : "Calculado",
               oculto: false,
               inativo: false,
               backup_id: `terc_${t.backupKey}`,
@@ -601,7 +634,7 @@ BEGIN
             return `    ('${r.empresa_id}'::uuid, ${esc(r.competencia)}, ${esc(r.nome)}, ${esc(r.cargo)}, ${esc(r.tipo)}, ${esc(r.funcao)}, ${esc(r.unidade)}, ${r.bruto}, ${r.salario_base}, ${r.filhos}, ${esc(r.conta)}, ${esc(r.chave_pix)}, ${esc(r.pix)}, ${r.obras}, ${r.valor_obra}, ${r.producao}, ${r.limpeza}, ${r.sabado}, ${r.ferias}, ${r.ajuda_custo}, ${r.vendas_obra}, ${r.comissao}, ${r.vendas_ajuda}, ${r.adiantamento}, ${r.gratificacao}, ${r.total_proventos}, ${r.total_descontos}, ${r.salario_liquido}, ${r.mensal_liquido}, ${esc(r.modo_calculo)}, ${r.oculto}, ${r.inativo}, ${esc(r.backup_id)}, ${esc(r.cpf)})`
           })
 
-          sql += valLines.join(',\n')
+          sql += valLines.join(",\n")
           sql += `
     ) AS v(empresa_id, competencia, nome, cargo, tipo, funcao, unidade, bruto, salario_base, filhos, conta, chave_pix, pix, obras, valor_obra, producao, limpeza, sabado, ferias, ajuda_custo, vendas_obra, comissao, vendas_ajuda, adiantamento, gratificacao, total_proventos, total_descontos, salario_liquido, mensal_liquido, modo_calculo, oculto, inativo, backup_id, cpf)
     JOIN public.folha_competencias c ON c.empresa_id = v.empresa_id AND c.competencia = v.competencia

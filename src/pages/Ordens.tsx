@@ -1,33 +1,33 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo } from "react"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { ConcreteiraService } from '@/services/concreteira'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { useUsuario } from '@/hooks/use-usuario'
+} from "@/components/ui/select"
+import { ConcreteiraService } from "@/services/concreteira"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { useUsuario } from "@/hooks/use-usuario"
 import type {
   OrdemServico,
   Cliente,
@@ -36,9 +36,9 @@ import type {
   Motorista,
   Veiculo,
   ItemOrdemServico,
-} from '@/types/concreteira'
-import { ReciboImpressao } from '@/components/ReciboImpressao'
-import { printElementInIsolatedIframe } from '@/lib/imprimir-recibo'
+} from "@/types/concreteira"
+import { ReciboImpressao } from "@/components/ReciboImpressao"
+import { printElementInIsolatedIframe } from "@/lib/imprimir-recibo"
 import {
   FileText,
   Plus,
@@ -52,8 +52,8 @@ import {
   User,
   Clock,
   Sparkles,
-} from 'lucide-react'
-import { toast } from '@/hooks/use-toast'
+} from "lucide-react"
+import { toast } from "@/hooks/use-toast"
 
 export default function Ordens() {
   const { empresaAtiva } = useEmpresa()
@@ -68,7 +68,7 @@ export default function Ordens() {
   const [loading, setLoading] = useState(true)
 
   // Filtro na listagem
-  const [busca, setBusca] = useState('')
+  const [busca, setBusca] = useState("")
 
   // Estado do formulário / modal
   const [modalOpen, setModalOpen] = useState(false)
@@ -82,63 +82,63 @@ export default function Ordens() {
   // Campos do formulário
   const [numeroOs, setNumeroOs] = useState<number>(4337)
   const [dataEmissao, setDataEmissao] = useState(
-    new Date().toISOString().split('T')[0],
+    new Date().toISOString().split("T")[0],
   )
   const [clienteSelecionadoId, setClienteSelecionadoId] =
-    useState<string>('none')
-  const [cargaSelecionadaId, setCargaSelecionadaId] = useState<string>('none')
+    useState<string>("none")
+  const [cargaSelecionadaId, setCargaSelecionadaId] = useState<string>("none")
 
   // Destinatário
-  const [destinatarioNome, setDestinatarioNome] = useState('')
-  const [destinatarioCpfCnpj, setDestinatarioCpfCnpj] = useState('')
-  const [destinatarioTelefone, setDestinatarioTelefone] = useState('')
-  const [destinatarioEndereco, setDestinatarioEndereco] = useState('')
-  const [destinatarioBairro, setDestinatarioBairro] = useState('')
-  const [destinatarioCidade, setDestinatarioCidade] = useState('')
-  const [destinatarioUf, setDestinatarioUf] = useState('PB')
-  const [destinatarioCep, setDestinatarioCep] = useState('')
+  const [destinatarioNome, setDestinatarioNome] = useState("")
+  const [destinatarioCpfCnpj, setDestinatarioCpfCnpj] = useState("")
+  const [destinatarioTelefone, setDestinatarioTelefone] = useState("")
+  const [destinatarioEndereco, setDestinatarioEndereco] = useState("")
+  const [destinatarioBairro, setDestinatarioBairro] = useState("")
+  const [destinatarioCidade, setDestinatarioCidade] = useState("")
+  const [destinatarioUf, setDestinatarioUf] = useState("PB")
+  const [destinatarioCep, setDestinatarioCep] = useState("")
 
   // Itens
   const [itens, setItens] = useState<ItemOrdemServico[]>([
     {
       quantidade: 8.0,
-      unidade: 'm3',
-      discriminacao: 'FCK 25 BRITA 0 / 1 SLUMP 12+-2 SJE NAC',
+      unidade: "m3",
+      discriminacao: "FCK 25 BRITA 0 / 1 SLUMP 12+-2 SJE NAC",
     },
   ])
 
   // Slump Central & Peça
-  const [slumpCentralMedido, setSlumpCentralMedido] = useState('12+-2')
-  const [slumpCentralSaida, setSlumpCentralSaida] = useState('12+-2')
+  const [slumpCentralMedido, setSlumpCentralMedido] = useState("12+-2")
+  const [slumpCentralSaida, setSlumpCentralSaida] = useState("12+-2")
   const [aguaAdicCentral, setAguaAdicCentral] = useState<number>(0)
-  const [moldagemCentral, setMoldagemCentral] = useState('SIM')
-  const [vistoMotoristaCentral, setVistoMotoristaCentral] = useState('')
+  const [moldagemCentral, setMoldagemCentral] = useState("SIM")
+  const [vistoMotoristaCentral, setVistoMotoristaCentral] = useState("")
 
-  const [slumpPecaMedido, setSlumpPecaMedido] = useState('12+-2')
-  const [slumpPecaSaida, setSlumpPecaSaida] = useState('12+-2')
+  const [slumpPecaMedido, setSlumpPecaMedido] = useState("12+-2")
+  const [slumpPecaSaida, setSlumpPecaSaida] = useState("12+-2")
   const [aguaAdicPeca, setAguaAdicPeca] = useState<number>(0)
-  const [pecaConcretada, setPecaConcretada] = useState('PISO / ESTRUTURAL')
-  const [vistoMotoristaPeca, setVistoMotoristaPeca] = useState('')
+  const [pecaConcretada, setPecaConcretada] = useState("PISO / ESTRUTURAL")
+  const [vistoMotoristaPeca, setVistoMotoristaPeca] = useState("")
 
   // Transporte & Horários
-  const [veiculoPlaca, setVeiculoPlaca] = useState('')
-  const [motoristaNome, setMotoristaNome] = useState('')
-  const [lacre, setLacre] = useState('')
-  const [kmInicial, setKmInicial] = useState<string>('')
-  const [kmFinal, setKmFinal] = useState<string>('')
-  const [horaCarga, setHoraCarga] = useState('')
+  const [veiculoPlaca, setVeiculoPlaca] = useState("")
+  const [motoristaNome, setMotoristaNome] = useState("")
+  const [lacre, setLacre] = useState("")
+  const [kmInicial, setKmInicial] = useState<string>("")
+  const [kmFinal, setKmFinal] = useState<string>("")
+  const [horaCarga, setHoraCarga] = useState("")
 
-  const [horaSaidaCentral, setHoraSaidaCentral] = useState('')
-  const [horaChegadaObra, setHoraChegadaObra] = useState('')
-  const [horaInicioDescarga, setHoraInicioDescarga] = useState('')
-  const [horaFimDescarga, setHoraFimDescarga] = useState('')
-  const [horaSaidaObra, setHoraSaidaObra] = useState('')
-  const [horaChegadaCentral, setHoraChegadaCentral] = useState('')
+  const [horaSaidaCentral, setHoraSaidaCentral] = useState("")
+  const [horaChegadaObra, setHoraChegadaObra] = useState("")
+  const [horaInicioDescarga, setHoraInicioDescarga] = useState("")
+  const [horaFimDescarga, setHoraFimDescarga] = useState("")
+  const [horaSaidaObra, setHoraSaidaObra] = useState("")
+  const [horaChegadaCentral, setHoraChegadaCentral] = useState("")
 
-  const [vistoObra, setVistoObra] = useState('')
-  const [vendedorNome, setVendedorNome] = useState('')
-  const [bombaEstacionaria, setBombaEstacionaria] = useState('')
-  const [observacoes, setObservacoes] = useState('')
+  const [vistoObra, setVistoObra] = useState("")
+  const [vendedorNome, setVendedorNome] = useState("")
+  const [bombaEstacionaria, setBombaEstacionaria] = useState("")
+  const [observacoes, setObservacoes] = useState("")
 
   const carregarDados = async () => {
     if (!empresaAtiva) return
@@ -160,9 +160,9 @@ export default function Ordens() {
       setVeiculos(veis)
     } catch (e: any) {
       toast({
-        title: 'Erro ao carregar Ordens de Serviço',
+        title: "Erro ao carregar Ordens de Serviço",
         description: e.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setLoading(false)
@@ -179,29 +179,29 @@ export default function Ordens() {
   // Preenche dados do cliente selecionado no formulário
   const handleSelecionarCliente = (clienteId: string) => {
     setClienteSelecionadoId(clienteId)
-    if (clienteId === 'none') return
+    if (clienteId === "none") return
 
     const cli = clientes.find((c) => c.id === clienteId)
     if (!cli) return
 
     setDestinatarioNome(cli.nome)
-    setDestinatarioCpfCnpj(cli.cpf_cnpj || '')
-    setDestinatarioTelefone(cli.telefone || '')
+    setDestinatarioCpfCnpj(cli.cpf_cnpj || "")
+    setDestinatarioTelefone(cli.telefone || "")
     setDestinatarioEndereco(
-      [cli.logradouro, cli.numero].filter(Boolean).join(', ') ||
+      [cli.logradouro, cli.numero].filter(Boolean).join(", ") ||
         cli.logradouro ||
-        '',
+        "",
     )
-    setDestinatarioBairro(cli.bairro || '')
-    setDestinatarioCidade(cli.cidade || '')
-    setDestinatarioUf(cli.uf || 'PB')
-    setDestinatarioCep(cli.cep || '')
+    setDestinatarioBairro(cli.bairro || "")
+    setDestinatarioCidade(cli.cidade || "")
+    setDestinatarioUf(cli.uf || "PB")
+    setDestinatarioCep(cli.cep || "")
   }
 
   // Vincula dados de uma carga existente
   const handleVincularCarga = (cargaId: string) => {
     setCargaSelecionadaId(cargaId)
-    if (cargaId === 'none') return
+    if (cargaId === "none") return
 
     const carga = cargas.find((c) => c.id === cargaId)
     if (!carga) return
@@ -219,12 +219,12 @@ export default function Ordens() {
     // Sugere linha de item com base no volume e traço da carga
     const vol = Number(carga.volume_m3) || 8.0
     const descTraco =
-      carga.traco_nome || 'FCK 25 BRITA 0 / 1 SLUMP 12+-2 SJE NAC'
+      carga.traco_nome || "FCK 25 BRITA 0 / 1 SLUMP 12+-2 SJE NAC"
 
     setItens([
       {
         quantidade: vol,
-        unidade: 'm3',
+        unidade: "m3",
         discriminacao: descTraco,
       },
     ])
@@ -238,56 +238,56 @@ export default function Ordens() {
     try {
       const prox = await ConcreteiraService.getProximoNumeroOS(empresaAtiva.id)
       setNumeroOs(prox)
-      setDataEmissao(new Date().toISOString().split('T')[0])
-      setClienteSelecionadoId('none')
-      setCargaSelecionadaId('none')
-      setDestinatarioNome('')
-      setDestinatarioCpfCnpj('')
-      setDestinatarioTelefone('')
-      setDestinatarioEndereco('')
-      setDestinatarioBairro('')
-      setDestinatarioCidade('')
-      setDestinatarioUf('PB')
-      setDestinatarioCep('')
+      setDataEmissao(new Date().toISOString().split("T")[0])
+      setClienteSelecionadoId("none")
+      setCargaSelecionadaId("none")
+      setDestinatarioNome("")
+      setDestinatarioCpfCnpj("")
+      setDestinatarioTelefone("")
+      setDestinatarioEndereco("")
+      setDestinatarioBairro("")
+      setDestinatarioCidade("")
+      setDestinatarioUf("PB")
+      setDestinatarioCep("")
 
       setItens([
         {
           quantidade: 8.0,
-          unidade: 'm3',
-          discriminacao: `FCK 25 BRITA 0 / 1 SLUMP 12+-2 ${empresaAtiva.slug?.toUpperCase() || ''} NAC`,
+          unidade: "m3",
+          discriminacao: `FCK 25 BRITA 0 / 1 SLUMP 12+-2 ${empresaAtiva.slug?.toUpperCase() || ""} NAC`,
         },
       ])
 
-      setSlumpCentralMedido('12+-2')
-      setSlumpCentralSaida('12+-2')
+      setSlumpCentralMedido("12+-2")
+      setSlumpCentralSaida("12+-2")
       setAguaAdicCentral(0)
-      setMoldagemCentral('SIM')
-      setVistoMotoristaCentral('')
+      setMoldagemCentral("SIM")
+      setVistoMotoristaCentral("")
 
-      setSlumpPecaMedido('12+-2')
-      setSlumpPecaSaida('12+-2')
+      setSlumpPecaMedido("12+-2")
+      setSlumpPecaSaida("12+-2")
       setAguaAdicPeca(0)
-      setPecaConcretada('PISO / ESTRUTURAL')
-      setVistoMotoristaPeca('')
+      setPecaConcretada("PISO / ESTRUTURAL")
+      setVistoMotoristaPeca("")
 
-      setVeiculoPlaca('')
-      setMotoristaNome('')
-      setLacre('')
-      setKmInicial('')
-      setKmFinal('')
+      setVeiculoPlaca("")
+      setMotoristaNome("")
+      setLacre("")
+      setKmInicial("")
+      setKmFinal("")
       setHoraCarga(new Date().toTimeString().slice(0, 5))
 
-      setHoraSaidaCentral('')
-      setHoraChegadaObra('')
-      setHoraInicioDescarga('')
-      setHoraFimDescarga('')
-      setHoraSaidaObra('')
-      setHoraChegadaCentral('')
+      setHoraSaidaCentral("")
+      setHoraChegadaObra("")
+      setHoraInicioDescarga("")
+      setHoraFimDescarga("")
+      setHoraSaidaObra("")
+      setHoraChegadaCentral("")
 
-      setVistoObra('')
-      setVendedorNome('')
-      setBombaEstacionaria('')
-      setObservacoes('')
+      setVistoObra("")
+      setVendedorNome("")
+      setBombaEstacionaria("")
+      setObservacoes("")
 
       setModalOpen(true)
     } finally {
@@ -300,54 +300,54 @@ export default function Ordens() {
     setOrdemEditando(os)
     setNumeroOs(os.numero_os)
     setDataEmissao(os.data_emissao)
-    setClienteSelecionadoId(os.cliente_id || 'none')
-    setCargaSelecionadaId(os.carga_id || 'none')
+    setClienteSelecionadoId(os.cliente_id || "none")
+    setCargaSelecionadaId(os.carga_id || "none")
 
     setDestinatarioNome(os.destinatario_nome)
-    setDestinatarioCpfCnpj(os.destinatario_cpf_cnpj || '')
-    setDestinatarioTelefone(os.destinatario_telefone || '')
-    setDestinatarioEndereco(os.destinatario_endereco || '')
-    setDestinatarioBairro(os.destinatario_bairro || '')
-    setDestinatarioCidade(os.destinatario_cidade || '')
-    setDestinatarioUf(os.destinatario_uf || 'PB')
-    setDestinatarioCep(os.destinatario_cep || '')
+    setDestinatarioCpfCnpj(os.destinatario_cpf_cnpj || "")
+    setDestinatarioTelefone(os.destinatario_telefone || "")
+    setDestinatarioEndereco(os.destinatario_endereco || "")
+    setDestinatarioBairro(os.destinatario_bairro || "")
+    setDestinatarioCidade(os.destinatario_cidade || "")
+    setDestinatarioUf(os.destinatario_uf || "PB")
+    setDestinatarioCep(os.destinatario_cep || "")
 
     setItens(
       os.itens && os.itens.length > 0
         ? os.itens
-        : [{ quantidade: 8, unidade: 'm3', discriminacao: 'FCK 25' }],
+        : [{ quantidade: 8, unidade: "m3", discriminacao: "FCK 25" }],
     )
 
-    setSlumpCentralMedido(os.slump_central_medido || '12+-2')
-    setSlumpCentralSaida(os.slump_central_saida || '12+-2')
+    setSlumpCentralMedido(os.slump_central_medido || "12+-2")
+    setSlumpCentralSaida(os.slump_central_saida || "12+-2")
     setAguaAdicCentral(Number(os.agua_adic_central || 0))
-    setMoldagemCentral(os.moldagem_central || 'SIM')
-    setVistoMotoristaCentral(os.visto_motorista_central || '')
+    setMoldagemCentral(os.moldagem_central || "SIM")
+    setVistoMotoristaCentral(os.visto_motorista_central || "")
 
-    setSlumpPecaMedido(os.slump_peca_medido || '12+-2')
-    setSlumpPecaSaida(os.slump_peca_saida || '12+-2')
+    setSlumpPecaMedido(os.slump_peca_medido || "12+-2")
+    setSlumpPecaSaida(os.slump_peca_saida || "12+-2")
     setAguaAdicPeca(Number(os.agua_adic_peca || 0))
-    setPecaConcretada(os.peca_concretada || 'PISO / ESTRUTURAL')
-    setVistoMotoristaPeca(os.visto_motorista_peca || '')
+    setPecaConcretada(os.peca_concretada || "PISO / ESTRUTURAL")
+    setVistoMotoristaPeca(os.visto_motorista_peca || "")
 
-    setVeiculoPlaca(os.veiculo_placa || '')
-    setMotoristaNome(os.motorista_nome || '')
-    setLacre(os.lacre || '')
-    setKmInicial(os.km_inicial != null ? String(os.km_inicial) : '')
-    setKmFinal(os.km_final != null ? String(os.km_final) : '')
-    setHoraCarga(os.hora_carga || '')
+    setVeiculoPlaca(os.veiculo_placa || "")
+    setMotoristaNome(os.motorista_nome || "")
+    setLacre(os.lacre || "")
+    setKmInicial(os.km_inicial != null ? String(os.km_inicial) : "")
+    setKmFinal(os.km_final != null ? String(os.km_final) : "")
+    setHoraCarga(os.hora_carga || "")
 
-    setHoraSaidaCentral(os.hora_saida_central || '')
-    setHoraChegadaObra(os.hora_chegada_obra || '')
-    setHoraInicioDescarga(os.hora_inicio_descarga || '')
-    setHoraFimDescarga(os.hora_fim_descarga || '')
-    setHoraSaidaObra(os.hora_saida_obra || '')
-    setHoraChegadaCentral(os.hora_chegada_central || '')
+    setHoraSaidaCentral(os.hora_saida_central || "")
+    setHoraChegadaObra(os.hora_chegada_obra || "")
+    setHoraInicioDescarga(os.hora_inicio_descarga || "")
+    setHoraFimDescarga(os.hora_fim_descarga || "")
+    setHoraSaidaObra(os.hora_saida_obra || "")
+    setHoraChegadaCentral(os.hora_chegada_central || "")
 
-    setVistoObra(os.visto_obra || '')
-    setVendedorNome(os.vendedor_nome || '')
-    setBombaEstacionaria(os.bomba_estacionaria || '')
-    setObservacoes(os.observacoes || '')
+    setVistoObra(os.visto_obra || "")
+    setVendedorNome(os.vendedor_nome || "")
+    setBombaEstacionaria(os.bomba_estacionaria || "")
+    setObservacoes(os.observacoes || "")
 
     setModalOpen(true)
   }
@@ -358,8 +358,8 @@ export default function Ordens() {
       ...prev,
       {
         quantidade: 8.0,
-        unidade: 'm3',
-        discriminacao: 'FCK 25 BRITA 0 / 1 SLUMP 12+-2',
+        unidade: "m3",
+        discriminacao: "FCK 25 BRITA 0 / 1 SLUMP 12+-2",
       },
     ])
   }
@@ -388,9 +388,9 @@ export default function Ordens() {
 
     if (!destinatarioNome.trim()) {
       toast({
-        title: 'Nome do Destinatário é obrigatório',
-        description: 'Selecione um cliente cadastrado ou digite o nome.',
-        variant: 'destructive',
+        title: "Nome do Destinatário é obrigatório",
+        description: "Selecione um cliente cadastrado ou digite o nome.",
+        variant: "destructive",
       })
       return
     }
@@ -403,8 +403,8 @@ export default function Ordens() {
         numero_os: Number(numeroOs),
         data_emissao: dataEmissao,
         cliente_id:
-          clienteSelecionadoId !== 'none' ? clienteSelecionadoId : null,
-        carga_id: cargaSelecionadaId !== 'none' ? cargaSelecionadaId : null,
+          clienteSelecionadoId !== "none" ? clienteSelecionadoId : null,
+        carga_id: cargaSelecionadaId !== "none" ? cargaSelecionadaId : null,
 
         destinatario_nome: destinatarioNome.trim(),
         destinatario_cpf_cnpj: destinatarioCpfCnpj.trim() || null,
@@ -412,7 +412,7 @@ export default function Ordens() {
         destinatario_endereco: destinatarioEndereco.trim() || null,
         destinatario_bairro: destinatarioBairro.trim() || null,
         destinatario_cidade: destinatarioCidade.trim() || null,
-        destinatario_uf: destinatarioUf.trim() || 'PB',
+        destinatario_uf: destinatarioUf.trim() || "PB",
         destinatario_cep: destinatarioCep.trim() || null,
 
         itens,
@@ -464,9 +464,9 @@ export default function Ordens() {
       carregarDados()
     } catch (err: any) {
       toast({
-        title: 'Erro ao salvar Ordem de Serviço',
+        title: "Erro ao salvar Ordem de Serviço",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -477,7 +477,7 @@ export default function Ordens() {
   const dispararImpressao = (os: OrdemServico) => {
     setOrdemParaImprimir(os)
     setTimeout(async () => {
-      const el = document.getElementById('recibo-impressao-ordens')
+      const el = document.getElementById("recibo-impressao-ordens")
       if (el) {
         await printElementInIsolatedIframe(el, {
           title: `OS_${os.numero_os}_Recibo_GC_MIX`,
@@ -545,7 +545,7 @@ export default function Ordens() {
             disabled={loading}
             className="gap-2"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
 
@@ -568,8 +568,8 @@ export default function Ordens() {
               Histórico de Ordens de Serviço ({ordensFiltradas.length})
             </CardTitle>
             <CardDescription className="text-xs">
-              Recibos gerados sequencialmente para a unidade{' '}
-              {empresaAtiva?.nome || ''}
+              Recibos gerados sequencialmente para a unidade{" "}
+              {empresaAtiva?.nome || ""}
             </CardDescription>
           </div>
           <div className="relative w-full sm:w-72">
@@ -609,7 +609,7 @@ export default function Ordens() {
                       0,
                     )
                     const descPrimeiro =
-                      os.itens?.[0]?.discriminacao || 'Concreto Usinado'
+                      os.itens?.[0]?.discriminacao || "Concreto Usinado"
 
                     return (
                       <tr
@@ -620,7 +620,7 @@ export default function Ordens() {
                           #{os.numero_os}
                         </td>
                         <td className="py-2.5 px-3 text-muted-foreground">
-                          {os.data_emissao.split('-').reverse().join('/')}
+                          {os.data_emissao.split("-").reverse().join("/")}
                         </td>
                         <td className="py-2.5 px-3">
                           <span className="font-semibold text-foreground block">
@@ -635,7 +635,7 @@ export default function Ordens() {
                         <td className="py-2.5 px-3 max-w-[220px]">
                           <span className="font-mono font-bold text-foreground">
                             {volTotal.toFixed(1)} m³
-                          </span>{' '}
+                          </span>{" "}
                           <span
                             className="text-muted-foreground truncate block text-[11px]"
                             title={descPrimeiro}
@@ -649,7 +649,7 @@ export default function Ordens() {
                               {os.veiculo_placa}
                             </span>
                           ) : (
-                            '—'
+                            "—"
                           )}
                           {os.motorista_nome && (
                             <span className="block text-[10px] text-muted-foreground">
@@ -658,7 +658,7 @@ export default function Ordens() {
                           )}
                         </td>
                         <td className="py-2.5 px-3 text-muted-foreground">
-                          {os.destinatario_cidade || '—'}
+                          {os.destinatario_cidade || "—"}
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
@@ -705,7 +705,7 @@ export default function Ordens() {
                 : `Novo Recibo de Concreto Nº ${numeroOs}`}
             </DialogTitle>
             <CardDescription className="text-xs">
-              Unidade: {empresaAtiva?.nome || ''}. Todos os campos alimentam
+              Unidade: {empresaAtiva?.nome || ""}. Todos os campos alimentam
               diretamente a versão A4 oficial impressa.
             </CardDescription>
           </DialogHeader>
@@ -917,7 +917,7 @@ export default function Ordens() {
                         onChange={(e) =>
                           handleUpdateItem(
                             idx,
-                            'quantidade',
+                            "quantidade",
                             Number(e.target.value),
                           )
                         }
@@ -929,7 +929,7 @@ export default function Ordens() {
                       <Input
                         value={it.unidade}
                         onChange={(e) =>
-                          handleUpdateItem(idx, 'unidade', e.target.value)
+                          handleUpdateItem(idx, "unidade", e.target.value)
                         }
                         placeholder="m3"
                         className="h-9 text-xs text-center uppercase"
@@ -939,7 +939,7 @@ export default function Ordens() {
                       <Input
                         value={it.discriminacao}
                         onChange={(e) =>
-                          handleUpdateItem(idx, 'discriminacao', e.target.value)
+                          handleUpdateItem(idx, "discriminacao", e.target.value)
                         }
                         placeholder="Ex: FCK 25 BRITA 0 / 1 SLUMP 12+-2 SJE NAC"
                         className="h-9 text-xs uppercase"
@@ -1245,7 +1245,7 @@ export default function Ordens() {
                     size="sm"
                     onClick={() =>
                       setObservacoes(
-                        'Cuidado com a cura do concreto para evitar frisuras',
+                        "Cuidado com a cura do concreto para evitar frisuras",
                       )
                     }
                     className="h-6 px-2 text-[10px] text-primary hover:text-primary gap-1 font-medium hover:bg-primary/10"
@@ -1279,10 +1279,10 @@ export default function Ordens() {
                 className="bg-primary text-primary-foreground font-semibold"
               >
                 {salvando
-                  ? 'Salvando...'
+                  ? "Salvando..."
                   : ordemEditando
-                    ? 'Salvar Alterações'
-                    : 'Salvar e Gerar Recibo'}
+                    ? "Salvar Alterações"
+                    : "Salvar e Gerar Recibo"}
               </Button>
             </DialogFooter>
           </form>

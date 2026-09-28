@@ -1,7 +1,7 @@
 // Utilitários para validação e busca de CPF / CNPJ / CEP
 
 export function limparMascara(valor: string): string {
-  return (valor || '').replace(/\D/g, '')
+  return (valor || "").replace(/\D/g, "")
 }
 
 export function formatarCpfCnpj(valor: string): string {
@@ -9,17 +9,17 @@ export function formatarCpfCnpj(valor: string): string {
   if (limpo.length <= 11) {
     // CPF: 000.000.000-00
     return limpo
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2")
   } else {
     // CNPJ: 00.000.000/0000-00
     return limpo
       .slice(0, 14)
-      .replace(/(\d{2})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d)/, '$1/$2')
-      .replace(/(\d{4})(\d{1,2})$/, '$1-$2')
+      .replace(/(\d{2})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1/$2")
+      .replace(/(\d{4})(\d{1,2})$/, "$1-$2")
   }
 }
 
@@ -28,20 +28,20 @@ export function formatarTelefone(valor: string): string {
   if (limpo.length <= 10) {
     // (00) 0000-0000
     return limpo
-      .replace(/(\d{2})(\d)/, '($1) $2')
-      .replace(/(\d{4})(\d{1,4})$/, '$1-$2')
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{4})(\d{1,4})$/, "$1-$2")
   } else {
     // (00) 00000-0000
     return limpo
       .slice(0, 11)
-      .replace(/(\d{2})(\d)/, '($1) $2')
-      .replace(/(\d{5})(\d{1,4})$/, '$1-$2')
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{5})(\d{1,4})$/, "$1-$2")
   }
 }
 
 export function formatarCep(valor: string): string {
   const limpo = limparMascara(valor).slice(0, 8)
-  return limpo.replace(/(\d{5})(\d{1,3})$/, '$1-$2')
+  return limpo.replace(/(\d{5})(\d{1,3})$/, "$1-$2")
 }
 
 /**
@@ -131,7 +131,7 @@ export async function consultarCNPJ(
 ): Promise<DadosCnpjBrasilApi> {
   const cnpj = limparMascara(cnpjRaw)
   if (cnpj.length !== 14) {
-    throw new Error('CNPJ deve conter 14 dígitos')
+    throw new Error("CNPJ deve conter 14 dígitos")
   }
 
   try {
@@ -141,30 +141,30 @@ export async function consultarCNPJ(
       const data = await resp.json()
       return {
         cnpj: data.cnpj,
-        razao_social: data.razao_social || data.nome_fantasia || '',
-        nome_fantasia: data.nome_fantasia || '',
+        razao_social: data.razao_social || data.nome_fantasia || "",
+        nome_fantasia: data.nome_fantasia || "",
         ddd_telefone_1: data.ddd_telefone_1
           ? `(${data.ddd_telefone_1.slice(0, 2)}) ${data.ddd_telefone_1.slice(2)}`
-          : '',
-        email: data.email || '',
-        cep: data.cep || '',
+          : "",
+        email: data.email || "",
+        cep: data.cep || "",
         logradouro: data.descricao_tipo_de_logradouro
           ? `${data.descricao_tipo_de_logradouro} ${data.logradouro}`
-          : data.logradouro || '',
-        numero: data.numero || '',
-        complemento: data.complemento || '',
-        bairro: data.bairro || '',
-        municipio: data.municipio || '',
-        uf: data.uf || 'PB',
+          : data.logradouro || "",
+        numero: data.numero || "",
+        complemento: data.complemento || "",
+        bairro: data.bairro || "",
+        municipio: data.municipio || "",
+        uf: data.uf || "PB",
       }
     }
   } catch (e) {
-    console.warn('Falha na consulta BrasilAPI CNPJ, tentando fallback:', e)
+    console.warn("Falha na consulta BrasilAPI CNPJ, tentando fallback:", e)
   }
 
   // Se falhar ou cair em erro, informa erro amigável para permitir digitação manual
   throw new Error(
-    'Não foi possível consultar o CNPJ automaticamente na Receita. Você pode preencher os campos manualmente.',
+    "Não foi possível consultar o CNPJ automaticamente na Receita. Você pode preencher os campos manualmente.",
   )
 }
 
@@ -184,7 +184,7 @@ export interface DadosViaCep {
 export async function consultarCEP(cepRaw: string): Promise<DadosViaCep> {
   const cep = limparMascara(cepRaw)
   if (cep.length !== 8) {
-    throw new Error('CEP deve conter 8 dígitos')
+    throw new Error("CEP deve conter 8 dígitos")
   }
 
   try {
@@ -194,12 +194,12 @@ export async function consultarCEP(cepRaw: string): Promise<DadosViaCep> {
     }
     const data = await resp.json()
     if (data.erro) {
-      throw new Error('CEP não encontrado')
+      throw new Error("CEP não encontrado")
     }
     return data
   } catch (err: any) {
     throw new Error(
-      err.message || 'Erro ao consultar CEP. Preencha o endereço manualmente.',
+      err.message || "Erro ao consultar CEP. Preencha o endereço manualmente.",
     )
   }
 }

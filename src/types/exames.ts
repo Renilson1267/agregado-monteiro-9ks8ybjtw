@@ -1,15 +1,6 @@
-export type TipoExame =
-  | 'admissional'
-  | 'aso'
-  | 'acuidade_visual'
-  | 'audiometria'
-  | 'avaliacao_clinica'
-  | 'toxicologico'
-  | 'rx'
-  | 'ecg'
-  | 'demissional'
+export type TipoExame = "admissional" | "aso" | "acuidade_visual" | "audiometria" | "avaliacao_clinica" | "toxicologico" | "rx" | "ecg" | "demissional"
 
-export type StatusExame = 'VENCIDO' | 'NO_PRAZO' | 'PENDENTE' | 'NA_RESCISAO'
+export type StatusExame = "VENCIDO" | "NO_PRAZO" | "PENDENTE" | "NA_RESCISAO"
 
 export interface DefinicaoTipoExame {
   tipo: TipoExame
@@ -22,76 +13,76 @@ export interface DefinicaoTipoExame {
 
 export const TIPOS_EXAME_CATALOGO: DefinicaoTipoExame[] = [
   {
-    tipo: 'admissional',
-    nome: 'Exame Admissional',
+    tipo: "admissional",
+    nome: "Exame Admissional",
     validadePadraoMeses: 12,
-    normaReferencia: 'NR-7 item 7.5.8 I',
+    normaReferencia: "NR-7 item 7.5.8 I",
     descricaoNorma:
-      'Realizado antes do início das atividades; validade periódica típica de 1 ano até o próximo periódico.',
+      "Realizado antes do início das atividades; validade periódica típica de 1 ano até o próximo periódico.",
   },
   {
-    tipo: 'aso',
-    nome: 'ASO Periódico',
+    tipo: "aso",
+    nome: "ASO Periódico",
     validadePadraoMeses: 12,
-    normaReferencia: 'NR-7 item 7.5.8 II',
+    normaReferencia: "NR-7 item 7.5.8 II",
     descricaoNorma:
-      'Anual para expostos a riscos ocupacionais (concreto/ruído/poeiras) ou bienal para não expostos.',
+      "Anual para expostos a riscos ocupacionais (concreto/ruído/poeiras) ou bienal para não expostos.",
   },
   {
-    tipo: 'acuidade_visual',
-    nome: 'Acuidade Visual',
+    tipo: "acuidade_visual",
+    nome: "Acuidade Visual",
     validadePadraoMeses: 12,
-    normaReferencia: 'PCMSO / NR-7 Anexo IV',
+    normaReferencia: "PCMSO / NR-7 Anexo IV",
     descricaoNorma:
-      'Exame complementar anual para operadores de máquinas, motoristas e postos com atenção visual contínua.',
+      "Exame complementar anual para operadores de máquinas, motoristas e postos com atenção visual contínua.",
   },
   {
-    tipo: 'audiometria',
-    nome: 'Audiometria',
+    tipo: "audiometria",
+    nome: "Audiometria",
     validadePadraoMeses: 12,
-    normaReferencia: 'NR-7 Anexo II item 4.1 b',
+    normaReferencia: "NR-7 Anexo II item 4.1 b",
     descricaoNorma:
-      'Anual sequencial para trabalhadores expostos a níveis de pressão sonora elevados (ruído ocupacional).',
+      "Anual sequencial para trabalhadores expostos a níveis de pressão sonora elevados (ruído ocupacional).",
   },
   {
-    tipo: 'avaliacao_clinica',
-    nome: 'Avaliação Clínica',
+    tipo: "avaliacao_clinica",
+    nome: "Avaliação Clínica",
     validadePadraoMeses: 12,
-    normaReferencia: 'NR-7 item 7.5.8',
+    normaReferencia: "NR-7 item 7.5.8",
     descricaoNorma:
-      'Avaliação médica clínica anual em funções operacionais e com riscos identificados no PGR.',
+      "Avaliação médica clínica anual em funções operacionais e com riscos identificados no PGR.",
   },
   {
-    tipo: 'toxicologico',
-    nome: 'Toxicológico',
+    tipo: "toxicologico",
+    nome: "Toxicológico",
     validadePadraoMeses: 30,
-    normaReferencia: 'Art. 168 §6º CLT e Art. 148-A CTB / CONTRAN',
+    normaReferencia: "Art. 168 §6º CLT e Art. 148-A CTB / CONTRAN",
     descricaoNorma:
-      'Periodicidade obrigatória a cada 30 meses (2 anos e meio) para motoristas profissionais CNH C, D e E.',
+      "Periodicidade obrigatória a cada 30 meses (2 anos e meio) para motoristas profissionais CNH C, D e E.",
   },
   {
-    tipo: 'rx',
-    nome: 'Raio-X (RX)',
+    tipo: "rx",
+    nome: "Raio-X (RX)",
     validadePadraoMeses: 12,
-    normaReferencia: 'NR-7 Anexo I e Anexo IV (Poeiras Minerais / Sílica)',
+    normaReferencia: "NR-7 Anexo I e Anexo IV (Poeiras Minerais / Sílica)",
     descricaoNorma:
-      'Acompanhamento radiológico de tórax OIT (geralmente anual ou bienal conforme o PCMSO da unidade).',
+      "Acompanhamento radiológico de tórax OIT (geralmente anual ou bienal conforme o PCMSO da unidade).",
   },
   {
-    tipo: 'ecg',
-    nome: 'Eletrocardiograma (ECG)',
+    tipo: "ecg",
+    nome: "Eletrocardiograma (ECG)",
     validadePadraoMeses: 12,
-    normaReferencia: 'NR-7 / NR-35 / NR-12',
+    normaReferencia: "NR-7 / NR-35 / NR-12",
     descricaoNorma:
-      'Avaliação cardiovascular anual para motoristas de veículos pesados, operadores e atividades críticas.',
+      "Avaliação cardiovascular anual para motoristas de veículos pesados, operadores e atividades críticas.",
   },
   {
-    tipo: 'demissional',
-    nome: 'Exame Demissional',
+    tipo: "demissional",
+    nome: "Exame Demissional",
     validadePadraoMeses: 0,
-    normaReferencia: 'Art. 168 §4º CLT — exame na rescisão (até 10 dias após)',
+    normaReferencia: "Art. 168 §4º CLT — exame na rescisão (até 10 dias após)",
     descricaoNorma:
-      'Realizado obrigatoriamente no término do contrato de trabalho (até 10 dias após a rescisão). Validade não se aplica automaticamente.',
+      "Realizado obrigatoriamente no término do contrato de trabalho (até 10 dias após a rescisão). Validade não se aplica automaticamente.",
   },
 ]
 

@@ -1,28 +1,28 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Link } from 'react-router-dom'
-import { ConcreteiraService } from '@/services/concreteira'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { useUsuario } from '@/hooks/use-usuario'
+} from "@/components/ui/select"
+import { Link } from "react-router-dom"
+import { ConcreteiraService } from "@/services/concreteira"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { useUsuario } from "@/hooks/use-usuario"
 import type {
   Carga,
   Cidade,
@@ -30,7 +30,7 @@ import type {
   Motorista,
   Material,
   ComparativoUnidade,
-} from '@/types/concreteira'
+} from "@/types/concreteira"
 import {
   FileSpreadsheet,
   Download,
@@ -46,8 +46,8 @@ import {
   ArrowUpDown,
   Calendar,
   Pencil,
-} from 'lucide-react'
-import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from '@/assets/logos'
+} from "lucide-react"
+import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from "@/assets/logos"
 import {
   ResponsiveContainer,
   BarChart,
@@ -57,13 +57,13 @@ import {
   Tooltip,
   CartesianGrid,
   Legend,
-} from 'recharts'
+} from "recharts"
 
 export default function Relatorios() {
   const { empresaAtiva } = useEmpresa()
   const { isAdministrador } = useUsuario()
-  const [abaAtiva, setAbaAtiva] = useState<'operacional' | 'comparativo'>(
-    'operacional',
+  const [abaAtiva, setAbaAtiva] = useState<"operacional" | "comparativo">(
+    "operacional",
   )
 
   // Dados operacionais
@@ -75,21 +75,22 @@ export default function Relatorios() {
   const [loading, setLoading] = useState(true)
 
   // Filtros operacionais
-  const [dataInicio, setDataInicio] = useState('')
-  const [dataFim, setDataFim] = useState('')
-  const [materialFiltro, setMaterialFiltro] = useState('ALL')
-  const [cidadeFiltro, setCidadeFiltro] = useState('ALL')
-  const [veiculoFiltro, setVeiculoFiltro] = useState('ALL')
-  const [motoristaFiltro, setMotoristaFiltro] = useState('ALL')
+  const [dataInicio, setDataInicio] = useState("")
+  const [dataFim, setDataFim] = useState("")
+  const [materialFiltro, setMaterialFiltro] = useState("ALL")
+  const [cidadeFiltro, setCidadeFiltro] = useState("ALL")
+  const [veiculoFiltro, setVeiculoFiltro] = useState("ALL")
+  const [motoristaFiltro, setMotoristaFiltro] = useState("ALL")
   const [apenasZeradas, setApenasZeradas] = useState(false)
 
   // Dados comparativos Monteiro × SJE
   const [loadingComparativo, setLoadingComparativo] = useState(false)
-  const [tipoPeriodoComparativo, setTipoPeriodoComparativo] = useState<
-    'mes_atual' | 'hoje' | '7dias' | 'mes_anterior' | 'personalizado' | 'todos'
-  >('todos')
-  const [comparativoDataInicio, setComparativoDataInicio] = useState('')
-  const [comparativoDataFim, setComparativoDataFim] = useState('')
+  const [tipoPeriodoComparativo, setTipoPeriodoComparativo] =
+    useState<"mes_atual" | "hoje" | "7dias" | "mes_anterior" | "personalizado" | "todos">(
+      "todos",
+    )
+  const [comparativoDataInicio, setComparativoDataInicio] = useState("")
+  const [comparativoDataFim, setComparativoDataFim] = useState("")
   const [dadosComparativo, setDadosComparativo] = useState<{
     unidades: ComparativoUnidade[]
     totaisGerais: {
@@ -173,42 +174,36 @@ export default function Relatorios() {
   }
 
   const aplicarPredefinicaoComparativo = (
-    tipo:
-      | 'mes_atual'
-      | 'hoje'
-      | '7dias'
-      | 'mes_anterior'
-      | 'personalizado'
-      | 'todos',
+    tipo: "mes_atual" | "hoje" | "7dias" | "mes_anterior" | "personalizado" | "todos",
   ) => {
     setTipoPeriodoComparativo(tipo)
     const hoje = new Date()
-    const hojeStr = hoje.toISOString().split('T')[0]
+    const hojeStr = hoje.toISOString().split("T")[0]
 
-    let ini = ''
-    let fim = ''
+    let ini = ""
+    let fim = ""
 
-    if (tipo === 'hoje') {
+    if (tipo === "hoje") {
       ini = hojeStr
       fim = hojeStr
-    } else if (tipo === '7dias') {
+    } else if (tipo === "7dias") {
       const d7 = new Date()
       d7.setDate(d7.getDate() - 6)
-      ini = d7.toISOString().split('T')[0]
+      ini = d7.toISOString().split("T")[0]
       fim = hojeStr
-    } else if (tipo === 'mes_atual') {
+    } else if (tipo === "mes_atual") {
       const ano = hoje.getFullYear()
       const mes = hoje.getMonth()
-      ini = new Date(ano, mes, 1).toISOString().split('T')[0]
-      fim = new Date(ano, mes + 1, 0).toISOString().split('T')[0]
-    } else if (tipo === 'mes_anterior') {
+      ini = new Date(ano, mes, 1).toISOString().split("T")[0]
+      fim = new Date(ano, mes + 1, 0).toISOString().split("T")[0]
+    } else if (tipo === "mes_anterior") {
       const ano = hoje.getFullYear()
       const mes = hoje.getMonth() - 1
-      ini = new Date(ano, mes, 1).toISOString().split('T')[0]
-      fim = new Date(ano, mes + 1, 0).toISOString().split('T')[0]
-    } else if (tipo === 'todos') {
-      ini = ''
-      fim = ''
+      ini = new Date(ano, mes, 1).toISOString().split("T")[0]
+      fim = new Date(ano, mes + 1, 0).toISOString().split("T")[0]
+    } else if (tipo === "todos") {
+      ini = ""
+      fim = ""
     }
 
     setComparativoDataInicio(ini)
@@ -225,7 +220,7 @@ export default function Relatorios() {
   }, [empresaAtiva?.id])
 
   useEffect(() => {
-    if (abaAtiva === 'comparativo') {
+    if (abaAtiva === "comparativo") {
       carregarComparativo()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -242,12 +237,12 @@ export default function Relatorios() {
   }
 
   const limparFiltros = () => {
-    setDataInicio('')
-    setDataFim('')
-    setMaterialFiltro('ALL')
-    setCidadeFiltro('ALL')
-    setVeiculoFiltro('ALL')
-    setMotoristaFiltro('ALL')
+    setDataInicio("")
+    setDataFim("")
+    setMaterialFiltro("ALL")
+    setCidadeFiltro("ALL")
+    setVeiculoFiltro("ALL")
+    setMotoristaFiltro("ALL")
     setApenasZeradas(false)
     setTimeout(() => {
       if (empresaAtiva) {
@@ -263,12 +258,13 @@ export default function Relatorios() {
   }
 
   // Agrupamento para ranking de cidades
-  const cidadesRanking: Record<
-    string,
-    { nome: string; volume: number; cargas: number }
-  > = {}
+  const cidadesRanking: Record<string, {
+    nome: string
+    volume: number
+    cargas: number
+  }> = {}
   cargas.forEach((c) => {
-    const nome = c.cidade_nome || 'Não informada'
+    const nome = c.cidade_nome || "Não informada"
     if (!cidadesRanking[nome])
       cidadesRanking[nome] = { nome, volume: 0, cargas: 0 }
     if (!c.carga_zerada) cidadesRanking[nome].volume += Number(c.volume_m3)
@@ -284,12 +280,13 @@ export default function Relatorios() {
     }))
 
   // Agrupamento para ranking de caminhões / placas
-  const caminhoesRanking: Record<
-    string,
-    { placa: string; volume: number; cargas: number }
-  > = {}
+  const caminhoesRanking: Record<string, {
+    placa: string
+    volume: number
+    cargas: number
+  }> = {}
   cargas.forEach((c) => {
-    const placa = c.veiculo_placa || 'Sem placa'
+    const placa = c.veiculo_placa || "Sem placa"
     if (!caminhoesRanking[placa])
       caminhoesRanking[placa] = { placa, volume: 0, cargas: 0 }
     if (!c.carga_zerada) caminhoesRanking[placa].volume += Number(c.volume_m3)
@@ -307,31 +304,31 @@ export default function Relatorios() {
   // Exportar CSV
   const exportarCSV = () => {
     const headers = [
-      'Carga #',
-      'Data',
-      'Volume (m3)',
-      'Traço',
-      'Custo Total (R$)',
-      'Custo por m3 (R$)',
-      `${materiais.find((m) => m.codigo === 'cimento')?.nome || 'CP II F-40 / CP V ARI'} (kg)`,
-      `${materiais.find((m) => m.codigo === 'aditivo')?.nome || 'Aditivo'} (L)`,
-      `${materiais.find((m) => m.codigo === 'agua')?.nome || 'Água'} (L)`,
-      `${materiais.find((m) => m.codigo === 'areia')?.nome || 'Areia'} (kg)`,
-      `${materiais.find((m) => m.codigo === 'brita12')?.nome || 'Brita 12'} (kg)`,
-      `${materiais.find((m) => m.codigo === 'brita19')?.nome || 'Brita 19'} (kg)`,
-      `${materiais.find((m) => m.codigo === 'po_pedra')?.nome || 'Pó de Pedra'} (kg)`,
-      'Motorista',
-      'Placa',
-      'Cidade',
-      'Carga Zerada',
-      'Observação',
+      "Carga #",
+      "Data",
+      "Volume (m3)",
+      "Traço",
+      "Custo Total (R$)",
+      "Custo por m3 (R$)",
+      `${materiais.find((m) => m.codigo === "cimento")?.nome || "CP II F-40 / CP V ARI"} (kg)`,
+      `${materiais.find((m) => m.codigo === "aditivo")?.nome || "Aditivo"} (L)`,
+      `${materiais.find((m) => m.codigo === "agua")?.nome || "Água"} (L)`,
+      `${materiais.find((m) => m.codigo === "areia")?.nome || "Areia"} (kg)`,
+      `${materiais.find((m) => m.codigo === "brita12")?.nome || "Brita 12"} (kg)`,
+      `${materiais.find((m) => m.codigo === "brita19")?.nome || "Brita 19"} (kg)`,
+      `${materiais.find((m) => m.codigo === "po_pedra")?.nome || "Pó de Pedra"} (kg)`,
+      "Motorista",
+      "Placa",
+      "Cidade",
+      "Carga Zerada",
+      "Observação",
     ]
 
     const rows = cargas.map((c) => [
       c.numero_carga,
       c.data,
       c.volume_m3,
-      `"${c.traco_nome || ''}"`,
+      `"${c.traco_nome || ""}"`,
       c.custo?.total || 0,
       c.custo?.custoPorM3 || 0,
       c.consumo_cimento,
@@ -341,22 +338,22 @@ export default function Relatorios() {
       c.consumo_brita12,
       c.consumo_brita19,
       c.consumo_po_pedra,
-      `"${c.motorista_nome || ''}"`,
-      `"${c.veiculo_placa || ''}"`,
-      `"${c.cidade_nome || ''}"`,
-      c.carga_zerada ? 'SIM' : 'NAO',
-      `"${(c.observacao || '').replace(/"/g, '""')}"`,
+      `"${c.motorista_nome || ""}"`,
+      `"${c.veiculo_placa || ""}"`,
+      `"${c.cidade_nome || ""}"`,
+      c.carga_zerada ? "SIM" : "NAO",
+      `"${(c.observacao || "").replace(/"/g, '""')}"`,
     ])
 
     const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n')
+      "data:text/csv;charset=utf-8," +
+      [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n")
     const encodedUri = encodeURI(csvContent)
-    const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
     link.setAttribute(
-      'download',
-      `relatorio_${empresaAtiva?.slug || 'concreteira'}_${new Date().toISOString().slice(0, 10)}.csv`,
+      "download",
+      `relatorio_${empresaAtiva?.slug || "concreteira"}_${new Date().toISOString().slice(0, 10)}.csv`,
     )
     document.body.appendChild(link)
     link.click()
@@ -395,35 +392,37 @@ export default function Relatorios() {
   // Descrição legível dos filtros aplicados para o cabeçalho impresso
   const filtrosDescricao = [
     dataInicio || dataFim
-      ? `Período: ${dataInicio ? dataInicio.split('-').reverse().join('/') : 'Início'} até ${dataFim ? dataFim.split('-').reverse().join('/') : 'Hoje'}`
-      : 'Período: Todo o histórico',
-    materialFiltro !== 'ALL' ? `Material: ${materialFiltro}` : null,
-    cidadeFiltro !== 'ALL' ? `Cidade: ${cidadeFiltro}` : null,
-    motoristaFiltro !== 'ALL' ? `Motorista: ${motoristaFiltro}` : null,
-    veiculoFiltro !== 'ALL' ? `Placa: ${veiculoFiltro}` : null,
-    apenasZeradas ? 'Apenas Cargas Zeradas/Canceladas' : null,
+      ? `Período: ${
+          dataInicio ? dataInicio.split("-").reverse().join("/") : "Início"
+        } até ${dataFim ? dataFim.split("-").reverse().join("/") : "Hoje"}`
+      : "Período: Todo o histórico",
+    materialFiltro !== "ALL" ? `Material: ${materialFiltro}` : null,
+    cidadeFiltro !== "ALL" ? `Cidade: ${cidadeFiltro}` : null,
+    motoristaFiltro !== "ALL" ? `Motorista: ${motoristaFiltro}` : null,
+    veiculoFiltro !== "ALL" ? `Placa: ${veiculoFiltro}` : null,
+    apenasZeradas ? "Apenas Cargas Zeradas/Canceladas" : null,
   ]
     .filter(Boolean)
-    .join(' | ')
+    .join(" | ")
 
   const labelPeriodoComparativo = (() => {
     if (
-      tipoPeriodoComparativo === 'todos' &&
+      tipoPeriodoComparativo === "todos" &&
       !comparativoDataInicio &&
       !comparativoDataFim
     ) {
-      return 'Todo o histórico operacional consolidado'
+      return "Todo o histórico operacional consolidado"
     }
-    if (tipoPeriodoComparativo === 'hoje') return 'Hoje / Operação do dia'
-    if (tipoPeriodoComparativo === '7dias') return 'Últimos 7 dias'
-    if (tipoPeriodoComparativo === 'mes_atual') return 'Mês Atual'
-    if (tipoPeriodoComparativo === 'mes_anterior') return 'Mês Anterior'
+    if (tipoPeriodoComparativo === "hoje") return "Hoje / Operação do dia"
+    if (tipoPeriodoComparativo === "7dias") return "Últimos 7 dias"
+    if (tipoPeriodoComparativo === "mes_atual") return "Mês Atual"
+    if (tipoPeriodoComparativo === "mes_anterior") return "Mês Anterior"
     const ini = comparativoDataInicio
-      ? comparativoDataInicio.split('-').reverse().join('/')
-      : 'Início'
+      ? comparativoDataInicio.split("-").reverse().join("/")
+      : "Início"
     const fim = comparativoDataFim
-      ? comparativoDataFim.split('-').reverse().join('/')
-      : 'Hoje'
+      ? comparativoDataFim.split("-").reverse().join("/")
+      : "Hoje"
     return `${ini} até ${fim}`
   })()
 
@@ -440,16 +439,16 @@ export default function Relatorios() {
             />
             <div>
               <h1 className="text-lg font-extrabold uppercase tracking-wider text-black">
-                {abaAtiva === 'comparativo'
-                  ? 'GC MIX — RELATÓRIO COMPARATIVO: MONTEIRO × SJE'
-                  : `GC MIX — ${empresaAtiva?.razao_social || empresaAtiva?.nome || 'CONCRETEIRA'}`}
+                {abaAtiva === "comparativo"
+                  ? "GC MIX — RELATÓRIO COMPARATIVO: MONTEIRO × SJE"
+                  : `GC MIX — ${empresaAtiva?.razao_social || empresaAtiva?.nome || "CONCRETEIRA"}`}
               </h1>
               <p className="text-xs font-bold text-black">
-                {abaAtiva === 'comparativo'
-                  ? 'Comparativo Operacional de Produção, Consumo de Insumos e Custos'
-                  : 'Relatório Operacional, Expedição de Cargas e Auditoria de Custos'}
+                {abaAtiva === "comparativo"
+                  ? "Comparativo Operacional de Produção, Consumo de Insumos e Custos"
+                  : "Relatório Operacional, Expedição de Cargas e Auditoria de Custos"}
               </p>
-              {empresaAtiva?.cnpj && abaAtiva !== 'comparativo' && (
+              {empresaAtiva?.cnpj && abaAtiva !== "comparativo" && (
                 <p className="text-[11px] text-black">
                   CNPJ: {empresaAtiva.cnpj}
                 </p>
@@ -458,23 +457,23 @@ export default function Relatorios() {
           </div>
           <div className="text-right text-xs text-black">
             <p className="font-semibold">
-              Emissão: {new Date().toLocaleString('pt-BR')}
+              Emissão: {new Date().toLocaleString("pt-BR")}
             </p>
             <p>Padrão A4 • Fundo Branco</p>
           </div>
         </div>
         <div className="mt-2 p-2 bg-gray-100 border border-gray-300 rounded text-xs text-black flex justify-between items-center">
           <div>
-            <strong>Período:</strong>{' '}
-            {abaAtiva === 'comparativo'
+            <strong>Período:</strong>{" "}
+            {abaAtiva === "comparativo"
               ? labelPeriodoComparativo
               : filtrosDescricao}
           </div>
           <div className="text-right">
-            <strong>Unidades:</strong>{' '}
-            {abaAtiva === 'comparativo'
-              ? 'Monteiro & SJE'
-              : empresaAtiva?.nome || 'Ativa'}
+            <strong>Unidades:</strong>{" "}
+            {abaAtiva === "comparativo"
+              ? "Monteiro & SJE"
+              : empresaAtiva?.nome || "Ativa"}
           </div>
         </div>
       </div>
@@ -521,14 +520,16 @@ export default function Relatorios() {
             variant="outline"
             size="sm"
             onClick={() => {
-              if (abaAtiva === 'operacional') carregarRelatorio()
+              if (abaAtiva === "operacional") carregarRelatorio()
               else carregarComparativo()
             }}
             disabled={loading || loadingComparativo}
             className="gap-2"
           >
             <RefreshCw
-              className={`w-4 h-4 ${loading || loadingComparativo ? 'animate-spin' : ''}`}
+              className={`w-4 h-4 ${
+                loading || loadingComparativo ? "animate-spin" : ""
+              }`}
             />
             Atualizar
           </Button>
@@ -544,7 +545,7 @@ export default function Relatorios() {
         <TabsList className="no-print grid grid-cols-2 w-full max-w-md">
           <TabsTrigger value="operacional" className="gap-2">
             <Truck className="w-4 h-4" />
-            Relatório da Unidade ({empresaAtiva?.nome || 'Ativa'})
+            Relatório da Unidade ({empresaAtiva?.nome || "Ativa"})
           </TabsTrigger>
           <TabsTrigger value="comparativo" className="gap-2">
             <Scale className="w-4 h-4" />
@@ -607,8 +608,8 @@ export default function Relatorios() {
                       <SelectContent>
                         <SelectItem value="ALL">Todos os Materiais</SelectItem>
                         <SelectItem value="cimento">
-                          {materiais.find((m) => m.codigo === 'cimento')
-                            ?.nome || 'CP II F-40 / CP V ARI'}
+                          {materiais.find((m) => m.codigo === "cimento")
+                            ?.nome || "CP II F-40 / CP V ARI"}
                         </SelectItem>
                         <SelectItem value="aditivo">Aditivo</SelectItem>
                         <SelectItem value="agua">Água</SelectItem>
@@ -747,8 +748,8 @@ export default function Relatorios() {
                 Custo Total dos Insumos
               </p>
               <p className="text-2xl font-bold font-mono text-foreground mt-1">
-                R${' '}
-                {totalCusto.toLocaleString('pt-BR', {
+                R${" "}
+                {totalCusto.toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -764,8 +765,8 @@ export default function Relatorios() {
                 Custo Médio dos Insumos / m³
               </p>
               <p className="text-2xl font-bold font-mono text-foreground mt-1">
-                R${' '}
-                {custoMedioM3.toLocaleString('pt-BR', {
+                R${" "}
+                {custoMedioM3.toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -779,20 +780,20 @@ export default function Relatorios() {
               <p
                 className="text-xs text-muted-foreground truncate"
                 title={
-                  materiais.find((m) => m.codigo === 'cimento')?.nome ||
-                  'CP II F-40 / CP V ARI'
+                  materiais.find((m) => m.codigo === "cimento")?.nome ||
+                  "CP II F-40 / CP V ARI"
                 }
               >
-                {materiais.find((m) => m.codigo === 'cimento')?.nome ||
-                  'CP II F-40 / CP V ARI'}{' '}
+                {materiais.find((m) => m.codigo === "cimento")?.nome ||
+                  "CP II F-40 / CP V ARI"}{" "}
                 Consumido
               </p>
               <p className="text-2xl font-bold font-mono text-foreground mt-1">
                 {(totalCimento / 1000).toFixed(2)} t
               </p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                R${' '}
-                {custoCimento.toLocaleString('pt-BR', {
+                R${" "}
+                {custoCimento.toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -814,18 +815,18 @@ export default function Relatorios() {
                   <span
                     className="text-muted-foreground block text-[11px] truncate"
                     title={
-                      materiais.find((m) => m.codigo === 'cimento')?.nome ||
-                      'CP II F-40 / CP V ARI'
+                      materiais.find((m) => m.codigo === "cimento")?.nome ||
+                      "CP II F-40 / CP V ARI"
                     }
                   >
-                    {materiais.find((m) => m.codigo === 'cimento')?.nome ||
-                      'CP II F-40 / CP V ARI'}
+                    {materiais.find((m) => m.codigo === "cimento")?.nome ||
+                      "CP II F-40 / CP V ARI"}
                   </span>
                   <span className="font-mono font-bold text-foreground block text-sm">
                     R$ {custoCimento.toFixed(2)}
                   </span>
                   <span className="text-muted-foreground text-[10px]">
-                    {totalCimento.toLocaleString('pt-BR')} kg
+                    {totalCimento.toLocaleString("pt-BR")} kg
                   </span>
                 </div>
 
@@ -837,7 +838,7 @@ export default function Relatorios() {
                     R$ {custoAditivo.toFixed(2)}
                   </span>
                   <span className="text-muted-foreground text-[10px]">
-                    {totalAditivo.toLocaleString('pt-BR')} L
+                    {totalAditivo.toLocaleString("pt-BR")} L
                   </span>
                 </div>
 
@@ -849,7 +850,7 @@ export default function Relatorios() {
                     R$ {custoAgua.toFixed(2)}
                   </span>
                   <span className="text-muted-foreground text-[10px]">
-                    {totalAgua.toLocaleString('pt-BR')} L
+                    {totalAgua.toLocaleString("pt-BR")} L
                   </span>
                 </div>
 
@@ -861,7 +862,7 @@ export default function Relatorios() {
                     R$ {custoAreia.toFixed(2)}
                   </span>
                   <span className="text-muted-foreground text-[10px]">
-                    {totalAreia.toLocaleString('pt-BR')} kg
+                    {totalAreia.toLocaleString("pt-BR")} kg
                   </span>
                 </div>
 
@@ -873,7 +874,7 @@ export default function Relatorios() {
                     R$ {custoBrita12.toFixed(2)}
                   </span>
                   <span className="text-muted-foreground text-[10px]">
-                    {totalBrita12.toLocaleString('pt-BR')} kg
+                    {totalBrita12.toLocaleString("pt-BR")} kg
                   </span>
                 </div>
 
@@ -885,7 +886,7 @@ export default function Relatorios() {
                     R$ {custoBrita19.toFixed(2)}
                   </span>
                   <span className="text-muted-foreground text-[10px]">
-                    {totalBrita19.toLocaleString('pt-BR')} kg
+                    {totalBrita19.toLocaleString("pt-BR")} kg
                   </span>
                 </div>
 
@@ -897,7 +898,7 @@ export default function Relatorios() {
                     R$ {custoPoPedra.toFixed(2)}
                   </span>
                   <span className="text-muted-foreground text-[10px]">
-                    {totalPoPedra.toLocaleString('pt-BR')} kg
+                    {totalPoPedra.toLocaleString("pt-BR")} kg
                   </span>
                 </div>
               </div>
@@ -933,11 +934,11 @@ export default function Relatorios() {
                     <YAxis stroke="#888" fontSize={11} tickLine={false} />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        borderColor: 'hsl(var(--border))',
-                        borderRadius: '8px',
+                        backgroundColor: "hsl(var(--card))",
+                        borderColor: "hsl(var(--border))",
+                        borderRadius: "8px",
                       }}
-                      formatter={(val: any) => [`${val} m³`, 'Volume']}
+                      formatter={(val: any) => [`${val} m³`, "Volume"]}
                     />
                     <Bar
                       dataKey="volume"
@@ -976,11 +977,11 @@ export default function Relatorios() {
                     <YAxis stroke="#888" fontSize={11} tickLine={false} />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        borderColor: 'hsl(var(--border))',
-                        borderRadius: '8px',
+                        backgroundColor: "hsl(var(--card))",
+                        borderColor: "hsl(var(--border))",
+                        borderRadius: "8px",
                       }}
-                      formatter={(val: any) => [`${val} m³`, 'Volume']}
+                      formatter={(val: any) => [`${val} m³`, "Volume"]}
                     />
                     <Bar
                       dataKey="volume"
@@ -1005,8 +1006,8 @@ export default function Relatorios() {
                 </CardDescription>
               </div>
               <span className="text-xs font-mono text-muted-foreground">
-                Total: R${' '}
-                {totalCusto.toLocaleString('pt-BR', {
+                Total: R${" "}
+                {totalCusto.toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                 })}
               </span>
@@ -1023,8 +1024,8 @@ export default function Relatorios() {
                       <th className="py-2.5 px-3">Custo Total</th>
                       <th className="py-2.5 px-3">Custo/m³</th>
                       <th className="py-2.5 px-3">
-                        {materiais.find((m) => m.codigo === 'cimento')?.nome ||
-                          'CP II F-40 / CP V ARI'}{' '}
+                        {materiais.find((m) => m.codigo === "cimento")?.nome ||
+                          "CP II F-40 / CP V ARI"}{" "}
                         (kg)
                       </th>
                       <th className="py-2.5 px-3">Aditivo (L)</th>
@@ -1049,54 +1050,54 @@ export default function Relatorios() {
                         className="hover:bg-muted/20 transition-colors"
                       >
                         <td className="py-2 px-3 font-mono font-medium text-foreground">
-                          #{String(c.numero_carga).padStart(4, '0')}
+                          #{String(c.numero_carga).padStart(4, "0")}
                         </td>
                         <td className="py-2 px-3 text-muted-foreground font-mono">
-                          {c.data.split('-').reverse().join('/')}
+                          {c.data.split("-").reverse().join("/")}
                         </td>
                         <td className="py-2 px-3 font-bold text-foreground">
                           {Number(c.volume_m3).toFixed(1)} m³
                         </td>
                         <td
                           className="py-2 px-3 max-w-[130px] truncate text-muted-foreground"
-                          title={c.traco_nome || ''}
+                          title={c.traco_nome || ""}
                         >
-                          {c.traco_nome || '—'}
+                          {c.traco_nome || "—"}
                         </td>
                         <td className="py-2 px-3 font-mono font-semibold text-emerald-600 dark:text-emerald-400">
                           {c.carga_zerada
-                            ? '—'
+                            ? "—"
                             : `R$ ${(c.custo?.total || 0).toFixed(2)}`}
                         </td>
                         <td className="py-2 px-3 font-mono text-muted-foreground">
                           {c.carga_zerada || !c.custo?.custoPorM3
-                            ? '—'
+                            ? "—"
                             : `R$ ${c.custo.custoPorM3.toFixed(2)}`}
                         </td>
                         <td className="py-2 px-3 font-mono">
-                          {Number(c.consumo_cimento).toLocaleString('pt-BR')}
+                          {Number(c.consumo_cimento).toLocaleString("pt-BR")}
                         </td>
                         <td className="py-2 px-3 font-mono">
-                          {Number(c.consumo_aditivo).toLocaleString('pt-BR')}
+                          {Number(c.consumo_aditivo).toLocaleString("pt-BR")}
                         </td>
                         <td className="py-2 px-3 font-mono text-cyan-600 dark:text-cyan-400">
-                          {Number(c.consumo_agua || 0).toLocaleString('pt-BR')}
+                          {Number(c.consumo_agua || 0).toLocaleString("pt-BR")}
                         </td>
                         <td className="py-2 px-3 font-mono">
-                          {Number(c.consumo_areia).toLocaleString('pt-BR')}
+                          {Number(c.consumo_areia).toLocaleString("pt-BR")}
                         </td>
                         <td className="py-2 px-3 font-mono text-muted-foreground">
-                          {Number(c.consumo_brita12).toLocaleString('pt-BR')} /{' '}
-                          {Number(c.consumo_brita19).toLocaleString('pt-BR')}
+                          {Number(c.consumo_brita12).toLocaleString("pt-BR")} /{" "}
+                          {Number(c.consumo_brita19).toLocaleString("pt-BR")}
                         </td>
                         <td className="py-2 px-3 text-muted-foreground">
-                          {c.motorista_nome || '—'}
+                          {c.motorista_nome || "—"}
                         </td>
                         <td className="py-2 px-3 font-mono text-muted-foreground">
-                          {c.veiculo_placa || '—'}
+                          {c.veiculo_placa || "—"}
                         </td>
                         <td className="py-2 px-3 text-muted-foreground">
-                          {c.cidade_nome || '—'}
+                          {c.cidade_nome || "—"}
                         </td>
                         <td className="py-2 px-3 text-right">
                           {c.carga_zerada ? (
@@ -1175,7 +1176,9 @@ export default function Relatorios() {
                 className="gap-1.5 text-xs"
               >
                 <RefreshCw
-                  className={`w-3.5 h-3.5 ${loadingComparativo ? 'animate-spin' : ''}`}
+                  className={`w-3.5 h-3.5 ${
+                    loadingComparativo ? "animate-spin" : ""
+                  }`}
                 />
                 Atualizar
               </Button>
@@ -1223,7 +1226,7 @@ export default function Relatorios() {
                     </Select>
                   </div>
 
-                  {tipoPeriodoComparativo === 'personalizado' && (
+                  {tipoPeriodoComparativo === "personalizado" && (
                     <form
                       onSubmit={handleFiltrarComparativo}
                       className="flex items-center gap-2 flex-wrap"
@@ -1275,7 +1278,7 @@ export default function Relatorios() {
                 </div>
 
                 <div className="text-xs text-muted-foreground">
-                  Recorte ativo:{' '}
+                  Recorte ativo:{" "}
                   <strong className="text-foreground">
                     {labelPeriodoComparativo}
                   </strong>
@@ -1293,16 +1296,16 @@ export default function Relatorios() {
                 <Card
                   key={u.empresaId}
                   className={`border-border/40 bg-card/70 overflow-hidden relative ${
-                    u.empresaSlug === 'monteiro'
-                      ? 'border-blue-500/30'
-                      : 'border-emerald-500/30'
+                    u.empresaSlug === "monteiro"
+                      ? "border-blue-500/30"
+                      : "border-emerald-500/30"
                   }`}
                 >
                   <div
                     className={`h-2 w-full ${
-                      u.empresaSlug === 'monteiro'
-                        ? 'bg-blue-500'
-                        : 'bg-emerald-500'
+                      u.empresaSlug === "monteiro"
+                        ? "bg-blue-500"
+                        : "bg-emerald-500"
                     }`}
                   />
                   <CardHeader className="pb-3">
@@ -1319,7 +1322,7 @@ export default function Relatorios() {
                         </CardTitle>
                         <CardDescription className="text-xs">
                           {semDados
-                            ? 'Unidade sem movimentações operacionais no período (catálogo cadastrado)'
+                            ? "Unidade sem movimentações operacionais no período (catálogo cadastrado)"
                             : `${u.cargasTotal} cargas no período (${u.cargasZeradas} canceladas)`}
                         </CardDescription>
                       </div>
@@ -1335,7 +1338,7 @@ export default function Relatorios() {
                         </span>
                         <span className="text-xl font-extrabold text-foreground font-mono">
                           {u.volumeTotal.toFixed(1)}
-                        </span>{' '}
+                        </span>{" "}
                         <span className="text-xs text-muted-foreground">
                           m³
                         </span>
@@ -1346,8 +1349,8 @@ export default function Relatorios() {
                           Custo Total
                         </span>
                         <span className="text-sm font-bold text-foreground font-mono block truncate">
-                          R${' '}
-                          {u.custoTotal.toLocaleString('pt-BR', {
+                          R${" "}
+                          {u.custoTotal.toLocaleString("pt-BR", {
                             maximumFractionDigits: 0,
                           })}
                         </span>
@@ -1376,18 +1379,18 @@ export default function Relatorios() {
                           <span
                             className="text-muted-foreground block text-[10px] truncate"
                             title={
-                              materiais.find((m) => m.codigo === 'cimento')
-                                ?.nome || 'CP II F-40 / CP V ARI'
+                              materiais.find((m) => m.codigo === "cimento")
+                                ?.nome || "CP II F-40 / CP V ARI"
                             }
                           >
-                            {materiais.find((m) => m.codigo === 'cimento')
-                              ?.nome || 'CP II F-40 / CP V ARI'}
+                            {materiais.find((m) => m.codigo === "cimento")
+                              ?.nome || "CP II F-40 / CP V ARI"}
                             : {(u.consumos.cimento / 1000).toFixed(1)} t
                           </span>
                           <span className="font-mono font-semibold">
-                            R${' '}
+                            R${" "}
                             {u.custosPorMaterial.cimento.toLocaleString(
-                              'pt-BR',
+                              "pt-BR",
                               {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
@@ -1400,9 +1403,9 @@ export default function Relatorios() {
                             Aditivo: {u.consumos.aditivo.toFixed(0)} L
                           </span>
                           <span className="font-mono font-semibold">
-                            R${' '}
+                            R${" "}
                             {u.custosPorMaterial.aditivo.toLocaleString(
-                              'pt-BR',
+                              "pt-BR",
                               {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
@@ -1412,11 +1415,11 @@ export default function Relatorios() {
                         </div>
                         <div className="p-2 rounded bg-muted/20 border border-border/20">
                           <span className="text-muted-foreground block text-[10px]">
-                            Água: {u.consumos.agua.toLocaleString('pt-BR')} L
+                            Água: {u.consumos.agua.toLocaleString("pt-BR")} L
                           </span>
                           <span className="font-mono font-semibold">
-                            R${' '}
-                            {u.custosPorMaterial.agua.toLocaleString('pt-BR', {
+                            R${" "}
+                            {u.custosPorMaterial.agua.toLocaleString("pt-BR", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
@@ -1424,38 +1427,38 @@ export default function Relatorios() {
                         </div>
                         <div className="p-2 rounded bg-muted/20 border border-border/20">
                           <span className="text-muted-foreground block text-[10px]">
-                            Areia:{' '}
+                            Areia:{" "}
                             {(
                               u.consumos.areia /
                               ((u.densidades?.areia || 1.5) * 1000)
-                            ).toFixed(2)}{' '}
+                            ).toFixed(2)}{" "}
                             m³
                           </span>
                           <span className="font-mono font-semibold">
-                            R${' '}
-                            {u.custosPorMaterial.areia.toLocaleString('pt-BR', {
+                            R${" "}
+                            {u.custosPorMaterial.areia.toLocaleString("pt-BR", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
                           </span>
                           <span className="block text-[9px] text-muted-foreground">
-                            {(u.consumos.areia / 1000).toFixed(1)} t •{' '}
+                            {(u.consumos.areia / 1000).toFixed(1)} t •{" "}
                             {(u.densidades?.areia || 1.5).toFixed(2)} kg/L
                           </span>
                         </div>
                         <div className="p-2 rounded bg-muted/20 border border-border/20">
                           <span className="text-muted-foreground block text-[10px]">
-                            Brita 12:{' '}
+                            Brita 12:{" "}
                             {(
                               u.consumos.brita12 /
                               ((u.densidades?.brita12 || 1.38) * 1000)
-                            ).toFixed(2)}{' '}
+                            ).toFixed(2)}{" "}
                             m³
                           </span>
                           <span className="font-mono font-semibold">
-                            R${' '}
+                            R${" "}
                             {u.custosPorMaterial.brita12.toLocaleString(
-                              'pt-BR',
+                              "pt-BR",
                               {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
@@ -1463,23 +1466,23 @@ export default function Relatorios() {
                             )}
                           </span>
                           <span className="block text-[9px] text-muted-foreground">
-                            {(u.consumos.brita12 / 1000).toFixed(1)} t •{' '}
+                            {(u.consumos.brita12 / 1000).toFixed(1)} t •{" "}
                             {(u.densidades?.brita12 || 1.38).toFixed(2)} kg/L
                           </span>
                         </div>
                         <div className="p-2 rounded bg-muted/20 border border-border/20">
                           <span className="text-muted-foreground block text-[10px]">
-                            Brita 19:{' '}
+                            Brita 19:{" "}
                             {(
                               u.consumos.brita19 /
                               ((u.densidades?.brita19 || 1.44) * 1000)
-                            ).toFixed(2)}{' '}
+                            ).toFixed(2)}{" "}
                             m³
                           </span>
                           <span className="font-mono font-semibold">
-                            R${' '}
+                            R${" "}
                             {u.custosPorMaterial.brita19.toLocaleString(
-                              'pt-BR',
+                              "pt-BR",
                               {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
@@ -1487,7 +1490,7 @@ export default function Relatorios() {
                             )}
                           </span>
                           <span className="block text-[9px] text-muted-foreground">
-                            {(u.consumos.brita19 / 1000).toFixed(1)} t •{' '}
+                            {(u.consumos.brita19 / 1000).toFixed(1)} t •{" "}
                             {(u.densidades?.brita19 || 1.44).toFixed(2)} kg/L
                           </span>
                         </div>
@@ -1524,8 +1527,8 @@ export default function Relatorios() {
                                   R$ {t.custoPorM3.toFixed(2)}/m³
                                 </span>
                                 <span className="text-[10px] text-muted-foreground font-mono">
-                                  Total: R${' '}
-                                  {t.custoTotal.toLocaleString('pt-BR', {
+                                  Total: R${" "}
+                                  {t.custoTotal.toLocaleString("pt-BR", {
                                     maximumFractionDigits: 0,
                                   })}
                                 </span>
@@ -1582,7 +1585,7 @@ export default function Relatorios() {
                         </td>
                       ))}
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-primary">
-                        {dadosComparativo.totaisGerais.volumeTotal.toFixed(1)}{' '}
+                        {dadosComparativo.totaisGerais.volumeTotal.toFixed(1)}{" "}
                         m³
                       </td>
                     </tr>
@@ -1611,17 +1614,17 @@ export default function Relatorios() {
                           key={u.empresaId}
                           className="py-2.5 px-3 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400"
                         >
-                          R${' '}
-                          {u.custoTotal.toLocaleString('pt-BR', {
+                          R${" "}
+                          {u.custoTotal.toLocaleString("pt-BR", {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })}
                         </td>
                       ))}
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                        R${' '}
+                        R${" "}
                         {dadosComparativo.totaisGerais.custoTotal.toLocaleString(
-                          'pt-BR',
+                          "pt-BR",
                           {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -1640,7 +1643,7 @@ export default function Relatorios() {
                         >
                           {u.custoPorM3 > 0
                             ? `R$ ${u.custoPorM3.toFixed(2)}/m³`
-                            : 'Sem dados'}
+                            : "Sem dados"}
                         </td>
                       ))}
                       <td className="py-2.5 px-3 text-right font-mono text-base text-primary">
@@ -1651,8 +1654,8 @@ export default function Relatorios() {
                     <tr>
                       <td className="py-2.5 px-3 font-medium">
                         Consumo (
-                        {materiais.find((m) => m.codigo === 'cimento')?.nome ||
-                          'CP II F-40 / CP V ARI'}
+                        {materiais.find((m) => m.codigo === "cimento")?.nome ||
+                          "CP II F-40 / CP V ARI"}
                         )
                       </td>
                       {dadosComparativo.unidades.map((u) => (
@@ -1669,7 +1672,7 @@ export default function Relatorios() {
                             (a, b) => a + b.consumos.cimento,
                             0,
                           ) / 1000
-                        ).toFixed(2)}{' '}
+                        ).toFixed(2)}{" "}
                         t
                       </td>
                     </tr>
@@ -1682,13 +1685,13 @@ export default function Relatorios() {
                           key={u.empresaId}
                           className="py-2.5 px-3 text-right font-mono"
                         >
-                          {u.consumos.aditivo.toLocaleString('pt-BR')} L
+                          {u.consumos.aditivo.toLocaleString("pt-BR")} L
                         </td>
                       ))}
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-primary">
                         {dadosComparativo.unidades
                           .reduce((a, b) => a + b.consumos.aditivo, 0)
-                          .toLocaleString('pt-BR')}{' '}
+                          .toLocaleString("pt-BR")}{" "}
                         L
                       </td>
                     </tr>
@@ -1701,21 +1704,21 @@ export default function Relatorios() {
                           key={u.empresaId}
                           className="py-2.5 px-3 text-right font-mono"
                         >
-                          {u.consumos.agua.toLocaleString('pt-BR')} L (
+                          {u.consumos.agua.toLocaleString("pt-BR")} L (
                           {(u.consumos.agua / 1000).toFixed(1)} m³)
                         </td>
                       ))}
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-primary">
                         {dadosComparativo.unidades
                           .reduce((a, b) => a + b.consumos.agua, 0)
-                          .toLocaleString('pt-BR')}{' '}
+                          .toLocaleString("pt-BR")}{" "}
                         L (
                         {(
                           dadosComparativo.unidades.reduce(
                             (a, b) => a + b.consumos.agua,
                             0,
                           ) / 1000
-                        ).toFixed(1)}{' '}
+                        ).toFixed(1)}{" "}
                         m³)
                       </td>
                     </tr>
@@ -1735,16 +1738,16 @@ export default function Relatorios() {
                             className="py-2.5 px-3 text-right font-mono"
                           >
                             <div className="font-semibold text-foreground">
-                              {volM3.toLocaleString('pt-BR', {
+                              {volM3.toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
-                              })}{' '}
+                              })}{" "}
                               m³
                             </div>
                             <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                              R${' '}
+                              R${" "}
                               {u.custosPorMaterial.areia.toLocaleString(
-                                'pt-BR',
+                                "pt-BR",
                                 {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,
@@ -1754,12 +1757,12 @@ export default function Relatorios() {
                             <div className="text-[10px] text-muted-foreground">
                               (
                               {(u.consumos.areia / 1000).toLocaleString(
-                                'pt-BR',
+                                "pt-BR",
                                 {
                                   minimumFractionDigits: 1,
                                   maximumFractionDigits: 1,
                                 },
-                              )}{' '}
+                              )}{" "}
                               t • {dens.toFixed(2)} kg/L)
                             </div>
                           </td>
@@ -1775,17 +1778,17 @@ export default function Relatorios() {
                                   ((b.densidades?.areia || 1.5) * 1000),
                               0,
                             )
-                            .toLocaleString('pt-BR', {
+                            .toLocaleString("pt-BR", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
-                            })}{' '}
+                            })}{" "}
                           m³
                         </div>
                         <div className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                          R${' '}
+                          R${" "}
                           {dadosComparativo.unidades
                             .reduce((a, b) => a + b.custosPorMaterial.areia, 0)
-                            .toLocaleString('pt-BR', {
+                            .toLocaleString("pt-BR", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
@@ -1808,16 +1811,16 @@ export default function Relatorios() {
                             className="py-2.5 px-3 text-right font-mono"
                           >
                             <div className="font-semibold text-foreground">
-                              {volM3.toLocaleString('pt-BR', {
+                              {volM3.toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
-                              })}{' '}
+                              })}{" "}
                               m³
                             </div>
                             <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                              R${' '}
+                              R${" "}
                               {u.custosPorMaterial.brita12.toLocaleString(
-                                'pt-BR',
+                                "pt-BR",
                                 {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,
@@ -1827,12 +1830,12 @@ export default function Relatorios() {
                             <div className="text-[10px] text-muted-foreground">
                               (
                               {(u.consumos.brita12 / 1000).toLocaleString(
-                                'pt-BR',
+                                "pt-BR",
                                 {
                                   minimumFractionDigits: 1,
                                   maximumFractionDigits: 1,
                                 },
-                              )}{' '}
+                              )}{" "}
                               t • {dens.toFixed(2)} kg/L)
                             </div>
                           </td>
@@ -1848,20 +1851,20 @@ export default function Relatorios() {
                                   ((b.densidades?.brita12 || 1.38) * 1000),
                               0,
                             )
-                            .toLocaleString('pt-BR', {
+                            .toLocaleString("pt-BR", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
-                            })}{' '}
+                            })}{" "}
                           m³
                         </div>
                         <div className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                          R${' '}
+                          R${" "}
                           {dadosComparativo.unidades
                             .reduce(
                               (a, b) => a + b.custosPorMaterial.brita12,
                               0,
                             )
-                            .toLocaleString('pt-BR', {
+                            .toLocaleString("pt-BR", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
@@ -1884,16 +1887,16 @@ export default function Relatorios() {
                             className="py-2.5 px-3 text-right font-mono"
                           >
                             <div className="font-semibold text-foreground">
-                              {volM3.toLocaleString('pt-BR', {
+                              {volM3.toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
-                              })}{' '}
+                              })}{" "}
                               m³
                             </div>
                             <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                              R${' '}
+                              R${" "}
                               {u.custosPorMaterial.brita19.toLocaleString(
-                                'pt-BR',
+                                "pt-BR",
                                 {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,
@@ -1903,12 +1906,12 @@ export default function Relatorios() {
                             <div className="text-[10px] text-muted-foreground">
                               (
                               {(u.consumos.brita19 / 1000).toLocaleString(
-                                'pt-BR',
+                                "pt-BR",
                                 {
                                   minimumFractionDigits: 1,
                                   maximumFractionDigits: 1,
                                 },
-                              )}{' '}
+                              )}{" "}
                               t • {dens.toFixed(2)} kg/L)
                             </div>
                           </td>
@@ -1924,20 +1927,20 @@ export default function Relatorios() {
                                   ((b.densidades?.brita19 || 1.44) * 1000),
                               0,
                             )
-                            .toLocaleString('pt-BR', {
+                            .toLocaleString("pt-BR", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
-                            })}{' '}
+                            })}{" "}
                           m³
                         </div>
                         <div className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                          R${' '}
+                          R${" "}
                           {dadosComparativo.unidades
                             .reduce(
                               (a, b) => a + b.custosPorMaterial.brita19,
                               0,
                             )
-                            .toLocaleString('pt-BR', {
+                            .toLocaleString("pt-BR", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
@@ -1966,15 +1969,15 @@ export default function Relatorios() {
                             className="py-2.5 px-3 text-right font-mono"
                           >
                             <div className="font-bold text-foreground">
-                              {volTotal.toLocaleString('pt-BR', {
+                              {volTotal.toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
-                              })}{' '}
+                              })}{" "}
                               m³
                             </div>
                             <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                              R${' '}
-                              {custoTotalBritas.toLocaleString('pt-BR', {
+                              R${" "}
+                              {custoTotalBritas.toLocaleString("pt-BR", {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               })}
@@ -1994,14 +1997,14 @@ export default function Relatorios() {
                                   ((b.densidades?.brita19 || 1.44) * 1000),
                               0,
                             )
-                            .toLocaleString('pt-BR', {
+                            .toLocaleString("pt-BR", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
-                            })}{' '}
+                            })}{" "}
                           m³
                         </div>
                         <div className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                          R${' '}
+                          R${" "}
                           {dadosComparativo.unidades
                             .reduce(
                               (a, b) =>
@@ -2010,7 +2013,7 @@ export default function Relatorios() {
                                 b.custosPorMaterial.brita19,
                               0,
                             )
-                            .toLocaleString('pt-BR', {
+                            .toLocaleString("pt-BR", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}

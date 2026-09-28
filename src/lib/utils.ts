@@ -1,6 +1,6 @@
 /* General utility functions (exposes cn) */
-import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
 
 /**
  * Merges multiple class names into a single string

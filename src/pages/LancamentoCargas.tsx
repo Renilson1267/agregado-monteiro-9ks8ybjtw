@@ -1,27 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Textarea } from '@/components/ui/textarea'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Textarea } from "@/components/ui/textarea"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { ConcreteiraService } from '@/services/concreteira'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { useUsuario } from '@/hooks/use-usuario'
+} from "@/components/ui/select"
+import { ConcreteiraService } from "@/services/concreteira"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { useUsuario } from "@/hooks/use-usuario"
 import type {
   Traco,
   Motorista,
@@ -32,7 +32,7 @@ import type {
   Cliente,
   OrdemServico,
   Carga,
-} from '@/types/concreteira'
+} from "@/types/concreteira"
 import {
   Truck,
   Calculator,
@@ -56,11 +56,11 @@ import {
   MapPin,
   RefreshCw,
   User,
-} from 'lucide-react'
-import { toast } from '@/hooks/use-toast'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Switch } from '@/components/ui/switch'
-import { Badge } from '@/components/ui/badge'
+} from "lucide-react"
+import { toast } from "@/hooks/use-toast"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -68,9 +68,9 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog'
-import { ReciboImpressao } from '@/components/ReciboImpressao'
-import { printElementInIsolatedIframe } from '@/lib/imprimir-recibo'
+} from "@/components/ui/dialog"
+import { ReciboImpressao } from "@/components/ReciboImpressao"
+import { printElementInIsolatedIframe } from "@/lib/imprimir-recibo"
 import {
   formatarCpfCnpj,
   formatarTelefone,
@@ -78,12 +78,12 @@ import {
   limparMascara,
   consultarCNPJ,
   consultarCEP,
-} from '@/lib/documentos'
+} from "@/lib/documentos"
 
 export default function LancamentoCargas() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const editarCargaId = searchParams.get('editar')
+  const editarCargaId = searchParams.get("editar")
   const { empresaAtiva } = useEmpresa()
   const { isBalanceiro, isAdministrador } = useUsuario()
   const [tracos, setTracos] = useState<Traco[]>([])
@@ -103,20 +103,20 @@ export default function LancamentoCargas() {
 
   // Modo de dosagem: 'automatico' (por traço) ou 'manual' (digitação dos insumos).
   // Se o operador for Balanceiro, inicia diretamente em 'manual' com campos liberados para digitação.
-  const [modoDosagem, setModoDosagem] = useState<'automatico' | 'manual'>(() =>
-    isBalanceiro ? 'manual' : 'automatico',
+  const [modoDosagem, setModoDosagem] = useState<"automatico" | "manual">(() =>
+    isBalanceiro ? "manual" : "automatico",
   )
 
   // Formulário
   const [dataCarga, setDataCarga] = useState(
-    new Date().toISOString().split('T')[0],
+    new Date().toISOString().split("T")[0],
   )
   const [volume, setVolume] = useState<number>(8.0)
-  const [tracoSelecionadoId, setTracoSelecionadoId] = useState<string>('')
-  const [motoristaNome, setMotoristaNome] = useState<string>('')
-  const [veiculoPlaca, setVeiculoPlaca] = useState<string>('')
-  const [cidadeNome, setCidadeNome] = useState<string>('')
-  const [observacao, setObservacao] = useState<string>('')
+  const [tracoSelecionadoId, setTracoSelecionadoId] = useState<string>("")
+  const [motoristaNome, setMotoristaNome] = useState<string>("")
+  const [veiculoPlaca, setVeiculoPlaca] = useState<string>("")
+  const [cidadeNome, setCidadeNome] = useState<string>("")
+  const [observacao, setObservacao] = useState<string>("")
   const [cargaZerada, setCargaZerada] = useState<boolean>(false)
 
   // Insumos no formulário (no modo manual são DOSAGEM por m³: kg/m³ para sólidos; no automático guardam a dosagem base)
@@ -149,40 +149,40 @@ export default function LancamentoCargas() {
     useState<boolean>(false)
 
   // Form states - Bloco de Entrega / Ordem de Serviço
-  const [clienteSelecionadoId, setClienteSelecionadoId] = useState<string>('')
-  const [buscaCliente, setBuscaCliente] = useState<string>('')
+  const [clienteSelecionadoId, setClienteSelecionadoId] = useState<string>("")
+  const [buscaCliente, setBuscaCliente] = useState<string>("")
   const [clienteDropdownAberto, setClienteDropdownAberto] =
     useState<boolean>(false)
 
-  const [destinatarioNome, setDestinatarioNome] = useState<string>('')
-  const [destinatarioCpfCnpj, setDestinatarioCpfCnpj] = useState<string>('')
-  const [destinatarioTelefone, setDestinatarioTelefone] = useState<string>('')
-  const [destinatarioEndereco, setDestinatarioEndereco] = useState<string>('')
-  const [destinatarioBairro, setDestinatarioBairro] = useState<string>('')
-  const [destinatarioCidade, setDestinatarioCidade] = useState<string>('')
-  const [destinatarioUf, setDestinatarioUf] = useState<string>('PB')
-  const [destinatarioCep, setDestinatarioCep] = useState<string>('')
+  const [destinatarioNome, setDestinatarioNome] = useState<string>("")
+  const [destinatarioCpfCnpj, setDestinatarioCpfCnpj] = useState<string>("")
+  const [destinatarioTelefone, setDestinatarioTelefone] = useState<string>("")
+  const [destinatarioEndereco, setDestinatarioEndereco] = useState<string>("")
+  const [destinatarioBairro, setDestinatarioBairro] = useState<string>("")
+  const [destinatarioCidade, setDestinatarioCidade] = useState<string>("")
+  const [destinatarioUf, setDestinatarioUf] = useState<string>("PB")
+  const [destinatarioCep, setDestinatarioCep] = useState<string>("")
 
-  const [nomeObra, setNomeObra] = useState<string>('')
-  const [localDescarga, setLocalDescarga] = useState<string>('')
-  const [discriminacaoProduto, setDiscriminacaoProduto] = useState<string>('')
-  const [slumpCentralMedido, setSlumpCentralMedido] = useState<string>('')
-  const [slumpCentralSaida, setSlumpCentralSaida] = useState<string>('')
-  const [slumpTolerancia, setSlumpTolerancia] = useState<string>('+-2')
-  const [lacre, setLacre] = useState<string>('')
-  const [kmInicial, setKmInicial] = useState<string>('')
-  const [kmFinal, setKmFinal] = useState<string>('')
+  const [nomeObra, setNomeObra] = useState<string>("")
+  const [localDescarga, setLocalDescarga] = useState<string>("")
+  const [discriminacaoProduto, setDiscriminacaoProduto] = useState<string>("")
+  const [slumpCentralMedido, setSlumpCentralMedido] = useState<string>("")
+  const [slumpCentralSaida, setSlumpCentralSaida] = useState<string>("")
+  const [slumpTolerancia, setSlumpTolerancia] = useState<string>("+-2")
+  const [lacre, setLacre] = useState<string>("")
+  const [kmInicial, setKmInicial] = useState<string>("")
+  const [kmFinal, setKmFinal] = useState<string>("")
 
   // Helper para somar minutos a um horário "HH:mm"
   const somarMinutosHora = (hora: string, minutos: number): string => {
-    if (!hora || !hora.includes(':')) return ''
-    const [h, m] = hora.split(':').map((v) => parseInt(v, 10))
-    if (isNaN(h) || isNaN(m)) return ''
+    if (!hora || !hora.includes(":")) return ""
+    const [h, m] = hora.split(":").map((v) => parseInt(v, 10))
+    if (isNaN(h) || isNaN(m)) return ""
     const totalMinutos = (h * 60 + m + minutos) % (24 * 60)
     const totalPositivo = (totalMinutos + 24 * 60) % (24 * 60)
     const nh = Math.floor(totalPositivo / 60)
     const nm = totalPositivo % 60
-    return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`
+    return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`
   }
 
   // Horários: hora da carga inicializa com a hora atual, saída usina com +30 min
@@ -196,14 +196,14 @@ export default function LancamentoCargas() {
   })
   const [saidaCentralEditadaManualmente, setSaidaCentralEditadaManualmente] =
     useState<boolean>(false)
-  const [horaChegadaObra, setHoraChegadaObra] = useState<string>('')
-  const [horaInicioDescarga, setHoraInicioDescarga] = useState<string>('')
-  const [horaFimDescarga, setHoraFimDescarga] = useState<string>('')
-  const [horaSaidaObra, setHoraSaidaObra] = useState<string>('')
-  const [vistoObra, setVistoObra] = useState<string>('')
+  const [horaChegadaObra, setHoraChegadaObra] = useState<string>("")
+  const [horaInicioDescarga, setHoraInicioDescarga] = useState<string>("")
+  const [horaFimDescarga, setHoraFimDescarga] = useState<string>("")
+  const [horaSaidaObra, setHoraSaidaObra] = useState<string>("")
+  const [vistoObra, setVistoObra] = useState<string>("")
   const TEXTO_OBSERVACOES_PADRAO =
-    'Cuidado com a cura do concreto para evitar frisuras'
-  const [observacoesEntrega, setObservacoesEntrega] = useState<string>('')
+    "Cuidado com a cura do concreto para evitar frisuras"
+  const [observacoesEntrega, setObservacoesEntrega] = useState<string>("")
 
   // Interruptor de Insumos na OS (inicia com padrão do cliente, mas pode ser invertido)
   const [exibirInsumosNaOs, setExibirInsumosNaOs] = useState<boolean>(true)
@@ -211,18 +211,18 @@ export default function LancamentoCargas() {
   // Modal de Cadastro Rápido de Cliente sem perder dados
   const [modalNovoClienteAberto, setModalNovoClienteAberto] =
     useState<boolean>(false)
-  const [novoClienteTipo, setNovoClienteTipo] = useState<'PF' | 'PJ'>('PJ')
-  const [novoClienteCpfCnpj, setNovoClienteCpfCnpj] = useState<string>('')
-  const [novoClienteNome, setNovoClienteNome] = useState<string>('')
+  const [novoClienteTipo, setNovoClienteTipo] = useState<"PF" | "PJ">("PJ")
+  const [novoClienteCpfCnpj, setNovoClienteCpfCnpj] = useState<string>("")
+  const [novoClienteNome, setNovoClienteNome] = useState<string>("")
   const [novoClienteNomeFantasia, setNovoClienteNomeFantasia] =
-    useState<string>('')
-  const [novoClienteTelefone, setNovoClienteTelefone] = useState<string>('')
-  const [novoClienteCep, setNovoClienteCep] = useState<string>('')
-  const [novoClienteLogradouro, setNovoClienteLogradouro] = useState<string>('')
-  const [novoClienteNumero, setNovoClienteNumero] = useState<string>('')
-  const [novoClienteBairro, setNovoClienteBairro] = useState<string>('')
-  const [novoClienteCidade, setNovoClienteCidade] = useState<string>('')
-  const [novoClienteUf, setNovoClienteUf] = useState<string>('PB')
+    useState<string>("")
+  const [novoClienteTelefone, setNovoClienteTelefone] = useState<string>("")
+  const [novoClienteCep, setNovoClienteCep] = useState<string>("")
+  const [novoClienteLogradouro, setNovoClienteLogradouro] = useState<string>("")
+  const [novoClienteNumero, setNovoClienteNumero] = useState<string>("")
+  const [novoClienteBairro, setNovoClienteBairro] = useState<string>("")
+  const [novoClienteCidade, setNovoClienteCidade] = useState<string>("")
+  const [novoClienteUf, setNovoClienteUf] = useState<string>("PB")
   const [novoClienteExibirInsumos, setNovoClienteExibirInsumos] =
     useState<boolean>(true)
   const [salvandoClienteRapido, setSalvandoClienteRapido] =
@@ -261,7 +261,7 @@ export default function LancamentoCargas() {
           setTracoSelecionadoId(tr[0].id)
           // Se for balanceiro, garante modo manual e zera insumos
           if (isBalanceiro && !editarCargaId) {
-            setModoDosagem('manual')
+            setModoDosagem("manual")
             setCimento(0)
             setBrita12(0)
             setBrita19(0)
@@ -275,10 +275,10 @@ export default function LancamentoCargas() {
             setAguaEditadaManualmente(false)
           }
         } else {
-          setTracoSelecionadoId('')
+          setTracoSelecionadoId("")
         }
       } catch (err) {
-        console.error('Erro ao carregar dados do formulário:', err)
+        console.error("Erro ao carregar dados do formulário:", err)
       }
     }
     init()
@@ -296,12 +296,12 @@ export default function LancamentoCargas() {
       // Se o usuário logado for balanceiro, não tem permissão para editar carga gravada
       if (isBalanceiro) {
         toast({
-          title: 'Acesso restrito',
+          title: "Acesso restrito",
           description:
-            'Apenas Administradores têm permissão para editar lançamentos de carga gravados.',
-          variant: 'destructive',
+            "Apenas Administradores têm permissão para editar lançamentos de carga gravados.",
+          variant: "destructive",
         })
-        navigate('/lancamentos')
+        navigate("/lancamentos")
         return
       }
 
@@ -310,11 +310,11 @@ export default function LancamentoCargas() {
         const c = await ConcreteiraService.getCargaPorId(editarCargaId)
         if (!c) {
           toast({
-            title: 'Carga não encontrada',
-            description: 'A carga solicitada para edição não foi localizada.',
-            variant: 'destructive',
+            title: "Carga não encontrada",
+            description: "A carga solicitada para edição não foi localizada.",
+            variant: "destructive",
           })
-          navigate('/lancamentos')
+          navigate("/lancamentos")
           return
         }
 
@@ -323,10 +323,10 @@ export default function LancamentoCargas() {
         const vol = Number(c.volume_m3) || 1
         setVolume(vol)
         setCargaZerada(Boolean(c.carga_zerada))
-        setMotoristaNome(c.motorista_nome || '')
-        setVeiculoPlaca(c.veiculo_placa || '')
-        setCidadeNome(c.cidade_nome || '')
-        setObservacao(c.observacao || '')
+        setMotoristaNome(c.motorista_nome || "")
+        setVeiculoPlaca(c.veiculo_placa || "")
+        setCidadeNome(c.cidade_nome || "")
+        setObservacao(c.observacao || "")
 
         // Se tiver traço vinculado ou por nome
         if (c.traco_id) {
@@ -339,7 +339,7 @@ export default function LancamentoCargas() {
         }
 
         // Modo sempre manual na edição para refletir com exatidão as dosagens gravadas na carga
-        setModoDosagem('manual')
+        setModoDosagem("manual")
 
         // Calcular dosagens por m³ a partir do consumo total e volume
         const dosCimento =
@@ -382,41 +382,41 @@ export default function LancamentoCargas() {
         if (c.ordem_servico) {
           const os = c.ordem_servico
           if (os.cliente_id) setClienteSelecionadoId(os.cliente_id)
-          setDestinatarioNome(os.destinatario_nome || '')
-          setDestinatarioCpfCnpj(os.destinatario_cpf_cnpj || '')
-          setDestinatarioTelefone(os.destinatario_telefone || '')
-          setDestinatarioEndereco(os.destinatario_endereco || '')
-          setDestinatarioBairro(os.destinatario_bairro || '')
-          setDestinatarioCidade(os.destinatario_cidade || '')
-          setDestinatarioUf(os.destinatario_uf || 'PB')
-          setDestinatarioCep(os.destinatario_cep || '')
-          setNomeObra(os.nome_obra || '')
-          setLocalDescarga(os.local_descarga || '')
+          setDestinatarioNome(os.destinatario_nome || "")
+          setDestinatarioCpfCnpj(os.destinatario_cpf_cnpj || "")
+          setDestinatarioTelefone(os.destinatario_telefone || "")
+          setDestinatarioEndereco(os.destinatario_endereco || "")
+          setDestinatarioBairro(os.destinatario_bairro || "")
+          setDestinatarioCidade(os.destinatario_cidade || "")
+          setDestinatarioUf(os.destinatario_uf || "PB")
+          setDestinatarioCep(os.destinatario_cep || "")
+          setNomeObra(os.nome_obra || "")
+          setLocalDescarga(os.local_descarga || "")
           if (os.itens && os.itens[0]?.discriminacao) {
             setDiscriminacaoProduto(os.itens[0].discriminacao)
           }
-          setSlumpCentralMedido(os.slump_central_medido || '')
-          setSlumpCentralSaida(os.slump_central_saida || '')
-          setSlumpTolerancia(os.slump_tolerancia || '+-2')
-          setLacre(os.lacre || '')
-          setKmInicial(os.km_inicial != null ? String(os.km_inicial) : '')
-          setKmFinal(os.km_final != null ? String(os.km_final) : '')
-          setHoraCarga(os.hora_carga || '')
-          setHoraSaidaCentral(os.hora_saida_central || '')
-          setHoraChegadaObra(os.hora_chegada_obra || '')
-          setHoraInicioDescarga(os.hora_inicio_descarga || '')
-          setHoraFimDescarga(os.hora_fim_descarga || '')
-          setHoraSaidaObra(os.hora_saida_obra || '')
-          setVistoObra(os.visto_obra || '')
-          setObservacoesEntrega(os.observacoes || '')
+          setSlumpCentralMedido(os.slump_central_medido || "")
+          setSlumpCentralSaida(os.slump_central_saida || "")
+          setSlumpTolerancia(os.slump_tolerancia || "+-2")
+          setLacre(os.lacre || "")
+          setKmInicial(os.km_inicial != null ? String(os.km_inicial) : "")
+          setKmFinal(os.km_final != null ? String(os.km_final) : "")
+          setHoraCarga(os.hora_carga || "")
+          setHoraSaidaCentral(os.hora_saida_central || "")
+          setHoraChegadaObra(os.hora_chegada_obra || "")
+          setHoraInicioDescarga(os.hora_inicio_descarga || "")
+          setHoraFimDescarga(os.hora_fim_descarga || "")
+          setHoraSaidaObra(os.hora_saida_obra || "")
+          setVistoObra(os.visto_obra || "")
+          setObservacoesEntrega(os.observacoes || "")
           setExibirInsumosNaOs(os.exibir_insumos_os !== false)
         }
       } catch (err: any) {
-        console.error('Erro ao carregar carga para edição:', err)
+        console.error("Erro ao carregar carga para edição:", err)
         toast({
-          title: 'Erro ao carregar carga',
-          description: err.message || 'Falha ao buscar carga.',
-          variant: 'destructive',
+          title: "Erro ao carregar carga",
+          description: err.message || "Falha ao buscar carga.",
+          variant: "destructive",
         })
       } finally {
         setCarregandoCargaEdicao(false)
@@ -431,15 +431,15 @@ export default function LancamentoCargas() {
     setClienteSelecionadoId(cli.id)
     setBuscaCliente(cli.nome)
     setDestinatarioNome(cli.nome)
-    setDestinatarioCpfCnpj(cli.cpf_cnpj ? formatarCpfCnpj(cli.cpf_cnpj) : '')
-    setDestinatarioTelefone(cli.telefone ? formatarTelefone(cli.telefone) : '')
+    setDestinatarioCpfCnpj(cli.cpf_cnpj ? formatarCpfCnpj(cli.cpf_cnpj) : "")
+    setDestinatarioTelefone(cli.telefone ? formatarTelefone(cli.telefone) : "")
     setDestinatarioEndereco(
-      [cli.logradouro, cli.numero].filter(Boolean).join(', ') || '',
+      [cli.logradouro, cli.numero].filter(Boolean).join(", ") || "",
     )
-    setDestinatarioBairro(cli.bairro || '')
-    setDestinatarioCidade(cli.cidade || '')
-    setDestinatarioUf(cli.uf || 'PB')
-    setDestinatarioCep(cli.cep ? formatarCep(cli.cep) : '')
+    setDestinatarioBairro(cli.bairro || "")
+    setDestinatarioCidade(cli.cidade || "")
+    setDestinatarioUf(cli.uf || "PB")
+    setDestinatarioCep(cli.cep ? formatarCep(cli.cep) : "")
     if (cli.cidade && !cidadeNome) {
       setCidadeNome(cli.cidade)
     }
@@ -451,7 +451,7 @@ export default function LancamentoCargas() {
   // Busca automática de CNPJ no cadastro rápido de cliente (BrasilAPI)
   const handleBlurCpfCnpjRapido = async () => {
     const raw = limparMascara(novoClienteCpfCnpj)
-    if (novoClienteTipo === 'PJ' && raw.length === 14) {
+    if (novoClienteTipo === "PJ" && raw.length === 14) {
       setBuscandoCnpjRapido(true)
       try {
         const dados = await consultarCNPJ(raw)
@@ -472,12 +472,12 @@ export default function LancamentoCargas() {
         }
 
         toast({
-          title: 'Dados do CNPJ preenchidos automaticamente!',
+          title: "Dados do CNPJ preenchidos automaticamente!",
           description: dados.razao_social,
         })
       } catch (err: any) {
         toast({
-          title: 'Aviso de consulta de CNPJ',
+          title: "Aviso de consulta de CNPJ",
           description: err.message,
         })
       } finally {
@@ -500,12 +500,12 @@ export default function LancamentoCargas() {
       if (dados.uf) setNovoClienteUf(dados.uf)
 
       toast({
-        title: 'Endereço localizado via CEP!',
+        title: "Endereço localizado via CEP!",
         description: `${dados.localidade} - ${dados.uf}`,
       })
     } catch (err: any) {
       toast({
-        title: 'Aviso de CEP',
+        title: "Aviso de CEP",
         description: err.message,
       })
     } finally {
@@ -518,9 +518,9 @@ export default function LancamentoCargas() {
     e.preventDefault()
     if (!novoClienteNome.trim()) {
       toast({
-        title: 'Nome obrigatório',
-        description: 'Informe o nome ou razão social do cliente.',
-        variant: 'destructive',
+        title: "Nome obrigatório",
+        description: "Informe o nome ou razão social do cliente.",
+        variant: "destructive",
       })
       return
     }
@@ -540,7 +540,7 @@ export default function LancamentoCargas() {
           numero: novoClienteNumero.trim() || null,
           bairro: novoClienteBairro.trim() || null,
           cidade: novoClienteCidade.trim() || null,
-          uf: novoClienteUf.trim().toUpperCase() || 'PB',
+          uf: novoClienteUf.trim().toUpperCase() || "PB",
           exibir_insumos_os: novoClienteExibirInsumos,
           ativo: true,
         },
@@ -553,15 +553,15 @@ export default function LancamentoCargas() {
       setModalNovoClienteAberto(false)
 
       toast({
-        title: 'Cliente cadastrado com sucesso!',
+        title: "Cliente cadastrado com sucesso!",
         description: `${novo.nome} foi vinculado à tela de entrega.`,
       })
     } catch (err: any) {
       console.error(err)
       toast({
-        title: 'Erro ao cadastrar cliente',
-        description: err.message || 'Falha ao salvar cliente.',
-        variant: 'destructive',
+        title: "Erro ao cadastrar cliente",
+        description: err.message || "Falha ao salvar cliente.",
+        variant: "destructive",
       })
     } finally {
       setSalvandoClienteRapido(false)
@@ -582,10 +582,12 @@ export default function LancamentoCargas() {
       // Atualiza discriminação padrão se necessário
       if (
         !discriminacaoProduto ||
-        discriminacaoProduto.startsWith('CONCRETO')
+        discriminacaoProduto.startsWith("CONCRETO")
       ) {
         setDiscriminacaoProduto(
-          `CONCRETO USINADO ${traco.nome}${traco.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ''} - SLUMP 12+-2`,
+          `CONCRETO USINADO ${traco.nome}${
+            traco.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ""
+          } - SLUMP 12+-2`,
         )
       }
 
@@ -635,7 +637,7 @@ export default function LancamentoCargas() {
       return
     }
 
-    if (modoDosagem === 'automatico') {
+    if (modoDosagem === "automatico") {
       // No modo automático, preenche dosagens com o traço
       const traco = tracos.find((t) => t.id === tracoSelecionadoId)
       if (traco) {
@@ -703,7 +705,7 @@ export default function LancamentoCargas() {
     setAditivoBruto(adtBruto)
     setAditivo(Math.round(adtBruto))
     toast({
-      title: 'Aditivo recalculado',
+      title: "Aditivo recalculado",
       description: `Valor recalculado pela fórmula: ${Math.round(adtBruto)} L`,
     })
   }
@@ -716,13 +718,13 @@ export default function LancamentoCargas() {
     setAguaBruta(agBruta)
     setAgua(Math.round(agBruta))
     toast({
-      title: 'Água recalculada',
+      title: "Água recalculada",
       description: `Valor recalculado pela fórmula: ${Math.round(agBruta)} L`,
     })
   }
 
   // Tratar alternância de modo
-  const handleTrocaModo = (novoModo: 'automatico' | 'manual') => {
+  const handleTrocaModo = (novoModo: "automatico" | "manual") => {
     setModoDosagem(novoModo)
     setAditivoEditadoManualmente(false)
     setAguaEditadaManualmente(false)
@@ -751,9 +753,9 @@ export default function LancamentoCargas() {
       setAguaEditadaManualmente(false)
       aplicarDosagemTraco(tracoSelecionadoId, volume)
       toast({
-        title: 'Dosagem restaurada',
+        title: "Dosagem restaurada",
         description:
-          'Os valores de dosagem (kg/m³) e cálculos de aditivo e água foram restaurados com base no traço selecionado.',
+          "Os valores de dosagem (kg/m³) e cálculos de aditivo e água foram restaurados com base no traço selecionado.",
       })
     }
   }
@@ -776,30 +778,30 @@ export default function LancamentoCargas() {
   const validarFormulario = (): boolean => {
     if (!dataCarga) {
       toast({
-        title: 'Atenção',
-        description: 'Informe a data da carga',
-        variant: 'destructive',
+        title: "Atenção",
+        description: "Informe a data da carga",
+        variant: "destructive",
       })
       return false
     }
     if (volume <= 0) {
       toast({
-        title: 'Atenção',
-        description: 'O volume deve ser maior que zero',
-        variant: 'destructive',
+        title: "Atenção",
+        description: "O volume deve ser maior que zero",
+        variant: "destructive",
       })
       return false
     }
 
-    if (modoDosagem === 'manual' && !cargaZerada) {
+    if (modoDosagem === "manual" && !cargaZerada) {
       const somaDosagens =
         brita12 + brita19 + areia + poPedra + cimento + aditivo
       if (somaDosagens <= 0) {
         toast({
-          title: 'Insumos não informados',
+          title: "Insumos não informados",
           description:
-            'No modo manual, informe a dosagem (kg/m³) de pelo menos um dos insumos ou marque a carga como cancelada/zerada.',
-          variant: 'destructive',
+            "No modo manual, informe a dosagem (kg/m³) de pelo menos um dos insumos ou marque a carga como cancelada/zerada.",
+          variant: "destructive",
         })
         return false
       }
@@ -810,9 +812,9 @@ export default function LancamentoCargas() {
   const executarSalvarEdicao = async () => {
     if (!editarCargaId) return
     const traco = tracos.find((t) => t.id === tracoSelecionadoId)
-    let nomeTracoGravado = traco?.nome || 'Traço manual'
-    if (modoDosagem === 'manual') {
-      nomeTracoGravado = traco ? `${traco.nome} (Manual)` : 'Dosagem Manual'
+    let nomeTracoGravado = traco?.nome || "Traço manual"
+    if (modoDosagem === "manual") {
+      nomeTracoGravado = traco ? `${traco.nome} (Manual)` : "Dosagem Manual"
     }
 
     setSalvando(true)
@@ -839,18 +841,18 @@ export default function LancamentoCargas() {
       setModalConfirmarEdicaoAberta(false)
 
       toast({
-        title: 'Carga alterada com sucesso!',
+        title: "Carga alterada com sucesso!",
         description:
-          'Movimentações de estoque recalculadas e integridade do saldo mantida.',
+          "Movimentações de estoque recalculadas e integridade do saldo mantida.",
       })
 
-      navigate('/')
+      navigate("/")
     } catch (err: any) {
-      console.error('Erro ao atualizar carga:', err)
+      console.error("Erro ao atualizar carga:", err)
       toast({
-        title: 'Erro ao atualizar carga',
-        description: err.message || 'Falha ao salvar alterações no banco.',
-        variant: 'destructive',
+        title: "Erro ao atualizar carga",
+        description: err.message || "Falha ao salvar alterações no banco.",
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -871,9 +873,9 @@ export default function LancamentoCargas() {
     const traco = tracos.find((t) => t.id === tracoSelecionadoId)
 
     // Nome descritivo do traço gravado na carga
-    let nomeTracoGravado = traco?.nome || 'Traço manual'
-    if (modoDosagem === 'manual') {
-      nomeTracoGravado = traco ? `${traco.nome} (Manual)` : 'Dosagem Manual'
+    let nomeTracoGravado = traco?.nome || "Traço manual"
+    if (modoDosagem === "manual") {
+      nomeTracoGravado = traco ? `${traco.nome} (Manual)` : "Dosagem Manual"
     }
 
     setSalvando(true)
@@ -895,29 +897,61 @@ export default function LancamentoCargas() {
         consumo_aditivo: consumoReal.aditivo,
         consumo_agua: consumoReal.agua,
         observacao: observacao
-          ? modoDosagem === 'manual'
-            ? `[Modo Manual | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}] ${observacao}`
-            : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}] ${observacao}`
-          : modoDosagem === 'manual'
-            ? `[Lançamento manual | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}]`
-            : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}]`,
+          ? modoDosagem === "manual"
+            ? `[Modo Manual | Aditivo: ${consumoReal.aditivo}L${
+                aditivoEditadoManualmente
+                  ? " (manual)"
+                  : ` (fator ${fatorAditivoManual})`
+              } | Água: ${consumoReal.agua}L${
+                aguaEditadaManualmente
+                  ? " (manual)"
+                  : ` (fator ${fatorAguaManual})`
+              }] ${observacao}`
+            : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${
+                aditivoEditadoManualmente
+                  ? " (manual)"
+                  : ` (fator ${fatorAditivoManual})`
+              } | Água: ${consumoReal.agua}L${
+                aguaEditadaManualmente
+                  ? " (manual)"
+                  : ` (fator ${fatorAguaManual})`
+              }] ${observacao}`
+          : modoDosagem === "manual"
+            ? `[Lançamento manual | Aditivo: ${consumoReal.aditivo}L${
+                aditivoEditadoManualmente
+                  ? " (manual)"
+                  : ` (fator ${fatorAditivoManual})`
+              } | Água: ${consumoReal.agua}L${
+                aguaEditadaManualmente
+                  ? " (manual)"
+                  : ` (fator ${fatorAguaManual})`
+              }]`
+            : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${
+                aditivoEditadoManualmente
+                  ? " (manual)"
+                  : ` (fator ${fatorAditivoManual})`
+              } | Água: ${consumoReal.agua}L${
+                aguaEditadaManualmente
+                  ? " (manual)"
+                  : ` (fator ${fatorAguaManual})`
+              }]`,
         carga_zerada: cargaZerada,
       })
 
       toast({
-        title: 'Carga lançada com sucesso!',
+        title: "Carga lançada com sucesso!",
         description: cargaZerada
-          ? 'Carga cancelada registrada sem baixa de materiais.'
-          : 'Baixa de estoque nos materiais controlados (Cimento e Aditivo) realizada com sucesso.',
+          ? "Carga cancelada registrada sem baixa de materiais."
+          : "Baixa de estoque nos materiais controlados (Cimento e Aditivo) realizada com sucesso.",
       })
 
-      navigate('/')
+      navigate("/")
     } catch (err: any) {
       console.error(err)
       toast({
-        title: 'Erro ao lançar carga',
-        description: err.message || 'Falha na comunicação com o banco.',
-        variant: 'destructive',
+        title: "Erro ao lançar carga",
+        description: err.message || "Falha na comunicação com o banco.",
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -928,44 +962,46 @@ export default function LancamentoCargas() {
   const handleSalvarEGerarOS = async () => {
     if (!dataCarga) {
       toast({
-        title: 'Atenção',
-        description: 'Informe a data da carga',
-        variant: 'destructive',
+        title: "Atenção",
+        description: "Informe a data da carga",
+        variant: "destructive",
       })
       return
     }
     if (volume <= 0) {
       toast({
-        title: 'Atenção',
-        description: 'O volume deve ser maior que zero',
-        variant: 'destructive',
+        title: "Atenção",
+        description: "O volume deve ser maior que zero",
+        variant: "destructive",
       })
       return
     }
 
-    if (modoDosagem === 'manual' && !cargaZerada) {
+    if (modoDosagem === "manual" && !cargaZerada) {
       const somaDosagens =
         brita12 + brita19 + areia + poPedra + cimento + aditivo
       if (somaDosagens <= 0) {
         toast({
-          title: 'Insumos não informados',
+          title: "Insumos não informados",
           description:
-            'No modo manual, informe a dosagem (kg/m³) de pelo menos um dos insumos ou marque a carga como cancelada.',
-          variant: 'destructive',
+            "No modo manual, informe a dosagem (kg/m³) de pelo menos um dos insumos ou marque a carga como cancelada.",
+          variant: "destructive",
         })
         return
       }
     }
 
     const traco = tracos.find((t) => t.id === tracoSelecionadoId)
-    let nomeTracoGravado = traco?.nome || 'Traço manual'
-    if (modoDosagem === 'manual') {
-      nomeTracoGravado = traco ? `${traco.nome} (Manual)` : 'Dosagem Manual'
+    let nomeTracoGravado = traco?.nome || "Traço manual"
+    if (modoDosagem === "manual") {
+      nomeTracoGravado = traco ? `${traco.nome} (Manual)` : "Dosagem Manual"
     }
 
     const descr =
       discriminacaoProduto.trim() ||
-      `${nomeTracoGravado}${traco?.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ''}${slumpCentralMedido ? ` - SLUMP ${slumpCentralMedido}` : ''}`
+      `${nomeTracoGravado}${traco?.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ""}${
+        slumpCentralMedido ? ` - SLUMP ${slumpCentralMedido}` : ""
+      }`
 
     setSalvando(true)
     try {
@@ -987,12 +1023,44 @@ export default function LancamentoCargas() {
           consumo_aditivo: consumoReal.aditivo,
           consumo_agua: consumoReal.agua,
           observacao: observacao
-            ? modoDosagem === 'manual'
-              ? `[Modo Manual | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}] ${observacao}`
-              : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}] ${observacao}`
-            : modoDosagem === 'manual'
-              ? `[Lançamento manual | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}]`
-              : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${aditivoEditadoManualmente ? ' (manual)' : ` (fator ${fatorAditivoManual})`} | Água: ${consumoReal.agua}L${aguaEditadaManualmente ? ' (manual)' : ` (fator ${fatorAguaManual})`}]`,
+            ? modoDosagem === "manual"
+              ? `[Modo Manual | Aditivo: ${consumoReal.aditivo}L${
+                  aditivoEditadoManualmente
+                    ? " (manual)"
+                    : ` (fator ${fatorAditivoManual})`
+                } | Água: ${consumoReal.agua}L${
+                  aguaEditadaManualmente
+                    ? " (manual)"
+                    : ` (fator ${fatorAguaManual})`
+                }] ${observacao}`
+              : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${
+                  aditivoEditadoManualmente
+                    ? " (manual)"
+                    : ` (fator ${fatorAditivoManual})`
+                } | Água: ${consumoReal.agua}L${
+                  aguaEditadaManualmente
+                    ? " (manual)"
+                    : ` (fator ${fatorAguaManual})`
+                }] ${observacao}`
+            : modoDosagem === "manual"
+              ? `[Lançamento manual | Aditivo: ${consumoReal.aditivo}L${
+                  aditivoEditadoManualmente
+                    ? " (manual)"
+                    : ` (fator ${fatorAditivoManual})`
+                } | Água: ${consumoReal.agua}L${
+                  aguaEditadaManualmente
+                    ? " (manual)"
+                    : ` (fator ${fatorAguaManual})`
+                }]`
+              : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${
+                  aditivoEditadoManualmente
+                    ? " (manual)"
+                    : ` (fator ${fatorAditivoManual})`
+                } | Água: ${consumoReal.agua}L${
+                  aguaEditadaManualmente
+                    ? " (manual)"
+                    : ` (fator ${fatorAguaManual})`
+                }]`,
           carga_zerada: cargaZerada,
         },
         entrega: {
@@ -1000,20 +1068,20 @@ export default function LancamentoCargas() {
           destinatario_nome:
             destinatarioNome.trim() ||
             buscaCliente.trim() ||
-            'CONSUMIDOR FINAL',
+            "CONSUMIDOR FINAL",
           destinatario_cpf_cnpj: destinatarioCpfCnpj.trim() || null,
           destinatario_telefone: destinatarioTelefone.trim() || null,
           destinatario_endereco: destinatarioEndereco.trim() || null,
           destinatario_bairro: destinatarioBairro.trim() || null,
           destinatario_cidade: destinatarioCidade.trim() || cidadeNome || null,
-          destinatario_uf: destinatarioUf.trim().toUpperCase() || 'PB',
+          destinatario_uf: destinatarioUf.trim().toUpperCase() || "PB",
           destinatario_cep: destinatarioCep.trim() || null,
           nome_obra: nomeObra.trim() || null,
           local_descarga: localDescarga.trim() || null,
           discriminacao_produto: descr,
           slump_central_medido: slumpCentralMedido.trim() || null,
           slump_central_saida: slumpCentralSaida.trim() || null,
-          slump_tolerancia: slumpTolerancia.trim() || '+-2',
+          slump_tolerancia: slumpTolerancia.trim() || "+-2",
           lacre: lacre.trim() || null,
           km_inicial: kmInicial ? Number(kmInicial) : null,
           km_final: kmFinal ? Number(kmFinal) : null,
@@ -1041,9 +1109,9 @@ export default function LancamentoCargas() {
     } catch (err: any) {
       console.error(err)
       toast({
-        title: 'Erro ao salvar carga e gerar OS',
-        description: err.message || 'Falha na comunicação com o banco.',
-        variant: 'destructive',
+        title: "Erro ao salvar carga e gerar OS",
+        description: err.message || "Falha na comunicação com o banco.",
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -1067,7 +1135,7 @@ export default function LancamentoCargas() {
       }
     : ConcreteiraService.calcularCustoCarga(
         {
-          id: '',
+          id: "",
           numero_carga: 0,
           data: dataCarga,
           volume_m3: volume,
@@ -1094,24 +1162,24 @@ export default function LancamentoCargas() {
 
   // Faixa de fatores do aditivo pedida pelo usuário: 0,005 a 0,010
   const OPCOES_FATOR_ADITIVO = [
-    { valor: 0.005, rotulo: '0,005' },
-    { valor: 0.006, rotulo: '0,006' },
-    { valor: 0.007, rotulo: '0,007' },
-    { valor: 0.008, rotulo: '0,008' },
-    { valor: 0.009, rotulo: '0,009' },
-    { valor: 0.01, rotulo: '0,010' },
+    { valor: 0.005, rotulo: "0,005" },
+    { valor: 0.006, rotulo: "0,006" },
+    { valor: 0.007, rotulo: "0,007" },
+    { valor: 0.008, rotulo: "0,008" },
+    { valor: 0.009, rotulo: "0,009" },
+    { valor: 0.01, rotulo: "0,010" },
   ]
 
   // Faixa de fatores de água pedida pelo usuário: 0,45 a 0,8
   const OPCOES_FATOR_AGUA = [
-    { valor: 0.45, rotulo: '0,45' },
-    { valor: 0.5, rotulo: '0,50' },
-    { valor: 0.55, rotulo: '0,55' },
-    { valor: 0.6, rotulo: '0,60' },
-    { valor: 0.65, rotulo: '0,65' },
-    { valor: 0.7, rotulo: '0,70' },
-    { valor: 0.75, rotulo: '0,75' },
-    { valor: 0.8, rotulo: '0,80' },
+    { valor: 0.45, rotulo: "0,45" },
+    { valor: 0.5, rotulo: "0,50" },
+    { valor: 0.55, rotulo: "0,55" },
+    { valor: 0.6, rotulo: "0,60" },
+    { valor: 0.65, rotulo: "0,65" },
+    { valor: 0.7, rotulo: "0,70" },
+    { valor: 0.75, rotulo: "0,75" },
+    { valor: 0.8, rotulo: "0,80" },
   ]
 
   return (
@@ -1129,8 +1197,8 @@ export default function LancamentoCargas() {
                 <>
                   Editar Carga #
                   {cargaOriginal
-                    ? String(cargaOriginal.numero_carga).padStart(4, '0')
-                    : ''}
+                    ? String(cargaOriginal.numero_carga).padStart(4, "0")
+                    : ""}
                   <Badge
                     variant="outline"
                     className="border-amber-500/50 bg-amber-500/10 text-amber-500 text-xs font-semibold uppercase"
@@ -1139,7 +1207,7 @@ export default function LancamentoCargas() {
                   </Badge>
                 </>
               ) : (
-                'Lançamento Rápido de Carga'
+                "Lançamento Rápido de Carga"
               )}
               {empresaAtiva && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-normal">
@@ -1149,8 +1217,8 @@ export default function LancamentoCargas() {
             </h1>
             <p className="text-sm text-muted-foreground">
               {editarCargaId
-                ? 'Corrija os dados da carga já lançada. Ao salvar, os movimentos de estoque anteriores serão estornados e recalculados.'
-                : `Registro de despacho na balança com dosagem e baixa automática no estoque da unidade ${empresaAtiva?.nome || ''}`}
+                ? "Corrija os dados da carga já lançada. Ao salvar, os movimentos de estoque anteriores serão estornados e recalculados."
+                : `Registro de despacho na balança com dosagem e baixa automática no estoque da unidade ${empresaAtiva?.nome || ""}`}
             </p>
           </div>
         </div>
@@ -1204,10 +1272,10 @@ export default function LancamentoCargas() {
                   step="0.5"
                   min="0.5"
                   max="15"
-                  value={volume || ''}
+                  value={volume || ""}
                   onChange={(e) => {
                     const val =
-                      e.target.value === '' ? 0 : Number(e.target.value)
+                      e.target.value === "" ? 0 : Number(e.target.value)
                     setVolume(isNaN(val) ? 0 : val)
                   }}
                   required
@@ -1216,9 +1284,9 @@ export default function LancamentoCargas() {
 
               <div className="space-y-2">
                 <Label htmlFor="traco">
-                  {modoDosagem === 'manual'
-                    ? 'Traço de Referência (Opcional)'
-                    : 'Traço / Dosagem *'}
+                  {modoDosagem === "manual"
+                    ? "Traço de Referência (Opcional)"
+                    : "Traço / Dosagem *"}
                 </Label>
                 <Select
                   value={tracoSelecionadoId}
@@ -1228,11 +1296,13 @@ export default function LancamentoCargas() {
                     if (traco) {
                       // Atualiza a discriminação do produto na OS mesmo sem preencher os insumos
                       setDiscriminacaoProduto(
-                        `CONCRETO USINADO ${traco.nome}${traco.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ''} - SLUMP 12+-2`,
+                        `CONCRETO USINADO ${traco.nome}${
+                          traco.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ""
+                        } - SLUMP 12+-2`,
                       )
                     }
 
-                    if (isBalanceiro && modoDosagem === 'manual') {
+                    if (isBalanceiro && modoDosagem === "manual") {
                       // REGRA BALANCEIRO no modo manual:
                       // Seleciona o traço como referência, mas mantém campos em branco para digitação na balança
                       setCimento(0)
@@ -1259,7 +1329,7 @@ export default function LancamentoCargas() {
                   <SelectContent>
                     {tracos.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
-                        {t.nome} {t.fck_mpa ? `(${t.fck_mpa} MPa)` : ''}
+                        {t.nome} {t.fck_mpa ? `(${t.fck_mpa} MPa)` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1300,8 +1370,8 @@ export default function LancamentoCargas() {
                   Insumos e Agregados da Carga
                 </CardTitle>
                 <CardDescription className="text-xs mt-1">
-                  {modoDosagem === 'automatico'
-                    ? `Dosagem base do traço multiplicada pelo volume (${volume} m³). Aditivo liderado por fator sobre cimento total (com seletor e edição manual). Baixa de estoque apenas para ${materiais.find((m) => m.codigo === 'cimento')?.nome || 'CP II F-40 / CP V ARI'} e Aditivo.`
+                  {modoDosagem === "automatico"
+                    ? `Dosagem base do traço multiplicada pelo volume (${volume} m³). Aditivo liderado por fator sobre cimento total (com seletor e edição manual). Baixa de estoque apenas para ${materiais.find((m) => m.codigo === "cimento")?.nome || "CP II F-40 / CP V ARI"} e Aditivo.`
                     : `Modo manual ativo: informe a dosagem de cada insumo em kg/m³. O consumo gravado e os custos são multiplicados automaticamente pelo volume (${volume} m³).`}
                 </CardDescription>
               </div>
@@ -1311,7 +1381,7 @@ export default function LancamentoCargas() {
                 <Tabs
                   value={modoDosagem}
                   onValueChange={(val) =>
-                    handleTrocaModo(val as 'automatico' | 'manual')
+                    handleTrocaModo(val as "automatico" | "manual")
                   }
                   className="w-auto"
                 >
@@ -1347,22 +1417,22 @@ export default function LancamentoCargas() {
 
           <CardContent className="space-y-4">
             {/* Aviso explicativo no modo manual */}
-            {modoDosagem === 'manual' && !cargaZerada && (
+            {modoDosagem === "manual" && !cargaZerada && (
               <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-start sm:items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
                   <Edit3 className="w-4 h-4 shrink-0 mt-0.5 sm:mt-0" />
                   <span>
                     <strong>Dosagem por m³:</strong> Digite a dosagem de cada
-                    insumo em <strong>kg/m³</strong>. O cimento total da carga é{' '}
+                    insumo em <strong>kg/m³</strong>. O cimento total da carga é{" "}
                     <code className="px-1 py-0.5 rounded bg-blue-500/20 font-mono font-semibold">
                       {cimento} kg/m³ × {volume} m³ = {consumoReal.cimento} kg
                     </code>
-                    . O <strong>Aditivo</strong> é calculado como{' '}
+                    . O <strong>Aditivo</strong> é calculado como{" "}
                     <code className="px-1 py-0.5 rounded bg-blue-500/20 font-mono font-semibold">
                       cimento total ({consumoReal.cimento} kg) × fator (
                       {fatorAditivoManual}) = {aditivo} L
                     </code>
-                    . A <strong>Água</strong> é calculada como{' '}
+                    . A <strong>Água</strong> é calculada como{" "}
                     <code className="px-1 py-0.5 rounded bg-blue-500/20 font-mono font-semibold">
                       cimento total ({consumoReal.cimento} kg) × fator (
                       {fatorAguaManual}) = {agua} L
@@ -1399,9 +1469,9 @@ export default function LancamentoCargas() {
                     Volume da Carga (m³)
                   </Label>
                   <span className="text-[11px] text-muted-foreground">
-                    {modoDosagem === 'manual'
-                      ? 'Multiplicador aplicado às dosagens (kg/m³) para obter o consumo total real, aditivo e custos'
-                      : 'Volume em metros cúbicos multiplicado pelos insumos do traço e cimento total para cálculo do aditivo/água'}
+                    {modoDosagem === "manual"
+                      ? "Multiplicador aplicado às dosagens (kg/m³) para obter o consumo total real, aditivo e custos"
+                      : "Volume em metros cúbicos multiplicado pelos insumos do traço e cimento total para cálculo do aditivo/água"}
                   </span>
                 </div>
               </div>
@@ -1414,10 +1484,10 @@ export default function LancamentoCargas() {
                     step="0.5"
                     min="0.5"
                     max="15"
-                    value={volume || ''}
+                    value={volume || ""}
                     onChange={(e) => {
                       const val =
-                        e.target.value === '' ? 0 : Number(e.target.value)
+                        e.target.value === "" ? 0 : Number(e.target.value)
                       setVolume(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
@@ -1441,9 +1511,9 @@ export default function LancamentoCargas() {
                       Custo Calculado dos Insumos da Carga
                     </span>
                     <span className="text-[11px] text-muted-foreground">
-                      {modoDosagem === 'manual'
+                      {modoDosagem === "manual"
                         ? `Calculado sobre o consumo real da carga (${volume} m³ × dosagem)`
-                        : 'Calculado com base na tabela de preços unitários vigente na data'}
+                        : "Calculado com base na tabela de preços unitários vigente na data"}
                       {custoEstimado.aditivo > 0 && (
                         <span className="ml-1 text-emerald-700 dark:text-emerald-300 font-mono">
                           • Aditivo: R$ {custoEstimado.aditivo.toFixed(2)}
@@ -1454,8 +1524,8 @@ export default function LancamentoCargas() {
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-xl font-bold font-mono text-foreground">
-                    R${' '}
-                    {custoEstimado.total.toLocaleString('pt-BR', {
+                    R${" "}
+                    {custoEstimado.total.toLocaleString("pt-BR", {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
@@ -1471,9 +1541,9 @@ export default function LancamentoCargas() {
               {/* Cimento */}
               <div
                 className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
-                  modoDosagem === 'manual'
-                    ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
-                    : 'border-border/40 bg-background/50'
+                  modoDosagem === "manual"
+                    ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
+                    : "border-border/40 bg-background/50"
                 }`}
               >
                 <Label
@@ -1481,19 +1551,19 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground flex items-center gap-1">
-                    {modoDosagem === 'manual'
-                      ? `${materiais.find((m) => m.codigo === 'cimento')?.nome || 'CP II F-40 / CP V ARI'} (kg/m³)`
-                      : `${materiais.find((m) => m.codigo === 'cimento')?.nome || 'CP II F-40 / CP V ARI'} (kg)`}
+                    {modoDosagem === "manual"
+                      ? `${materiais.find((m) => m.codigo === "cimento")?.nome || "CP II F-40 / CP V ARI"} (kg/m³)`
+                      : `${materiais.find((m) => m.codigo === "cimento")?.nome || "CP II F-40 / CP V ARI"} (kg)`}
                     <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal shrink-0">
                       Estoque
                     </span>
                   </span>
-                  {tracoAtual && modoDosagem === 'automatico' && (
+                  {tracoAtual && modoDosagem === "automatico" && (
                     <span className="text-[10px]">
                       ({tracoAtual.consumo_cimento} kg/m³)
                     </span>
                   )}
-                  {tracoAtual && modoDosagem === 'manual' && (
+                  {tracoAtual && modoDosagem === "manual" && (
                     <span className="text-[10px] text-muted-foreground">
                       Traço: {tracoAtual.consumo_cimento} kg/m³
                     </span>
@@ -1506,30 +1576,30 @@ export default function LancamentoCargas() {
                     min="0"
                     step="1"
                     value={
-                      cimento === 0 && modoDosagem === 'manual' ? '' : cimento
+                      cimento === 0 && modoDosagem === "manual" ? "" : cimento
                     }
                     onChange={(e) => {
                       const val =
-                        e.target.value === '' ? 0 : Number(e.target.value)
+                        e.target.value === "" ? 0 : Number(e.target.value)
                       setCimento(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
                     className={`font-mono font-semibold ${
-                      modoDosagem === 'manual'
-                        ? 'bg-background border-primary/40 focus-visible:ring-primary pr-14'
-                        : 'pr-9'
+                      modoDosagem === "manual"
+                        ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
+                        : "pr-9"
                     }`}
                     placeholder="0"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                    {modoDosagem === 'manual' ? 'kg/m³' : 'kg'}
+                    {modoDosagem === "manual" ? "kg/m³" : "kg"}
                   </span>
                 </div>
-                {modoDosagem === 'manual' && (
+                {modoDosagem === "manual" && (
                   <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
                     <span>Total da carga:</span>
                     <span className="font-semibold text-foreground">
-                      {consumoReal.cimento.toLocaleString('pt-BR')} kg
+                      {consumoReal.cimento.toLocaleString("pt-BR")} kg
                     </span>
                   </div>
                 )}
@@ -1538,9 +1608,9 @@ export default function LancamentoCargas() {
               {/* Aditivo: CALCULADO POR FATOR (MESMO COMPORTAMENTO NO MODO AUTOMÁTICO E MANUAL) */}
               <div
                 className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
-                  modoDosagem === 'manual'
-                    ? 'border-primary/50 bg-primary/10 ring-1 ring-primary/30'
-                    : 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
+                  modoDosagem === "manual"
+                    ? "border-primary/50 bg-primary/10 ring-1 ring-primary/30"
+                    : "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
                 }`}
               >
                 <Label
@@ -1564,8 +1634,8 @@ export default function LancamentoCargas() {
                   </span>
                   {tracoAtual && (
                     <span className="text-[10px] text-muted-foreground">
-                      Traço:{' '}
-                      {(Number(tracoAtual.consumo_aditivo) * volume).toFixed(2)}{' '}
+                      Traço:{" "}
+                      {(Number(tracoAtual.consumo_aditivo) * volume).toFixed(2)}{" "}
                       L ({tracoAtual.consumo_aditivo} L/m³)
                     </span>
                   )}
@@ -1582,12 +1652,12 @@ export default function LancamentoCargas() {
                         step="1"
                         value={
                           aditivo === 0 && aditivoEditadoManualmente
-                            ? ''
+                            ? ""
                             : aditivo
                         }
                         onChange={(e) => {
                           const val =
-                            e.target.value === '' ? 0 : Number(e.target.value)
+                            e.target.value === "" ? 0 : Number(e.target.value)
                           setAditivoEditadoManualmente(true)
                           setAditivo(isNaN(val) ? 0 : Math.round(val))
                         }}
@@ -1603,7 +1673,7 @@ export default function LancamentoCargas() {
                     <Button
                       type="button"
                       variant={
-                        aditivoEditadoManualmente ? 'secondary' : 'outline'
+                        aditivoEditadoManualmente ? "secondary" : "outline"
                       }
                       size="icon"
                       onClick={handleRecalcularAditivo}
@@ -1631,10 +1701,10 @@ export default function LancamentoCargas() {
                           (o) => o.valor === fatorAditivoManual,
                         )
                           ? String(fatorAditivoManual)
-                          : 'custom'
+                          : "custom"
                       }
                       onValueChange={(val) => {
-                        if (val !== 'custom') {
+                        if (val !== "custom") {
                           setFatorAditivoManual(Number(val))
                           setAditivoEditadoManualmente(false)
                         }
@@ -1649,8 +1719,8 @@ export default function LancamentoCargas() {
                           {OPCOES_FATOR_ADITIVO.some(
                             (o) => o.valor === fatorAditivoManual,
                           )
-                            ? String(fatorAditivoManual).replace('.', ',')
-                            : `${String(fatorAditivoManual).replace('.', ',')} (outro)`}
+                            ? String(fatorAditivoManual).replace(".", ",")
+                            : `${String(fatorAditivoManual).replace(".", ",")} (outro)`}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent className="z-50 bg-popover text-popover-foreground">
@@ -1670,7 +1740,7 @@ export default function LancamentoCargas() {
                             value="custom"
                             className="font-mono text-xs cursor-pointer"
                           >
-                            {String(fatorAditivoManual).replace('.', ',')}{' '}
+                            {String(fatorAditivoManual).replace(".", ",")}{" "}
                             (Personalizado)
                           </SelectItem>
                         )}
@@ -1684,10 +1754,10 @@ export default function LancamentoCargas() {
                       step="0.0005"
                       min="0.001"
                       max="0.05"
-                      value={fatorAditivoManual || ''}
+                      value={fatorAditivoManual || ""}
                       onChange={(e) => {
                         const val =
-                          e.target.value === '' ? 0 : Number(e.target.value)
+                          e.target.value === "" ? 0 : Number(e.target.value)
                         setFatorAditivoManual(isNaN(val) ? 0 : val)
                         setAditivoEditadoManualmente(false)
                       }}
@@ -1700,9 +1770,9 @@ export default function LancamentoCargas() {
                   {/* Legenda com o valor bruto e arredondamento */}
                   <div className="text-[10px] text-muted-foreground leading-tight space-y-0.5">
                     <div>
-                      {consumoReal.cimento} kg × {fatorAditivoManual} ={' '}
+                      {consumoReal.cimento} kg × {fatorAditivoManual} ={" "}
                       <span className="font-mono font-medium">
-                        {aditivoBruto.toFixed(2)} →{' '}
+                        {aditivoBruto.toFixed(2)} →{" "}
                       </span>
                       <span className="font-semibold text-foreground font-mono">
                         {Math.round(aditivoBruto)} L
@@ -1715,8 +1785,8 @@ export default function LancamentoCargas() {
                     </div>
                     <div className="text-[9px] text-muted-foreground/80">
                       {aditivoEditadoManualmente
-                        ? 'Valor manual digitado pelo operador (clique em ↺ para restaurar a fórmula)'
-                        : 'Arredondamento inteiro: ≥ 0,5 sobe | Campo aberto para digitação'}
+                        ? "Valor manual digitado pelo operador (clique em ↺ para restaurar a fórmula)"
+                        : "Arredondamento inteiro: ≥ 0,5 sobe | Campo aberto para digitação"}
                     </div>
                   </div>
                 </div>
@@ -1725,9 +1795,9 @@ export default function LancamentoCargas() {
               {/* NOVO: ÁGUA (Calculada com opção de digitação manual) */}
               <div
                 className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
-                  modoDosagem === 'manual'
-                    ? 'border-cyan-500/50 bg-cyan-500/10 ring-1 ring-cyan-500/30'
-                    : 'border-border/40 bg-background/50'
+                  modoDosagem === "manual"
+                    ? "border-cyan-500/50 bg-cyan-500/10 ring-1 ring-cyan-500/30"
+                    : "border-border/40 bg-background/50"
                 }`}
               >
                 <Label
@@ -1739,7 +1809,7 @@ export default function LancamentoCargas() {
                     <span className="text-[10px] px-1 py-0.2 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 rounded font-normal">
                       Sem baixa
                     </span>
-                    {modoDosagem === 'manual' &&
+                    {modoDosagem === "manual" &&
                       (aguaEditadaManualmente ? (
                         <span className="text-[10px] px-1 py-0.2 bg-amber-500/15 text-amber-700 dark:text-amber-300 rounded font-medium">
                           Digitada
@@ -1764,10 +1834,10 @@ export default function LancamentoCargas() {
                         type="number"
                         min="0"
                         step="1"
-                        value={agua === 0 && aguaEditadaManualmente ? '' : agua}
+                        value={agua === 0 && aguaEditadaManualmente ? "" : agua}
                         onChange={(e) => {
                           const val =
-                            e.target.value === '' ? 0 : Number(e.target.value)
+                            e.target.value === "" ? 0 : Number(e.target.value)
                           setAguaEditadaManualmente(true)
                           setAgua(isNaN(val) ? 0 : Math.round(val))
                         }}
@@ -1782,7 +1852,7 @@ export default function LancamentoCargas() {
                     </div>
                     <Button
                       type="button"
-                      variant={aguaEditadaManualmente ? 'secondary' : 'outline'}
+                      variant={aguaEditadaManualmente ? "secondary" : "outline"}
                       size="icon"
                       onClick={handleRecalcularAgua}
                       disabled={cargaZerada}
@@ -1809,10 +1879,10 @@ export default function LancamentoCargas() {
                           (o) => o.valor === fatorAguaManual,
                         )
                           ? String(fatorAguaManual)
-                          : 'custom'
+                          : "custom"
                       }
                       onValueChange={(val) => {
-                        if (val !== 'custom') {
+                        if (val !== "custom") {
                           setFatorAguaManual(Number(val))
                           setAguaEditadaManualmente(false)
                         }
@@ -1827,8 +1897,8 @@ export default function LancamentoCargas() {
                           {OPCOES_FATOR_AGUA.some(
                             (o) => o.valor === fatorAguaManual,
                           )
-                            ? String(fatorAguaManual).replace('.', ',')
-                            : `${String(fatorAguaManual).replace('.', ',')} (outro)`}
+                            ? String(fatorAguaManual).replace(".", ",")
+                            : `${String(fatorAguaManual).replace(".", ",")} (outro)`}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent className="z-50 bg-popover text-popover-foreground">
@@ -1848,7 +1918,7 @@ export default function LancamentoCargas() {
                             value="custom"
                             className="font-mono text-xs cursor-pointer"
                           >
-                            {String(fatorAguaManual).replace('.', ',')}{' '}
+                            {String(fatorAguaManual).replace(".", ",")}{" "}
                             (Personalizado)
                           </SelectItem>
                         )}
@@ -1862,10 +1932,10 @@ export default function LancamentoCargas() {
                       step="0.01"
                       min="0.30"
                       max="1.20"
-                      value={fatorAguaManual || ''}
+                      value={fatorAguaManual || ""}
                       onChange={(e) => {
                         const val =
-                          e.target.value === '' ? 0 : Number(e.target.value)
+                          e.target.value === "" ? 0 : Number(e.target.value)
                         setFatorAguaManual(isNaN(val) ? 0 : val)
                         setAguaEditadaManualmente(false)
                       }}
@@ -1879,9 +1949,9 @@ export default function LancamentoCargas() {
                   {/* Legenda com o valor bruto e arredondamento */}
                   <div className="text-[10px] text-muted-foreground leading-tight space-y-0.5">
                     <div>
-                      {consumoReal.cimento} kg × {fatorAguaManual} ={' '}
+                      {consumoReal.cimento} kg × {fatorAguaManual} ={" "}
                       <span className="font-mono font-medium">
-                        {aguaBruta.toFixed(2)} →{' '}
+                        {aguaBruta.toFixed(2)} →{" "}
                       </span>
                       <span className="font-semibold text-foreground font-mono">
                         {Math.round(aguaBruta)} L
@@ -1894,8 +1964,8 @@ export default function LancamentoCargas() {
                     </div>
                     <div className="text-[9px] text-muted-foreground/80">
                       {aguaEditadaManualmente
-                        ? 'Valor manual digitado pelo operador (clique em ↺ para restaurar a fórmula | Sem controle de estoque)'
-                        : '(Arredondamento inteiro: ≥ 0,5 sobe | Sem controle de estoque | Aberto para digitação)'}
+                        ? "Valor manual digitado pelo operador (clique em ↺ para restaurar a fórmula | Sem controle de estoque)"
+                        : "(Arredondamento inteiro: ≥ 0,5 sobe | Sem controle de estoque | Aberto para digitação)"}
                     </div>
                   </div>
                 </div>
@@ -1904,9 +1974,9 @@ export default function LancamentoCargas() {
               {/* Areia */}
               <div
                 className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
-                  modoDosagem === 'manual'
-                    ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
-                    : 'border-border/40 bg-background/50'
+                  modoDosagem === "manual"
+                    ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
+                    : "border-border/40 bg-background/50"
                 }`}
               >
                 <Label
@@ -1914,14 +1984,14 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground">
-                    {modoDosagem === 'manual' ? 'Areia (kg/m³)' : 'Areia (kg)'}
+                    {modoDosagem === "manual" ? "Areia (kg/m³)" : "Areia (kg)"}
                   </span>
-                  {tracoAtual && modoDosagem === 'automatico' && (
+                  {tracoAtual && modoDosagem === "automatico" && (
                     <span className="text-[10px]">
                       ({tracoAtual.consumo_areia} kg/m³)
                     </span>
                   )}
-                  {tracoAtual && modoDosagem === 'manual' && (
+                  {tracoAtual && modoDosagem === "manual" && (
                     <span className="text-[10px] text-muted-foreground">
                       Traço: {tracoAtual.consumo_areia} kg/m³
                     </span>
@@ -1933,29 +2003,29 @@ export default function LancamentoCargas() {
                     type="number"
                     min="0"
                     step="1"
-                    value={areia === 0 && modoDosagem === 'manual' ? '' : areia}
+                    value={areia === 0 && modoDosagem === "manual" ? "" : areia}
                     onChange={(e) => {
                       const val =
-                        e.target.value === '' ? 0 : Number(e.target.value)
+                        e.target.value === "" ? 0 : Number(e.target.value)
                       setAreia(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
                     className={`font-mono font-semibold ${
-                      modoDosagem === 'manual'
-                        ? 'bg-background border-primary/40 focus-visible:ring-primary pr-14'
-                        : 'pr-9'
+                      modoDosagem === "manual"
+                        ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
+                        : "pr-9"
                     }`}
                     placeholder="0"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                    {modoDosagem === 'manual' ? 'kg/m³' : 'kg'}
+                    {modoDosagem === "manual" ? "kg/m³" : "kg"}
                   </span>
                 </div>
-                {modoDosagem === 'manual' && (
+                {modoDosagem === "manual" && (
                   <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
                     <span>Total da carga:</span>
                     <span className="font-semibold text-foreground">
-                      {consumoReal.areia.toLocaleString('pt-BR')} kg
+                      {consumoReal.areia.toLocaleString("pt-BR")} kg
                     </span>
                   </div>
                 )}
@@ -1964,9 +2034,9 @@ export default function LancamentoCargas() {
               {/* Brita 12 */}
               <div
                 className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
-                  modoDosagem === 'manual'
-                    ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
-                    : 'border-border/40 bg-background/50'
+                  modoDosagem === "manual"
+                    ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
+                    : "border-border/40 bg-background/50"
                 }`}
               >
                 <Label
@@ -1974,16 +2044,16 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground">
-                    {modoDosagem === 'manual'
-                      ? 'Brita 12 (kg/m³)'
-                      : 'Brita 12 (kg)'}
+                    {modoDosagem === "manual"
+                      ? "Brita 12 (kg/m³)"
+                      : "Brita 12 (kg)"}
                   </span>
-                  {tracoAtual && modoDosagem === 'automatico' && (
+                  {tracoAtual && modoDosagem === "automatico" && (
                     <span className="text-[10px]">
                       ({tracoAtual.consumo_brita12} kg/m³)
                     </span>
                   )}
-                  {tracoAtual && modoDosagem === 'manual' && (
+                  {tracoAtual && modoDosagem === "manual" && (
                     <span className="text-[10px] text-muted-foreground">
                       Traço: {tracoAtual.consumo_brita12} kg/m³
                     </span>
@@ -1996,30 +2066,30 @@ export default function LancamentoCargas() {
                     min="0"
                     step="1"
                     value={
-                      brita12 === 0 && modoDosagem === 'manual' ? '' : brita12
+                      brita12 === 0 && modoDosagem === "manual" ? "" : brita12
                     }
                     onChange={(e) => {
                       const val =
-                        e.target.value === '' ? 0 : Number(e.target.value)
+                        e.target.value === "" ? 0 : Number(e.target.value)
                       setBrita12(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
                     className={`font-mono font-semibold ${
-                      modoDosagem === 'manual'
-                        ? 'bg-background border-primary/40 focus-visible:ring-primary pr-14'
-                        : 'pr-9'
+                      modoDosagem === "manual"
+                        ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
+                        : "pr-9"
                     }`}
                     placeholder="0"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                    {modoDosagem === 'manual' ? 'kg/m³' : 'kg'}
+                    {modoDosagem === "manual" ? "kg/m³" : "kg"}
                   </span>
                 </div>
-                {modoDosagem === 'manual' && (
+                {modoDosagem === "manual" && (
                   <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
                     <span>Total da carga:</span>
                     <span className="font-semibold text-foreground">
-                      {consumoReal.brita12.toLocaleString('pt-BR')} kg
+                      {consumoReal.brita12.toLocaleString("pt-BR")} kg
                     </span>
                   </div>
                 )}
@@ -2028,9 +2098,9 @@ export default function LancamentoCargas() {
               {/* Brita 19 */}
               <div
                 className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
-                  modoDosagem === 'manual'
-                    ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
-                    : 'border-border/40 bg-background/50'
+                  modoDosagem === "manual"
+                    ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
+                    : "border-border/40 bg-background/50"
                 }`}
               >
                 <Label
@@ -2038,16 +2108,16 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground">
-                    {modoDosagem === 'manual'
-                      ? 'Brita 19 (kg/m³)'
-                      : 'Brita 19 (kg)'}
+                    {modoDosagem === "manual"
+                      ? "Brita 19 (kg/m³)"
+                      : "Brita 19 (kg)"}
                   </span>
-                  {tracoAtual && modoDosagem === 'automatico' && (
+                  {tracoAtual && modoDosagem === "automatico" && (
                     <span className="text-[10px]">
                       ({tracoAtual.consumo_brita19} kg/m³)
                     </span>
                   )}
-                  {tracoAtual && modoDosagem === 'manual' && (
+                  {tracoAtual && modoDosagem === "manual" && (
                     <span className="text-[10px] text-muted-foreground">
                       Traço: {tracoAtual.consumo_brita19} kg/m³
                     </span>
@@ -2060,30 +2130,30 @@ export default function LancamentoCargas() {
                     min="0"
                     step="1"
                     value={
-                      brita19 === 0 && modoDosagem === 'manual' ? '' : brita19
+                      brita19 === 0 && modoDosagem === "manual" ? "" : brita19
                     }
                     onChange={(e) => {
                       const val =
-                        e.target.value === '' ? 0 : Number(e.target.value)
+                        e.target.value === "" ? 0 : Number(e.target.value)
                       setBrita19(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
                     className={`font-mono font-semibold ${
-                      modoDosagem === 'manual'
-                        ? 'bg-background border-primary/40 focus-visible:ring-primary pr-14'
-                        : 'pr-9'
+                      modoDosagem === "manual"
+                        ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
+                        : "pr-9"
                     }`}
                     placeholder="0"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                    {modoDosagem === 'manual' ? 'kg/m³' : 'kg'}
+                    {modoDosagem === "manual" ? "kg/m³" : "kg"}
                   </span>
                 </div>
-                {modoDosagem === 'manual' && (
+                {modoDosagem === "manual" && (
                   <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
                     <span>Total da carga:</span>
                     <span className="font-semibold text-foreground">
-                      {consumoReal.brita19.toLocaleString('pt-BR')} kg
+                      {consumoReal.brita19.toLocaleString("pt-BR")} kg
                     </span>
                   </div>
                 )}
@@ -2092,9 +2162,9 @@ export default function LancamentoCargas() {
               {/* Pó de Pedra */}
               <div
                 className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
-                  modoDosagem === 'manual'
-                    ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20'
-                    : 'border-border/40 bg-background/50'
+                  modoDosagem === "manual"
+                    ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
+                    : "border-border/40 bg-background/50"
                 }`}
               >
                 <Label
@@ -2102,16 +2172,16 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground">
-                    {modoDosagem === 'manual'
-                      ? 'Pó de Pedra (kg/m³)'
-                      : 'Pó de Pedra (kg)'}
+                    {modoDosagem === "manual"
+                      ? "Pó de Pedra (kg/m³)"
+                      : "Pó de Pedra (kg)"}
                   </span>
-                  {tracoAtual && modoDosagem === 'automatico' && (
+                  {tracoAtual && modoDosagem === "automatico" && (
                     <span className="text-[10px]">
                       ({tracoAtual.consumo_po_pedra} kg/m³)
                     </span>
                   )}
-                  {tracoAtual && modoDosagem === 'manual' && (
+                  {tracoAtual && modoDosagem === "manual" && (
                     <span className="text-[10px] text-muted-foreground">
                       Traço: {tracoAtual.consumo_po_pedra} kg/m³
                     </span>
@@ -2124,30 +2194,30 @@ export default function LancamentoCargas() {
                     min="0"
                     step="1"
                     value={
-                      poPedra === 0 && modoDosagem === 'manual' ? '' : poPedra
+                      poPedra === 0 && modoDosagem === "manual" ? "" : poPedra
                     }
                     onChange={(e) => {
                       const val =
-                        e.target.value === '' ? 0 : Number(e.target.value)
+                        e.target.value === "" ? 0 : Number(e.target.value)
                       setPoPedra(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
                     className={`font-mono font-semibold ${
-                      modoDosagem === 'manual'
-                        ? 'bg-background border-primary/40 focus-visible:ring-primary pr-14'
-                        : 'pr-9'
+                      modoDosagem === "manual"
+                        ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
+                        : "pr-9"
                     }`}
                     placeholder="0"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                    {modoDosagem === 'manual' ? 'kg/m³' : 'kg'}
+                    {modoDosagem === "manual" ? "kg/m³" : "kg"}
                   </span>
                 </div>
-                {modoDosagem === 'manual' && (
+                {modoDosagem === "manual" && (
                   <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
                     <span>Total da carga:</span>
                     <span className="font-semibold text-foreground">
-                      {consumoReal.poPedra.toLocaleString('pt-BR')} kg
+                      {consumoReal.poPedra.toLocaleString("pt-BR")} kg
                     </span>
                   </div>
                 )}
@@ -2216,7 +2286,7 @@ export default function LancamentoCargas() {
                           value={v.placa}
                           className="text-xs font-mono"
                         >
-                          {v.placa} {v.modelo ? `- ${v.modelo}` : ''}
+                          {v.placa} {v.modelo ? `- ${v.modelo}` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -2262,8 +2332,8 @@ export default function LancamentoCargas() {
                   </Label>
                   <span className="text-[10px] text-muted-foreground block">
                     {exibirInsumosNaOs
-                      ? 'Exibindo quilos/litros'
-                      : 'Oculto no recibo'}
+                      ? "Exibindo quilos/litros"
+                      : "Oculto no recibo"}
                   </span>
                 </div>
                 <Switch
@@ -2319,7 +2389,7 @@ export default function LancamentoCargas() {
                       setDestinatarioNome(val)
                       setClienteDropdownAberto(true)
                       if (!val.trim()) {
-                        setClienteSelecionadoId('')
+                        setClienteSelecionadoId("")
                       }
                     }}
                     className="pl-9 pr-24 text-sm font-medium"
@@ -2338,14 +2408,14 @@ export default function LancamentoCargas() {
                         size="icon"
                         className="h-6 w-6 text-xs text-muted-foreground hover:text-foreground"
                         onClick={() => {
-                          setClienteSelecionadoId('')
-                          setBuscaCliente('')
-                          setDestinatarioNome('')
-                          setDestinatarioCpfCnpj('')
-                          setDestinatarioTelefone('')
-                          setDestinatarioEndereco('')
-                          setDestinatarioBairro('')
-                          setDestinatarioCep('')
+                          setClienteSelecionadoId("")
+                          setBuscaCliente("")
+                          setDestinatarioNome("")
+                          setDestinatarioCpfCnpj("")
+                          setDestinatarioTelefone("")
+                          setDestinatarioEndereco("")
+                          setDestinatarioBairro("")
+                          setDestinatarioCep("")
                         }}
                       >
                         ✕
@@ -2396,8 +2466,8 @@ export default function LancamentoCargas() {
                                 <div className="text-muted-foreground text-[11px] font-mono">
                                   {cli.cpf_cnpj
                                     ? formatarCpfCnpj(cli.cpf_cnpj)
-                                    : 'Sem documento'}{' '}
-                                  • {cli.cidade || 'Sem cidade'}
+                                    : "Sem documento"}{" "}
+                                  • {cli.cidade || "Sem cidade"}
                                 </div>
                               </div>
                               <Badge
@@ -2405,14 +2475,14 @@ export default function LancamentoCargas() {
                                 className="text-[10px] shrink-0"
                               >
                                 {cli.exibir_insumos_os !== false
-                                  ? 'Com insumos'
-                                  : 'Sem insumos'}
+                                  ? "Com insumos"
+                                  : "Sem insumos"}
                               </Badge>
                             </button>
                           ))
                       ) : (
                         <div className="p-3 text-xs text-center text-muted-foreground">
-                          Nenhum cliente cadastrado com esse nome.{' '}
+                          Nenhum cliente cadastrado com esse nome.{" "}
                           <button
                             type="button"
                             onClick={() => {
@@ -2601,7 +2671,13 @@ export default function LancamentoCargas() {
                         )
                         if (traco) {
                           setDiscriminacaoProduto(
-                            `CONCRETO USINADO ${traco.nome}${traco.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ''}${slumpCentralMedido ? ` - SLUMP ${slumpCentralMedido} ${slumpTolerancia || '+-2'}` : ''}`,
+                            `CONCRETO USINADO ${traco.nome}${
+                              traco.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ""
+                            }${
+                              slumpCentralMedido
+                                ? ` - SLUMP ${slumpCentralMedido} ${slumpTolerancia || "+-2"}`
+                                : ""
+                            }`,
                           )
                         }
                       }}
@@ -2701,7 +2777,7 @@ export default function LancamentoCargas() {
                           value={v.placa}
                           className="text-xs font-mono"
                         >
-                          {v.placa} {v.modelo ? `- ${v.modelo}` : ''}
+                          {v.placa} {v.modelo ? `- ${v.modelo}` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -2794,7 +2870,7 @@ export default function LancamentoCargas() {
                       Saída Usina
                     </Label>
                     <span className="text-[10px] text-muted-foreground">
-                      {saidaCentralEditadaManualmente ? '(editado)' : '(+30m)'}
+                      {saidaCentralEditadaManualmente ? "(editado)" : "(+30m)"}
                     </span>
                   </div>
                   <Input
@@ -2946,7 +3022,7 @@ export default function LancamentoCargas() {
               className="w-full sm:w-auto gap-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-md px-6"
             >
               {salvando ? (
-                'Salvando alteração...'
+                "Salvando alteração..."
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4" />
@@ -2964,7 +3040,7 @@ export default function LancamentoCargas() {
                 className="w-full sm:w-auto gap-2"
               >
                 {salvando ? (
-                  'Salvando...'
+                  "Salvando..."
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -2981,7 +3057,7 @@ export default function LancamentoCargas() {
                 className="w-full sm:w-auto gap-2 bg-primary text-primary-foreground font-semibold shadow-md px-6 hover:brightness-105"
               >
                 {salvando ? (
-                  'Processando OS...'
+                  "Processando OS..."
                 ) : (
                   <>
                     <Printer className="w-4 h-4" />
@@ -3016,8 +3092,8 @@ export default function LancamentoCargas() {
               <Button
                 type="button"
                 size="sm"
-                variant={novoClienteTipo === 'PJ' ? 'default' : 'outline'}
-                onClick={() => setNovoClienteTipo('PJ')}
+                variant={novoClienteTipo === "PJ" ? "default" : "outline"}
+                onClick={() => setNovoClienteTipo("PJ")}
                 className="text-xs flex-1"
               >
                 Pessoa Jurídica (PJ)
@@ -3025,8 +3101,8 @@ export default function LancamentoCargas() {
               <Button
                 type="button"
                 size="sm"
-                variant={novoClienteTipo === 'PF' ? 'default' : 'outline'}
-                onClick={() => setNovoClienteTipo('PF')}
+                variant={novoClienteTipo === "PF" ? "default" : "outline"}
+                onClick={() => setNovoClienteTipo("PF")}
                 className="text-xs flex-1"
               >
                 Pessoa Física (PF)
@@ -3052,9 +3128,9 @@ export default function LancamentoCargas() {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="cpfRapido" className="text-xs">
-                      {novoClienteTipo === 'PJ'
-                        ? 'CNPJ (Busca Automática) *'
-                        : 'CPF *'}
+                      {novoClienteTipo === "PJ"
+                        ? "CNPJ (Busca Automática) *"
+                        : "CPF *"}
                     </Label>
                     {buscandoCnpjRapido && (
                       <span className="text-[10px] text-primary flex items-center gap-1 animate-pulse">
@@ -3072,13 +3148,13 @@ export default function LancamentoCargas() {
                       }
                       onBlur={handleBlurCpfCnpjRapido}
                       placeholder={
-                        novoClienteTipo === 'PJ'
-                          ? '00.000.000/0000-00'
-                          : '000.000.000-00'
+                        novoClienteTipo === "PJ"
+                          ? "00.000.000/0000-00"
+                          : "000.000.000-00"
                       }
                       className="text-xs font-mono"
                     />
-                    {novoClienteTipo === 'PJ' && (
+                    {novoClienteTipo === "PJ" && (
                       <Button
                         type="button"
                         variant="ghost"
@@ -3257,7 +3333,7 @@ export default function LancamentoCargas() {
                 disabled={salvandoClienteRapido}
                 className="gap-1.5"
               >
-                {salvandoClienteRapido ? 'Salvando...' : 'Cadastrar e Vincular'}
+                {salvandoClienteRapido ? "Salvando..." : "Cadastrar e Vincular"}
               </Button>
             </DialogFooter>
           </form>
@@ -3270,7 +3346,7 @@ export default function LancamentoCargas() {
         onOpenChange={(open) => {
           setModalImpressaoAberta(open)
           if (!open) {
-            navigate('/')
+            navigate("/")
           }
         }}
       >
@@ -3285,7 +3361,7 @@ export default function LancamentoCargas() {
                 type="button"
                 onClick={async () => {
                   const el = document.getElementById(
-                    'recibo-impressao-modal-lancamento',
+                    "recibo-impressao-modal-lancamento",
                   )
                   if (el) {
                     await printElementInIsolatedIframe(el, {
@@ -3328,7 +3404,7 @@ export default function LancamentoCargas() {
               variant="outline"
               onClick={() => {
                 setModalImpressaoAberta(false)
-                navigate('/')
+                navigate("/")
               }}
             >
               Concluir e Voltar ao Início
@@ -3337,7 +3413,7 @@ export default function LancamentoCargas() {
               type="button"
               onClick={async () => {
                 const el = document.getElementById(
-                  'recibo-impressao-modal-lancamento',
+                  "recibo-impressao-modal-lancamento",
                 )
                 if (el) {
                   await printElementInIsolatedIframe(el, {
@@ -3369,8 +3445,8 @@ export default function LancamentoCargas() {
               <CheckCircle2 className="w-5 h-5 text-amber-500" />
               Confirmar alteração do lançamento #
               {cargaOriginal
-                ? String(cargaOriginal.numero_carga).padStart(4, '0')
-                : ''}
+                ? String(cargaOriginal.numero_carga).padStart(4, "0")
+                : ""}
               ?
             </DialogTitle>
             <DialogDescription className="text-xs">
@@ -3399,25 +3475,25 @@ export default function LancamentoCargas() {
                     <tr
                       className={
                         cargaOriginal.data !== dataCarga
-                          ? 'bg-amber-500/10'
-                          : ''
+                          ? "bg-amber-500/10"
+                          : ""
                       }
                     >
                       <td className="py-1.5 px-3 font-semibold text-muted-foreground">
                         Data
                       </td>
                       <td className="py-1.5 px-3 font-mono">
-                        {cargaOriginal.data.split('-').reverse().join('/')}
+                        {cargaOriginal.data.split("-").reverse().join("/")}
                       </td>
                       <td className="py-1.5 px-3 font-mono font-bold text-foreground">
-                        {dataCarga.split('-').reverse().join('/')}
+                        {dataCarga.split("-").reverse().join("/")}
                       </td>
                     </tr>
                     <tr
                       className={
                         Number(cargaOriginal.volume_m3) !== Number(volume)
-                          ? 'bg-amber-500/10'
-                          : ''
+                          ? "bg-amber-500/10"
+                          : ""
                       }
                     >
                       <td className="py-1.5 px-3 font-semibold text-muted-foreground">
@@ -3434,8 +3510,8 @@ export default function LancamentoCargas() {
                       className={
                         Boolean(cargaOriginal.carga_zerada) !==
                         Boolean(cargaZerada)
-                          ? 'bg-amber-500/10'
-                          : ''
+                          ? "bg-amber-500/10"
+                          : ""
                       }
                     >
                       <td className="py-1.5 px-3 font-semibold text-muted-foreground">
@@ -3443,21 +3519,21 @@ export default function LancamentoCargas() {
                       </td>
                       <td className="py-1.5 px-3">
                         {cargaOriginal.carga_zerada
-                          ? 'Zerada / Cancelada'
-                          : 'Entregue / Válida'}
+                          ? "Zerada / Cancelada"
+                          : "Entregue / Válida"}
                       </td>
                       <td className="py-1.5 px-3 font-bold">
                         {cargaZerada
-                          ? 'Zerada / Cancelada'
-                          : 'Entregue / Válida'}
+                          ? "Zerada / Cancelada"
+                          : "Entregue / Válida"}
                       </td>
                     </tr>
                     <tr
                       className={
                         Number(cargaOriginal.consumo_cimento) !==
                         Number(consumoReal.cimento)
-                          ? 'bg-amber-500/10'
-                          : ''
+                          ? "bg-amber-500/10"
+                          : ""
                       }
                     >
                       <td className="py-1.5 px-3 font-semibold text-muted-foreground">
@@ -3465,20 +3541,20 @@ export default function LancamentoCargas() {
                       </td>
                       <td className="py-1.5 px-3 font-mono">
                         {Number(cargaOriginal.consumo_cimento).toLocaleString(
-                          'pt-BR',
-                        )}{' '}
+                          "pt-BR",
+                        )}{" "}
                         kg
                       </td>
                       <td className="py-1.5 px-3 font-mono font-bold text-primary">
-                        {Number(consumoReal.cimento).toLocaleString('pt-BR')} kg
+                        {Number(consumoReal.cimento).toLocaleString("pt-BR")} kg
                       </td>
                     </tr>
                     <tr
                       className={
                         Number(cargaOriginal.consumo_aditivo) !==
                         Number(consumoReal.aditivo)
-                          ? 'bg-amber-500/10'
-                          : ''
+                          ? "bg-amber-500/10"
+                          : ""
                       }
                     >
                       <td className="py-1.5 px-3 font-semibold text-muted-foreground">
@@ -3486,20 +3562,20 @@ export default function LancamentoCargas() {
                       </td>
                       <td className="py-1.5 px-3 font-mono">
                         {Number(cargaOriginal.consumo_aditivo).toLocaleString(
-                          'pt-BR',
-                        )}{' '}
+                          "pt-BR",
+                        )}{" "}
                         L
                       </td>
                       <td className="py-1.5 px-3 font-mono font-bold text-primary">
-                        {Number(consumoReal.aditivo).toLocaleString('pt-BR')} L
+                        {Number(consumoReal.aditivo).toLocaleString("pt-BR")} L
                       </td>
                     </tr>
                     <tr
                       className={
                         Number(cargaOriginal.consumo_agua || 0) !==
                         Number(consumoReal.agua)
-                          ? 'bg-amber-500/10'
-                          : ''
+                          ? "bg-amber-500/10"
+                          : ""
                       }
                     >
                       <td className="py-1.5 px-3 font-semibold text-muted-foreground">
@@ -3507,20 +3583,20 @@ export default function LancamentoCargas() {
                       </td>
                       <td className="py-1.5 px-3 font-mono">
                         {Number(cargaOriginal.consumo_agua || 0).toLocaleString(
-                          'pt-BR',
-                        )}{' '}
+                          "pt-BR",
+                        )}{" "}
                         L
                       </td>
                       <td className="py-1.5 px-3 font-mono font-bold text-cyan-600 dark:text-cyan-400">
-                        {Number(consumoReal.agua).toLocaleString('pt-BR')} L
+                        {Number(consumoReal.agua).toLocaleString("pt-BR")} L
                       </td>
                     </tr>
                     <tr
                       className={
                         Number(cargaOriginal.consumo_areia) !==
                         Number(consumoReal.areia)
-                          ? 'bg-amber-500/10'
-                          : ''
+                          ? "bg-amber-500/10"
+                          : ""
                       }
                     >
                       <td className="py-1.5 px-3 font-semibold text-muted-foreground">
@@ -3528,12 +3604,12 @@ export default function LancamentoCargas() {
                       </td>
                       <td className="py-1.5 px-3 font-mono">
                         {Number(cargaOriginal.consumo_areia).toLocaleString(
-                          'pt-BR',
-                        )}{' '}
+                          "pt-BR",
+                        )}{" "}
                         kg
                       </td>
                       <td className="py-1.5 px-3 font-mono font-bold">
-                        {Number(consumoReal.areia).toLocaleString('pt-BR')} kg
+                        {Number(consumoReal.areia).toLocaleString("pt-BR")} kg
                       </td>
                     </tr>
                     <tr
@@ -3542,71 +3618,71 @@ export default function LancamentoCargas() {
                           Number(consumoReal.brita12) ||
                         Number(cargaOriginal.consumo_brita19) !==
                           Number(consumoReal.brita19)
-                          ? 'bg-amber-500/10'
-                          : ''
+                          ? "bg-amber-500/10"
+                          : ""
                       }
                     >
                       <td className="py-1.5 px-3 font-semibold text-muted-foreground">
                         Britas 12 / 19
                       </td>
                       <td className="py-1.5 px-3 font-mono">
-                        {Number(cargaOriginal.consumo_brita12)} /{' '}
+                        {Number(cargaOriginal.consumo_brita12)} /{" "}
                         {Number(cargaOriginal.consumo_brita19)} kg
                       </td>
                       <td className="py-1.5 px-3 font-mono font-bold">
-                        {Number(consumoReal.brita12)} /{' '}
+                        {Number(consumoReal.brita12)} /{" "}
                         {Number(consumoReal.brita19)} kg
                       </td>
                     </tr>
                     <tr
                       className={
                         cargaOriginal.motorista_nome !== motoristaNome
-                          ? 'bg-amber-500/10'
-                          : ''
+                          ? "bg-amber-500/10"
+                          : ""
                       }
                     >
                       <td className="py-1.5 px-3 font-semibold text-muted-foreground">
                         Motorista
                       </td>
                       <td className="py-1.5 px-3">
-                        {cargaOriginal.motorista_nome || '—'}
+                        {cargaOriginal.motorista_nome || "—"}
                       </td>
                       <td className="py-1.5 px-3 font-bold">
-                        {motoristaNome || '—'}
+                        {motoristaNome || "—"}
                       </td>
                     </tr>
                     <tr
                       className={
                         cargaOriginal.veiculo_placa !== veiculoPlaca
-                          ? 'bg-amber-500/10'
-                          : ''
+                          ? "bg-amber-500/10"
+                          : ""
                       }
                     >
                       <td className="py-1.5 px-3 font-semibold text-muted-foreground">
                         Placa Veículo
                       </td>
                       <td className="py-1.5 px-3 font-mono">
-                        {cargaOriginal.veiculo_placa || '—'}
+                        {cargaOriginal.veiculo_placa || "—"}
                       </td>
                       <td className="py-1.5 px-3 font-mono font-bold">
-                        {veiculoPlaca || '—'}
+                        {veiculoPlaca || "—"}
                       </td>
                     </tr>
                     <tr
                       className={
                         cargaOriginal.cidade_nome !== cidadeNome
-                          ? 'bg-amber-500/10'
-                          : ''
+                          ? "bg-amber-500/10"
+                          : ""
                       }
                     >
                       <td className="py-1.5 px-3 font-semibold text-muted-foreground">
                         Cidade / Destino
                       </td>
                       <td className="py-1.5 px-3">
-                        {cargaOriginal.cidade_nome || '—'}
+                        {cargaOriginal.cidade_nome || "—"}
                       </td>
                       <td className="py-1.5 px-3 font-bold">
-                        {cidadeNome || '—'}
+                        {cidadeNome || "—"}
                       </td>
                     </tr>
                   </tbody>
@@ -3642,7 +3718,7 @@ export default function LancamentoCargas() {
               onClick={executarSalvarEdicao}
               className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
             >
-              {salvando ? 'Salvando...' : 'Sim, Confirmar e Salvar'}
+              {salvando ? "Salvando..." : "Sim, Confirmar e Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,21 +1,21 @@
-import { useState, useEffect, useCallback } from 'react'
-import { ConcreteiraService } from '@/services/concreteira'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { useAuth } from '@/hooks/use-auth'
-import { useToast } from '@/hooks/use-toast'
-import { useUsuario } from '@/hooks/use-usuario'
-import type { UsuarioApp } from '@/types/concreteira'
+import { useState, useEffect, useCallback } from "react"
+import { ConcreteiraService } from "@/services/concreteira"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { useAuth } from "@/hooks/use-auth"
+import { useToast } from "@/hooks/use-toast"
+import { useUsuario } from "@/hooks/use-usuario"
+import type { UsuarioApp } from "@/types/concreteira"
 import {
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -23,14 +23,14 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from "@/components/ui/select"
 import {
   Users,
   Plus,
@@ -47,7 +47,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Trash2,
-} from 'lucide-react'
+} from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,7 +57,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+} from "@/components/ui/alert-dialog"
 
 export function PainelUsuarios() {
   const { empresas } = useEmpresa()
@@ -67,18 +67,18 @@ export function PainelUsuarios() {
 
   const [usuarios, setUsuarios] = useState<UsuarioApp[]>([])
   const [loading, setLoading] = useState(true)
-  const [busca, setBusca] = useState('')
+  const [busca, setBusca] = useState("")
 
   // Estado do Modal de Criar / Editar Usuário
   const [openModal, setOpenModal] = useState(false)
   const [editando, setEditando] = useState<UsuarioApp | null>(null)
-  const [nome, setNome] = useState('')
-  const [email, setEmail] = useState('')
-  const [senha, setSenha] = useState('')
-  const [perfil, setPerfil] = useState<'administrador' | 'balanceiro'>(
-    'balanceiro',
+  const [nome, setNome] = useState("")
+  const [email, setEmail] = useState("")
+  const [senha, setSenha] = useState("")
+  const [perfil, setPerfil] = useState<"administrador" | "balanceiro">(
+    "balanceiro",
   )
-  const [empresaId, setEmpresaId] = useState<string>('todas')
+  const [empresaId, setEmpresaId] = useState<string>("todas")
   const [ativo, setAtivo] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [erroModal, setErroModal] = useState<string | null>(null)
@@ -95,9 +95,9 @@ export function PainelUsuarios() {
       setUsuarios(lista)
     } catch (err: any) {
       toast({
-        title: 'Erro ao carregar usuários',
+        title: "Erro ao carregar usuários",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setLoading(false)
@@ -110,12 +110,12 @@ export function PainelUsuarios() {
 
   const handleNovoUsuario = () => {
     setEditando(null)
-    setNome('')
-    setEmail('')
-    setSenha('')
-    setPerfil('balanceiro')
+    setNome("")
+    setEmail("")
+    setSenha("")
+    setPerfil("balanceiro")
     // Padrão para novo balanceiro: primeira empresa; para admin seria 'todas'
-    const primeiraEmpresa = empresas[0]?.id || 'todas'
+    const primeiraEmpresa = empresas[0]?.id || "todas"
     setEmpresaId(primeiraEmpresa)
     setAtivo(true)
     setErroModal(null)
@@ -126,9 +126,9 @@ export function PainelUsuarios() {
     setEditando(user)
     setNome(user.nome)
     setEmail(user.email)
-    setSenha('') // Senha em branco não altera
+    setSenha("") // Senha em branco não altera
     setPerfil(user.perfil)
-    setEmpresaId(user.empresa_id || 'todas')
+    setEmpresaId(user.empresa_id || "todas")
     setAtivo(user.ativo)
     setErroModal(null)
     setOpenModal(true)
@@ -142,13 +142,13 @@ export function PainelUsuarios() {
     const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
     if (!nome.trim() || !emailFormatado) {
-      setErroModal('Nome e e-mail são obrigatórios.')
+      setErroModal("Nome e e-mail são obrigatórios.")
       return
     }
 
     if (!regexEmail.test(emailFormatado)) {
       setErroModal(
-        'Por favor, informe um endereço de e-mail válido (exemplo: usuario@empresa.com.br).',
+        "Por favor, informe um endereço de e-mail válido (exemplo: usuario@empresa.com.br).",
       )
       return
     }
@@ -168,14 +168,14 @@ export function PainelUsuarios() {
 
     if (!editando && (!senha || senha.length < 6)) {
       setErroModal(
-        'Para criar novo usuário, informe uma senha inicial com pelo menos 6 caracteres.',
+        "Para criar novo usuário, informe uma senha inicial com pelo menos 6 caracteres.",
       )
       return
     }
     // Regra: Balanceiro DEVE ter empresa vinculada
-    if (perfil === 'balanceiro' && (empresaId === 'todas' || !empresaId)) {
+    if (perfil === "balanceiro" && (empresaId === "todas" || !empresaId)) {
       setErroModal(
-        'Operador Balanceiro precisa estar vinculado a uma empresa específica.',
+        "Operador Balanceiro precisa estar vinculado a uma empresa específica.",
       )
       return
     }
@@ -196,7 +196,7 @@ export function PainelUsuarios() {
         if (signUpError) {
           // Se já existir no auth, continua para salvar na usuarios_app
           if (
-            !signUpError.message?.toLowerCase().includes('already registered')
+            !signUpError.message?.toLowerCase().includes("already registered")
           ) {
             throw new Error(
               `Falha ao criar credencial de autenticação: ${signUpError.message}`,
@@ -215,12 +215,12 @@ export function PainelUsuarios() {
         nome: nome.trim(),
         email: email.trim().toLowerCase(),
         perfil,
-        empresa_id: empresaId === 'todas' ? null : empresaId,
+        empresa_id: empresaId === "todas" ? null : empresaId,
         ativo,
       })
 
       toast({
-        title: editando ? 'Usuário atualizado!' : 'Usuário criado com sucesso!',
+        title: editando ? "Usuário atualizado!" : "Usuário criado com sucesso!",
         description: !editando
           ? `O operador ${nome} já pode efetuar login com o e-mail ${email} e a senha informada.`
           : `Cadastro de ${nome} salvo com sucesso.`,
@@ -229,8 +229,8 @@ export function PainelUsuarios() {
       setOpenModal(false)
       carregarUsuarios()
     } catch (err: any) {
-      console.error('Erro ao salvar usuário:', err)
-      setErroModal(err.message || 'Erro ao salvar dados do usuário.')
+      console.error("Erro ao salvar usuário:", err)
+      setErroModal(err.message || "Erro ao salvar dados do usuário.")
     } finally {
       setSalvando(false)
     }
@@ -241,15 +241,17 @@ export function PainelUsuarios() {
       const novoStatus = !user.ativo
       await ConcreteiraService.alternarStatusUsuarioApp(user.id, novoStatus)
       toast({
-        title: novoStatus ? 'Usuário ativado' : 'Usuário desativado',
-        description: `${user.nome} agora está ${novoStatus ? 'ativo' : 'desativado'}.`,
+        title: novoStatus ? "Usuário ativado" : "Usuário desativado",
+        description: `${user.nome} agora está ${
+          novoStatus ? "ativo" : "desativado"
+        }.`,
       })
       carregarUsuarios()
     } catch (err: any) {
       toast({
-        title: 'Erro ao alterar status',
+        title: "Erro ao alterar status",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     }
   }
@@ -263,16 +265,16 @@ export function PainelUsuarios() {
         authUser?.email || undefined,
       )
       toast({
-        title: 'Usuário excluído',
+        title: "Usuário excluído",
         description: `O cadastro do usuário "${usuarioParaExcluir.nome}" foi removido com sucesso.`,
       })
       setUsuarioParaExcluir(null)
       carregarUsuarios()
     } catch (err: any) {
       toast({
-        title: 'Não foi possível excluir o usuário',
+        title: "Não foi possível excluir o usuário",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setExcluindo(false)
@@ -349,18 +351,20 @@ export function PainelUsuarios() {
                 </thead>
                 <tbody className="divide-y divide-border/20">
                   {usuariosFiltrados.map((u) => {
-                    const isAdm = u.perfil === 'administrador'
+                    const isAdm = u.perfil === "administrador"
                     return (
                       <tr
                         key={u.id}
-                        className={`hover:bg-muted/20 transition-colors ${!u.ativo ? 'opacity-60 bg-muted/10' : ''}`}
+                        className={`hover:bg-muted/20 transition-colors ${
+                          !u.ativo ? "opacity-60 bg-muted/10" : ""
+                        }`}
                       >
                         <td className="py-2.5 px-3 font-semibold text-foreground flex items-center gap-2">
                           <div
                             className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
                               isAdm
-                                ? 'bg-primary/20 text-primary'
-                                : 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                                ? "bg-primary/20 text-primary"
+                                : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
                             }`}
                           >
                             {u.nome.slice(0, 1).toUpperCase()}
@@ -372,11 +376,11 @@ export function PainelUsuarios() {
                         </td>
                         <td className="py-2.5 px-3">
                           <Badge
-                            variant={isAdm ? 'default' : 'secondary'}
+                            variant={isAdm ? "default" : "secondary"}
                             className={`text-[10px] font-bold gap-1 ${
                               isAdm
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30"
                             }`}
                           >
                             {isAdm ? (
@@ -384,7 +388,7 @@ export function PainelUsuarios() {
                             ) : (
                               <Scale className="w-3 h-3" />
                             )}
-                            {isAdm ? 'Administrador' : 'Balanceiro'}
+                            {isAdm ? "Administrador" : "Balanceiro"}
                           </Badge>
                         </td>
                         <td className="py-2.5 px-3">
@@ -404,11 +408,11 @@ export function PainelUsuarios() {
                             variant="outline"
                             className={`text-[10px] ${
                               u.ativo
-                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                : 'border-destructive/30 bg-destructive/10 text-destructive'
+                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                : "border-destructive/30 bg-destructive/10 text-destructive"
                             }`}
                           >
-                            {u.ativo ? 'Ativo' : 'Desativado'}
+                            {u.ativo ? "Ativo" : "Desativado"}
                           </Badge>
                         </td>
                         <td className="py-2.5 px-3 text-right">
@@ -427,12 +431,12 @@ export function PainelUsuarios() {
                               size="sm"
                               className={`h-7 w-7 p-0 ${
                                 u.ativo
-                                  ? 'text-amber-600 hover:text-amber-700'
-                                  : 'text-emerald-600 hover:text-emerald-700'
+                                  ? "text-amber-600 hover:text-amber-700"
+                                  : "text-emerald-600 hover:text-emerald-700"
                               }`}
                               onClick={() => handleAlternarStatus(u)}
                               title={
-                                u.ativo ? 'Desativar Usuário' : 'Ativar Usuário'
+                                u.ativo ? "Desativar Usuário" : "Ativar Usuário"
                               }
                             >
                               <Power className="w-3.5 h-3.5" />
@@ -467,8 +471,8 @@ export function PainelUsuarios() {
             <DialogTitle className="text-base font-bold flex items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
               {editando
-                ? 'Editar Usuário do Sistema'
-                : 'Novo Usuário do Sistema'}
+                ? "Editar Usuário do Sistema"
+                : "Novo Usuário do Sistema"}
             </DialogTitle>
             <DialogDescription className="text-xs">
               Amarre os dados cadastrais, perfil de acesso e empresa vinculada
@@ -552,14 +556,14 @@ export function PainelUsuarios() {
                 </Label>
                 <Select
                   value={perfil}
-                  onValueChange={(val: 'administrador' | 'balanceiro') => {
+                  onValueChange={(val: "administrador" | "balanceiro") => {
                     setPerfil(val)
-                    if (val === 'administrador' && empresaId !== 'todas') {
+                    if (val === "administrador" && empresaId !== "todas") {
                       // Sugere multicompany para administrador
-                      setEmpresaId('todas')
-                    } else if (val === 'balanceiro' && empresaId === 'todas') {
+                      setEmpresaId("todas")
+                    } else if (val === "balanceiro" && empresaId === "todas") {
                       // Força seleção de uma empresa específica para balanceiro
-                      setEmpresaId(empresas[0]?.id || '')
+                      setEmpresaId(empresas[0]?.id || "")
                     }
                   }}
                   disabled={salvando}
@@ -581,7 +585,7 @@ export function PainelUsuarios() {
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold flex items-center justify-between">
                   <span>Empresa Permitida</span>
-                  {perfil === 'administrador' && (
+                  {perfil === "administrador" && (
                     <span className="text-[10px] text-primary font-normal">
                       (Multicompany liberado)
                     </span>
@@ -596,17 +600,17 @@ export function PainelUsuarios() {
                     <SelectValue placeholder="Selecione a empresa" />
                   </SelectTrigger>
                   <SelectContent>
-                    {perfil === 'administrador' && (
+                    {perfil === "administrador" && (
                       <SelectItem value="todas">
                         Todas as Empresas (Monteiro, SJE e futuras)
                       </SelectItem>
                     )}
                     {empresas.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id}>
-                        {emp.nome}{' '}
-                        {perfil === 'balanceiro'
-                          ? '(Obrigatório)'
-                          : '(Unidade inicial)'}
+                        {emp.nome}{" "}
+                        {perfil === "balanceiro"
+                          ? "(Obrigatório)"
+                          : "(Unidade inicial)"}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -614,13 +618,13 @@ export function PainelUsuarios() {
               </div>
             </div>
 
-            {perfil === 'balanceiro' ? (
+            {perfil === "balanceiro" ? (
               <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300">
                 <strong>Regra Balanceiro:</strong> Cai direto na expedição
                 (/lancamentos) com campos liberados para digitação. Fica FIXO na
                 sua unidade selecionada (
                 {empresas.find((e) => e.id === empresaId)?.nome ||
-                  'Selecione acima'}
+                  "Selecione acima"}
                 ) sem poder trocar de empresa.
               </div>
             ) : (
@@ -685,10 +689,10 @@ export function PainelUsuarios() {
               Confirmar Exclusão de Usuário
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm pt-2 leading-relaxed">
-              Deseja realmente remover o usuário{' '}
+              Deseja realmente remover o usuário{" "}
               <strong className="text-foreground">
                 "{usuarioParaExcluir?.nome}"
-              </strong>{' '}
+              </strong>{" "}
               ({usuarioParaExcluir?.email})?
               <br />
               <span className="block mt-2 text-xs text-muted-foreground">
@@ -709,7 +713,7 @@ export function PainelUsuarios() {
               disabled={excluindo}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {excluindo ? 'Excluindo...' : 'Sim, Excluir'}
+              {excluindo ? "Excluindo..." : "Sim, Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

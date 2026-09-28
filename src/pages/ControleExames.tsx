@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo } from "react"
 import {
   FileSpreadsheet,
   Plus,
@@ -17,26 +17,26 @@ import {
   Download,
   Settings,
   ClipboardList,
-} from 'lucide-react'
+} from "lucide-react"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -44,7 +44,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,49 +54,48 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { useToast } from '@/hooks/use-toast'
-import { useEmpresa } from '@/hooks/use-empresa'
-import { useUsuario } from '@/hooks/use-usuario'
-import { ExamesService } from '@/services/exames'
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { useUsuario } from "@/hooks/use-usuario"
+import { ExamesService } from "@/services/exames"
 import {
   FuncionarioComExames,
   StatusExame,
   TipoExame,
   TIPOS_EXAME_CATALOGO,
-} from '@/types/exames'
-import { ModalImportarExamesCSV } from '@/components/ModalImportarExamesCSV'
-import { AbaConfigurarPrazos } from '@/components/AbaConfigurarPrazos'
-import { AbaFuncionarios } from '@/components/AbaFuncionarios'
-import { formatarCpfCnpj, limparMascara, validarCPF } from '@/lib/documentos'
+} from "@/types/exames"
+import { ModalImportarExamesCSV } from "@/components/ModalImportarExamesCSV"
+import { AbaConfigurarPrazos } from "@/components/AbaConfigurarPrazos"
+import { AbaFuncionarios } from "@/components/AbaFuncionarios"
+import { formatarCpfCnpj, limparMascara, validarCPF } from "@/lib/documentos"
 
 export default function ControleExames() {
   const { toast } = useToast()
   const { empresaAtiva } = useEmpresa()
   const { isAdministrador } = useUsuario()
 
-  const [abaAtiva, setAbaAtiva] = useState<string>('controle')
-  const [prazosConfigurados, setPrazosConfigurados] = useState<
-    Record<TipoExame, number>
-  >({
-    admissional: 12,
-    aso: 12,
-    acuidade_visual: 12,
-    audiometria: 12,
-    avaliacao_clinica: 12,
-    toxicologico: 30,
-    rx: 12,
-    ecg: 12,
-    demissional: 0,
-  })
+  const [abaAtiva, setAbaAtiva] = useState<string>("controle")
+  const [prazosConfigurados, setPrazosConfigurados] =
+    useState<Record<TipoExame, number>>({
+      admissional: 12,
+      aso: 12,
+      acuidade_visual: 12,
+      audiometria: 12,
+      avaliacao_clinica: 12,
+      toxicologico: 30,
+      rx: 12,
+      ecg: 12,
+      demissional: 0,
+    })
 
   const [loading, setLoading] = useState(true)
   const [funcionarios, setFuncionarios] = useState<FuncionarioComExames[]>([])
 
   // Filtros
-  const [busca, setBusca] = useState('')
-  const [filtroStatus, setFiltroStatus] = useState<string>('TODOS')
-  const [filtroFuncao, setFiltroFuncao] = useState<string>('TODAS')
+  const [busca, setBusca] = useState("")
+  const [filtroStatus, setFiltroStatus] = useState<string>("TODOS")
+  const [filtroFuncao, setFiltroFuncao] = useState<string>("TODAS")
 
   // Modais
   const [modalImportarOpen, setModalImportarOpen] = useState(false)
@@ -105,23 +104,24 @@ export default function ControleExames() {
     useState<FuncionarioComExames | null>(null)
 
   // Formulário de Funcionário & Exames
-  const [formNome, setFormNome] = useState('')
-  const [formFuncao, setFormFuncao] = useState('')
-  const [formCpf, setFormCpf] = useState('')
-  const [formDataAdmissao, setFormDataAdmissao] = useState('')
-  const [formObservacoes, setFormObservacoes] = useState('')
-  const [formExames, setFormExames] = useState<
-    Record<TipoExame, { data: string; validadeMeses: number }>
-  >({
-    admissional: { data: '', validadeMeses: 12 },
-    aso: { data: '', validadeMeses: 12 },
-    acuidade_visual: { data: '', validadeMeses: 12 },
-    audiometria: { data: '', validadeMeses: 12 },
-    avaliacao_clinica: { data: '', validadeMeses: 12 },
-    toxicologico: { data: '', validadeMeses: 30 },
-    rx: { data: '', validadeMeses: 12 },
-    ecg: { data: '', validadeMeses: 12 },
-    demissional: { data: '', validadeMeses: 0 },
+  const [formNome, setFormNome] = useState("")
+  const [formFuncao, setFormFuncao] = useState("")
+  const [formCpf, setFormCpf] = useState("")
+  const [formDataAdmissao, setFormDataAdmissao] = useState("")
+  const [formObservacoes, setFormObservacoes] = useState("")
+  const [formExames, setFormExames] = useState<Record<TipoExame, {
+    data: string
+    validadeMeses: number
+  }>>({
+    admissional: { data: "", validadeMeses: 12 },
+    aso: { data: "", validadeMeses: 12 },
+    acuidade_visual: { data: "", validadeMeses: 12 },
+    audiometria: { data: "", validadeMeses: 12 },
+    avaliacao_clinica: { data: "", validadeMeses: 12 },
+    toxicologico: { data: "", validadeMeses: 30 },
+    rx: { data: "", validadeMeses: 12 },
+    ecg: { data: "", validadeMeses: 12 },
+    demissional: { data: "", validadeMeses: 0 },
   })
   const [salvando, setSalvando] = useState(false)
 
@@ -144,9 +144,9 @@ export default function ControleExames() {
       setPrazosConfigurados(prazosMap)
     } catch (err: any) {
       toast({
-        title: 'Erro ao carregar exames',
+        title: "Erro ao carregar exames",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setLoading(false)
@@ -185,11 +185,11 @@ export default function ControleExames() {
     [funcionarios],
   )
   const totalNoPrazoGeral = useMemo(
-    () => funcionarios.filter((f) => f.statusGeralAso === 'NO_PRAZO').length,
+    () => funcionarios.filter((f) => f.statusGeralAso === "NO_PRAZO").length,
     [funcionarios],
   )
   const totalPendentesGeral = useMemo(
-    () => funcionarios.filter((f) => f.statusGeralAso === 'PENDENTE').length,
+    () => funcionarios.filter((f) => f.statusGeralAso === "PENDENTE").length,
     [funcionarios],
   )
 
@@ -199,7 +199,7 @@ export default function ControleExames() {
       // Busca por nome, CPF ou função
       if (busca) {
         const termo = busca.toLowerCase()
-        const cpfLimpo = f.cpf ? limparMascara(f.cpf) : ''
+        const cpfLimpo = f.cpf ? limparMascara(f.cpf) : ""
         const bateNome = f.nome.toLowerCase().includes(termo)
         const bateFuncao = f.funcao.toLowerCase().includes(termo)
         const bateCpf = f.cpf?.includes(termo) || cpfLimpo.includes(termo)
@@ -207,22 +207,22 @@ export default function ControleExames() {
       }
 
       // Filtro por Função
-      if (filtroFuncao !== 'TODAS') {
+      if (filtroFuncao !== "TODAS") {
         if (f.funcao !== filtroFuncao) return false
       }
 
       // Filtro por Status
-      if (filtroStatus === 'VENCIDO') {
+      if (filtroStatus === "VENCIDO") {
         return f.totalVencidos > 0
       }
-      if (filtroStatus === 'VENCENDO_30') {
+      if (filtroStatus === "VENCENDO_30") {
         return f.examesAVencer30Dias.length > 0
       }
-      if (filtroStatus === 'NO_PRAZO') {
-        return f.statusGeralAso === 'NO_PRAZO' && f.totalVencidos === 0
+      if (filtroStatus === "NO_PRAZO") {
+        return f.statusGeralAso === "NO_PRAZO" && f.totalVencidos === 0
       }
-      if (filtroStatus === 'PENDENTE') {
-        return f.statusGeralAso === 'PENDENTE'
+      if (filtroStatus === "PENDENTE") {
+        return f.statusGeralAso === "PENDENTE"
       }
 
       return true
@@ -232,40 +232,40 @@ export default function ControleExames() {
   // Abrir modal de novo funcionário
   const handleNovoFuncionario = () => {
     setFuncionarioEditando(null)
-    setFormNome('')
-    setFormFuncao('')
-    setFormCpf('')
-    setFormDataAdmissao('')
-    setFormObservacoes('')
-    const inicialExames: Record<
-      TipoExame,
-      { data: string; validadeMeses: number }
-    > = {
+    setFormNome("")
+    setFormFuncao("")
+    setFormCpf("")
+    setFormDataAdmissao("")
+    setFormObservacoes("")
+    const inicialExames: Record<TipoExame, {
+      data: string
+      validadeMeses: number
+    }> = {
       admissional: {
-        data: '',
+        data: "",
         validadeMeses: prazosConfigurados.admissional || 12,
       },
-      aso: { data: '', validadeMeses: prazosConfigurados.aso || 12 },
+      aso: { data: "", validadeMeses: prazosConfigurados.aso || 12 },
       acuidade_visual: {
-        data: '',
+        data: "",
         validadeMeses: prazosConfigurados.acuidade_visual || 12,
       },
       audiometria: {
-        data: '',
+        data: "",
         validadeMeses: prazosConfigurados.audiometria || 12,
       },
       avaliacao_clinica: {
-        data: '',
+        data: "",
         validadeMeses: prazosConfigurados.avaliacao_clinica || 12,
       },
       toxicologico: {
-        data: '',
+        data: "",
         validadeMeses: prazosConfigurados.toxicologico || 30,
       },
-      rx: { data: '', validadeMeses: prazosConfigurados.rx || 12 },
-      ecg: { data: '', validadeMeses: prazosConfigurados.ecg || 12 },
+      rx: { data: "", validadeMeses: prazosConfigurados.rx || 12 },
+      ecg: { data: "", validadeMeses: prazosConfigurados.ecg || 12 },
       demissional: {
-        data: '',
+        data: "",
         validadeMeses:
           prazosConfigurados.demissional !== undefined
             ? prazosConfigurados.demissional
@@ -281,66 +281,66 @@ export default function ControleExames() {
     setFuncionarioEditando(func)
     setFormNome(func.nome)
     setFormFuncao(func.funcao)
-    setFormCpf(func.cpf ? formatarCpfCnpj(func.cpf) : '')
-    setFormDataAdmissao(func.data_admissao || '')
-    setFormObservacoes(func.observacoes || '')
+    setFormCpf(func.cpf ? formatarCpfCnpj(func.cpf) : "")
+    setFormDataAdmissao(func.data_admissao || "")
+    setFormObservacoes(func.observacoes || "")
 
-    const examesValores: Record<
-      TipoExame,
-      { data: string; validadeMeses: number }
-    > = {
+    const examesValores: Record<TipoExame, {
+      data: string
+      validadeMeses: number
+    }> = {
       admissional: {
-        data: func.exames.admissional?.dataRealizacao || '',
+        data: func.exames.admissional?.dataRealizacao || "",
         validadeMeses:
           func.exames.admissional?.validadeMeses ||
           prazosConfigurados.admissional ||
           12,
       },
       aso: {
-        data: func.exames.aso?.dataRealizacao || '',
+        data: func.exames.aso?.dataRealizacao || "",
         validadeMeses:
           func.exames.aso?.validadeMeses || prazosConfigurados.aso || 12,
       },
       acuidade_visual: {
-        data: func.exames.acuidade_visual?.dataRealizacao || '',
+        data: func.exames.acuidade_visual?.dataRealizacao || "",
         validadeMeses:
           func.exames.acuidade_visual?.validadeMeses ||
           prazosConfigurados.acuidade_visual ||
           12,
       },
       audiometria: {
-        data: func.exames.audiometria?.dataRealizacao || '',
+        data: func.exames.audiometria?.dataRealizacao || "",
         validadeMeses:
           func.exames.audiometria?.validadeMeses ||
           prazosConfigurados.audiometria ||
           12,
       },
       avaliacao_clinica: {
-        data: func.exames.avaliacao_clinica?.dataRealizacao || '',
+        data: func.exames.avaliacao_clinica?.dataRealizacao || "",
         validadeMeses:
           func.exames.avaliacao_clinica?.validadeMeses ||
           prazosConfigurados.avaliacao_clinica ||
           12,
       },
       toxicologico: {
-        data: func.exames.toxicologico?.dataRealizacao || '',
+        data: func.exames.toxicologico?.dataRealizacao || "",
         validadeMeses:
           func.exames.toxicologico?.validadeMeses ||
           prazosConfigurados.toxicologico ||
           30,
       },
       rx: {
-        data: func.exames.rx?.dataRealizacao || '',
+        data: func.exames.rx?.dataRealizacao || "",
         validadeMeses:
           func.exames.rx?.validadeMeses || prazosConfigurados.rx || 12,
       },
       ecg: {
-        data: func.exames.ecg?.dataRealizacao || '',
+        data: func.exames.ecg?.dataRealizacao || "",
         validadeMeses:
           func.exames.ecg?.validadeMeses || prazosConfigurados.ecg || 12,
       },
       demissional: {
-        data: func.exames.demissional?.dataRealizacao || '',
+        data: func.exames.demissional?.dataRealizacao || "",
         validadeMeses:
           func.exames.demissional?.validadeMeses !== undefined
             ? func.exames.demissional.validadeMeses
@@ -359,9 +359,9 @@ export default function ControleExames() {
     e.preventDefault()
     if (!formNome.trim()) {
       toast({
-        title: 'Campo obrigatório',
-        description: 'Informe o nome do funcionário.',
-        variant: 'destructive',
+        title: "Campo obrigatório",
+        description: "Informe o nome do funcionário.",
+        variant: "destructive",
       })
       return
     }
@@ -369,9 +369,9 @@ export default function ControleExames() {
     const cpfLimpo = formCpf ? limparMascara(formCpf) : null
     if (cpfLimpo && cpfLimpo.length === 11 && !validarCPF(cpfLimpo)) {
       toast({
-        title: 'CPF com dígitos inválidos',
-        description: 'Verifique os números digitados para o CPF.',
-        variant: 'destructive',
+        title: "CPF com dígitos inválidos",
+        description: "Verifique os números digitados para o CPF.",
+        variant: "destructive",
       })
       return
     }
@@ -385,23 +385,21 @@ export default function ControleExames() {
         id: funcionarioEditando?.id,
         empresa_id: empresaAtiva.id,
         nome: formNome.trim(),
-        funcao: formFuncao.trim() || 'Geral',
+        funcao: formFuncao.trim() || "Geral",
         cpf: cpfLimpo,
         data_admissao: formDataAdmissao || null,
         observacoes: formObservacoes.trim() || null,
       })
 
       // 2. Salvar exames
-      const listaExamesParaSalvar = (
-        Object.entries(formExames) as [
-          TipoExame,
-          { data: string; validadeMeses: number },
-        ][]
-      ).map(([tipo, val]) => ({
+      const listaExamesParaSalvar = (Object.entries(formExames) as [TipoExame, {
+        data: string
+        validadeMeses: number
+      }][]).map(([tipo, val]) => ({
         tipo_exame: tipo,
         data_realizacao: val.data || null,
         validade_meses:
-          tipo === 'demissional'
+          tipo === "demissional"
             ? isNaN(Number(val.validadeMeses))
               ? 0
               : Number(val.validadeMeses)
@@ -415,17 +413,17 @@ export default function ControleExames() {
 
       toast({
         title: funcionarioEditando
-          ? 'Colaborador e exames atualizados com sucesso!'
-          : 'Novo colaborador cadastrado com sucesso!',
+          ? "Colaborador e exames atualizados com sucesso!"
+          : "Novo colaborador cadastrado com sucesso!",
       })
 
       setModalFuncionarioOpen(false)
       carregarDados()
     } catch (err: any) {
       toast({
-        title: 'Erro ao salvar',
+        title: "Erro ao salvar",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setSalvando(false)
@@ -442,7 +440,7 @@ export default function ControleExames() {
         empresaAtiva.id,
       )
       toast({
-        title: 'Colaborador excluído com sucesso!',
+        title: "Colaborador excluído com sucesso!",
         description: `${funcionarioParaExcluir.nome} e seus exames foram removidos da unidade ${empresaAtiva.nome}.`,
       })
       setDialogExclusaoOpen(false)
@@ -450,9 +448,9 @@ export default function ControleExames() {
       carregarDados()
     } catch (err: any) {
       toast({
-        title: 'Erro ao excluir colaborador',
+        title: "Erro ao excluir colaborador",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       })
     } finally {
       setExcluindo(false)
@@ -463,40 +461,40 @@ export default function ControleExames() {
   const exportarParaCsv = () => {
     if (funcionariosFiltrados.length === 0) {
       toast({
-        title: 'Nenhum registro para exportar',
-        description: 'Ajuste os filtros para exibir dados.',
+        title: "Nenhum registro para exportar",
+        description: "Ajuste os filtros para exibir dados.",
       })
       return
     }
 
     const cabecalho = [
-      'Colaborador',
-      'Funcao',
-      'CPF',
-      'Data Admissao',
-      'Exame Admissional',
-      'ASO',
-      'Acuidade Visual',
-      'Audiometria',
-      'Avaliacao Clinica',
-      'Toxicologico',
-      'RX',
-      'ECG',
-      'Demissional',
-      'Status Geral',
-    ].join(';')
+      "Colaborador",
+      "Funcao",
+      "CPF",
+      "Data Admissao",
+      "Exame Admissional",
+      "ASO",
+      "Acuidade Visual",
+      "Audiometria",
+      "Avaliacao Clinica",
+      "Toxicologico",
+      "RX",
+      "ECG",
+      "Demissional",
+      "Status Geral",
+    ].join(";")
 
     const linhas = funcionariosFiltrados.map((f) => {
       const formatarData = (iso: string | null) => {
-        if (!iso) return ''
-        const [ano, mes, dia] = iso.split('-')
+        if (!iso) return ""
+        const [ano, mes, dia] = iso.split("-")
         return `${dia}/${mes}/${ano}`
       }
 
       return [
         `"${f.nome}"`,
         `"${f.funcao}"`,
-        `"${f.cpf ? formatarCpfCnpj(f.cpf) : ''}"`,
+        `"${f.cpf ? formatarCpfCnpj(f.cpf) : ""}"`,
         formatarData(f.data_admissao),
         formatarData(f.exames.admissional?.dataRealizacao),
         formatarData(f.exames.aso?.dataRealizacao),
@@ -508,23 +506,23 @@ export default function ControleExames() {
         formatarData(f.exames.ecg?.dataRealizacao),
         formatarData(f.exames.demissional?.dataRealizacao),
         f.statusGeralAso,
-      ].join(';')
+      ].join(";")
     })
 
-    const conteudoCsv = [cabecalho, ...linhas].join('\r\n')
-    const blob = new Blob([conteudoCsv], { type: 'text/csv;charset=utf-8;' })
+    const conteudoCsv = [cabecalho, ...linhas].join("\r\n")
+    const blob = new Blob([conteudoCsv], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
+    const link = document.createElement("a")
     link.href = url
-    link.download = `Controle_Exames_${empresaAtiva?.slug?.toUpperCase() || 'GCMIX'}_${new Date().toISOString().slice(0, 10)}.csv`
+    link.download = `Controle_Exames_${empresaAtiva?.slug?.toUpperCase() || "GCMIX"}_${new Date().toISOString().slice(0, 10)}.csv`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
 
     toast({
-      title: 'Planilha exportada!',
-      description: 'Download do arquivo CSV iniciado.',
+      title: "Planilha exportada!",
+      description: "Download do arquivo CSV iniciado.",
     })
   }
 
@@ -548,7 +546,7 @@ export default function ControleExames() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          {abaAtiva === 'controle' && (
+          {abaAtiva === "controle" && (
             <>
               <Button
                 variant="outline"
@@ -591,7 +589,7 @@ export default function ControleExames() {
             className="h-9 w-9 text-muted-foreground"
             title="Atualizar dados"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
         </div>
       </div>
@@ -668,7 +666,7 @@ export default function ControleExames() {
                       className="text-[11px] bg-background/80 border-destructive/40 text-destructive font-medium cursor-pointer hover:bg-destructive/20"
                       onClick={() => {
                         setBusca(f.nome)
-                        setFiltroStatus('VENCIDO')
+                        setFiltroStatus("VENCIDO")
                       }}
                     >
                       {f.nome} ({f.funcao}): {f.totalVencidos} vencido(s)
@@ -684,7 +682,7 @@ export default function ControleExames() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setFiltroStatus('VENCIDO')}
+                onClick={() => setFiltroStatus("VENCIDO")}
                 className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 text-xs h-8"
               >
                 Filtrar Vencidos
@@ -706,7 +704,7 @@ export default function ControleExames() {
                     {funcionariosComVencimentoProximo.reduce(
                       (acc, f) => acc + f.examesAVencer30Dias.length,
                       0,
-                    )}{' '}
+                    )}{" "}
                     a vencer
                   </Badge>
                 </h4>
@@ -722,13 +720,13 @@ export default function ControleExames() {
                       className="text-[11px] bg-background/80 border-amber-500/40 text-amber-600 dark:text-amber-400 font-medium cursor-pointer"
                       onClick={() => {
                         setBusca(f.nome)
-                        setFiltroStatus('VENCENDO_30')
+                        setFiltroStatus("VENCENDO_30")
                       }}
                     >
                       {f.nome} (
                       {f.examesAVencer30Dias
                         .map((e) => `${e.nome} em ${e.diasParaVencer}d`)
-                        .join(', ')}
+                        .join(", ")}
                       )
                     </Badge>
                   ))}
@@ -737,7 +735,7 @@ export default function ControleExames() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setFiltroStatus('VENCENDO_30')}
+                onClick={() => setFiltroStatus("VENCENDO_30")}
                 className="shrink-0 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 text-xs h-8"
               >
                 Ver Próximos 30 Dias
@@ -760,7 +758,7 @@ export default function ControleExames() {
                   {totalFuncionarios}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Unidade ativa: {empresaAtiva?.nome || '—'}
+                  Unidade ativa: {empresaAtiva?.nome || "—"}
                 </p>
               </CardContent>
             </Card>
@@ -769,12 +767,12 @@ export default function ControleExames() {
             <Card
               className={`border-border/40 shadow-sm cursor-pointer transition-all hover:scale-[1.01] ${
                 totalVencidos > 0
-                  ? 'bg-destructive/10 border-destructive/30'
-                  : 'bg-card/70'
+                  ? "bg-destructive/10 border-destructive/30"
+                  : "bg-card/70"
               }`}
               onClick={() =>
                 setFiltroStatus(
-                  filtroStatus === 'VENCIDO' ? 'TODOS' : 'VENCIDO',
+                  filtroStatus === "VENCIDO" ? "TODOS" : "VENCIDO",
                 )
               }
             >
@@ -799,7 +797,7 @@ export default function ControleExames() {
               className="bg-card/70 border-border/40 shadow-sm cursor-pointer transition-all hover:scale-[1.01]"
               onClick={() =>
                 setFiltroStatus(
-                  filtroStatus === 'VENCENDO_30' ? 'TODOS' : 'VENCENDO_30',
+                  filtroStatus === "VENCENDO_30" ? "TODOS" : "VENCENDO_30",
                 )
               }
             >
@@ -827,7 +825,7 @@ export default function ControleExames() {
               className="bg-card/70 border-border/40 shadow-sm cursor-pointer transition-all hover:scale-[1.01]"
               onClick={() =>
                 setFiltroStatus(
-                  filtroStatus === 'NO_PRAZO' ? 'TODOS' : 'NO_PRAZO',
+                  filtroStatus === "NO_PRAZO" ? "TODOS" : "NO_PRAZO",
                 )
               }
             >
@@ -926,15 +924,15 @@ export default function ControleExames() {
                 {/* Resetar Filtros */}
                 <div className="flex items-center justify-end gap-2">
                   {(busca ||
-                    filtroStatus !== 'TODOS' ||
-                    filtroFuncao !== 'TODAS') && (
+                    filtroStatus !== "TODOS" ||
+                    filtroFuncao !== "TODAS") && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        setBusca('')
-                        setFiltroStatus('TODOS')
-                        setFiltroFuncao('TODAS')
+                        setBusca("")
+                        setFiltroStatus("TODOS")
+                        setFiltroFuncao("TODAS")
                       }}
                       className="text-xs text-muted-foreground hover:text-foreground h-10"
                     >
@@ -972,14 +970,14 @@ export default function ControleExames() {
                 </div>
               ) : funcionariosFiltrados.length === 0 ? (
                 <div className="py-12 text-center text-muted-foreground text-xs italic">
-                  Nenhum colaborador encontrado com os filtros selecionados.{' '}
+                  Nenhum colaborador encontrado com os filtros selecionados.{" "}
                   <button
                     type="button"
                     onClick={handleNovoFuncionario}
                     className="text-primary underline ml-1 font-semibold"
                   >
                     Cadastrar agora
-                  </button>{' '}
+                  </button>{" "}
                   ou use o botão "Importar CSV" para carregar a planilha.
                 </div>
               ) : (
@@ -1081,7 +1079,7 @@ export default function ControleExames() {
 
                           {/* CPF */}
                           <td className="py-2.5 px-3 font-mono text-muted-foreground whitespace-nowrap">
-                            {f.cpf ? formatarCpfCnpj(f.cpf) : '—'}
+                            {f.cpf ? formatarCpfCnpj(f.cpf) : "—"}
                           </td>
 
                           {/* Data Admissão */}
@@ -1164,9 +1162,7 @@ export default function ControleExames() {
             </span>
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-destructive" />
-              <span className="text-destructive font-medium">
-                VENCIDO:
-              </span>{' '}
+              <span className="text-destructive font-medium">VENCIDO:</span>{" "}
               data de validade expirada
             </div>
             <div className="flex items-center gap-1.5">
@@ -1176,9 +1172,7 @@ export default function ControleExames() {
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span className="text-emerald-500 font-medium">
-                NO PRAZO:
-              </span>{' '}
+              <span className="text-emerald-500 font-medium">NO PRAZO:</span>{" "}
               exame válido
             </div>
             <div className="flex items-center gap-1.5">
@@ -1196,7 +1190,7 @@ export default function ControleExames() {
             onAtualizar={() => carregarDados()}
             onVerExames={(func) => {
               setBusca(func.nome)
-              setAbaAtiva('controle')
+              setAbaAtiva("controle")
             }}
           />
         </TabsContent>
@@ -1227,7 +1221,7 @@ export default function ControleExames() {
               <UserCheck className="w-5 h-5 text-primary" />
               {funcionarioEditando
                 ? `Editar Colaborador: ${funcionarioEditando.nome}`
-                : 'Novo Colaborador e Exames'}
+                : "Novo Colaborador e Exames"}
               {empresaAtiva && (
                 <Badge
                   variant="outline"
@@ -1368,7 +1362,7 @@ export default function ControleExames() {
 
                       <Input
                         type="date"
-                        value={formExames[item.tipo]?.data || ''}
+                        value={formExames[item.tipo]?.data || ""}
                         onChange={(e) =>
                           setFormExames((prev) => ({
                             ...prev,
@@ -1404,10 +1398,10 @@ export default function ControleExames() {
               >
                 <CheckCircle2 className="w-4 h-4" />
                 {salvando
-                  ? 'Salvando...'
+                  ? "Salvando..."
                   : funcionarioEditando
-                    ? 'Salvar Alterações'
-                    : 'Cadastrar Colaborador'}
+                    ? "Salvar Alterações"
+                    : "Cadastrar Colaborador"}
               </Button>
             </DialogFooter>
           </form>
@@ -1426,11 +1420,11 @@ export default function ControleExames() {
               Confirmar Exclusão de Colaborador
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm pt-2 leading-relaxed">
-              Deseja realmente remover o colaborador{' '}
+              Deseja realmente remover o colaborador{" "}
               <strong className="text-foreground">
                 {funcionarioParaExcluir?.nome}
-              </strong>{' '}
-              ({funcionarioParaExcluir?.funcao}) da unidade{' '}
+              </strong>{" "}
+              ({funcionarioParaExcluir?.funcao}) da unidade{" "}
               <strong className="text-foreground">{empresaAtiva?.nome}</strong>?
               <br />
               <br />
@@ -1448,7 +1442,7 @@ export default function ControleExames() {
               disabled={excluindo}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {excluindo ? 'Excluindo...' : 'Sim, Excluir Colaborador'}
+              {excluindo ? "Excluindo..." : "Sim, Excluir Colaborador"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1469,10 +1463,10 @@ function CelulaExame({ exame }: { exame?: any }) {
     )
   }
 
-  const [ano, mes, dia] = exame.dataRealizacao.split('-')
+  const [ano, mes, dia] = exame.dataRealizacao.split("-")
   const dataFormatada = `${dia}/${mes}/${ano}`
 
-  if (exame.status === 'NA_RESCISAO' || exame.tipo === 'demissional') {
+  if (exame.status === "NA_RESCISAO" || exame.tipo === "demissional") {
     return (
       <span
         className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium text-sky-700 dark:text-sky-400 bg-sky-500/15 border border-sky-500/30"
@@ -1483,7 +1477,7 @@ function CelulaExame({ exame }: { exame?: any }) {
     )
   }
 
-  if (exame.status === 'VENCIDO') {
+  if (exame.status === "VENCIDO") {
     return (
       <span
         className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold text-destructive bg-destructive/15 border border-destructive/30"
@@ -1517,7 +1511,7 @@ function CelulaExame({ exame }: { exame?: any }) {
 }
 
 function BadgeStatusGeral({ status }: { status: StatusExame }) {
-  if (status === 'NA_RESCISAO') {
+  if (status === "NA_RESCISAO") {
     return (
       <Badge
         variant="outline"
@@ -1527,7 +1521,7 @@ function BadgeStatusGeral({ status }: { status: StatusExame }) {
       </Badge>
     )
   }
-  if (status === 'VENCIDO') {
+  if (status === "VENCIDO") {
     return (
       <Badge
         variant="destructive"
@@ -1537,7 +1531,7 @@ function BadgeStatusGeral({ status }: { status: StatusExame }) {
       </Badge>
     )
   }
-  if (status === 'NO_PRAZO') {
+  if (status === "NO_PRAZO") {
     return (
       <Badge className="text-[10px] uppercase font-bold tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5">
         No Prazo
@@ -1555,8 +1549,8 @@ function BadgeStatusGeral({ status }: { status: StatusExame }) {
 }
 
 function formatarDataParaExibicao(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const partes = iso.split('-')
+  if (!iso) return "—"
+  const partes = iso.split("-")
   if (partes.length !== 3) return iso
   return `${partes[2]}/${partes[1]}/${partes[0]}`
 }

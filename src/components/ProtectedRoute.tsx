@@ -1,7 +1,7 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { useAuth } from '@/hooks/use-auth'
-import { useUsuario } from '@/hooks/use-usuario'
-import { Loader2 } from 'lucide-react'
+import { Navigate, Outlet, useLocation } from "react-router-dom"
+import { useAuth } from "@/hooks/use-auth"
+import { useUsuario } from "@/hooks/use-usuario"
+import { Loader2 } from "lucide-react"
 
 interface ProtectedRouteProps {
   permitirApenasAdmin?: boolean

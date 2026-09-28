@@ -1,16 +1,17 @@
-import { supabase } from '@/lib/supabase/client'
+import { supabase } from "@/lib/supabase/client"
 import {
   FolhaCompetencia,
   FolhaPagamentoLinha,
   FolhaTotaisCalculados,
+  FolhaTabelaOficial,
   calcularMensalLiquido,
-} from '@/types/folha'
+} from "@/types/folha"
 
 export interface SalvarLinhaFolhaPayload {
   id?: string
   empresa_id: string
   competencia: string
-  tipo: 'Funcionario' | 'Terceiro'
+  tipo: "Funcionario" | "Terceiro"
   nome: string
   cargo?: string
   funcao: string
@@ -32,6 +33,7 @@ export interface SalvarLinhaFolhaPayload {
   producao: number
   limpeza?: number
   sabado?: number
+  feriado?: number
   ferias?: number
   ajuda_custo?: number
   vendas_obra?: number
@@ -40,9 +42,10 @@ export interface SalvarLinhaFolhaPayload {
   conta: string
   pix: string
   chave_pix?: string
-  modo_calculo?: 'Calculado' | 'Digitado'
+  modo_calculo?: "Calculado" | "Digitado"
   oculto?: boolean
   inativo?: boolean
+  observacao_linha?: string | null
   funcionario_id?: string | null
   cpf?: string | null
   matricula?: string | null
@@ -54,13 +57,13 @@ export class FolhaService {
    */
   static async getCompetencias(empresaId: string): Promise<FolhaCompetencia[]> {
     const { data, error } = await (supabase as any)
-      .from('folha_competencias')
-      .select('*')
-      .eq('empresa_id', empresaId)
-      .order('competencia', { ascending: false })
+      .from("folha_competencias")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("competencia", { ascending: false })
 
     if (error) {
-      console.error('Erro ao buscar competências da folha:', error)
+      console.error("Erro ao buscar competências da folha:", error)
       throw error
     }
 
@@ -75,14 +78,14 @@ export class FolhaService {
     competencia: string,
   ): Promise<FolhaCompetencia | null> {
     const { data, error } = await (supabase as any)
-      .from('folha_competencias')
-      .select('*')
-      .eq('empresa_id', empresaId)
-      .eq('competencia', competencia)
+      .from("folha_competencias")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .eq("competencia", competencia)
       .maybeSingle()
 
     if (error) {
-      console.error('Erro ao buscar competência:', error)
+      console.error("Erro ao buscar competência:", error)
       throw error
     }
 
@@ -96,8 +99,10 @@ export class FolhaService {
     empresaId: string,
     competencia: string,
     observacoes?: string,
+    dataCompetencia?: string | null,
+    percentualQuinzena?: number,
   ): Promise<FolhaCompetencia> {
-    const [anoStr, mesStr] = competencia.split('-')
+    const [anoStr, mesStr] = competencia.split("-")
     const ano = parseInt(anoStr, 10) || new Date().getFullYear()
     const mes = parseInt(mesStr, 10) || new Date().getMonth() + 1
 
@@ -105,22 +110,50 @@ export class FolhaService {
     if (existente) return existente
 
     const { data, error } = await (supabase as any)
-      .from('folha_competencias')
+      .from("folha_competencias")
       .insert({
         empresa_id: empresaId,
         competencia,
         ano,
         mes,
         observacoes,
+        data_competencia: dataCompetencia || null,
+        percentual_quinzena: percentualQuinzena ?? 0.4,
       })
       .select()
       .single()
 
     if (error) {
-      console.error('Erro ao criar competência:', error)
+      console.error("Erro ao criar competência:", error)
       throw error
     }
 
+    return data as FolhaCompetencia
+  }
+
+  static async atualizarConfigCompetencia(
+    empresaId: string,
+    competencia: string,
+    config: {
+      data_competencia?: string | null
+      percentual_quinzena?: number
+    },
+  ): Promise<FolhaCompetencia> {
+    const comp = await this.obterOuCriarCompetencia(empresaId, competencia)
+    const { data, error } = await (supabase as any)
+      .from("folha_competencias")
+      .update({
+        ...config,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", comp.id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Erro ao atualizar config da competência:", error)
+      throw error
+    }
     return data as FolhaCompetencia
   }
 
@@ -132,25 +165,25 @@ export class FolhaService {
     competencia: string,
   ): Promise<FolhaPagamentoLinha[]> {
     const { data, error } = await (supabase as any)
-      .from('folha_pagamento_linhas')
-      .select('*')
-      .eq('empresa_id', empresaId)
-      .eq('competencia', competencia)
-      .order('nome', { ascending: true })
+      .from("folha_pagamento_linhas")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .eq("competencia", competencia)
+      .order("nome", { ascending: true })
 
     if (error) {
-      console.error('Erro ao buscar linhas da folha:', error)
+      console.error("Erro ao buscar linhas da folha:", error)
       throw error
     }
 
     // Normaliza tipos numéricos e strings caso o retorno venha como string/null
     return (data || []).map((l: any) => ({
       ...l,
-      tipo: l.tipo === 'Terceiro' ? 'Terceiro' : 'Funcionario',
-      nome: l.nome || '',
-      cargo: l.cargo || l.funcao || 'Geral',
-      funcao: l.funcao || l.cargo || 'Geral',
-      unidade: l.unidade || 'SJE',
+      tipo: l.tipo === "Terceiro" ? "Terceiro" : "Funcionario",
+      nome: l.nome || "",
+      cargo: l.cargo || l.funcao || "Geral",
+      funcao: l.funcao || l.cargo || "Geral",
+      unidade: l.unidade || "SJE",
       bruto: Number(l.bruto || 0),
       salario_base: Number(l.salario_base || l.bruto || 0),
       filhos: parseInt(String(l.filhos || 0), 10) || 0,
@@ -166,6 +199,7 @@ export class FolhaService {
       producao: Number(l.producao || 0),
       limpeza: Number(l.limpeza || 0),
       sabado: Number(l.sabado || 0),
+      feriado: Number(l.feriado || 0),
       ferias: Number(l.ferias || 0),
       ajuda_custo: Number(l.ajuda_custo || 0),
       vendas_obra: Number(l.vendas_obra || 0),
@@ -175,12 +209,13 @@ export class FolhaService {
       total_descontos: Number(l.total_descontos || 0),
       salario_liquido: Number(l.salario_liquido || l.mensal_liquido || 0),
       mensal_liquido: Number(l.mensal_liquido || l.salario_liquido || 0),
-      conta: l.conta || '',
-      pix: l.pix || l.chave_pix || '',
-      chave_pix: l.chave_pix || l.pix || '',
-      modo_calculo: l.modo_calculo || 'Calculado',
+      conta: l.conta || "",
+      pix: l.pix || l.chave_pix || "",
+      chave_pix: l.chave_pix || l.pix || "",
+      modo_calculo: l.modo_calculo || "Calculado",
       oculto: Boolean(l.oculto),
       inativo: Boolean(l.inativo),
+      observacao_linha: l.observacao_linha || l.observacoes || "",
     })) as FolhaPagamentoLinha[]
   }
 
@@ -199,11 +234,11 @@ export class FolhaService {
       empresa_id: payload.empresa_id,
       competencia_id: comp.id,
       competencia: payload.competencia,
-      tipo: payload.tipo === 'Terceiro' ? 'Terceiro' : 'Funcionario',
+      tipo: payload.tipo === "Terceiro" ? "Terceiro" : "Funcionario",
       nome: payload.nome.trim().toUpperCase(),
       cargo: (payload.cargo || payload.funcao).trim().toUpperCase(),
       funcao: payload.funcao.trim().toUpperCase(),
-      unidade: payload.unidade.trim().toUpperCase() || 'SJE',
+      unidade: payload.unidade.trim().toUpperCase() || "SJE",
       bruto: Number(payload.bruto || 0),
       salario_base: Number(payload.salario_base ?? payload.bruto ?? 0),
       filhos: parseInt(String(payload.filhos || 0), 10) || 0,
@@ -219,19 +254,23 @@ export class FolhaService {
       producao: Number(payload.producao || 0),
       limpeza: Number(payload.limpeza || 0),
       sabado: Number(payload.sabado || 0),
+      feriado: Number(payload.feriado || 0),
       ferias: Number(payload.ferias || 0),
       ajuda_custo: Number(payload.ajuda_custo || 0),
       vendas_obra: Number(payload.vendas_obra || 0),
       comissao: Number(payload.comissao || 0),
       vendas_ajuda: Number(payload.vendas_ajuda || 0),
       mensal_liquido: Number(payload.mensal_liquido || 0),
-      salario_liquido: Number(payload.salario_liquido ?? payload.mensal_liquido ?? 0),
-      conta: payload.conta || '',
-      pix: payload.pix || payload.chave_pix || '',
-      chave_pix: payload.chave_pix || payload.pix || '',
-      modo_calculo: payload.modo_calculo || 'Calculado',
+      salario_liquido: Number(
+        payload.salario_liquido ?? payload.mensal_liquido ?? 0,
+      ),
+      conta: payload.conta || "",
+      pix: payload.pix || payload.chave_pix || "",
+      chave_pix: payload.chave_pix || payload.pix || "",
+      modo_calculo: payload.modo_calculo || "Calculado",
       oculto: Boolean(payload.oculto),
       inativo: Boolean(payload.inativo),
+      observacao_linha: payload.observacao_linha || null,
       funcionario_id: payload.funcionario_id || null,
       cpf: payload.cpf || null,
       matricula: payload.matricula || null,
@@ -242,33 +281,36 @@ export class FolhaService {
 
     if (payload.id) {
       const { data, error } = await (supabase as any)
-        .from('folha_pagamento_linhas')
+        .from("folha_pagamento_linhas")
         .update(dados)
-        .eq('id', payload.id)
+        .eq("id", payload.id)
         .select()
         .single()
 
       if (error) {
-        console.error('Erro ao atualizar linha da folha:', error)
+        console.error("Erro ao atualizar linha da folha:", error)
         throw error
       }
-      resultado = data as FolhaPagamentoLinha
+      resultado = (data as FolhaPagamentoLinha)
     } else {
       const { data, error } = await (supabase as any)
-        .from('folha_pagamento_linhas')
+        .from("folha_pagamento_linhas")
         .insert(dados)
         .select()
         .single()
 
       if (error) {
-        console.error('Erro ao inserir linha da folha:', error)
+        console.error("Erro ao inserir linha da folha:", error)
         throw error
       }
-      resultado = data as FolhaPagamentoLinha
+      resultado = (data as FolhaPagamentoLinha)
     }
 
     // Atualiza totais na competência
-    await this.atualizarTotaisCompetencia(payload.empresa_id, payload.competencia)
+    await this.atualizarTotaisCompetencia(
+      payload.empresa_id,
+      payload.competencia,
+    )
 
     return resultado
   }
@@ -282,13 +324,13 @@ export class FolhaService {
     competencia: string,
   ): Promise<void> {
     const { error } = await (supabase as any)
-      .from('folha_pagamento_linhas')
+      .from("folha_pagamento_linhas")
       .delete()
-      .eq('id', id)
-      .eq('empresa_id', empresaId)
+      .eq("id", id)
+      .eq("empresa_id", empresaId)
 
     if (error) {
-      console.error('Erro ao excluir linha da folha:', error)
+      console.error("Erro ao excluir linha da folha:", error)
       throw error
     }
 
@@ -302,14 +344,14 @@ export class FolhaService {
   static async salvarImportacaoFolha(
     empresaId: string,
     competencia: string,
-    linhas: Array<Omit<FolhaPagamentoLinha, 'id' | 'empresa_id'>>,
+    linhas: Array<Omit<FolhaPagamentoLinha, "id" | "empresa_id">>,
   ): Promise<{
     competencia: FolhaCompetencia
     totalInseridos: number
     totalAtualizados: number
   }> {
     if (!linhas || linhas.length === 0) {
-      throw new Error('Nenhuma linha de folha fornecida para salvar.')
+      throw new Error("Nenhuma linha de folha fornecida para salvar.")
     }
 
     // 1. Obter ou criar competência
@@ -334,10 +376,10 @@ export class FolhaService {
         empresa_id: empresaId,
         competencia_id: comp.id,
         competencia,
-        tipo: l.tipo === 'Terceiro' ? 'Terceiro' : 'Funcionario',
+        tipo: l.tipo === "Terceiro" ? "Terceiro" : "Funcionario",
         nome: nomeUpper,
-        funcao: (l.funcao || 'Geral').trim().toUpperCase(),
-        unidade: (l.unidade || 'SJE').trim().toUpperCase(),
+        funcao: (l.funcao || "Geral").trim().toUpperCase(),
+        unidade: (l.unidade || "SJE").trim().toUpperCase(),
         bruto: Number(l.bruto || 0),
         filhos: parseInt(String(l.filhos || 0), 10) || 0,
         inss: Number(l.inss || 0),
@@ -349,9 +391,9 @@ export class FolhaService {
         mensal_liquido: Number(l.mensal_liquido || 0),
         producao: Number(l.producao || 0),
         comissao: Number(l.comissao || 0),
-        conta: l.conta || '',
-        pix: l.pix || '',
-        modo_calculo: l.modo_calculo || 'Calculado',
+        conta: l.conta || "",
+        pix: l.pix || "",
+        modo_calculo: l.modo_calculo || "Calculado",
         funcionario_id: l.funcionario_id || null,
         cpf: l.cpf || null,
         matricula: l.matricula || null,
@@ -360,14 +402,14 @@ export class FolhaService {
 
       if (existente) {
         const { error } = await (supabase as any)
-          .from('folha_pagamento_linhas')
+          .from("folha_pagamento_linhas")
           .update(payload)
-          .eq('id', existente.id)
+          .eq("id", existente.id)
         if (error) throw error
         totalAtualizados++
       } else {
         const { error } = await (supabase as any)
-          .from('folha_pagamento_linhas')
+          .from("folha_pagamento_linhas")
           .insert(payload)
         if (error) throw error
         totalInseridos++
@@ -399,7 +441,7 @@ export class FolhaService {
     const totais = this.calcularTotais(linhas)
 
     const { data, error } = await (supabase as any)
-      .from('folha_competencias')
+      .from("folha_competencias")
       .update({
         total_colaboradores: linhas.length,
         total_proventos:
@@ -416,7 +458,7 @@ export class FolhaService {
         total_liquido: totais.totalMensalLiquido,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', comp.id)
+      .eq("id", comp.id)
       .select()
       .single()
 
@@ -432,15 +474,64 @@ export class FolhaService {
     competenciaId: string,
   ): Promise<void> {
     const { error } = await (supabase as any)
-      .from('folha_competencias')
+      .from("folha_competencias")
       .delete()
-      .eq('id', competenciaId)
-      .eq('empresa_id', empresaId)
+      .eq("id", competenciaId)
+      .eq("empresa_id", empresaId)
 
     if (error) {
-      console.error('Erro ao excluir competência:', error)
+      console.error("Erro ao excluir competência:", error)
       throw error
     }
+  }
+
+  /**
+   * Obtém a tabela oficial de encargos e tributos da empresa para o ano (ou global)
+   */
+  static async getTabelaOficial(
+    empresaId: string,
+    ano: number = 2026,
+  ): Promise<FolhaTabelaOficial | null> {
+    const { data, error } = await (supabase as any)
+      .from("folha_tabelas_oficiais")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .eq("ano", ano)
+      .maybeSingle()
+
+    if (error) {
+      console.error("Erro ao buscar tabela oficial da folha:", error)
+      throw error
+    }
+    return data as FolhaTabelaOficial | null
+  }
+
+  /**
+   * Salva ou atualiza a tabela oficial da empresa
+   */
+  static async salvarTabelaOficial(
+    tabela: Partial<FolhaTabelaOficial> & {
+      empresa_id: string
+      ano: number
+    },
+  ): Promise<FolhaTabelaOficial> {
+    const { data, error } = await (supabase as any)
+      .from("folha_tabelas_oficiais")
+      .upsert(
+        {
+          ...tabela,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "empresa_id,ano" },
+      )
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Erro ao salvar tabela oficial:", error)
+      throw error
+    }
+    return data as FolhaTabelaOficial
   }
 
   /**
@@ -450,7 +541,7 @@ export class FolhaService {
     return linhas.reduce(
       (acc, l) => {
         acc.totalRegistros += 1
-        if (l.tipo === 'Terceiro') {
+        if (l.tipo === "Terceiro") {
           acc.totalTerceiros += 1
         } else {
           acc.totalFuncionarios += 1
@@ -468,6 +559,7 @@ export class FolhaService {
         acc.totalProducao += Number(l.producao || 0)
         acc.totalLimpeza += Number(l.limpeza || 0)
         acc.totalSabado += Number(l.sabado || 0)
+        acc.totalFeriado = (acc.totalFeriado || 0) + Number(l.feriado || 0)
         acc.totalFerias += Number(l.ferias || 0)
         acc.totalAjudaCusto += Number(l.ajuda_custo || 0)
         acc.totalVendas += Number(l.vendas_obra || 0)
@@ -494,6 +586,7 @@ export class FolhaService {
         totalProducao: 0,
         totalLimpeza: 0,
         totalSabado: 0,
+        totalFeriado: 0,
         totalFerias: 0,
         totalAjudaCusto: 0,
         totalVendas: 0,
@@ -511,21 +604,23 @@ export class FolhaService {
   static async garantirSeedFolha(): Promise<void> {
     try {
       const { count, error } = await (supabase as any)
-        .from('folha_pagamento_linhas')
-        .select('*', { count: 'exact', head: true })
+        .from("folha_pagamento_linhas")
+        .select("*", { count: "exact", head: true })
 
       if (error) {
-        console.warn('Erro ao checar contagem folha_pagamento_linhas:', error)
+        console.warn("Erro ao checar contagem folha_pagamento_linhas:", error)
         return
       }
 
       // Se já temos as ~300+ linhas semeadas, nada a fazer
-      if (typeof count === 'number' && count >= 300) {
+      if (typeof count === "number" && count >= 300) {
         return
       }
 
-      console.info('[Folha] Semeando dados do backup legado via client...')
-      const { FOLHA_BACKUP_DATA: backupData } = await import('@/lib/folha-backup-data')
+      console.info("[Folha] Semeando dados do backup legado via client...")
+      const { FOLHA_BACKUP_DATA: backupData } = await import(
+        "@/lib/folha-backup-data"
+      )
 
       const cadFuncs = (backupData.cadastros?.funcionarios || []) as Array<{
         id: string
@@ -537,49 +632,49 @@ export class FolhaService {
       const folhaFuncs = (backupData.folha?.func || {}) as Record<string, any>
       const lanc = (backupData.folha?.lanc || {}) as Record<string, any>
 
-      const SJE_ID = '22222222-2222-2222-2222-222222222222'
-      const MONTEIRO_ID = '11111111-1111-1111-1111-111111111111'
+      const SJE_ID = "22222222-2222-2222-2222-222222222222"
+      const MONTEIRO_ID = "11111111-1111-1111-1111-111111111111"
 
       const funcMap: Record<string, any> = {}
       for (const f of cadFuncs) {
         const fFolha = folhaFuncs[f.id] || {}
-        const unidadeCru = fFolha.unidade || f.unidade || 'SJE'
+        const unidadeCru = fFolha.unidade || f.unidade || "SJE"
         const unidade = String(unidadeCru).toUpperCase()
-        const empresaId = unidade.includes('MONTEIRO') ? MONTEIRO_ID : SJE_ID
+        const empresaId = unidade.includes("MONTEIRO") ? MONTEIRO_ID : SJE_ID
         funcMap[f.id] = {
           ...f,
           ...fFolha,
           empresaId,
-          unidade: unidade.includes('MONTEIRO') ? 'MONTEIRO' : 'SJE',
-          cpfLimpo: f.doc ? f.doc.replace(/[^\d]/g, '') : null,
+          unidade: unidade.includes("MONTEIRO") ? "MONTEIRO" : "SJE",
+          cpfLimpo: f.doc ? f.doc.replace(/[^\d]/g, "") : null,
         }
       }
 
       const tercDefs = [
         {
-          backupKey: '1',
-          nome: 'RAIMUNDO MARIANO DA SILVA JUNIOR',
+          backupKey: "1",
+          nome: "RAIMUNDO MARIANO DA SILVA JUNIOR",
           empresaId: SJE_ID,
-          unidade: 'SJE',
+          unidade: "SJE",
           bruto: 4270,
-          pix: 'raimundojunior100@gmail.com',
-          conta: '',
+          pix: "raimundojunior100@gmail.com",
+          conta: "",
         },
         {
-          backupKey: '0',
-          nome: 'MARCIO LUAN DA SILVA',
+          backupKey: "0",
+          nome: "MARCIO LUAN DA SILVA",
           empresaId: MONTEIRO_ID,
-          unidade: 'MONTEIRO',
+          unidade: "MONTEIRO",
           bruto: 0,
-          pix: '12175804410',
-          conta: '',
+          pix: "12175804410",
+          conta: "",
         },
       ]
 
       const comps = Object.keys(lanc).sort()
 
       for (const comp of comps) {
-        const [anoStr, mesStr] = comp.split('-')
+        const [anoStr, mesStr] = comp.split("-")
         const ano = parseInt(anoStr, 10)
         const mes = parseInt(mesStr, 10)
         const funcsLanc = lanc[comp].func || {}
@@ -589,22 +684,22 @@ export class FolhaService {
           const rows: any[] = []
 
           // Competencia
-          await (supabase as any)
-            .from('folha_competencias')
-            .upsert(
-              {
-                empresa_id: empId,
-                competencia: comp,
-                ano,
-                mes,
-                status: 'ABERTA',
-                observacoes: 'Importado do backup legado',
-              },
-              { onConflict: 'empresa_id,competencia' },
-            )
+          await (supabase as any).from("folha_competencias").upsert(
+            {
+              empresa_id: empId,
+              competencia: comp,
+              ano,
+              mes,
+              status: "ABERTA",
+              observacoes: "Importado do backup legado",
+            },
+            { onConflict: "empresa_id,competencia" },
+          )
 
-          for (const [funcId, fL] of Object.entries(funcsLanc) as [string, any][]) {
-            if (funcId === '__novo' || funcId === 'undefined') continue
+          for (const [funcId, fL] of Object.entries(
+            funcsLanc,
+          ) as [string, any][]) {
+            if (funcId === "__novo" || funcId === "undefined") continue
             const fCad = funcMap[funcId]
             if (!fCad || fCad.empresaId !== empId) continue
 
@@ -627,27 +722,38 @@ export class FolhaService {
             const filhos = Number(fCad.filhos || 0)
 
             const totalProventos =
-              bruto + producao + limp + sab + fer + ajuda + comissao + gratif + vendAjuda
+              bruto +
+              producao +
+              limp +
+              sab +
+              fer +
+              ajuda +
+              comissao +
+              gratif +
+              vendAjuda
             const totalDescontos = adiant
-            const liquido = Math.round((totalProventos - totalDescontos) * 100) / 100
+            const liquido =
+              Math.round((totalProventos - totalDescontos) * 100) / 100
             const comissaoCalc = Math.round(vendObra * 0.005 * 100) / 100
             const modoCalculo =
-              vendObra > 0 && Math.abs(comissao - comissaoCalc) > 0.01 ? 'Digitado' : 'Calculado'
+              vendObra > 0 && Math.abs(comissao - comissaoCalc) > 0.01
+                ? "Digitado"
+                : "Calculado"
 
             rows.push({
               empresa_id: empId,
               competencia: comp,
               nome: fCad.nome.trim().toUpperCase(),
-              cargo: (fCad.funcao || 'Geral').trim().toUpperCase(),
-              tipo: 'Funcionario',
-              funcao: (fCad.funcao || 'Geral').trim().toUpperCase(),
+              cargo: (fCad.funcao || "Geral").trim().toUpperCase(),
+              tipo: "Funcionario",
+              funcao: (fCad.funcao || "Geral").trim().toUpperCase(),
               unidade: fCad.unidade,
               bruto,
               salario_base: bruto,
               filhos,
-              conta: fCad.conta || '',
-              chave_pix: fCad.pix || '',
-              pix: fCad.pix || '',
+              conta: fCad.conta || "",
+              chave_pix: fCad.pix || "",
+              pix: fCad.pix || "",
               obras,
               valor_obra: valorObra,
               producao,
@@ -687,16 +793,17 @@ export class FolhaService {
             const bruto = t.bruto
             const totalProventos = bruto + comissao + ajudaCusto + gratif
             const totalDescontos = adiant
-            const liquido = Math.round((totalProventos - totalDescontos) * 100) / 100
+            const liquido =
+              Math.round((totalProventos - totalDescontos) * 100) / 100
 
             if (tL || bruto > 0 || vendObra > 0) {
               rows.push({
                 empresa_id: empId,
                 competencia: comp,
                 nome: t.nome.trim().toUpperCase(),
-                cargo: 'Terceiro',
-                tipo: 'Terceiro',
-                funcao: 'Terceiro',
+                cargo: "Terceiro",
+                tipo: "Terceiro",
+                funcao: "Terceiro",
                 unidade: t.unidade,
                 bruto,
                 salario_base: bruto,
@@ -721,9 +828,12 @@ export class FolhaService {
                 salario_liquido: liquido,
                 mensal_liquido: liquido,
                 modo_calculo:
-                  vendObra > 0 && Math.abs(comissao - Math.round(vendObra * 0.005 * 100) / 100) > 0.01
-                    ? 'Digitado'
-                    : 'Calculado',
+                  vendObra > 0 &&
+                  Math.abs(
+                    comissao - Math.round(vendObra * 0.005 * 100) / 100,
+                  ) > 0.01
+                    ? "Digitado"
+                    : "Calculado",
                 oculto: false,
                 inativo: false,
                 backup_id: `terc_${t.backupKey}`,
@@ -734,15 +844,15 @@ export class FolhaService {
 
           if (rows.length > 0) {
             await (supabase as any)
-              .from('folha_pagamento_linhas')
-              .upsert(rows, { onConflict: 'empresa_id,competencia,nome' })
+              .from("folha_pagamento_linhas")
+              .upsert(rows, { onConflict: "empresa_id,competencia,nome" })
           }
         }
       }
 
-      console.info('[Folha] Seed automático concluído com sucesso.')
+      console.info("[Folha] Seed automático concluído com sucesso.")
     } catch (err) {
-      console.error('[Folha] Falha ao semear folha:', err)
+      console.error("[Folha] Falha ao semear folha:", err)
     }
   }
 }

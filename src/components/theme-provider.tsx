@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState } from 'react'
-import { ThemeProvider as NextThemesProvider } from 'next-themes'
+import { createContext, useContext, useEffect, useState } from "react"
+import { ThemeProvider as NextThemesProvider } from "next-themes"
 
 export function ThemeProvider({
   children,
