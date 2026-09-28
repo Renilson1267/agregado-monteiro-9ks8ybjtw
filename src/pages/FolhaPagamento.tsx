@@ -149,7 +149,7 @@ export function FolhaPagamento() {
 
   // Holerite / Impressão
   const [tipoImpressaoA4, setTipoImpressaoA4] =
-    useState<"quinzena" | "mensal" | "producao" | null>(null)
+    useState<"geral" | "quinzena" | "mensal" | "producao" | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
 
   // 1. Carregar lista de competências disponíveis
@@ -940,7 +940,9 @@ export function FolhaPagamento() {
   }
 
   // Disparar impressão de aba em A4
-  const imprimirAbaA4 = (tipo: "quinzena" | "mensal" | "producao") => {
+  const imprimirAbaA4 = (
+    tipo: "geral" | "quinzena" | "mensal" | "producao",
+  ) => {
     setTipoImpressaoA4(tipo)
     setTimeout(() => {
       window.print()
@@ -1217,6 +1219,16 @@ export function FolhaPagamento() {
                     size="sm"
                     variant="outline"
                     className="h-8 gap-1.5 text-xs"
+                    onClick={() => imprimirAbaA4("geral")}
+                    title="Imprimir Folha Geral em A4"
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    Imprimir Geral A4
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-xs"
                     onClick={() => abrirModalEdicao()}
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -1276,8 +1288,20 @@ export function FolhaPagamento() {
                         FILHOS
                       </th>
                       <th
+                        className="py-2.5 px-2 text-right text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50/50 dark:bg-emerald-950/20"
+                        title="Produção Total (Obras × Valor/Obra)"
+                      >
+                        PRODUÇÃO (+)
+                      </th>
+                      <th
+                        className="py-2.5 px-2 text-right text-blue-600 font-semibold bg-blue-50/40 dark:bg-blue-950/20"
+                        title="Adiantamento de Quinzena (calculado sobre salário bruto)"
+                      >
+                        QUINZENA (−)
+                      </th>
+                      <th
                         className="py-2.5 px-2 text-right text-red-600"
-                        title="Desconto INSS"
+                        title="Desconto INSS (base = salário bruto)"
                       >
                         INSS (−)
                       </th>
@@ -1289,15 +1313,9 @@ export function FolhaPagamento() {
                       </th>
                       <th
                         className="py-2.5 px-2 text-right text-red-600"
-                        title="Desconto IRRF"
+                        title="Desconto IRRF (base = salário bruto − INSS)"
                       >
                         IRRF (−)
-                      </th>
-                      <th
-                        className="py-2.5 px-2 text-right text-blue-600 font-semibold"
-                        title="Adiantamento de Quinzena"
-                      >
-                        QUINZENA (−)
                       </th>
                       <th className="py-2.5 px-2 text-right font-bold text-primary bg-primary/10">
                         MENSAL (LÍQUIDO)
@@ -1314,7 +1332,7 @@ export function FolhaPagamento() {
                     {linhasGeralProcessadas.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={15}
+                          colSpan={17}
                           className="text-center py-8 text-muted-foreground"
                         >
                           {carregando
@@ -1402,6 +1420,45 @@ export function FolhaPagamento() {
                                 {l.filhos > 0 ? l.filhos : 0}
                               </td>
 
+                              {/* PRODUÇÃO VISÍVEL NA ABA GERAL */}
+                              <td className="py-2 px-2 text-right font-mono whitespace-nowrap text-emerald-700 dark:text-emerald-300 bg-emerald-50/30 dark:bg-emerald-950/10">
+                                <div className="flex items-center justify-end gap-1">
+                                  <span>
+                                    {l.producaoTotal > 0
+                                      ? `+${fmtMoeda(l.producaoTotal)}`
+                                      : fmtMoeda(0)}
+                                  </span>
+                                  {l.obras > 0 && (
+                                    <span className="text-[9px] text-muted-foreground font-sans">
+                                      ({l.obras}ob)
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* QUINZENA VISÍVEL NA ABA GERAL (SOBRE O BRUTO) */}
+                              <td className="py-2 px-2 text-right font-mono text-blue-600 whitespace-nowrap bg-blue-50/20 dark:bg-blue-950/10">
+                                <div className="flex items-center justify-end gap-1">
+                                  <span>
+                                    {l.quinzenaFinal > 0
+                                      ? `−${fmtMoeda(l.quinzenaFinal)}`
+                                      : fmtMoeda(0)}
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[8px] px-1 py-0 h-3.5 ${
+                                      l.isQuinzenaSobrescrita
+                                        ? "border-amber-400 text-amber-700 bg-amber-50"
+                                        : "border-muted text-muted-foreground"
+                                    }`}
+                                  >
+                                    {l.isQuinzenaSobrescrita
+                                      ? "Digitado"
+                                      : "Calculado"}
+                                  </Badge>
+                                </div>
+                              </td>
+
                               {/* INSS com badge Calculado / Digitado */}
                               <td className="py-2 px-2 text-right font-mono whitespace-nowrap text-red-600">
                                 <div className="flex items-center justify-end gap-1">
@@ -1475,25 +1532,6 @@ export function FolhaPagamento() {
                                 </div>
                               </td>
 
-                              {/* QUINZENA */}
-                              <td className="py-2 px-2 text-right font-mono text-blue-600 whitespace-nowrap">
-                                <div className="flex items-center justify-end gap-1">
-                                  <span>
-                                    {l.quinzenaFinal > 0
-                                      ? `−${fmtMoeda(l.quinzenaFinal)}`
-                                      : fmtMoeda(0)}
-                                  </span>
-                                  {l.isQuinzenaSobrescrita && (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[8px] px-1 py-0 h-3.5 border-amber-400 text-amber-700 bg-amber-50"
-                                    >
-                                      Digitado
-                                    </Badge>
-                                  )}
-                                </div>
-                              </td>
-
                               {/* MENSAL (LÍQUIDO) */}
                               <td className="py-2 px-2 text-right font-mono font-bold text-primary bg-primary/10 whitespace-nowrap">
                                 <div className="flex items-center justify-end gap-1">
@@ -1558,7 +1596,7 @@ export function FolhaPagamento() {
                                 key={`${l.id}-detalhe`}
                                 className="bg-muted/20 border-b border-primary/20"
                               >
-                                <td colSpan={15} className="p-3 pl-8">
+                                <td colSpan={17} className="p-3 pl-8">
                                   <div className="rounded-lg border bg-card p-3 shadow-sm space-y-3">
                                     <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
                                       <div className="flex items-center gap-2">
@@ -1895,6 +1933,16 @@ export function FolhaPagamento() {
                       <td className="py-2.5 px-2 text-center font-mono bg-amber-50/40 dark:bg-amber-950/10">
                         {totaisGeral.filhos}
                       </td>
+                      <td className="py-2.5 px-2 text-right font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50/30 dark:bg-emerald-950/10">
+                        {totaisGeral.producao > 0
+                          ? `+${fmtMoeda(totaisGeral.producao)}`
+                          : fmtMoeda(0)}
+                      </td>
+                      <td className="py-2.5 px-2 text-right font-mono text-blue-600 bg-blue-50/20 dark:bg-blue-950/10">
+                        {totaisGeral.quinzena > 0
+                          ? `−${fmtMoeda(totaisGeral.quinzena)}`
+                          : fmtMoeda(0)}
+                      </td>
                       <td className="py-2.5 px-2 text-right font-mono text-red-600">
                         {totaisGeral.inss > 0
                           ? `−${fmtMoeda(totaisGeral.inss)}`
@@ -1910,11 +1958,6 @@ export function FolhaPagamento() {
                           ? `−${fmtMoeda(totaisGeral.irrf)}`
                           : fmtMoeda(0)}
                       </td>
-                      <td className="py-2.5 px-2 text-right font-mono text-blue-600">
-                        {totaisGeral.quinzena > 0
-                          ? `−${fmtMoeda(totaisGeral.quinzena)}`
-                          : fmtMoeda(0)}
-                      </td>
                       <td className="py-2.5 px-2 text-right font-mono text-primary bg-primary/20 text-sm">
                         {fmtMoeda(totaisGeral.mensal)}
                       </td>
@@ -1922,7 +1965,7 @@ export function FolhaPagamento() {
                     </tr>
                     {/* Linha adicional no rodapé detalhando totais dos componentes extras */}
                     <tr className="bg-muted/60 text-[11px] border-t border-border font-normal">
-                      <td colSpan={15} className="py-2 px-4">
+                      <td colSpan={17} className="py-2 px-4">
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground font-mono">
                           <span className="font-bold text-foreground">
                             Discriminação dos totais:
@@ -3603,13 +3646,186 @@ export function FolhaPagamento() {
                 ? "FOLHA DE QUINZENA"
                 : tipoImpressaoA4 === "producao"
                   ? "FOLHA DE PRODUÇÃO"
-                  : "FOLHA MENSAL"}
+                  : tipoImpressaoA4 === "geral"
+                    ? "FOLHA GERAL DE PAGAMENTO"
+                    : "FOLHA MENSAL"}
             </span>
             <p className="text-[11px] font-semibold mt-1">
               Competência: {rotuloCompetenciaMesAno}
             </p>
           </div>
         </div>
+
+        {tipoImpressaoA4 === "geral" && (
+          <div className="space-y-4">
+            <table className="w-full border-collapse border text-[9px]">
+              <thead className="bg-gray-100 text-gray-800 font-bold uppercase">
+                <tr>
+                  <th className="border p-1 text-center w-5">Nº</th>
+                  <th className="border p-1 text-left">NOME</th>
+                  <th className="border p-1 text-left">FUNÇÃO</th>
+                  <th className="border p-1 text-right">TOTAL BRUTO</th>
+                  <th className="border p-1 text-center">FILHOS</th>
+                  <th className="border p-1 text-right">PRODUÇÃO</th>
+                  <th className="border p-1 text-right">QUINZENA</th>
+                  <th className="border p-1 text-right">INSS</th>
+                  <th className="border p-1 text-right">FAMÍLIA</th>
+                  <th className="border p-1 text-right">IRRF</th>
+                  <th className="border p-1 text-right font-bold">
+                    MENSAL (LÍQUIDO)
+                  </th>
+                  <th className="border p-1 text-left">PIX / CONTA</th>
+                  <th className="border p-1 text-center w-28">ASSINATURA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linhasGeralProcessadas.map((l, idx) => (
+                  <tr key={l.id}>
+                    <td className="border p-1 text-center font-mono">
+                      {idx + 1}
+                    </td>
+                    <td className="border p-1 font-semibold">{l.nome}</td>
+                    <td className="border p-1">{l.funcao}</td>
+                    <td className="border p-1 text-right font-mono">
+                      {fmtMoeda(l.bruto)}
+                    </td>
+                    <td className="border p-1 text-center font-mono">
+                      {l.filhos > 0 ? l.filhos : 0}
+                    </td>
+                    <td className="border p-1 text-right font-mono">
+                      {l.producaoTotal > 0 ? fmtMoeda(l.producaoTotal) : "-"}
+                    </td>
+                    <td className="border p-1 text-right font-mono">
+                      {l.quinzenaFinal > 0 ? fmtMoeda(l.quinzenaFinal) : "-"}
+                    </td>
+                    <td className="border p-1 text-right font-mono">
+                      {l.inssFinal > 0 ? fmtMoeda(l.inssFinal) : "-"}
+                    </td>
+                    <td className="border p-1 text-right font-mono">
+                      {l.familiaFinal > 0 ? fmtMoeda(l.familiaFinal) : "-"}
+                    </td>
+                    <td className="border p-1 text-right font-mono">
+                      {l.irrfFinal > 0 ? fmtMoeda(l.irrfFinal) : "-"}
+                    </td>
+                    <td className="border p-1 text-right font-mono font-bold">
+                      {fmtMoeda(l.mensalFinal)}
+                    </td>
+                    <td className="border p-1 font-mono text-[8px]">
+                      {l.pix || l.conta || "-"}
+                    </td>
+                    <td className="border p-1"></td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-100 font-bold">
+                <tr>
+                  <td className="border p-1 text-center">-</td>
+                  <td className="border p-1">
+                    TOTAL FUNCIONÁRIOS ({linhasGeralProcessadas.length})
+                  </td>
+                  <td className="border p-1">-</td>
+                  <td className="border p-1 text-right font-mono">
+                    {fmtMoeda(totaisGeral.bruto)}
+                  </td>
+                  <td className="border p-1 text-center font-mono">
+                    {totaisGeral.filhos}
+                  </td>
+                  <td className="border p-1 text-right font-mono">
+                    {fmtMoeda(totaisGeral.producao)}
+                  </td>
+                  <td className="border p-1 text-right font-mono">
+                    {fmtMoeda(totaisGeral.quinzena)}
+                  </td>
+                  <td className="border p-1 text-right font-mono">
+                    {fmtMoeda(totaisGeral.inss)}
+                  </td>
+                  <td className="border p-1 text-right font-mono">
+                    {fmtMoeda(totaisGeral.familia)}
+                  </td>
+                  <td className="border p-1 text-right font-mono">
+                    {fmtMoeda(totaisGeral.irrf)}
+                  </td>
+                  <td className="border p-1 text-right font-mono">
+                    {fmtMoeda(totaisGeral.mensal)}
+                  </td>
+                  <td className="border p-1" colSpan={2}></td>
+                </tr>
+              </tfoot>
+            </table>
+
+            {terceirosProcessados.length > 0 && (
+              <div className="space-y-1 pt-2">
+                <div className="font-bold text-[10px] uppercase">
+                  TERCEIROS (QUINZENA {Math.round(percentualQuinzena * 100)}% /
+                  MENSAL {Math.round((1 - percentualQuinzena) * 100)}% SEM
+                  DESCONTO)
+                </div>
+                <table className="w-full border-collapse border text-[9px]">
+                  <thead className="bg-gray-100 font-bold uppercase">
+                    <tr>
+                      <th className="border p-1 text-center w-5">Nº</th>
+                      <th className="border p-1 text-left">NOME</th>
+                      <th className="border p-1 text-right">VALOR DO MÊS</th>
+                      <th className="border p-1 text-right">QUINZENA</th>
+                      <th className="border p-1 text-right font-bold">
+                        MENSAL
+                      </th>
+                      <th className="border p-1 text-left">PIX</th>
+                      <th className="border p-1 text-left">OBS</th>
+                      <th className="border p-1 text-center w-28">
+                        ASSINATURA
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {terceirosProcessados.map((t, idx) => (
+                      <tr key={t.id}>
+                        <td className="border p-1 text-center font-mono">
+                          {idx + 1}
+                        </td>
+                        <td className="border p-1 font-semibold">{t.nome}</td>
+                        <td className="border p-1 text-right font-mono">
+                          {fmtMoeda(t.valorMes)}
+                        </td>
+                        <td className="border p-1 text-right font-mono">
+                          {fmtMoeda(t.quinzena)}
+                        </td>
+                        <td className="border p-1 text-right font-mono font-bold">
+                          {fmtMoeda(t.mensal)}
+                        </td>
+                        <td className="border p-1 font-mono text-[8px]">
+                          {t.pix || t.chave_pix || "-"}
+                        </td>
+                        <td className="border p-1 text-[8px]">
+                          {t.observacao_linha || "-"}
+                        </td>
+                        <td className="border p-1"></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-100 font-bold">
+                    <tr>
+                      <td className="border p-1.5 text-center">-</td>
+                      <td className="border p-1.5">
+                        TOTAL TERCEIROS ({terceirosProcessados.length})
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(totaisTerceiros.valorMes)}
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(totaisTerceiros.quinzena)}
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(totaisTerceiros.mensal)}
+                      </td>
+                      <td className="border p-1.5" colSpan={3}></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
         {tipoImpressaoA4 === "quinzena" && (
           <div className="space-y-4">
