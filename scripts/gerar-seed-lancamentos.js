@@ -337,7 +337,7 @@ BEGIN
 END $$;
 `
 
-  const outPath = path.resolve(rootDir, 'supabase/migrations/20260928033000_seed_lancamentos_folha.sql')
+  const outPath = path.resolve(rootDir, 'supabase/migrations/20260928043000_seed_lancamentos_folha_todas_competencias.sql')
   fs.writeFileSync(outPath, sql, 'utf8')
   console.log(`Migration gerada: ${sql.length} bytes, ${sql.split('\n').length} linhas em ${outPath}`)
   return { sql, comps, countComps: comps.length }
@@ -678,6 +678,5 @@ BEGIN
   })
 }
 
-if (process.argv[1] && (process.argv[1].endsWith('gerar-seed-lancamentos.js') || process.argv[1].endsWith('gerar-seed-lancamentos.mjs'))) {
-  gerarMigrationSeed()
-}
+// Auto-executa ao ser invocado
+gerarMigrationSeed()
