@@ -572,7 +572,9 @@ export class FolhaService {
         acc.totalComissao += isTerceiro ? 0 : Number(l.comissao || 0)
         acc.totalVendasAjuda += isTerceiro ? 0 : Number(l.vendas_ajuda || 0)
         acc.totalMensalLiquido += Number(l.mensal_liquido || 0)
-        acc.totalGeralLiquidoAReceber += Number(l.mensal_liquido || 0)
+        acc.totalGeralLiquidoAReceber +=
+          Number(l.mensal_liquido || 0) +
+          (isTerceiro ? 0 : Number(l.producao || 0))
         return acc
       },
       {

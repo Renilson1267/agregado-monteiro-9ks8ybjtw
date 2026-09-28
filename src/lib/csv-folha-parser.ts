@@ -414,7 +414,7 @@ export function parseFolhaPagamentoCSV(
     const pix = getCol(colunas, mapa.pix)
 
     // Cálculo automático oficial:
-    // Líquido Mensal = Bruto − INSS − IR + Família + Gratificação − Quinzena − Adiantamento + Produção + Comissão
+    // Líquido Mensal = Bruto − INSS − IR + Família + Gratificação − Quinzena − Adiantamento + Limpeza + Sábado + Férias + Ajuda + Comissão (SEM PRODUÇÃO, que é pagamento à parte)
     const mensalLiquidoCalculado = calcularMensalLiquido({
       tipo,
       bruto,
@@ -424,7 +424,7 @@ export function parseFolhaPagamentoCSV(
       gratificacao,
       quinzena,
       adiantamento,
-      producao,
+      producao: 0,
       comissao,
     })
 
@@ -539,8 +539,7 @@ export function parseFolhaPagamentoCSV(
       acc.totalMensalLiquido += l.mensal_liquido
       acc.totalProducao += l.producao
       acc.totalComissao += l.comissao
-      acc.totalGeralLiquidoAReceber += l.mensal_liquido
-      return acc
+      acc.totalGeralLiquidoAReceber += l.mensal_liquido + (l.tipo === "Terceiro" ? 0 : l.producao)      return acc
     },
     {
       totalRegistros: 0,

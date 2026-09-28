@@ -142,8 +142,9 @@ export interface FolhaTotaisCalculados {
 }
 
 /**
- * FÓRMULA DO LÍQUIDO DO LEGADO GC MIX:
- * bruto − INSS − IR + família + gratificação + produção + limpeza + sábado + férias + ajuda + vendAjuda + comissão − adiantamento − quinzena
+ * FÓRMULA DO LÍQUIDO MENSAL (sem produção):
+ * Produção é um pagamento à parte e fica apenas na aba GERAL.
+ * MENSAL = bruto − INSS − IR + família + gratificação + limpeza + sábado + férias + ajuda + vendAjuda + comissão − adiantamento − quinzena
  */
 export function calcularMensalLiquido(linha: {
   tipo?: TipoColaboradorFolha | string
@@ -165,6 +166,7 @@ export function calcularMensalLiquido(linha: {
   adiantamento?: number
   quinzena?: number
   quinzena_2?: number
+  incluirProducao?: boolean
 }): number {
   const bruto = Number(linha.bruto || 0)
   const inss = Number(linha.inss || 0)
@@ -173,8 +175,11 @@ export function calcularMensalLiquido(linha: {
   const gratificacao = Number(linha.gratificacao || 0)
   const obras = Number(linha.obras || 0)
   const valorObra = Number(linha.valor_obra ?? 20)
-  const producao =
-    linha.producao !== undefined ? Number(linha.producao) : obras * valorObra
+  const producao = linha.incluirProducao
+    ? linha.producao !== undefined
+      ? Number(linha.producao)
+      : obras * valorObra
+    : 0
   const limpeza = Number(linha.limpeza || 0)
   const sabado = Number(linha.sabado || 0)
   const ferias = Number(linha.ferias || 0)

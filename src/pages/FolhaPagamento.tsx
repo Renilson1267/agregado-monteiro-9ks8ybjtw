@@ -40,6 +40,7 @@ import {
   calcularIrrf,
   calcularQuinzena,
   calcularMensalGeral,
+  calcularMensalSemProducao,
   calcularProducaoTotal,
   calcularAPagarProducao,
   calcularComissaoVendas,
@@ -336,6 +337,7 @@ export function FolhaPagamento() {
     extends FolhaPagamentoLinha {
     // Componentes discriminados do líquido
     // Líquido decomposto calculado que fecha 100% com a fórmula
+    // Líquido da aba Geral (mensal + produção)
     inssCalculado: number | null
     familiaCalculado: number | null
     irrfCalculado: number | null
@@ -346,6 +348,7 @@ export function FolhaPagamento() {
     irrfFinal: number
     quinzenaFinal: number
     mensalFinal: number
+    liquidoGeral: number
     isInssSobrescrito: boolean
     isFamiliaSobrescrito: boolean
     isIrrfSobrescrito: boolean
@@ -391,7 +394,7 @@ export function FolhaPagamento() {
           ? Number(l.quinzena)
           : quinzenaCalc
 
-      // Extras que compõem o líquido
+      // Extras
       const obras = Number(l.obras || 0)
       const valorObra = Number(l.valor_obra ?? 20)
       const producaoTotal =
@@ -407,35 +410,39 @@ export function FolhaPagamento() {
       const vendasAjudaTotal = Number(l.vendas_ajuda || 0)
       const adiantamentoTotal = Number(l.adiantamento || 0)
 
-      // Cálculo completo do líquido usando todas as variáveis
-      const liquidoComposto = calcularMensalLiquido({
-        ...l,
+      // Cálculo do MENSAL LÍQUIDO (sem produção)
+      const mensalCalculadoSemProd = calcularMensalSemProducao(
         bruto,
-        inss: inssFinal,
-        ir: irrfFinal,
-        familia: familiaFinal,
-        quinzena: quinzenaFinal,
-        producao: producaoTotal,
-        limpeza: limpezaTotal,
-        sabado: sabadoTotal,
-        ferias: feriasTotal,
-        ajuda_custo: ajudaTotal,
-        gratificacao: gratificacaoTotal,
-        comissao: comissaoTotal,
-        vendas_ajuda: vendasAjudaTotal,
-        adiantamento: adiantamentoTotal,
-      })
+        inssFinal,
+        familiaFinal,
+        irrfFinal,
+        quinzenaFinal,
+        {
+          limpeza: limpezaTotal,
+          sabado: sabadoTotal,
+          ferias: feriasTotal,
+          ajuda_custo: ajudaTotal,
+          gratificacao: gratificacaoTotal,
+          adiantamento: adiantamentoTotal,
+          comissao: comissaoTotal,
+          vendas_ajuda: vendasAjudaTotal,
+        },
+      )
 
       // Se a linha tem mensal_liquido gravado e válido, respeita-o;
-      // se não tiver ou estiver zerado com extras presentes, usa o líquido composto
+      // se não tiver ou estiver zerado, usa o mensal sem produção
       const mensalFinal =
         l.mensal_liquido !== undefined &&
         l.mensal_liquido !== null &&
         Number(l.mensal_liquido) !== 0
           ? Number(l.mensal_liquido)
-          : liquidoComposto
+          : mensalCalculadoSemProd
 
-      const mensalCalc = liquidoComposto
+      const mensalCalc = mensalCalculadoSemProd
+
+      // Líquido completo para a aba GERAL (mensal + produção à parte)
+      const liquidoGeral = Math.round((mensalFinal + producaoTotal) * 100) / 100
+      const liquidoComposto = liquidoGeral
 
       const isInssSobrescrito =
         inssCalc !== null &&
@@ -464,6 +471,7 @@ export function FolhaPagamento() {
         irrfFinal,
         quinzenaFinal,
         mensalFinal,
+        liquidoGeral,
         isInssSobrescrito,
         isFamiliaSobrescrito,
         isIrrfSobrescrito,
@@ -563,6 +571,7 @@ export function FolhaPagamento() {
         acc.vendas_ajuda += l.vendasAjudaTotal
         acc.adiantamento += l.adiantamentoTotal
         acc.mensal += l.mensalFinal
+        acc.liquidoGeral += l.liquidoGeral
         return acc
       },
       {
@@ -582,6 +591,7 @@ export function FolhaPagamento() {
         vendas_ajuda: 0,
         adiantamento: 0,
         mensal: 0,
+        liquidoGeral: 0,
       },
     )
   }, [linhasGeralProcessadas])
@@ -644,8 +654,10 @@ export function FolhaPagamento() {
   const resumo = useMemo(() => {
     const pessoasNaFolha = linhasGeralProcessadas.length
     const salariosQuinzena = totaisGeral.quinzena
+    // Salários Mensal Líquido agora não inclui produção (produção fica separada como pagamento à parte)
     const salariosMensalLiquido = totaisGeral.mensal
     const subtotalFolha = salariosQuinzena + salariosMensalLiquido
+    // Produção a pagar é item separado (pagamento à parte) sem duplicar no mensal
     const producaoAPagar = totaisProducao.aPagar
     const vendasComissoes = totaisVendas.comissao
     const terceirosFolha = totaisTerceiros.valorMes
@@ -653,8 +665,9 @@ export function FolhaPagamento() {
     const irrfRetido = totaisGeral.irrf
     const salarioFamiliaPago = totaisGeral.familia
 
-    const totalGeralDoMes =
-      subtotalFolha + producaoAPagar + vendasComissoes + terceirosFolha
+    // Total Geral do Mês = Subtotal Folha (Quinzena + Mensal Líquido sem produção) + Produção a pagar + Terceiros
+    // Obs: comissões de vendas já fazem parte do Mensal Líquido dos vendedores, logo não devem ser duplicadas se somadas aqui
+    const totalGeralDoMes = subtotalFolha + producaoAPagar + terceirosFolha
 
     return {
       pessoasNaFolha,
@@ -816,16 +829,14 @@ export function FolhaPagamento() {
       }
 
       if (!mensalManual) {
-        updated.mensal_liquido = calcularMensalGeral(
+        // Mensal Líquido não inclui produção (produção é pagamento à parte, visível só na Geral e Produção)
+        updated.mensal_liquido = calcularMensalSemProducao(
           bruto,
           inss,
           familia,
           irrf,
           quinzena,
           {
-            obras: updated.obras,
-            valor_obra: updated.valor_obra,
-            producao: updated.producao,
             limpeza: updated.limpeza,
             sabado: updated.sabado,
             feriado: updated.feriado,
@@ -1298,12 +1309,13 @@ export function FolhaPagamento() {
                 </div>
                 <div className="text-[11px] font-mono bg-background/80 p-2 rounded border border-amber-500/30 text-foreground flex items-center gap-2 overflow-x-auto whitespace-nowrap">
                   <span className="font-bold text-primary">
-                    FÓRMULA DO LÍQUIDO:
+                    FÓRMULA DO LÍQUIDO TOTAL (GERAL):
                   </span>
                   <span>
-                    Líquido = Bruto − INSS − IRRF + Família + Gratificação −
-                    Quinzena − Adiantamento + Produção(Obras×Valor) + Limpeza +
-                    Sábado + Férias + Ajuda + Comissão
+                    Líquido Total = Mensal (Bruto − INSS − IRRF + Família +
+                    Gratificação − Quinzena − Adiantamento + Limpeza + Sábado +
+                    Férias + Ajuda + Comissão) + Produção (Obras×Valor,
+                    pagamento à parte)
                   </span>
                 </div>
               </div>
@@ -1362,8 +1374,11 @@ export function FolhaPagamento() {
                       >
                         IRRF (−)
                       </th>
-                      <th className="py-2.5 px-2 text-right font-bold text-primary bg-primary/10">
-                        MENSAL (LÍQUIDO)
+                      <th
+                        className="py-2.5 px-2 text-right font-bold text-primary bg-primary/10"
+                        title="Líquido total a receber na Geral (Mensal + Produção)"
+                      >
+                        LÍQUIDO TOTAL
                       </th>
                       <th className="py-2.5 px-3">AGÊNCIA / C/C</th>
                       <th className="py-2.5 px-3">PIX</th>
@@ -1577,11 +1592,11 @@ export function FolhaPagamento() {
                                 </div>
                               </td>
 
-                              {/* MENSAL (LÍQUIDO) */}
+                              {/* LÍQUIDO A RECEBER (MENSAL + PRODUÇÃO) */}
                               <td className="py-2 px-2 text-right font-mono font-bold text-primary bg-primary/10 whitespace-nowrap">
                                 <div className="flex items-center justify-end gap-1">
                                   <span className="text-sm">
-                                    {fmtMoeda(l.mensalFinal)}
+                                    {fmtMoeda(l.liquidoGeral)}
                                   </span>
                                   {l.isMensalSobrescrito && (
                                     <Badge
@@ -1652,7 +1667,8 @@ export function FolhaPagamento() {
                                         </span>
                                       </div>
                                       <div className="text-xs font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/30">
-                                        Total Líquido: {fmtMoeda(l.mensalFinal)}
+                                        Total Líquido:{" "}
+                                        {fmtMoeda(l.liquidoGeral)}
                                       </div>
                                     </div>
 
@@ -1948,7 +1964,8 @@ export function FolhaPagamento() {
                                         </span>
                                       )}
                                       <span className="font-bold text-primary ml-1">
-                                        = {fmtMoeda(l.mensalFinal)} (LÍQUIDO)
+                                        = {fmtMoeda(l.liquidoGeral)} (LÍQUIDO
+                                        TOTAL)
                                       </span>
                                     </div>
                                   </div>
@@ -2004,7 +2021,7 @@ export function FolhaPagamento() {
                           : fmtMoeda(0)}
                       </td>
                       <td className="py-2.5 px-2 text-right font-mono text-primary bg-primary/20 text-sm">
-                        {fmtMoeda(totaisGeral.mensal)}
+                        {fmtMoeda(totaisGeral.liquidoGeral)}
                       </td>
                       <td className="py-2.5 px-3" colSpan={4}></td>
                     </tr>
@@ -2084,7 +2101,7 @@ export function FolhaPagamento() {
                             </span>
                           )}
                           <span className="font-bold text-primary ml-auto">
-                            = Total Líquido {fmtMoeda(totaisGeral.mensal)}
+                            = Total Líquido {fmtMoeda(totaisGeral.liquidoGeral)}
                           </span>
                         </div>
                       </td>
@@ -2425,9 +2442,10 @@ export function FolhaPagamento() {
                 </CardTitle>
                 <CardDescription className="text-xs">
                   Pagamento mensal com descontos fiscais e adiantamento da
-                  quinzena quitado.
+                  quinzena quitado (produção é pagamento à parte e fica na aba
+                  Geral).
                 </CardDescription>
-              </div>
+              </div>{" "}
               <Button
                 variant="outline"
                 size="sm"
@@ -3057,9 +3075,14 @@ export function FolhaPagamento() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-2.5 px-4">
-                    <span className="text-muted-foreground">
-                      Vendas (comissões)
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-muted-foreground">
+                        Vendas (comissões)
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        (já inclusas no Mensal dos vendedores)
+                      </span>
+                    </div>
                     <span className="font-mono font-medium text-amber-600">
                       {fmtMoeda(resumo.vendasComissoes)}
                     </span>

@@ -146,6 +146,71 @@ export function calcularQuinzena(
  * MENSAL = BRUTO − INSS − IRRF + FAMÍLIA + GRATIFICAÇÃO − QUINZENA − ADIANTAMENTO
  *          + PRODUÇÃO(OBRAS × VALOR/OBRA) + LIMPEZA + SÁBADO + FERIADO + FÉRIAS + AJUDA + COMISSÃO + VENDAS_AJUDA
  */
+/**
+ * Calcula o valor Líquido Mensal da aba MENSAL (sem produção):
+ * Produção é um pagamento à parte e NÃO entra no mensal.
+ * MENSAL = BRUTO − INSS − IRRF + FAMÍLIA + GRATIFICAÇÃO − QUINZENA − ADIANTAMENTO
+ *          + LIMPEZA + SÁBADO + FERIADO + FÉRIAS + AJUDA + COMISSÃO + VENDAS_AJUDA
+ */
+export function calcularMensalSemProducao(
+  bruto: number,
+  inss: number,
+  familia: number,
+  irrf: number,
+  quinzena: number,
+  extras?: {
+    limpeza?: number
+    sabado?: number
+    feriado?: number
+    ferias?: number
+    ajuda_custo?: number
+    gratificacao?: number
+    adiantamento?: number
+    quinzena_2?: number
+    comissao?: number
+    vendas_ajuda?: number
+  },
+): number {
+  const b = Number(bruto || 0)
+  const i = Number(inss || 0)
+  const f = Number(familia || 0)
+  const ir = Number(irrf || 0)
+  const q = Number(quinzena || 0)
+
+  const limp = Number(extras?.limpeza || 0)
+  const sab = Number(extras?.sabado || 0)
+  const feriado = Number(extras?.feriado || 0)
+  const fer = Number(extras?.ferias || 0)
+  const ajuda = Number(extras?.ajuda_custo || 0)
+  const grat = Number(extras?.gratificacao || 0)
+  const adiant = Number(extras?.adiantamento || 0)
+  const q2 = Number(extras?.quinzena_2 || 0)
+  const com = Number(extras?.comissao || 0)
+  const vendAj = Number(extras?.vendas_ajuda || 0)
+
+  const total =
+    b -
+    i -
+    ir +
+    f +
+    grat -
+    q -
+    q2 -
+    adiant +
+    limp +
+    sab +
+    feriado +
+    fer +
+    ajuda +
+    vendAj +
+    com
+  return Math.round(total * 100) / 100
+}
+
+/**
+ * Calcula o valor Líquido da aba GERAL (inclui produção como pagamento à parte no total a receber):
+ * GERAL = MENSAL_SEM_PRODUCAO + PRODUÇÃO
+ */
 export function calcularMensalGeral(
   bruto: number,
   inss: number,
@@ -168,47 +233,22 @@ export function calcularMensalGeral(
     vendas_ajuda?: number
   },
 ): number {
-  const b = Number(bruto || 0)
-  const i = Number(inss || 0)
-  const f = Number(familia || 0)
-  const ir = Number(irrf || 0)
-  const q = Number(quinzena || 0)
-
   const obras = Number(extras?.obras || 0)
   const valorObra = Number(extras?.valor_obra ?? 20)
   const prod =
     extras?.producao !== undefined
       ? Number(extras.producao || 0)
       : obras * valorObra
-  const limp = Number(extras?.limpeza || 0)
-  const sab = Number(extras?.sabado || 0)
-  const feriado = Number(extras?.feriado || 0)
-  const fer = Number(extras?.ferias || 0)
-  const ajuda = Number(extras?.ajuda_custo || 0)
-  const grat = Number(extras?.gratificacao || 0)
-  const adiant = Number(extras?.adiantamento || 0)
-  const q2 = Number(extras?.quinzena_2 || 0)
-  const com = Number(extras?.comissao || 0)
-  const vendAj = Number(extras?.vendas_ajuda || 0)
 
-  const total =
-    b -
-    i -
-    ir +
-    f +
-    grat -
-    q -
-    q2 -
-    adiant +
-    prod +
-    limp +
-    sab +
-    feriado +
-    fer +
-    ajuda +
-    vendAj +
-    com
-  return Math.round(total * 100) / 100
+  const semProd = calcularMensalSemProducao(
+    bruto,
+    inss,
+    familia,
+    irrf,
+    quinzena,
+    extras,
+  )
+  return Math.round((semProd + prod) * 100) / 100
 }
 
 /**
