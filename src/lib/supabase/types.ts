@@ -400,6 +400,8 @@ export type Database = {
           adicional_noturno: number
           adicional_periculosidade: number
           agencia: string | null
+          ajuda_custo: number
+          backup_id: string | null
           banco: string | null
           base_fgts: number
           base_inss: number
@@ -420,6 +422,7 @@ export type Database = {
           empresa_id: string
           faltas_atrasos: number
           familia: number
+          ferias: number
           fgts_mes: number
           filhos: number
           funcao: string
@@ -429,22 +432,27 @@ export type Database = {
           horas_extras: number
           horas_normais: number
           id: string
+          inativo: boolean
           inss: number
           inss_retido: number
           ir: number
           irrf_retido: number
           itens_discriminados: Json | null
+          limpeza: number
           matricula: string | null
           mensal_liquido: number
           modo_calculo: string
           nome: string
+          obras: number
           observacoes: string | null
+          oculto: boolean
           outros_descontos: number
           outros_proventos: number
           pix: string
           plano_saude: number
           producao: number
           quinzena: number
+          sabado: number
           salario_base: number
           salario_liquido: number
           tipo: string
@@ -455,6 +463,9 @@ export type Database = {
           vale_refeicao: number
           vale_transporte: number
           valor_horas_extras: number
+          valor_obra: number
+          vendas_ajuda: number
+          vendas_obra: number
         }
         Insert: {
           adiantamento?: number
@@ -462,6 +473,8 @@ export type Database = {
           adicional_noturno?: number
           adicional_periculosidade?: number
           agencia?: string | null
+          ajuda_custo?: number
+          backup_id?: string | null
           banco?: string | null
           base_fgts?: number
           base_inss?: number
@@ -482,6 +495,7 @@ export type Database = {
           empresa_id: string
           faltas_atrasos?: number
           familia?: number
+          ferias?: number
           fgts_mes?: number
           filhos?: number
           funcao?: string
@@ -491,22 +505,27 @@ export type Database = {
           horas_extras?: number
           horas_normais?: number
           id?: string
+          inativo?: boolean
           inss?: number
           inss_retido?: number
           ir?: number
           irrf_retido?: number
           itens_discriminados?: Json | null
+          limpeza?: number
           matricula?: string | null
           mensal_liquido?: number
           modo_calculo?: string
           nome: string
+          obras?: number
           observacoes?: string | null
+          oculto?: boolean
           outros_descontos?: number
           outros_proventos?: number
           pix?: string
           plano_saude?: number
           producao?: number
           quinzena?: number
+          sabado?: number
           salario_base?: number
           salario_liquido?: number
           tipo?: string
@@ -517,6 +536,9 @@ export type Database = {
           vale_refeicao?: number
           vale_transporte?: number
           valor_horas_extras?: number
+          valor_obra?: number
+          vendas_ajuda?: number
+          vendas_obra?: number
         }
         Update: {
           adiantamento?: number
@@ -524,6 +546,8 @@ export type Database = {
           adicional_noturno?: number
           adicional_periculosidade?: number
           agencia?: string | null
+          ajuda_custo?: number
+          backup_id?: string | null
           banco?: string | null
           base_fgts?: number
           base_inss?: number
@@ -544,6 +568,7 @@ export type Database = {
           empresa_id?: string
           faltas_atrasos?: number
           familia?: number
+          ferias?: number
           fgts_mes?: number
           filhos?: number
           funcao?: string
@@ -553,22 +578,27 @@ export type Database = {
           horas_extras?: number
           horas_normais?: number
           id?: string
+          inativo?: boolean
           inss?: number
           inss_retido?: number
           ir?: number
           irrf_retido?: number
           itens_discriminados?: Json | null
+          limpeza?: number
           matricula?: string | null
           mensal_liquido?: number
           modo_calculo?: string
           nome?: string
+          obras?: number
           observacoes?: string | null
+          oculto?: boolean
           outros_descontos?: number
           outros_proventos?: number
           pix?: string
           plano_saude?: number
           producao?: number
           quinzena?: number
+          sabado?: number
           salario_base?: number
           salario_liquido?: number
           tipo?: string
@@ -579,6 +609,9 @@ export type Database = {
           vale_refeicao?: number
           vale_transporte?: number
           valor_horas_extras?: number
+          valor_obra?: number
+          vendas_ajuda?: number
+          vendas_obra?: number
         }
         Relationships: [
           {
@@ -604,41 +637,118 @@ export type Database = {
           },
         ]
       }
-      funcionarios: {
+      folha_terceiros: {
         Row: {
           ativo: boolean
-          cpf: string | null
+          bruto: number
+          conta: string | null
           created_at: string
-          data_admissao: string | null
-          empresa_id: string | null
-          funcao: string
+          empresa_id: string
           id: string
           nome: string
-          observacoes: string | null
+          obs: string | null
+          pix: string | null
+          unidade: string
           updated_at: string
         }
         Insert: {
           ativo?: boolean
-          cpf?: string | null
+          bruto?: number
+          conta?: string | null
           created_at?: string
-          data_admissao?: string | null
-          empresa_id?: string | null
-          funcao?: string
+          empresa_id: string
           id?: string
           nome: string
-          observacoes?: string | null
+          obs?: string | null
+          pix?: string | null
+          unidade?: string
           updated_at?: string
         }
         Update: {
           ativo?: boolean
+          bruto?: number
+          conta?: string | null
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          nome?: string
+          obs?: string | null
+          pix?: string | null
+          unidade?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folha_terceiros_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funcionarios: {
+        Row: {
+          ativo: boolean
+          bruto: number
+          conta: string | null
+          cpf: string | null
+          created_at: string
+          data_admissao: string | null
+          email: string | null
+          empresa_id: string | null
+          filhos: number
+          funcao: string
+          id: string
+          inativo: boolean
+          nome: string
+          observacoes: string | null
+          oculto: boolean
+          pix: string | null
+          telefone: string | null
+          unidade: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          bruto?: number
+          conta?: string | null
           cpf?: string | null
           created_at?: string
           data_admissao?: string | null
+          email?: string | null
           empresa_id?: string | null
+          filhos?: number
           funcao?: string
           id?: string
+          inativo?: boolean
+          nome: string
+          observacoes?: string | null
+          oculto?: boolean
+          pix?: string | null
+          telefone?: string | null
+          unidade?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          bruto?: number
+          conta?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_admissao?: string | null
+          email?: string | null
+          empresa_id?: string | null
+          filhos?: number
+          funcao?: string
+          id?: string
+          inativo?: boolean
           nome?: string
           observacoes?: string | null
+          oculto?: boolean
+          pix?: string | null
+          telefone?: string | null
+          unidade?: string
           updated_at?: string
         }
         Relationships: [
