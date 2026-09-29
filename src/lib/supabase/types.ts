@@ -11,186 +11,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      caixa_categorias: {
-        Row: {
-          ativo: boolean
-          cor: string | null
-          created_at: string
-          empresa_id: string
-          id: string
-          nome: string
-          ordem: number | null
-          tipo: string
-          updated_at: string
-        }
-        Insert: {
-          ativo?: boolean
-          cor?: string | null
-          created_at?: string
-          empresa_id: string
-          id?: string
-          nome: string
-          ordem?: number | null
-          tipo: string
-          updated_at?: string
-        }
-        Update: {
-          ativo?: boolean
-          cor?: string | null
-          created_at?: string
-          empresa_id?: string
-          id?: string
-          nome?: string
-          ordem?: number | null
-          tipo?: string
-          updated_at?: string
-        }
-        Relationships: [{
-          foreignKeyName: "caixa_categorias_empresa_id_fkey"
-          columns: ["empresa_id"]
-          isOneToOne: false
-          referencedRelation: "empresas"
-          referencedColumns: ["id"]
-        }]
-      }
-      caixa_fechamentos: {
-        Row: {
-          ano: number
-          competencia: string
-          created_at: string
-          empresa_id: string
-          fechado_em: string | null
-          fechado_por: string | null
-          id: string
-          mes: number
-          observacoes: string | null
-          saldo_anterior: number
-          saldo_final: number
-          status: string
-          total_entradas: number
-          total_saidas: number
-          updated_at: string
-        }
-        Insert: {
-          ano: number
-          competencia: string
-          created_at?: string
-          empresa_id: string
-          fechado_em?: string | null
-          fechado_por?: string | null
-          id?: string
-          mes: number
-          observacoes?: string | null
-          saldo_anterior?: number
-          saldo_final?: number
-          status?: string
-          total_entradas?: number
-          total_saidas?: number
-          updated_at?: string
-        }
-        Update: {
-          ano?: number
-          competencia?: string
-          created_at?: string
-          empresa_id?: string
-          fechado_em?: string | null
-          fechado_por?: string | null
-          id?: string
-          mes?: number
-          observacoes?: string | null
-          saldo_anterior?: number
-          saldo_final?: number
-          status?: string
-          total_entradas?: number
-          total_saidas?: number
-          updated_at?: string
-        }
-        Relationships: [{
-          foreignKeyName: "caixa_fechamentos_empresa_id_fkey"
-          columns: ["empresa_id"]
-          isOneToOne: false
-          referencedRelation: "empresas"
-          referencedColumns: ["id"]
-        }]
-      }
-      caixa_lancamentos: {
-        Row: {
-          categoria: string
-          categoria_id: string | null
-          competencia: string
-          created_at: string
-          created_by: string | null
-          data: string
-          descricao: string
-          documento_ref: string | null
-          empresa_id: string
-          forma_pagamento: string | null
-          id: string
-          obra_id: string | null
-          obra_nome: string | null
-          observacao: string | null
-          tipo: string
-          updated_at: string
-          valor: number
-        }
-        Insert: {
-          categoria: string
-          categoria_id?: string | null
-          competencia: string
-          created_at?: string
-          created_by?: string | null
-          data?: string
-          descricao: string
-          documento_ref?: string | null
-          empresa_id: string
-          forma_pagamento?: string | null
-          id?: string
-          obra_id?: string | null
-          obra_nome?: string | null
-          observacao?: string | null
-          tipo: string
-          updated_at?: string
-          valor: number
-        }
-        Update: {
-          categoria?: string
-          categoria_id?: string | null
-          competencia?: string
-          created_at?: string
-          created_by?: string | null
-          data?: string
-          descricao?: string
-          documento_ref?: string | null
-          empresa_id?: string
-          forma_pagamento?: string | null
-          id?: string
-          obra_id?: string | null
-          obra_nome?: string | null
-          observacao?: string | null
-          tipo?: string
-          updated_at?: string
-          valor?: number
-        }
-        Relationships: [{
-          foreignKeyName: "caixa_lancamentos_categoria_id_fkey"
-          columns: ["categoria_id"]
-          isOneToOne: false
-          referencedRelation: "caixa_categorias"
-          referencedColumns: ["id"]
-        }, {
-          foreignKeyName: "caixa_lancamentos_empresa_id_fkey"
-          columns: ["empresa_id"]
-          isOneToOne: false
-          referencedRelation: "empresas"
-          referencedColumns: ["id"]
-        }, {
-          foreignKeyName: "caixa_lancamentos_obra_id_fkey"
-          columns: ["obra_id"]
-          isOneToOne: false
-          referencedRelation: "obras"
-          referencedColumns: ["id"]
-        }]
-      }
       cargas: {
         Row: {
           carga_zerada: boolean
@@ -1162,7 +982,7 @@ export type Database = {
           documento: string | null
           empresa_id: string | null
           id: string
-          material_id: string
+          material_id: string | null
           observacao: string | null
           quantidade: number
           tipo: string
@@ -1174,7 +994,7 @@ export type Database = {
           documento?: string | null
           empresa_id?: string | null
           id?: string
-          material_id: string
+          material_id?: string | null
           observacao?: string | null
           quantidade: number
           tipo: string
@@ -1186,7 +1006,7 @@ export type Database = {
           documento?: string | null
           empresa_id?: string | null
           id?: string
-          material_id?: string
+          material_id?: string | null
           observacao?: string | null
           quantidade?: number
           tipo?: string
@@ -1208,57 +1028,6 @@ export type Database = {
           columns: ["material_id"]
           isOneToOne: false
           referencedRelation: "materiais"
-          referencedColumns: ["id"]
-        }]
-      }
-      obras: {
-        Row: {
-          ativo: boolean
-          cidade: string | null
-          cliente_id: string | null
-          created_at: string
-          empresa_id: string
-          id: string
-          nome: string
-          observacoes: string | null
-          responsavel: string | null
-          updated_at: string
-        }
-        Insert: {
-          ativo?: boolean
-          cidade?: string | null
-          cliente_id?: string | null
-          created_at?: string
-          empresa_id: string
-          id?: string
-          nome: string
-          observacoes?: string | null
-          responsavel?: string | null
-          updated_at?: string
-        }
-        Update: {
-          ativo?: boolean
-          cidade?: string | null
-          cliente_id?: string | null
-          created_at?: string
-          empresa_id?: string
-          id?: string
-          nome?: string
-          observacoes?: string | null
-          responsavel?: string | null
-          updated_at?: string
-        }
-        Relationships: [{
-          foreignKeyName: "obras_cliente_id_fkey"
-          columns: ["cliente_id"]
-          isOneToOne: false
-          referencedRelation: "clientes"
-          referencedColumns: ["id"]
-        }, {
-          foreignKeyName: "obras_empresa_id_fkey"
-          columns: ["empresa_id"]
-          isOneToOne: false
-          referencedRelation: "empresas"
           referencedColumns: ["id"]
         }]
       }
@@ -1658,72 +1427,74 @@ type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
-export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (Database["public"]["Tables"] & Database["public"]["Views"])
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+export type Tables<DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"] | {
+  schema: keyof DatabaseWithoutInternals
+},
+TableName extends DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  : never = never,> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+    Row: infer R
+  }
+  ? R
+  : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (Database["public"]["Tables"] &
-        Database["public"]["Views"])
-    ? (Database["public"]["Tables"] &
-        Database["public"]["Views"])[PublicTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
     : never
 
-export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof Database["public"]["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+export type TablesInsert<DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"] | {
+  schema: keyof DatabaseWithoutInternals
+},
+TableName extends DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  : never = never,> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+    Insert: infer I
+  }
+  ? I
+  : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
-    ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
     : never
 
-export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof Database["public"]["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
-  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
-    ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
-      Update: infer U
-    }
-    ? U
-    : never
+export type TablesUpdate<DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"] | {
+  schema: keyof DatabaseWithoutInternals
+},
+TableName extends DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  : never = never,> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+    Update: infer U
+  }
+  ? U
   : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+    : never
 
 export type Enums<DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"] | {
   schema: keyof DatabaseWithoutInternals

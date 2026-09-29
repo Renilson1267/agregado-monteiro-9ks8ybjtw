@@ -25,7 +25,6 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Wallet,
 } from "lucide-react"
 import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from "@/assets/logos"
 import { useTheme } from "next-themes"
@@ -127,12 +126,6 @@ export function Sidebar({
           icon: FileText,
           label: "Ordens & Recibos",
           path: "/ordens",
-          group: "operacao",
-        },
-        {
-          icon: Wallet,
-          label: "Controle de Caixa",
-          path: "/caixa",
           group: "operacao",
         },
         {
