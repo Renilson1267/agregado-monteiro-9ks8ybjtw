@@ -257,8 +257,8 @@ export const CaixaService = {
     lancamentos: CaixaLancamento[]
   }> {
     // 1. Calcular Saldo Anterior acumulando todos os lançamentos antes desta competência
-    const { data: lancsAnteriores, error: errAnt } = await supabase
-      .from("caixa_lancamentos" as any)
+    const { data: lancsAnteriores, error: errAnt } = await (supabase as any)
+      .from("caixa_lancamentos")
       .select("tipo, valor")
       .eq("empresa_id", empresaId)
       .lt("competencia", competencia)
@@ -270,7 +270,8 @@ export const CaixaService = {
 
     let saldoAnterior = 0
     if (lancsAnteriores) {
-      for (const item of lancsAnteriores) {
+      const listaAnt = lancsAnteriores as Array<{ tipo: string; valor: number }>
+      for (const item of listaAnt) {
         const val = Number(item.valor || 0)
         if (item.tipo === "entrada") saldoAnterior += val
         else if (item.tipo === "saida") saldoAnterior -= val
@@ -338,7 +339,7 @@ export const CaixaService = {
     )
       .map(([categoria, item]) => ({
         categoria,
-        tipo: "entrada",
+        tipo: "entrada" as TipoCaixaLancamento,
         total: item.total,
         quantidade: item.qtd,
         percentual: totalEntradas > 0 ? (item.total / totalEntradas) * 100 : 0,
@@ -350,7 +351,7 @@ export const CaixaService = {
     )
       .map(([categoria, item]) => ({
         categoria,
-        tipo: "saida",
+        tipo: "saida" as TipoCaixaLancamento,
         total: item.total,
         quantidade: item.qtd,
         percentual: totalSaidas > 0 ? (item.total / totalSaidas) * 100 : 0,
@@ -403,15 +404,16 @@ export const CaixaService = {
     const primeiroDiaAno = `${ano}-01`
 
     // 1. Saldo antes de começar o ano
-    const { data: lancsAnteriores } = await supabase
-      .from("caixa_lancamentos" as any)
+    const { data: lancsAnteriores } = await (supabase as any)
+      .from("caixa_lancamentos")
       .select("tipo, valor")
       .eq("empresa_id", empresaId)
       .lt("competencia", primeiroDiaAno)
 
     let saldoInicialAno = 0
     if (lancsAnteriores) {
-      for (const item of lancsAnteriores) {
+      const listaAntAno = lancsAnteriores as Array<{ tipo: string; valor: number }>
+      for (const item of listaAntAno) {
         const val = Number(item.valor || 0)
         if (item.tipo === "entrada") saldoInicialAno += val
         else if (item.tipo === "saida") saldoInicialAno -= val
@@ -419,8 +421,8 @@ export const CaixaService = {
     }
 
     // 2. Buscar lançamentos de todo o ano
-    let query = supabase
-      .from("caixa_lancamentos" as any)
+    let query = (supabase as any)
+      .from("caixa_lancamentos")
       .select("competencia, tipo, categoria, valor")
       .eq("empresa_id", empresaId)
       .gte("competencia", `${ano}-01`)
@@ -453,11 +455,16 @@ export const CaixaService = {
     let totalEntradasAno = 0
     let totalSaidasAno = 0
 
+    const itensAnoTyped = (lancsAno || []) as {
+      competencia: string
+      tipo: string
+      categoria: string
+      valor: number
+    }[]
+
     for (let m = 1; m <= 12; m++) {
       const compStr = `${ano}-${String(m).padStart(2, "0")}`
-      const itensDoMes = (lancsAno || []).filter(
-        (l) => l.competencia === compStr,
-      )
+      const itensDoMes = itensAnoTyped.filter((l) => l.competencia === compStr)
 
       let ent = 0
       let sai = 0
@@ -513,8 +520,8 @@ export const CaixaService = {
     }[]
     competenciasListadas: string[]
   }> {
-    let query = supabase
-      .from("caixa_lancamentos" as any)
+    let query = (supabase as any)
+      .from("caixa_lancamentos")
       .select("competencia, valor, obra_nome, obra_id, tipo")
       .eq("empresa_id", empresaId)
       .eq("tipo", "entrada")
@@ -537,7 +544,15 @@ export const CaixaService = {
     }>()
     const setComps = new Set<string>()
 
-    for (const r of data || []) {
+    const listaObrasLanc = (data || []) as {
+      competencia: string
+      valor: number
+      obra_nome: string | null
+      obra_id: string | null
+      tipo: string
+    }[]
+
+    for (const r of listaObrasLanc) {
       const nome = r.obra_nome?.trim() || "Obra Não Identificada"
       const comp = r.competencia
       const val = Number(r.valor || 0)

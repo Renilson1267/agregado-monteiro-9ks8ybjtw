@@ -74,7 +74,6 @@ import { AbaImportadorCaixa } from "@/components/caixa/AbaImportadorCaixa"
 export default function Caixa() {
   const { toast } = useToast()
   const { empresas, empresaAtiva } = useEmpresa()
-  const { isBalanceiro } = useUsuario()
   const [searchParams, setSearchParams] = useSearchParams()
 
   // Aba ativa pela URL (?tab=lancamentos | fechamento | anual | obras | importar)

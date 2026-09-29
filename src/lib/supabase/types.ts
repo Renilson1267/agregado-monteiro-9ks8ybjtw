@@ -11,6 +11,186 @@ export type Database = {
   }
   public: {
     Tables: {
+      caixa_categorias: {
+        Row: {
+          ativo: boolean
+          cor: string | null
+          created_at: string
+          empresa_id: string
+          id: string
+          nome: string
+          ordem: number | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cor?: string | null
+          created_at?: string
+          empresa_id: string
+          id?: string
+          nome: string
+          ordem?: number | null
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cor?: string | null
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          nome?: string
+          ordem?: number | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [{
+          foreignKeyName: "caixa_categorias_empresa_id_fkey"
+          columns: ["empresa_id"]
+          isOneToOne: false
+          referencedRelation: "empresas"
+          referencedColumns: ["id"]
+        }]
+      }
+      caixa_fechamentos: {
+        Row: {
+          ano: number
+          competencia: string
+          created_at: string
+          empresa_id: string
+          fechado_em: string | null
+          fechado_por: string | null
+          id: string
+          mes: number
+          observacoes: string | null
+          saldo_anterior: number
+          saldo_final: number
+          status: string
+          total_entradas: number
+          total_saidas: number
+          updated_at: string
+        }
+        Insert: {
+          ano: number
+          competencia: string
+          created_at?: string
+          empresa_id: string
+          fechado_em?: string | null
+          fechado_por?: string | null
+          id?: string
+          mes: number
+          observacoes?: string | null
+          saldo_anterior?: number
+          saldo_final?: number
+          status?: string
+          total_entradas?: number
+          total_saidas?: number
+          updated_at?: string
+        }
+        Update: {
+          ano?: number
+          competencia?: string
+          created_at?: string
+          empresa_id?: string
+          fechado_em?: string | null
+          fechado_por?: string | null
+          id?: string
+          mes?: number
+          observacoes?: string | null
+          saldo_anterior?: number
+          saldo_final?: number
+          status?: string
+          total_entradas?: number
+          total_saidas?: number
+          updated_at?: string
+        }
+        Relationships: [{
+          foreignKeyName: "caixa_fechamentos_empresa_id_fkey"
+          columns: ["empresa_id"]
+          isOneToOne: false
+          referencedRelation: "empresas"
+          referencedColumns: ["id"]
+        }]
+      }
+      caixa_lancamentos: {
+        Row: {
+          categoria: string
+          categoria_id: string | null
+          competencia: string
+          created_at: string
+          created_by: string | null
+          data: string
+          descricao: string
+          documento_ref: string | null
+          empresa_id: string
+          forma_pagamento: string | null
+          id: string
+          obra_id: string | null
+          obra_nome: string | null
+          observacao: string | null
+          tipo: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          categoria: string
+          categoria_id?: string | null
+          competencia: string
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          descricao: string
+          documento_ref?: string | null
+          empresa_id: string
+          forma_pagamento?: string | null
+          id?: string
+          obra_id?: string | null
+          obra_nome?: string | null
+          observacao?: string | null
+          tipo: string
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          categoria?: string
+          categoria_id?: string | null
+          competencia?: string
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          descricao?: string
+          documento_ref?: string | null
+          empresa_id?: string
+          forma_pagamento?: string | null
+          id?: string
+          obra_id?: string | null
+          obra_nome?: string | null
+          observacao?: string | null
+          tipo?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [{
+          foreignKeyName: "caixa_lancamentos_categoria_id_fkey"
+          columns: ["categoria_id"]
+          isOneToOne: false
+          referencedRelation: "caixa_categorias"
+          referencedColumns: ["id"]
+        }, {
+          foreignKeyName: "caixa_lancamentos_empresa_id_fkey"
+          columns: ["empresa_id"]
+          isOneToOne: false
+          referencedRelation: "empresas"
+          referencedColumns: ["id"]
+        }, {
+          foreignKeyName: "caixa_lancamentos_obra_id_fkey"
+          columns: ["obra_id"]
+          isOneToOne: false
+          referencedRelation: "obras"
+          referencedColumns: ["id"]
+        }]
+      }
       cargas: {
         Row: {
           carga_zerada: boolean
@@ -1028,6 +1208,57 @@ export type Database = {
           columns: ["material_id"]
           isOneToOne: false
           referencedRelation: "materiais"
+          referencedColumns: ["id"]
+        }]
+      }
+      obras: {
+        Row: {
+          ativo: boolean
+          cidade: string | null
+          cliente_id: string | null
+          created_at: string
+          empresa_id: string
+          id: string
+          nome: string
+          observacoes: string | null
+          responsavel: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cidade?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          empresa_id: string
+          id?: string
+          nome: string
+          observacoes?: string | null
+          responsavel?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cidade?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          responsavel?: string | null
+          updated_at?: string
+        }
+        Relationships: [{
+          foreignKeyName: "obras_cliente_id_fkey"
+          columns: ["cliente_id"]
+          isOneToOne: false
+          referencedRelation: "clientes"
+          referencedColumns: ["id"]
+        }, {
+          foreignKeyName: "obras_empresa_id_fkey"
+          columns: ["empresa_id"]
+          isOneToOne: false
+          referencedRelation: "empresas"
           referencedColumns: ["id"]
         }]
       }
