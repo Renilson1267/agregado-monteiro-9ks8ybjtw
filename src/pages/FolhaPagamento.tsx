@@ -2868,7 +2868,6 @@ export function FolhaPagamento() {
                         NOME
                       </th>
                       <th className="py-2.5 px-2">FUNÇÃO</th>
-                      <th className="py-2.5 px-2 text-right">TOTAL BRUTO</th>
                       <th className="py-2.5 px-2 text-right text-blue-600">
                         QUINZENA
                       </th>
@@ -2893,9 +2892,6 @@ export function FolhaPagamento() {
                         </td>
                         <td className="py-2 px-2 text-muted-foreground">
                           {l.funcao}
-                        </td>
-                        <td className="py-2 px-2 text-right font-mono">
-                          {fmtMoeda(l.bruto)}
                         </td>
                         <td className="py-2 px-2 text-right font-mono text-blue-600">
                           {fmtMoeda(l.quinzenaFinal)}
@@ -2928,9 +2924,6 @@ export function FolhaPagamento() {
                         TOTAL FUNCIONÁRIOS ({linhasGeralProcessadas.length})
                       </td>
                       <td className="py-2.5 px-2">-</td>
-                      <td className="py-2.5 px-2 text-right font-mono">
-                        {fmtMoeda(totaisGeral.bruto)}
-                      </td>
                       <td className="py-2.5 px-2 text-right font-mono text-blue-600">
                         {fmtMoeda(totaisGeral.quinzena)}
                       </td>
@@ -2958,11 +2951,6 @@ export function FolhaPagamento() {
                           {linhasGeralProcessadas.length +
                             terceirosProcessados.length}{" "}
                           pessoas
-                        </td>
-                        <td className="py-2 px-2 text-right font-mono text-muted-foreground">
-                          {fmtMoeda(
-                            totaisGeral.bruto + totaisTerceiros.valorMes,
-                          )}
                         </td>
                         <td className="py-2 px-2 text-right font-mono text-blue-600">
                           {fmtMoeda(
@@ -4949,7 +4937,6 @@ export function FolhaPagamento() {
                   <th className="border p-1 text-center w-5">Nº</th>
                   <th className="border p-1 text-left">NOME</th>
                   <th className="border p-1 text-left">FUNÇÃO</th>
-                  <th className="border p-1 text-right">TOTAL BRUTO</th>
                   <th className="border p-1 text-right">QUINZENA</th>
                   <th className="border p-1 text-right">INSS</th>
                   <th className="border p-1 text-right">FAMÍLIA</th>
@@ -4969,9 +4956,6 @@ export function FolhaPagamento() {
                     </td>
                     <td className="border p-1 font-semibold">{l.nome}</td>
                     <td className="border p-1">{l.funcao}</td>
-                    <td className="border p-1 text-right font-mono">
-                      {fmtMoeda(l.bruto)}
-                    </td>
                     <td className="border p-1 text-right font-mono">
                       {fmtMoeda(l.quinzenaFinal)}
                     </td>
@@ -4999,9 +4983,6 @@ export function FolhaPagamento() {
                   <td className="border p-1 text-center">-</td>
                   <td className="border p-1">TOTAL FUNCIONÁRIOS</td>
                   <td className="border p-1">-</td>
-                  <td className="border p-1 text-right font-mono">
-                    {fmtMoeda(totaisGeral.bruto)}
-                  </td>
                   <td className="border p-1 text-right font-mono">
                     {fmtMoeda(totaisGeral.quinzena)}
                   </td>
