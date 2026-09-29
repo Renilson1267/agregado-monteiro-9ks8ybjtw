@@ -774,7 +774,7 @@ export class FolhaService {
   static async exportarBackupCompleto(
     empresaId: string,
     empresaNome: string,
-    appVersion: string = "0.0.83",
+    appVersion: string = "0.0.87",
   ): Promise<any> {
     // 1. Competências da empresa
     const { data: competenciasData, error: errComp } = await (supabase as any)

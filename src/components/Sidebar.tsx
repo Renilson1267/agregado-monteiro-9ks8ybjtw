@@ -56,12 +56,21 @@ interface SidebarProps {
   onMobileClose?: () => void
 }
 
-interface NavItemDef {
+export type NavGroupId = "operacao" | "estoque_tracos" | "folha" | "cadastros" | "ferramentas"
+
+export interface NavItemDef {
   icon: typeof LayoutDashboard
   label: string
   path: string
   badge?: string
-  section?: "operacional" | "gestao" | "sistema"
+  group: NavGroupId
+  adminOnly?: boolean
+}
+
+export interface NavGroupDef {
+  id: NavGroupId
+  label: string
+  items: NavItemDef[]
 }
 
 export function Sidebar({
@@ -89,103 +98,131 @@ export function Sidebar({
 
   const [modalEmpresasOpen, setModalEmpresasOpen] = useState(false)
 
-  // Itens de navegação estritamente filtrados pelo perfil do usuário
-  // Balanceiro: APENAS itens operacionais permitidos, NUNCA valores ou itens de gestão/admin
-  const navItems: NavItemDef[] = isBalanceiro
-    ? [
-        {
-          icon: LayoutDashboard,
-          label: "Dashboard Operacional",
-          path: "/",
-          section: "operacional",
-        },
+  // Definição dos grupos lógicos objetivos de navegação (em português claro)
+  // Estrutura organizada para que o usuário encontre qualquer tela em até 2 cliques:
+  // 1. OPERAÇÃO (Lançamento de Cargas, Dashboard, Ordens & Recibos, Quadro Comparativo, Relatórios)
+  // 2. ESTOQUE & TRAÇOS (Estoque de Insumos, Traços & Dosagens)
+  // 3. FOLHA DE PAGAMENTO (Folha Mensal/Quinzena, Tabelas Oficiais INSS/IRRF)
+  // 4. CADASTROS (Cadastros Gerais: Clientes, Motoristas, Caminhões, etc; Gestão de Usuários)
+  // 5. FERRAMENTAS & SUPORTE (Controle de Exames ASO, Backup & Restauração)
+  const navGroups: NavGroupDef[] = [
+    {
+      id: "operacao",
+      label: "Operação",
+      items: [
         {
           icon: Truck,
-          label: "Lançar Cargas",
+          label: "Lançamento de Cargas",
           path: "/lancamentos",
-          section: "operacional",
+          group: "operacao",
+        },
+        {
+          icon: LayoutDashboard,
+          label: isBalanceiro ? "Dashboard Operacional" : "Dashboard Geral",
+          path: "/",
+          group: "operacao",
         },
         {
           icon: FileText,
           label: "Ordens & Recibos",
           path: "/ordens",
-          section: "operacional",
+          group: "operacao",
         },
         {
-          icon: Boxes,
-          label: "Estoque de Insumos",
-          path: "/estoque",
-          section: "operacional",
-        },
-        {
-          icon: HeartPulse,
-          label: "Controle de Exames (ASO)",
-          path: "/exames",
-          section: "operacional",
-        },
-      ]
-    : [
-        {
-          icon: LayoutDashboard,
-          label: "Dashboard",
-          path: "/",
-          section: "operacional",
-        },
-        {
-          icon: Truck,
-          label: "Lançar Cargas",
-          path: "/lancamentos",
-          section: "operacional",
-        },
-        {
-          icon: FileText,
-          label: "Ordens & Recibos",
-          path: "/ordens",
-          section: "operacional",
-        },
-        {
-          icon: Boxes,
-          label: "Estoque de Insumos",
-          path: "/estoque",
-          section: "operacional",
-        },
-        {
-          icon: FlaskConical,
-          label: "Traços / Dosagens",
-          path: "/tracos",
-          section: "operacional",
-        },
-        {
-          icon: HeartPulse,
-          label: "Controle de Exames (ASO)",
-          path: "/exames",
-          section: "operacional",
+          icon: Scale,
+          label: "Quadro Comparativo",
+          path: "/relatorios?tab=comparativo",
+          group: "operacao",
+          adminOnly: true,
         },
         {
           icon: FileSpreadsheet,
-          label: "Relatórios",
+          label: "Relatórios de Produção",
           path: "/relatorios",
-          section: "gestao",
+          group: "operacao",
+          adminOnly: true,
+        },
+      ],
+    },
+    {
+      id: "estoque_tracos",
+      label: "Estoque & Insumos",
+      items: [
+        {
+          icon: Boxes,
+          label: "Estoque de Insumos",
+          path: "/estoque",
+          group: "estoque_tracos",
         },
         {
-          icon: Users,
-          label: "Cadastros",
-          path: "/cadastros",
-          section: "gestao",
+          icon: FlaskConical,
+          label: "Traços & Dosagens",
+          path: "/tracos",
+          group: "estoque_tracos",
+          adminOnly: true,
         },
+      ],
+    },
+    {
+      id: "folha",
+      label: "Folha de Pagamento",
+      items: [
         {
           icon: Briefcase,
           label: "Folha de Pagamento",
           path: "/folha",
-          section: "gestao",
+          group: "folha",
+          adminOnly: true,
+        },
+        {
+          icon: Settings,
+          label: "Tabelas Oficiais (INSS/IRRF)",
+          path: "/folha?tab=tabelas",
+          group: "folha",
+          adminOnly: true,
+        },
+      ],
+    },
+    {
+      id: "cadastros",
+      label: "Cadastros",
+      items: [
+        {
+          icon: Users,
+          label: "Cadastros Gerais",
+          path: "/cadastros",
+          group: "cadastros",
+          adminOnly: true,
         },
         {
           icon: UserCog,
-          label: "Usuários",
+          label: "Gestão de Usuários",
           path: "/cadastros?tab=usuarios",
-          section: "sistema",
+          group: "cadastros",
+          adminOnly: true,
         },
-      ]
+      ],
+    },
+    {
+      id: "ferramentas",
+      label: "Ferramentas",
+      items: [
+        {
+          icon: HeartPulse,
+          label: "Controle de Exames (ASO)",
+          path: "/exames",
+          group: "ferramentas",
+        },
+        {
+          icon: Download,
+          label: "Backup & Restauração",
+          path: "/folha?tab=backup",
+          group: "ferramentas",
+          adminOnly: true,
+        },
+      ],
+    },
+  ]
 
   const handleLogout = async () => {
     await signOut()
@@ -208,86 +245,112 @@ export function Sidebar({
     return location.pathname === path
   }
 
-  // Renderiza a lista de itens da navegação
+  // Renderiza a lista de itens da navegação organizada por grupos lógicos
   const renderNavList = (isMobileView = false) => {
-    let currentSection: string | undefined = undefined
+    // Filtra itens de acordo com o perfil do usuário
+    const gruposVisiveis = navGroups
+      .map((grupo) => {
+        const itensVisiveis = grupo.items.filter((item) => {
+          if (isBalanceiro && item.adminOnly) return false
+          return true
+        })
+        return {
+          ...grupo,
+          items: itensVisiveis,
+        }
+      })
+      .filter((grupo) => grupo.items.length > 0)
 
     return (
-      <nav className="flex flex-col gap-1 w-full px-2">
-        {navItems.map((item) => {
-          const active = isItemActive(item.path)
-          const showSectionDivider =
-            !isMobileView &&
-            !collapsed &&
-            item.section &&
-            item.section !== currentSection
-          currentSection = item.section
-
-          const linkContent = (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={() => {
-                if (isMobileView && onMobileClose) onMobileClose()
-              }}
-              className={cn(
-                "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
-                collapsed && !isMobileView
-                  ? "justify-center px-0 w-11 h-11 mx-auto"
-                  : "w-full",
-                active
-                  ? "bg-primary text-primary-foreground shadow-sm font-semibold"
-                  : "text-muted-foreground hover:bg-accent/70 hover:text-foreground",
-              )}
-            >
-              <item.icon
+      <nav className="flex flex-col gap-3 w-full px-2">
+        {gruposVisiveis.map((grupo, gIdx) => (
+          <div key={grupo.id} className="w-full space-y-1">
+            {/* Título do Grupo em português objetivo */}
+            {(!collapsed || isMobileView) && (
+              <div
                 className={cn(
-                  "shrink-0 transition-transform duration-150 group-hover:scale-105",
-                  collapsed && !isMobileView ? "w-5 h-5" : "w-4 h-4",
-                  active
-                    ? "text-primary-foreground"
-                    : "text-muted-foreground group-hover:text-foreground",
+                  "px-3 pb-1 flex items-center justify-between",
+                  gIdx > 0 ? "pt-2 border-t border-border/20" : "pt-0.5",
                 )}
-              />
+              >
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/70">
+                  {grupo.label}
+                </span>
+                <span className="text-[9px] font-mono text-muted-foreground/40">
+                  {grupo.items.length}
+                </span>
+              </div>
+            )}
+            {collapsed && !isMobileView && gIdx > 0 && (
+              <div className="my-1.5 mx-auto w-6 h-px bg-border/40" />
+            )}
 
-              {(!collapsed || isMobileView) && (
-                <span className="truncate flex-1 text-left">{item.label}</span>
-              )}
+            {/* Itens do Grupo */}
+            <div className="space-y-0.5">
+              {grupo.items.map((item) => {
+                const active = isItemActive(item.path)
 
-              {active && collapsed && !isMobileView && (
-                <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-l-full bg-primary" />
-              )}
-            </Link>
-          )
+                const linkContent = (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => {
+                      if (isMobileView && onMobileClose) onMobileClose()
+                    }}
+                    className={cn(
+                      "group relative flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-150",
+                      collapsed && !isMobileView
+                        ? "justify-center px-0 w-11 h-11 mx-auto"
+                        : "w-full",
+                      active
+                        ? "bg-primary text-primary-foreground shadow-xs font-semibold"
+                        : "text-muted-foreground hover:bg-accent/70 hover:text-foreground",
+                    )}
+                  >
+                    <item.icon
+                      className={cn(
+                        "shrink-0 transition-transform duration-150 group-hover:scale-105",
+                        collapsed && !isMobileView ? "w-5 h-5" : "w-4 h-4",
+                        active
+                          ? "text-primary-foreground"
+                          : "text-muted-foreground group-hover:text-foreground",
+                      )}
+                    />
 
-          if (collapsed && !isMobileView) {
-            return (
-              <Tooltip key={item.path} delayDuration={100}>
-                <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                <TooltipContent side="right" className="font-medium text-xs">
-                  {item.label}
-                </TooltipContent>
-              </Tooltip>
-            )
-          }
+                    {(!collapsed || isMobileView) && (
+                      <span className="truncate flex-1 text-left text-xs sm:text-sm">
+                        {item.label}
+                      </span>
+                    )}
 
-          return (
-            <div key={item.path} className="w-full">
-              {showSectionDivider && (
-                <div className="pt-3 pb-1 px-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                    {item.section === "operacional"
-                      ? "Operação"
-                      : item.section === "gestao"
-                        ? "Gestão & Controle"
-                        : "Administração"}
-                  </span>
-                </div>
-              )}
-              {linkContent}
+                    {active && collapsed && !isMobileView && (
+                      <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-l-full bg-primary" />
+                    )}
+                  </Link>
+                )
+
+                if (collapsed && !isMobileView) {
+                  return (
+                    <Tooltip key={item.path} delayDuration={100}>
+                      <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+                      <TooltipContent
+                        side="right"
+                        className="font-medium text-xs"
+                      >
+                        <p className="font-semibold">{item.label}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {grupo.label}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )
+                }
+
+                return linkContent
+              })}
             </div>
-          )
-        })}
+          </div>
+        ))}
       </nav>
     )
   }
@@ -630,6 +693,14 @@ export function Sidebar({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {!collapsed && (
+            <div className="pt-0.5 text-center">
+              <span className="text-[10px] text-muted-foreground/50 font-mono">
+                GC MIX v0.0.87
+              </span>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -737,6 +808,12 @@ export function Sidebar({
               <LogOut className="w-4 h-4" />
               <span>Sair do Sistema</span>
             </Button>
+
+            <div className="pt-1 text-center">
+              <span className="text-[10px] text-muted-foreground/60 font-mono">
+                GC MIX v0.0.87
+              </span>
+            </div>
           </div>
         </SheetContent>
       </Sheet>

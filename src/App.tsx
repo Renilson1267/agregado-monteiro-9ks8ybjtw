@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as Sonner } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -50,6 +50,12 @@ const App = () => (
                     >
                       <Route path="/tracos" element={<Tracos />} />
                       <Route path="/relatorios" element={<Relatorios />} />
+                      <Route
+                        path="/comparativo"
+                        element={
+                          <Navigate to="/relatorios?tab=comparativo" replace />
+                        }
+                      />
                       <Route path="/folha" element={<FolhaPagamento />} />
                       <Route path="/cadastros" element={<Cadastros />} />
                     </Route>{" "}

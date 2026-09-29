@@ -72,7 +72,12 @@ export function Header({
     if (path === "/tracos") return "Traços & Dosagens"
     if (path === "/exames") return "Controle de Exames (ASO)"
     if (path === "/folha") return "Folha de Pagamento"
-    if (path === "/relatorios") return "Relatórios de Produção"
+    if (path === "/relatorios") {
+      const params = new URLSearchParams(search)
+      if (params.get("tab") === "comparativo")
+        return "Quadro Comparativo (Monteiro × SJE)"
+      return "Relatórios de Produção"
+    }
     if (path === "/cadastros") {
       const params = new URLSearchParams(search)
       if (params.get("tab") === "usuarios") return "Gestão de Usuários"

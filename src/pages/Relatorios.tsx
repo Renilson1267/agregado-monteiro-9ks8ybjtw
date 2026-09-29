@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Link } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { ConcreteiraService } from "@/services/concreteira"
 import { useEmpresa } from "@/hooks/use-empresa"
 import { useUsuario } from "@/hooks/use-usuario"
@@ -62,9 +62,27 @@ import {
 export default function Relatorios() {
   const { empresaAtiva } = useEmpresa()
   const { isAdministrador } = useUsuario()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const tabParam = searchParams.get("tab")
   const [abaAtiva, setAbaAtiva] = useState<"operacional" | "comparativo">(
-    "operacional",
+    tabParam === "comparativo" ? "comparativo" : "operacional",
   )
+
+  useEffect(() => {
+    if (tabParam === "comparativo" && abaAtiva !== "comparativo") {
+      setAbaAtiva("comparativo")
+    } else if (tabParam === "operacional" && abaAtiva !== "operacional") {
+      setAbaAtiva("operacional")
+    }
+  }, [tabParam, abaAtiva])
+
+  const handleMudarAba = (novaAba: "operacional" | "comparativo") => {
+    setAbaAtiva(novaAba)
+    const newParams = new URLSearchParams(searchParams)
+    newParams.set("tab", novaAba)
+    setSearchParams(newParams, { replace: true })
+  }
 
   // Dados operacionais
   const [cargas, setCargas] = useState<Carga[]>([])
@@ -539,7 +557,7 @@ export default function Relatorios() {
       {/* TABS: Relatório da Unidade Ativa vs Comparativo Monteiro × SJE */}
       <Tabs
         value={abaAtiva}
-        onValueChange={(v) => setAbaAtiva(v as any)}
+        onValueChange={(v) => handleMudarAba(v as any)}
         className="w-full"
       >
         <TabsList className="no-print grid grid-cols-2 w-full max-w-md">

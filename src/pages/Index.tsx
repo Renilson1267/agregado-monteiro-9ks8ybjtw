@@ -43,6 +43,7 @@ import {
   Activity,
   HeartPulse,
   Briefcase,
+  Scale,
 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import type { MetaProducao } from "@/types/concreteira"
@@ -794,9 +795,9 @@ export default function Index() {
               size="sm"
               className="gap-1.5 text-xs bg-card/60 hover:bg-card border-border/60"
             >
-              <Link to="/folha">
-                <Briefcase className="w-4 h-4 text-primary" />
-                Folha de Pagamento
+              <Link to="/relatorios?tab=comparativo">
+                <Scale className="w-4 h-4 text-primary" />
+                Quadro Comparativo
               </Link>
             </Button>
           )}
