@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { useSearchParams } from "react-router-dom"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PainelUsuarios } from "@/components/PainelUsuarios"
+import { AbaControleFerias } from "@/components/AbaControleFerias"
 import { UserCog } from "lucide-react"
 import {
   Dialog,
@@ -55,6 +56,7 @@ import {
   Trash2,
   FileSpreadsheet,
   Target,
+  CalendarDays,
 } from "lucide-react"
 import {
   AlertDialog,
@@ -103,6 +105,7 @@ export default function Cadastros() {
   const [abaAtiva, setAbaAtiva] = useState<string>(() => {
     const permitidas = [
       "usuarios",
+      "ferias",
       "metas",
       "clientes",
       "insumos",
@@ -110,12 +113,13 @@ export default function Cadastros() {
       "veiculos",
       "cidades",
     ]
-    return abaUrl && permitidas.includes(abaUrl) ? abaUrl : "usuarios"
+    return abaUrl && permitidas.includes(abaUrl) ? abaUrl : "ferias"
   })
 
   useEffect(() => {
     const permitidas = [
       "usuarios",
+      "ferias",
       "metas",
       "clientes",
       "insumos",
@@ -827,7 +831,11 @@ export default function Cadastros() {
         }}
         className="w-full"
       >
-        <TabsList className="grid grid-cols-7 w-full max-w-4xl">
+        <TabsList className="grid grid-cols-4 sm:grid-cols-8 w-full max-w-5xl">
+          <TabsTrigger value="ferias" className="gap-1.5 text-xs font-semibold">
+            <CalendarDays className="w-4 h-4 text-primary" />
+            Controle de Férias
+          </TabsTrigger>
           <TabsTrigger value="usuarios" className="gap-1.5 text-xs">
             <UserCog className="w-4 h-4" />
             Usuários
@@ -857,6 +865,11 @@ export default function Cadastros() {
             Cidades ({cidades.length})
           </TabsTrigger>
         </TabsList>
+
+        {/* TAB CONTROLE DE FÉRIAS */}
+        <TabsContent value="ferias" className="mt-6 space-y-4">
+          <AbaControleFerias />
+        </TabsContent>
 
         {/* TAB USUÁRIOS */}
         <TabsContent value="usuarios" className="mt-6 space-y-4">

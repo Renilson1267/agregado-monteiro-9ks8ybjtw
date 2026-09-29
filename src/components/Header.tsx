@@ -27,6 +27,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { useEmpresa } from "@/hooks/use-empresa"
 import { useUsuario } from "@/hooks/use-usuario"
 import { ModalGerenciarEmpresas } from "@/components/ModalGerenciarEmpresas"
+import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from "@/assets/logos"
 
 interface HeaderProps {
   onOpenMobileMenu?: () => void
@@ -81,7 +82,9 @@ export function Header({
     if (path === "/cadastros") {
       const params = new URLSearchParams(search)
       if (params.get("tab") === "usuarios") return "Gestão de Usuários"
-      return "Cadastros Operacionais"
+      if (params.get("tab") === "ferias")
+        return "Controle de Férias & Fardamento"
+      return "Cadastros & Controle de Férias"
     }
     return "GC MIX Concreto Usinado"
   }
@@ -125,15 +128,22 @@ export function Header({
             </Button>
           )}
 
-          {/* Título da tela atual */}
-          <div className="min-w-0 flex items-center gap-2">
-            <h1 className="text-sm sm:text-base font-bold text-foreground truncate tracking-tight">
-              {getPageTitle()}
-            </h1>
-            <span className="hidden lg:inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              {nomeEmpresa}
-            </span>
+          {/* Logo compacta / Título da tela atual */}
+          <div className="min-w-0 flex items-center gap-2.5">
+            <img
+              src={LOGO_GC_MIX_HORIZONTAL}
+              alt={LOGO_ALT_TEXT}
+              className="h-8 max-w-[130px] sm:max-w-[160px] object-contain rounded-sm hidden sm:block shrink-0"
+            />
+            <div className="min-w-0 flex items-center gap-2">
+              <h1 className="text-sm sm:text-base font-bold text-foreground truncate tracking-tight">
+                {getPageTitle()}
+              </h1>
+              <span className="hidden lg:inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {nomeEmpresa}
+              </span>
+            </div>
           </div>
         </div>
 

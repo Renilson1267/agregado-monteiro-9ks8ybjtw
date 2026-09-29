@@ -7,6 +7,7 @@ import {
   Boxes,
   FlaskConical,
   Users,
+  CalendarDays,
   Sun,
   Moon,
   Building2,
@@ -26,7 +27,11 @@ import {
   ChevronRight,
   X,
 } from "lucide-react"
-import { LOGO_GC_MIX_QUADRADA, LOGO_ALT_TEXT } from "@/assets/logos"
+import {
+  LOGO_GC_MIX_QUADRADA,
+  LOGO_GC_MIX_HORIZONTAL,
+  LOGO_ALT_TEXT,
+} from "@/assets/logos"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import {
@@ -187,6 +192,13 @@ export function Sidebar({
       id: "cadastros",
       label: "Cadastros",
       items: [
+        {
+          icon: CalendarDays,
+          label: "Controle de Férias",
+          path: "/cadastros?tab=ferias",
+          group: "cadastros",
+          adminOnly: false,
+        },
         {
           icon: Users,
           label: "Cadastros Gerais",
@@ -381,24 +393,21 @@ export function Sidebar({
             )}
             title="GC MIX Concreto Usinado"
           >
-            <div className="w-9 h-9 p-0.5 rounded-xl bg-white dark:bg-slate-900 border border-border/60 shadow-xs flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <img
-                src={LOGO_GC_MIX_QUADRADA}
-                alt={LOGO_ALT_TEXT}
-                className="w-full h-full object-contain rounded-lg"
-              />
-            </div>
-            {!collapsed && (
-              <div className="min-w-0 flex flex-col leading-tight">
-                <span className="font-extrabold text-sm tracking-tight text-foreground truncate flex items-center gap-1.5">
-                  GC MIX
-                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20">
-                    ERP
-                  </span>
-                </span>
-                <span className="text-[10px] text-muted-foreground truncate">
-                  Concreto & Pedreira
-                </span>
+            {collapsed ? (
+              <div className="w-10 h-10 p-0.5 rounded-xl bg-white dark:bg-slate-900 border border-border/60 shadow-xs flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <img
+                  src={LOGO_GC_MIX_QUADRADA}
+                  alt={LOGO_ALT_TEXT}
+                  className="w-full h-full object-contain rounded-lg"
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 overflow-hidden">
+                <img
+                  src={LOGO_GC_MIX_HORIZONTAL}
+                  alt={LOGO_ALT_TEXT}
+                  className="h-10 w-auto max-w-[170px] object-contain rounded-sm group-hover:scale-102 transition-transform"
+                />
               </div>
             )}
           </Link>
@@ -716,20 +725,12 @@ export function Sidebar({
           {/* TOPO MOBILE */}
           <div className="flex items-center justify-between p-4 border-b border-border/30">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 p-0.5 rounded-xl bg-white dark:bg-slate-900 border border-border/60 shadow-xs flex items-center justify-center shrink-0">
+              <div className="flex items-center gap-2">
                 <img
-                  src={LOGO_GC_MIX_QUADRADA}
+                  src={LOGO_GC_MIX_HORIZONTAL}
                   alt={LOGO_ALT_TEXT}
-                  className="w-full h-full object-contain rounded-lg"
+                  className="h-9 w-auto max-w-[170px] object-contain rounded-sm"
                 />
-              </div>
-              <div className="min-w-0">
-                <span className="block font-extrabold text-sm text-foreground truncate">
-                  GC MIX ERP
-                </span>
-                <span className="block text-[10px] text-muted-foreground truncate">
-                  {empresaAtiva?.nome || "Concreto Usinado"}
-                </span>
               </div>
             </div>
             <Button
