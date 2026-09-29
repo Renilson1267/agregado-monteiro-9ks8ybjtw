@@ -18,6 +18,7 @@ import Ordens from "./pages/Ordens"
 import Relatorios from "./pages/Relatorios"
 import ControleExames from "./pages/ControleExames"
 import FolhaPagamento from "./pages/FolhaPagamento"
+import Caixa from "./pages/Caixa"
 import NotFound from "./pages/NotFound"
 
 const App = () => (
@@ -43,6 +44,7 @@ const App = () => (
                     <Route path="/lancamentos" element={<LancamentoCargas />} />
                     <Route path="/estoque" element={<Estoque />} />
                     <Route path="/ordens" element={<Ordens />} />
+                    <Route path="/caixa" element={<Caixa />} />
                     <Route path="/exames" element={<ControleExames />} />
                     {/* Rotas Restritas a Administrador */}
                     <Route
