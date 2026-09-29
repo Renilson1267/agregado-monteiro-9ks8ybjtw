@@ -499,6 +499,246 @@ export class FolhaService {
   }
 
   /**
+   * Lança/Gera as linhas de uma competência a partir da competência anterior como base
+   * (ou a partir do cadastro), aplicando regras de quinzena, impostos oficiais,
+   * separação de produção e tratamento específico de terceiros (Raimundo e Márcio Luan).
+   */
+  static async lancarLinhasCompetencia(
+    empresaId: string,
+    competenciaDestino: string,
+    competenciaOrigem?: string,
+  ): Promise<{
+    inseridos: number
+    atualizados: number
+  }> {
+    const compDestino = await this.obterOuCriarCompetencia(
+      empresaId,
+      competenciaDestino,
+    )
+    const pctQuinzena =
+      typeof compDestino.percentual_quinzena === "number"
+        ? compDestino.percentual_quinzena
+        : 0.4
+
+    // Descobre competência origem se não informada (mês anterior)
+    let compOrigem = competenciaOrigem
+    if (!compOrigem) {
+      const [anoStr, mesStr] = competenciaDestino.split("-")
+      const ano = parseInt(anoStr, 10)
+      const mes = parseInt(mesStr, 10)
+      const dataAnt = new Date(ano, mes - 2, 1)
+      const anoAnt = dataAnt.getFullYear()
+      const mesAnt = String(dataAnt.getMonth() + 1).padStart(2, "0")
+      compOrigem = `${anoAnt}-${mesAnt}`
+    }
+
+    // Busca linhas da competência de origem
+    let linhasBase = await this.getLinhasCompetencia(empresaId, compOrigem)
+
+    // Se origem estiver vazia, tenta cadastro de funcionários e terceiros
+    if (linhasBase.length === 0) {
+      const [funcs, tercs] = await Promise.all([
+        this.getFuncionariosEmpresa(empresaId),
+        this.getTerceiros(empresaId),
+      ])
+
+      linhasBase = [
+        ...funcs
+          .filter((f) => f.ativo !== false)
+          .map(
+            (f) =>
+              ({
+                empresa_id: empresaId,
+                competencia: compOrigem,
+                tipo: "Funcionario",
+                nome: f.nome,
+                cargo: f.cargo || f.funcao || "Geral",
+                funcao: f.funcao || f.cargo || "Geral",
+                unidade: f.unidade || "SJE",
+                bruto: Number(f.bruto || 0),
+                salario_base: Number(f.bruto || 0),
+                filhos: 0,
+                conta: f.conta || "",
+                pix: f.pix || "",
+                oculto: Boolean(f.oculto),
+                funcionario_id: f.id,
+              }) as FolhaPagamentoLinha,
+          ),
+        ...tercs
+          .filter((t) => t.ativo !== false)
+          .map(
+            (t) =>
+              ({
+                empresa_id: empresaId,
+                competencia: compOrigem,
+                tipo: "Terceiro",
+                nome: t.nome,
+                cargo: "Terceiro",
+                funcao: "Terceiro",
+                unidade: t.unidade || "SJE",
+                bruto: Number(t.bruto || 0),
+                salario_base: Number(t.bruto || 0),
+                filhos: 0,
+                conta: t.conta || "",
+                pix: t.pix || "",
+                oculto: false,
+              }) as FolhaPagamentoLinha,
+          ),
+      ]
+    }
+
+    if (linhasBase.length === 0) {
+      throw new Error(
+        `Nenhuma linha base encontrada na competência ${compOrigem} ou cadastro para gerar ${competenciaDestino}.`,
+      )
+    }
+
+    // Obtém tabela oficial do ano destino
+    const anoDestino =
+      parseInt(competenciaDestino.split("-")[0], 10) || new Date().getFullYear()
+    const tabela = await this.getTabelaOficial(empresaId, anoDestino)
+
+    // Importa as funções de cálculo fiscal dinâmico
+    const {
+      calcularInssProgressivo,
+      calcularSalarioFamilia,
+      calcularIrrf,
+      calcularQuinzena,
+    } = await import("@/lib/folha-calculos")
+
+    // Linhas existentes no destino para deduplicação
+    const linhasExistentes = await this.getLinhasCompetencia(
+      empresaId,
+      competenciaDestino,
+    )
+    const mapExistentes = new Map<string, FolhaPagamentoLinha>()
+    linhasExistentes.forEach((l) =>
+      mapExistentes.set(l.nome.trim().toUpperCase(), l),
+    )
+
+    let inseridos = 0
+    let atualizados = 0
+
+    for (const base of linhasBase) {
+      const nomeUpper = base.nome.trim().toUpperCase()
+      const isRaimundo = nomeUpper.includes("RAIMUNDO")
+      const isMarcio = nomeUpper.includes("MARCIO LUAN")
+      const isTerceiro = base.tipo === "Terceiro" || isRaimundo || isMarcio
+
+      let bruto = Number(base.bruto || 0)
+      let quinzena = 0
+      let inss = 0
+      let irrf = 0
+      let familia = 0
+      let mensal = 0
+
+      if (isMarcio) {
+        // Márcio Luan: terceiro vendedor Monteiro, bruto 0, comissão recalcula com vendas
+        bruto = 0
+        quinzena = 0
+        inss = 0
+        irrf = 0
+        familia = 0
+        mensal = 0
+      } else if (isRaimundo) {
+        // Raimundo: terceiro SJE, quinzena 40%, mensal 60% sem desconto fiscal
+        quinzena = calcularQuinzena(bruto, pctQuinzena)
+        inss = 0
+        irrf = 0
+        familia = 0
+        mensal = Math.round((bruto - quinzena) * 100) / 100
+      } else if (isTerceiro) {
+        quinzena = calcularQuinzena(bruto, pctQuinzena)
+        inss = 0
+        irrf = 0
+        familia = 0
+        mensal = Math.round((bruto - quinzena) * 100) / 100
+      } else {
+        // Funcionários: quinzena 40% × bruto, impostos sobre salário bruto
+        quinzena = calcularQuinzena(bruto, pctQuinzena)
+        inss = Number(calcularInssProgressivo(bruto, tabela) || 0)
+        familia = Number(
+          calcularSalarioFamilia(bruto, base.filhos || 0, tabela) || 0,
+        )
+        irrf = Number(calcularIrrf(bruto, inss, tabela) || 0)
+        // Mensal líquido SEM produção (variáveis extras zeradas)
+        mensal =
+          Math.round((bruto - inss - irrf + familia - quinzena) * 100) / 100
+      }
+
+      const payload = {
+        empresa_id: empresaId,
+        competencia_id: compDestino.id,
+        competencia: competenciaDestino,
+        funcionario_id: base.funcionario_id || null,
+        nome: nomeUpper,
+        cargo: (base.cargo || base.funcao || "Geral").trim().toUpperCase(),
+        funcao: (base.funcao || base.cargo || "Geral").trim().toUpperCase(),
+        unidade: (base.unidade || "SJE").trim().toUpperCase(),
+        tipo: isTerceiro ? "Terceiro" : "Funcionario",
+        bruto,
+        salario_base: bruto,
+        filhos: isTerceiro ? 0 : parseInt(String(base.filhos || 0), 10) || 0,
+        quinzena,
+        quinzena_2: 0,
+        inss,
+        ir: irrf,
+        familia,
+        adiantamento: 0,
+        gratificacao: 0,
+        obras: 0,
+        valor_obra: Number(base.valor_obra ?? 20),
+        producao: 0,
+        limpeza: 0,
+        sabado: 0,
+        feriado: 0,
+        ferias: 0,
+        ajuda_custo: 0,
+        vendas_obra: 0,
+        comissao: 0,
+        vendas_ajuda: 0,
+        salario_liquido: mensal,
+        mensal_liquido: mensal,
+        base_inss: Math.min(bruto, Number(tabela?.teto_inss || 8475.55)),
+        base_irrf: Math.max(0, bruto - inss),
+        inss_retido: inss,
+        irrf_retido: irrf,
+        total_proventos: bruto + familia,
+        total_descontos: inss + irrf + quinzena,
+        conta: base.conta || "",
+        pix: base.pix || base.chave_pix || "",
+        chave_pix: base.chave_pix || base.pix || "",
+        modo_calculo: "Calculado",
+        oculto: Boolean(base.oculto),
+        inativo: Boolean(base.inativo),
+        cpf: base.cpf || null,
+        matricula: base.matricula || null,
+        observacao_linha: base.observacao_linha || null,
+        updated_at: new Date().toISOString(),
+      }
+
+      const existente = mapExistentes.get(nomeUpper)
+      if (existente?.id) {
+        const { error } = await (supabase as any)
+          .from("folha_pagamento_linhas")
+          .update(payload)
+          .eq("id", existente.id)
+        if (error) throw error
+        atualizados++
+      } else {
+        const { error } = await (supabase as any)
+          .from("folha_pagamento_linhas")
+          .insert(payload)
+        if (error) throw error
+        inseridos++
+      }
+    }
+
+    await this.atualizarTotaisCompetencia(empresaId, competenciaDestino)
+    return { inseridos, atualizados }
+  }
+
+  /**
    * Obtém a tabela oficial de encargos e tributos da empresa para o ano (ou global)
    */
   static async getTabelaOficial(

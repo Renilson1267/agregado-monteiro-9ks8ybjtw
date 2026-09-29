@@ -23,6 +23,8 @@ import {
   CheckCircle2,
   Award,
   Calculator,
+  Copy,
+  RefreshCw,
 } from "lucide-react"
 import { useEmpresa } from "@/hooks/use-empresa"
 import { useUsuario } from "@/hooks/use-usuario"
@@ -113,6 +115,7 @@ export function FolhaPagamento() {
   const [terceirosCadastrados, setTerceirosCadastrados] =
     useState<FolhaTerceiro[]>([])
   const [carregando, setCarregando] = useState(false)
+  const [gerandoLancamentos, setGerandoLancamentos] = useState(false)
   const [abaAtiva, setAbaAtiva] = useState<string>("geral")
 
   // Cabeçalho editável da competência (fix tsc trigger)
@@ -1368,7 +1371,58 @@ export function FolhaPagamento() {
 
           <Button
             size="sm"
-            className="ml-2 gap-1.5"
+            variant="outline"
+            className="ml-2 gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
+            disabled={gerandoLancamentos}
+            onClick={async () => {
+              if (!empresaAtiva?.id) return
+              const conf = window.confirm(
+                `Deseja gerar os lançamentos da competência ${competencia} com base na competência anterior?\n\n- Copia funcionários ativos/ocultos e terceiros\n- Salários base do mês anterior\n- Quinzena = ${Math.round(percentualQuinzena * 100)}% do salário\n- INSS e IRRF calculados pelas tabelas oficiais 2026\n- Produção e comissões zeradas para lançamento`,
+              )
+              if (!conf) return
+              setGerandoLancamentos(true)
+              try {
+                const res = await FolhaService.lancarLinhasCompetencia(
+                  empresaAtiva.id,
+                  competencia,
+                )
+                toast({
+                  title: "Lançamento da competência realizado!",
+                  description: `${res.inseridos} novos lançamentos inseridos e ${res.atualizados} atualizados para ${competencia}.`,
+                })
+                // Recarrega os dados da competência na tela
+                const [compData, dataLinhas] = await Promise.all([
+                  FolhaService.getCompetencia(empresaAtiva.id, competencia),
+                  FolhaService.getLinhasCompetencia(
+                    empresaAtiva.id,
+                    competencia,
+                  ),
+                ])
+                setCompetenciaObj(compData)
+                setLinhas(dataLinhas)
+              } catch (err: any) {
+                toast({
+                  title: "Erro ao gerar lançamentos",
+                  description: err.message || "Falha ao processar folha.",
+                  variant: "destructive",
+                })
+              } finally {
+                setGerandoLancamentos(false)
+              }
+            }}
+            title={`Gerar/Preencher as linhas da competência ${competencia} a partir da anterior`}
+          >
+            {gerandoLancamentos ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+            Gerar Competência
+          </Button>
+
+          <Button
+            size="sm"
+            className="ml-1 gap-1.5"
             onClick={() => abrirModalEdicao()}
           >
             <Plus className="h-4 w-4" />
