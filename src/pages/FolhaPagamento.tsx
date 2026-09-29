@@ -512,24 +512,45 @@ export function FolhaPagamento() {
   // Processamento de Terceiros (Folha à parte: sem desconto, quinzena 40% automática pelo % da competência, mensal 60%)
   const terceirosProcessados = useMemo(() => {
     return terceirosFiltrados.map((t) => {
-      const valorMes = Number(t.salario_liquido || t.bruto || 0)
-      const quinzenaAuto = Math.round(valorMes * percentualQuinzena * 100) / 100
-      const quinzena =
-        t.modo_calculo === "Digitado" &&
-        t.quinzena !== undefined &&
-        t.quinzena !== null &&
-        Number(t.quinzena) > 0
+      const cadastrado = terceirosCadastrados.find(
+        (c) =>
+          (t.id && c.id === t.id) ||
+          (t.nome &&
+            c.nome &&
+            c.nome.trim().toUpperCase() === t.nome.trim().toUpperCase()),
+      )
+      const ehVendedor = Boolean(
+        cadastrado?.eh_vendedor ||
+          (t.nome && t.nome.toUpperCase().includes("MARCIO LUAN")),
+      )
+
+      const valorMes = ehVendedor
+        ? Number(t.comissao || 0) + Number(t.ajuda_custo || 0)
+        : Number(t.salario_liquido || t.bruto || 0)
+
+      const quinzenaAuto = ehVendedor
+        ? 0
+        : Math.round(valorMes * percentualQuinzena * 100) / 100
+      const quinzena = ehVendedor
+        ? 0
+        : t.modo_calculo === "Digitado" &&
+            t.quinzena !== undefined &&
+            t.quinzena !== null &&
+            Number(t.quinzena) > 0
           ? Number(t.quinzena)
           : quinzenaAuto
-      const mensal = Math.round((valorMes - quinzena) * 100) / 100
+      const mensal = ehVendedor
+        ? valorMes
+        : Math.round((valorMes - quinzena) * 100) / 100
       return {
         ...t,
+        ehVendedor,
         valorMes,
         quinzena,
         mensal,
       }
     })
-  }, [terceirosFiltrados, percentualQuinzena])
+  }, [terceirosFiltrados, terceirosCadastrados, percentualQuinzena])
 
   // Helper: identifica se o colaborador é lançador/responsável de vendas (ex: VALDERCLEITON FREIRE DE OLIVEIRA)
   // que deve ser retirado da produção principal e ter seção própria em VENDAS
@@ -861,13 +882,12 @@ export function FolhaPagamento() {
     const irrfRetido = totaisGeral.irrf
     const salarioFamiliaPago = totaisGeral.familia
 
-    // Total Geral do Mês = Subtotal Folha (Quinzena + Mensal Líquido sem produção) + Produção a pagar + Terceiros (fixos) + Comissão Terceiros Vendedores
+    // Total Geral do Mês = Subtotal Folha (Quinzena + Mensal Líquido sem produção) + Produção a pagar + Terceiros (folha à parte)
+    // OBS: Como terceirosFolha (totaisTerceiros.valorMes) agora já soma a remuneração integral de terceiros
+    // (incluindo terceiros vendedores: comissão + ajuda de custo), NÃO devemos somar comissaoTerceirosVendedores novamente,
+    // garantindo que Total Geral do Mês no Resumo seja estritamente igual ao Total Geral da GERAL (totaisGeral.liquidoGeral + totaisTerceiros.valorMes).
     const comissaoTerceirosVendedores = totaisVendasTerceiros.comissao
-    const totalGeralDoMes =
-      subtotalFolha +
-      producaoAPagar +
-      terceirosFolha +
-      comissaoTerceirosVendedores
+    const totalGeralDoMes = subtotalFolha + producaoAPagar + terceirosFolha
 
     return {
       pessoasNaFolha,
