@@ -548,6 +548,78 @@ export class FolhaService {
   }
 
   /**
+   * Obtém a lista de funcionários cadastrados da empresa (para folha e 13º)
+   */
+  static async getFuncionariosEmpresa(empresaId: string): Promise<Array<{
+    id: string
+    empresa_id: string
+    nome: string
+    funcao?: string
+    cargo?: string
+    unidade?: string
+    data_admissao?: string | null
+    bruto: number
+    conta?: string | null
+    pix?: string | null
+    ativo?: boolean
+    inativo?: boolean
+    oculto?: boolean
+  }>> {
+    const { data, error } = await (supabase as any)
+      .from("funcionarios")
+      .select(
+        "id, empresa_id, nome, funcao, unidade, data_admissao, bruto, conta, pix, ativo, inativo, oculto",
+      )
+      .eq("empresa_id", empresaId)
+      .order("nome", { ascending: true })
+
+    if (error) {
+      console.error("Erro ao buscar funcionários da empresa:", error)
+      throw error
+    }
+
+    return (data || []).map((f: any) => ({
+      ...f,
+      funcao: f.funcao || "Geral",
+      cargo: f.funcao || "Geral",
+      bruto: Number(f.bruto || 0),
+      conta: f.conta || "",
+      pix: f.pix || "",
+      oculto: Boolean(f.oculto),
+      inativo: Boolean(f.inativo),
+      ativo: f.ativo !== false,
+    }))
+  }
+
+  /**
+   * Obtém o histórico resumido de remunerações do ano (para regra anual de IRRF no 13º)
+   */
+  static async getHistoricoRemuneracoesAno(
+    empresaId: string,
+    ano: number,
+  ): Promise<Array<Record<string, any>>> {
+    const prefixo = `${ano}-%`
+    const { data, error } = await (supabase as any)
+      .from("folha_pagamento_linhas")
+      .select("nome, bruto, inss, ir, tipo")
+      .eq("empresa_id", empresaId)
+      .like("competencia", prefixo)
+      .eq("tipo", "Funcionario")
+
+    if (error) {
+      console.error("Erro ao buscar histórico de remunerações:", error)
+      return []
+    }
+
+    return (data || []).map((l: any) => ({
+      nome: l.nome || "",
+      bruto: Number(l.bruto || 0),
+      inss: Number(l.inss || 0),
+      ir: Number(l.ir || 0),
+    }))
+  }
+
+  /**
    * Obtém os terceiros cadastrados da empresa (folha_terceiros)
    */
   static async getTerceiros(empresaId: string): Promise<any[]> {

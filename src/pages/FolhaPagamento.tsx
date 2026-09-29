@@ -45,10 +45,14 @@ import {
   calcularAPagarProducao,
   calcularComissaoVendas,
   calcularComissaoProgressivaMarginal,
+  calcularMesesProporcionais13,
+  calcularLinhaDecimoTerceiro,
 } from "@/lib/folha-calculos"
 import { LOGO_GC_MIX_HORIZONTAL } from "@/assets/logos"
 import { AbaTabelasOficiais } from "@/components/AbaTabelasOficiais"
 import { AbaBackupFolha } from "@/components/AbaBackupFolha"
+import { AbaDecimoTerceiro } from "@/components/AbaDecimoTerceiro"
+import { Gift } from "lucide-react"
 import { Database } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -157,9 +161,12 @@ export function FolhaPagamento() {
 
   // Holerite / Impressão
   const [tipoImpressaoA4, setTipoImpressaoA4] =
-    useState<"geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | null>(
+    useState<"geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | "decimo" | null>(
       null,
     )
+  const [funcionariosCadastradosEmpresa, setFuncionariosCadastradosEmpresa] =
+    useState<any[]>([])
+  const [historicoLinhasAno, setHistoricoLinhasAno] = useState<any[]>([])
   const printRef = useRef<HTMLDivElement>(null)
 
   // 1. Carregar lista de competências disponíveis
@@ -190,22 +197,26 @@ export function FolhaPagamento() {
     carregarCompetencias()
   }, [empresaAtiva?.id])
 
-  // 2. Carregar tabelas oficiais (2026), faixas de comissão e terceiros cadastrados da empresa
+  // 2. Carregar tabelas oficiais (2026), faixas de comissão, terceiros e funcionários cadastrados da empresa
   useEffect(() => {
     async function carregarTabelaEComissoes() {
       if (!empresaAtiva?.id) return
       try {
-        const [tab, faixas, tercs] = await Promise.all([
+        const [tab, faixas, tercs, funcs, histAno] = await Promise.all([
           FolhaService.getTabelaOficial(empresaAtiva.id, 2026),
           FolhaService.getFaixasComissao(empresaAtiva.id),
           FolhaService.getTerceiros(empresaAtiva.id),
+          FolhaService.getFuncionariosEmpresa(empresaAtiva.id),
+          FolhaService.getHistoricoRemuneracoesAno(empresaAtiva.id, 2026),
         ])
         setTabelaOficial(tab)
         setFaixasComissao(faixas || [])
         setTerceirosCadastrados(tercs || [])
+        setFuncionariosCadastradosEmpresa(funcs || [])
+        setHistoricoLinhasAno(histAno || [])
       } catch (err) {
         console.warn(
-          "Erro ao carregar tabelas oficiais/faixas de comissão:",
+          "Erro ao carregar tabelas oficiais/faixas de comissão/funcionários:",
           err,
         )
       }
@@ -1253,7 +1264,7 @@ export function FolhaPagamento() {
 
   // Disparar impressão de aba em A4
   const imprimirAbaA4 = (
-    tipo: "geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo",
+    tipo: "geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | "decimo",
   ) => {
     setTipoImpressaoA4(tipo)
     setTimeout(() => {
@@ -1411,6 +1422,13 @@ export function FolhaPagamento() {
             <TabsTrigger value="resumo" className="gap-2 font-semibold">
               <Award className="h-4 w-4" />
               RESUMO
+            </TabsTrigger>
+            <TabsTrigger
+              value="decimo"
+              className="gap-2 font-semibold text-blue-600 dark:text-blue-400"
+            >
+              <Gift className="h-4 w-4" />
+              13º
             </TabsTrigger>
             {isAdministrador && (
               <>
@@ -3890,6 +3908,37 @@ export function FolhaPagamento() {
         </TabsContent>
 
         {/* =========================================================================
+            NOVA ABA: 13º SALÁRIO (DÉCIMO TERCEIRO)
+        ========================================================================== */}
+        <TabsContent value="decimo" className="space-y-4">
+          <AbaDecimoTerceiro
+            ano={2026}
+            empresaNome={empresaAtiva?.nome || "GC MIX"}
+            funcionarios={
+              funcionariosCadastradosEmpresa.length > 0
+                ? funcionariosCadastradosEmpresa
+                : funcionariosLinhas.map((fl: any) => ({
+                    id: fl.funcionario_id || fl.id,
+                    nome: fl.nome,
+                    funcao: fl.funcao,
+                    cargo: fl.cargo,
+                    unidade: fl.unidade,
+                    data_admissao: fl.data_admissao,
+                    bruto: fl.bruto,
+                    conta: fl.conta,
+                    pix: fl.pix || fl.chave_pix,
+                    oculto: fl.oculto,
+                  }))
+            }
+            historicoLinhasAno={historicoLinhasAno}
+            tabelaOficial={tabelaOficial}
+            mostrarOcultos={mostrarOcultos}
+            busca={busca}
+            onImprimirA4={() => imprimirAbaA4("decimo")}
+          />
+        </TabsContent>
+
+        {/* =========================================================================
             ABA 7: TABELAS (OFICIAIS — ADMIN)
         ========================================================================== */}
         {isAdministrador && (
@@ -4511,10 +4560,14 @@ export function FolhaPagamento() {
                       ? "FOLHA DE VENDAS / COMISSÕES"
                       : tipoImpressaoA4 === "resumo"
                         ? "RESUMO GERAL DA FOLHA"
-                        : "FOLHA MENSAL"}
+                        : tipoImpressaoA4 === "decimo"
+                          ? "FOLHA DO 13º SALÁRIO"
+                          : "FOLHA MENSAL"}
             </span>
             <p className="text-[11px] font-semibold mt-1">
-              Competência: {rotuloCompetenciaMesAno}
+              {tipoImpressaoA4 === "decimo"
+                ? "Exercício: 2026"
+                : `Competência: ${rotuloCompetenciaMesAno}`}
             </p>
           </div>
         </div>
@@ -5286,6 +5339,196 @@ export function FolhaPagamento() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {tipoImpressaoA4 === "decimo" && (
+          <div className="space-y-4">
+            <table className="w-full border-collapse border text-[8px]">
+              <thead className="bg-gray-100 text-gray-800 font-bold uppercase">
+                <tr>
+                  <th className="border p-1 text-center w-5">Nº</th>
+                  <th className="border p-1 text-left">NOME</th>
+                  <th className="border p-1 text-left">FUNÇÃO</th>
+                  <th className="border p-1 text-center">ADMISSÃO</th>
+                  <th className="border p-1 text-center">MESES</th>
+                  <th className="border p-1 text-right">BRUTO 13º</th>
+                  <th className="border p-1 text-right">1ª PARCELA</th>
+                  <th className="border p-1 text-right">INSS 2ª P.</th>
+                  <th className="border p-1 text-right">IRRF 2ª P.</th>
+                  <th className="border p-1 text-right">LÍQ. 2ª P.</th>
+                  <th className="border p-1 text-right font-bold">TOTAL 13º</th>
+                  <th className="border p-1 text-left">CONTA / PIX</th>
+                  <th className="border p-1 text-center w-32">ASSINATURA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(funcionariosCadastradosEmpresa.length > 0
+                  ? funcionariosCadastradosEmpresa
+                  : funcionariosLinhas.map((fl: any) => ({
+                      id: fl.funcionario_id || fl.id,
+                      nome: fl.nome,
+                      funcao: fl.funcao,
+                      cargo: fl.cargo,
+                      unidade: fl.unidade,
+                      data_admissao: fl.data_admissao,
+                      bruto: fl.bruto,
+                      conta: fl.conta,
+                      pix: fl.pix || fl.chave_pix,
+                      oculto: fl.oculto,
+                    }))
+                )
+                  .filter((f: any) => (mostrarOcultos ? true : !f.oculto))
+                  .map((f, idx) => {
+                    const meses = calcularMesesProporcionais13(
+                      f.data_admissao,
+                      2026,
+                    )
+                    const calc = calcularLinhaDecimoTerceiro(
+                      f.bruto,
+                      meses,
+                      tabelaOficial,
+                    )
+                    return (
+                      <tr key={f.id}>
+                        <td className="border p-1 text-center font-mono">
+                          {idx + 1}
+                        </td>
+                        <td className="border p-1 font-semibold whitespace-nowrap">
+                          {f.nome}
+                        </td>
+                        <td className="border p-1 whitespace-nowrap">
+                          {f.funcao || "Geral"}
+                        </td>
+                        <td className="border p-1 text-center font-mono text-[8px] whitespace-nowrap">
+                          {f.data_admissao
+                            ? f.data_admissao.includes("-")
+                              ? f.data_admissao.split("-").reverse().join("/")
+                              : f.data_admissao
+                            : "—"}
+                        </td>
+                        <td className="border p-1 text-center font-mono font-bold">
+                          {meses}/12
+                        </td>
+                        <td className="border p-1 text-right font-mono">
+                          {fmtMoeda(calc.bruto13)}
+                        </td>
+                        <td className="border p-1 text-right font-mono font-bold text-blue-800">
+                          {fmtMoeda(calc.primeiraParcela)}
+                        </td>
+                        <td className="border p-1 text-right font-mono">
+                          {calc.inssSegundaParcela > 0
+                            ? fmtMoeda(calc.inssSegundaParcela)
+                            : "-"}
+                        </td>
+                        <td className="border p-1 text-right font-mono">
+                          {calc.irrfSegundaParcela > 0
+                            ? fmtMoeda(calc.irrfSegundaParcela)
+                            : "-"}
+                        </td>
+                        <td className="border p-1 text-right font-mono">
+                          {fmtMoeda(calc.liquidoSegundaParcela)}
+                        </td>
+                        <td className="border p-1 text-right font-mono font-bold">
+                          {fmtMoeda(calc.totalLiquido13)}
+                        </td>
+                        <td className="border p-1 font-mono text-[7px] whitespace-nowrap">
+                          {f.pix || f.conta || "-"}
+                        </td>
+                        <td className="border p-1"></td>
+                      </tr>
+                    )
+                  })}
+              </tbody>
+              <tfoot className="bg-gray-100 font-bold">
+                {(() => {
+                  const lista = (
+                    funcionariosCadastradosEmpresa.length > 0
+                      ? funcionariosCadastradosEmpresa
+                      : funcionariosLinhas.map((fl: any) => ({
+                          id: fl.funcionario_id || fl.id,
+                          nome: fl.nome,
+                          funcao: fl.funcao,
+                          cargo: fl.cargo,
+                          unidade: fl.unidade,
+                          data_admissao: fl.data_admissao,
+                          bruto: fl.bruto,
+                          conta: fl.conta,
+                          pix: fl.pix || fl.chave_pix,
+                          oculto: fl.oculto,
+                        }))
+                  ).filter((f: any) => (mostrarOcultos ? true : !f.oculto))
+
+                  const tot = lista.reduce(
+                    (acc: any, f: any) => {
+                      const m = calcularMesesProporcionais13(
+                        f.data_admissao,
+                        2026,
+                      )
+                      const c = calcularLinhaDecimoTerceiro(
+                        f.bruto,
+                        m,
+                        tabelaOficial,
+                      )
+                      return {
+                        bruto13: acc.bruto13 + c.bruto13,
+                        primeira: acc.primeira + c.primeiraParcela,
+                        inss: acc.inss + c.inssSegundaParcela,
+                        irrf: acc.irrf + c.irrfSegundaParcela,
+                        liquido2: acc.liquido2 + c.liquidoSegundaParcela,
+                        total: acc.total + c.totalLiquido13,
+                      }
+                    },
+                    {
+                      bruto13: 0,
+                      primeira: 0,
+                      inss: 0,
+                      irrf: 0,
+                      liquido2: 0,
+                      total: 0,
+                    },
+                  )
+
+                  return (
+                    <tr>
+                      <td className="border p-1 text-center">-</td>
+                      <td className="border p-1 uppercase" colSpan={4}>
+                        TOTAL GERAL 13º ({lista.length} FUNCIONÁRIOS)
+                      </td>
+                      <td className="border p-1 text-right font-mono">
+                        {fmtMoeda(tot.bruto13)}
+                      </td>
+                      <td className="border p-1 text-right font-mono">
+                        {fmtMoeda(tot.primeira)}
+                      </td>
+                      <td className="border p-1 text-right font-mono">
+                        {fmtMoeda(tot.inss)}
+                      </td>
+                      <td className="border p-1 text-right font-mono">
+                        {fmtMoeda(tot.irrf)}
+                      </td>
+                      <td className="border p-1 text-right font-mono">
+                        {fmtMoeda(tot.liquido2)}
+                      </td>
+                      <td className="border p-1 text-right font-mono text-[9px] font-black">
+                        {fmtMoeda(tot.total)}
+                      </td>
+                      <td className="border p-1" colSpan={2}></td>
+                    </tr>
+                  )
+                })()}
+              </tfoot>
+            </table>
+            <div className="pt-6 grid grid-cols-2 gap-8 text-[11px] text-center">
+              <div>
+                <div className="border-b border-gray-400 pb-1 mb-1"></div>
+                <span>Responsável pelo Departamento Financeiro / Folha</span>
+              </div>
+              <div>
+                <div className="border-b border-gray-400 pb-1 mb-1"></div>
+                <span>Diretoria / Aprovação</span>
+              </div>
+            </div>
           </div>
         )}
 

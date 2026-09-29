@@ -138,6 +138,33 @@ export interface FolhaPagamentoLinha {
   updated_at?: string
 }
 
+export interface LinhaDecimoTerceiro {
+  id: string
+  funcionario_id?: string | null
+  nome: string
+  funcao: string
+  cargo?: string
+  unidade: string
+  data_admissao?: string | null
+  salarioBase: number
+  mesesProporcionais: number
+  mesesProporcionaisCalculados: number
+  bruto13: number
+  bruto13Calculado: number
+  primeiraParcela: number
+  brutoSegundaParcela: number
+  inssSegundaParcela: number
+  irrfSegundaParcela: number
+  liquidoSegundaParcela: number
+  totalLiquido13: number
+  conta: string
+  pix: string
+  observacao?: string
+  oculto?: boolean
+  editadoMeses?: boolean
+  editadoBruto?: boolean
+}
+
 export interface FolhaTotaisCalculados {
   totalRegistros: number
   totalFuncionarios: number
