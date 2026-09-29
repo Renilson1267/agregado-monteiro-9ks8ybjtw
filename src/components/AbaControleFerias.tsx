@@ -65,7 +65,6 @@ export function AbaControleFerias() {
   const [novoCpf, setNovoCpf] = useState("")
   const [novaAgencia, setNovaAgencia] = useState("")
   const [novaConta, setNovaConta] = useState("")
-  const [novoAjuste, setNovoAjuste] = useState("")
   const [novaFerias, setNovaFerias] = useState("")
   const [novaCalca, setNovaCalca] = useState("")
   const [novaCamisa, setNovaCamisa] = useState("")
@@ -115,13 +114,6 @@ export function AbaControleFerias() {
   const fmtMoeda = (val: number | null | undefined): string => {
     const n = Number(val) || 0
     return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-  }
-
-  // Formatação do percentual de ajuste
-  const fmtPercentual = (val: number | null | undefined): string => {
-    if (val == null || val === 0) return "—"
-    // Pode vir como 1.117108218 (fator multiplicador) ou número decimal direto
-    return String(val)
   }
 
   // Itens filtrados pela busca
@@ -211,9 +203,6 @@ export function AbaControleFerias() {
     try {
       const salarioNumerico =
         Number(novoSalario.replace(/\./g, "").replace(",", ".")) || 0
-      const ajusteNumerico = novoAjuste.trim()
-        ? Number(novoAjuste.replace(",", "."))
-        : null
 
       const proximaOrdem =
         itens.length > 0 ? Math.max(...itens.map((i) => i.ordem || 0)) + 1 : 1
@@ -228,7 +217,6 @@ export function AbaControleFerias() {
         cpf: novoCpf.trim() || null,
         agencia: novaAgencia.trim() || null,
         conta_corrente: novaConta.trim() || null,
-        percentual_ajuste: ajusteNumerico,
         ferias: novaFerias || null,
         calca: novaCalca.trim() || null,
         camisa: novaCamisa.trim() || null,
@@ -247,7 +235,6 @@ export function AbaControleFerias() {
       setNovoCpf("")
       setNovaAgencia("")
       setNovaConta("")
-      setNovoAjuste("")
       setNovaFerias("")
       setNovaCalca("")
       setNovaCamisa("")
@@ -314,8 +301,8 @@ export function AbaControleFerias() {
               </div>
               <CardDescription className="text-xs mt-1">
                 Planilha integrada de controle de férias por empresa com edição
-                inline de datas, fardamento (calça e camisa), ajuste salarial e
-                impressão em A4 paisagem com assinatura.
+                inline de datas, fardamento (calça e camisa) e impressão em A4
+                paisagem com assinatura.
               </CardDescription>
             </div>
 
@@ -433,9 +420,6 @@ export function AbaControleFerias() {
                     <th className="py-2.5 px-2 text-center w-20">AGÊNCIA</th>
                     <th className="py-2.5 px-3 min-w-[100px]">
                       CONTA CORRENTE
-                    </th>
-                    <th className="py-2.5 px-3 text-right min-w-[100px]">
-                      % AJUSTE
                     </th>
                     <th className="py-2.5 px-3 min-w-[130px] bg-primary/5 text-primary font-bold">
                       FÉRIAS
@@ -579,31 +563,6 @@ export function AbaControleFerias() {
                         />
                       </td>
 
-                      {/* % AJUSTE */}
-                      <td className="py-2 px-3 text-right font-mono text-muted-foreground">
-                        <input
-                          type="text"
-                          defaultValue={
-                            it.percentual_ajuste != null
-                              ? String(it.percentual_ajuste)
-                              : ""
-                          }
-                          onBlur={(e) => {
-                            const val = e.target.value.trim()
-                              ? Number(e.target.value.replace(",", "."))
-                              : null
-                            handleAtualizarInline(
-                              it.id,
-                              "percentual_ajuste",
-                              val,
-                            )
-                          }}
-                          className="w-24 text-right bg-transparent hover:bg-background/80 focus:bg-background rounded px-1.5 py-0.5 border border-transparent focus:border-primary/50 outline-none font-mono text-[11px] transition-all"
-                          placeholder="—"
-                          title="Fator de ajuste salarial"
-                        />
-                      </td>
-
                       {/* FÉRIAS (Destaque editável) */}
                       <td className="py-2 px-3 bg-primary/5">
                         <div className="flex items-center gap-1">
@@ -690,7 +649,7 @@ export function AbaControleFerias() {
                     </td>
                     <td
                       className="py-2.5 px-3 text-muted-foreground"
-                      colSpan={5}
+                      colSpan={4}
                     >
                       <span className="text-[11px] font-normal text-muted-foreground">
                         {totais.comFeriasAgendadas} férias programadas
@@ -771,9 +730,6 @@ export function AbaControleFerias() {
               <th className="border border-gray-300 p-1 text-left">
                 CONTA CORRENTE
               </th>
-              <th className="border border-gray-300 p-1 text-right">
-                % AJUSTE
-              </th>
               <th className="border border-gray-300 p-1 text-center font-bold">
                 FÉRIAS
               </th>
@@ -815,9 +771,6 @@ export function AbaControleFerias() {
                 <td className="border border-gray-300 p-1 font-mono">
                   {it.conta_corrente || "—"}
                 </td>
-                <td className="border border-gray-300 p-1 text-right font-mono">
-                  {fmtPercentual(it.percentual_ajuste)}
-                </td>
                 <td className="border border-gray-300 p-1 text-center font-mono font-bold bg-gray-50">
                   {formatarDataBr(it.ferias)}
                 </td>
@@ -847,7 +800,7 @@ export function AbaControleFerias() {
               </td>
               <td
                 className="border border-gray-300 p-1 text-center"
-                colSpan={5}
+                colSpan={4}
               >
                 Prog. Férias: {totais.comFeriasAgendadas}
               </td>
@@ -988,19 +941,6 @@ export function AbaControleFerias() {
                   placeholder="Ex: 255425-9"
                   value={novaConta}
                   onChange={(e) => setNovaConta(e.target.value)}
-                  className="h-9 text-xs font-mono"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="novo-ajuste" className="text-xs font-semibold">
-                  % de Ajuste
-                </Label>
-                <Input
-                  id="novo-ajuste"
-                  placeholder="Ex: 1,102171277"
-                  value={novoAjuste}
-                  onChange={(e) => setNovoAjuste(e.target.value)}
                   className="h-9 text-xs font-mono"
                 />
               </div>

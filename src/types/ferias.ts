@@ -10,7 +10,6 @@ export interface ItemControleFerias {
   cpf: string | null
   agencia: string | null
   conta_corrente: string | null
-  percentual_ajuste: number | null
   ferias: string | null // YYYY-MM-DD
   calca: string | null
   camisa: string | null

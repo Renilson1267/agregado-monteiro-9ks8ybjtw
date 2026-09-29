@@ -63,10 +63,13 @@ export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
         const encontrada = lista.find(
           (e) => e.id === savedId || e.slug === savedId,
         )
+        // Se a empresa salva não existe mais na lista (ex: empresa excluída), seleciona a primeira disponível
         const padrao = encontrada || lista[0]
-        setEmpresaAtiva(padrao)
+        setEmpresaAtiva(padrao || null)
         if (padrao) {
           localStorage.setItem(STORAGE_KEY, padrao.id)
+        } else {
+          localStorage.removeItem(STORAGE_KEY)
         }
       }
     } catch (err) {

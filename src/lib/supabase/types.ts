@@ -221,6 +221,81 @@ export type Database = {
           referencedColumns: ["id"]
         }]
       }
+      controle_ferias: {
+        Row: {
+          admissao: string | null
+          agencia: string | null
+          calca: string | null
+          camisa: string | null
+          conta_corrente: string | null
+          cpf: string | null
+          created_at: string
+          empresa_id: string
+          ferias: string | null
+          funcao: string | null
+          funcionario_id: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          ordem: number | null
+          percentual_ajuste: number | null
+          salario_2025: number | null
+          updated_at: string
+        }
+        Insert: {
+          admissao?: string | null
+          agencia?: string | null
+          calca?: string | null
+          camisa?: string | null
+          conta_corrente?: string | null
+          cpf?: string | null
+          created_at?: string
+          empresa_id: string
+          ferias?: string | null
+          funcao?: string | null
+          funcionario_id?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          ordem?: number | null
+          percentual_ajuste?: number | null
+          salario_2025?: number | null
+          updated_at?: string
+        }
+        Update: {
+          admissao?: string | null
+          agencia?: string | null
+          calca?: string | null
+          camisa?: string | null
+          conta_corrente?: string | null
+          cpf?: string | null
+          created_at?: string
+          empresa_id?: string
+          ferias?: string | null
+          funcao?: string | null
+          funcionario_id?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          ordem?: number | null
+          percentual_ajuste?: number | null
+          salario_2025?: number | null
+          updated_at?: string
+        }
+        Relationships: [{
+          foreignKeyName: "controle_ferias_empresa_id_fkey"
+          columns: ["empresa_id"]
+          isOneToOne: false
+          referencedRelation: "empresas"
+          referencedColumns: ["id"]
+        }, {
+          foreignKeyName: "controle_ferias_funcionario_id_fkey"
+          columns: ["funcionario_id"]
+          isOneToOne: false
+          referencedRelation: "funcionarios"
+          referencedColumns: ["id"]
+        }]
+      }
       empresas: {
         Row: {
           ativo: boolean
@@ -787,8 +862,11 @@ export type Database = {
       }
       funcionarios: {
         Row: {
+          agencia: string | null
           ativo: boolean
           bruto: number
+          calca: string | null
+          camisa: string | null
           conta: string | null
           cpf: string | null
           created_at: string
@@ -802,14 +880,18 @@ export type Database = {
           nome: string
           observacoes: string | null
           oculto: boolean
+          percentual_ajuste: number | null
           pix: string | null
           telefone: string | null
           unidade: string
           updated_at: string
         }
         Insert: {
+          agencia?: string | null
           ativo?: boolean
           bruto?: number
+          calca?: string | null
+          camisa?: string | null
           conta?: string | null
           cpf?: string | null
           created_at?: string
@@ -823,14 +905,18 @@ export type Database = {
           nome: string
           observacoes?: string | null
           oculto?: boolean
+          percentual_ajuste?: number | null
           pix?: string | null
           telefone?: string | null
           unidade?: string
           updated_at?: string
         }
         Update: {
+          agencia?: string | null
           ativo?: boolean
           bruto?: number
+          calca?: string | null
+          camisa?: string | null
           conta?: string | null
           cpf?: string | null
           created_at?: string
@@ -844,6 +930,7 @@ export type Database = {
           nome?: string
           observacoes?: string | null
           oculto?: boolean
+          percentual_ajuste?: number | null
           pix?: string | null
           telefone?: string | null
           unidade?: string

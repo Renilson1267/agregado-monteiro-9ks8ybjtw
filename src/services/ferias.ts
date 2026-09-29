@@ -34,8 +34,6 @@ export class FeriasService {
       cpf: row.cpf || "",
       agencia: row.agencia || "",
       conta_corrente: row.conta_corrente || "",
-      percentual_ajuste:
-        row.percentual_ajuste != null ? Number(row.percentual_ajuste) : null,
       ferias: row.ferias || null,
       calca: row.calca || "",
       camisa: row.camisa || "",
