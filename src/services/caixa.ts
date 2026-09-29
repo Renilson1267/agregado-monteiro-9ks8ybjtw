@@ -3,6 +3,7 @@ import {
   Obra,
   CaixaCategoria,
   CaixaLancamento,
+  TipoCaixaLancamento,
   CaixaFechamentoMensal,
   CaixaTotaisCompetencia,
   ResumoCategoriaCaixa,
@@ -143,6 +144,7 @@ export const CaixaService = {
       .from("caixa_lancamentos" as any)
       .select("*")
       .eq("empresa_id", empresaId)
+      .limit(10000)
 
     if (filtros?.competencia) {
       query = query.eq("competencia", filtros.competencia)
@@ -262,6 +264,7 @@ export const CaixaService = {
       .select("tipo, valor")
       .eq("empresa_id", empresaId)
       .lt("competencia", competencia)
+      .limit(100000)
 
     if (errAnt) {
       console.error("Erro ao calcular saldo anterior:", errAnt)
@@ -270,7 +273,10 @@ export const CaixaService = {
 
     let saldoAnterior = 0
     if (lancsAnteriores) {
-      const listaAnt = lancsAnteriores as Array<{ tipo: string; valor: number }>
+      const listaAnt = (lancsAnteriores || []) as Array<{
+        tipo: string
+        valor: number
+      }>
       for (const item of listaAnt) {
         const val = Number(item.valor || 0)
         if (item.tipo === "entrada") saldoAnterior += val
@@ -409,10 +415,14 @@ export const CaixaService = {
       .select("tipo, valor")
       .eq("empresa_id", empresaId)
       .lt("competencia", primeiroDiaAno)
+      .limit(100000)
 
     let saldoInicialAno = 0
     if (lancsAnteriores) {
-      const listaAntAno = lancsAnteriores as Array<{ tipo: string; valor: number }>
+      const listaAntAno = lancsAnteriores as Array<{
+        tipo: string
+        valor: number
+      }>
       for (const item of listaAntAno) {
         const val = Number(item.valor || 0)
         if (item.tipo === "entrada") saldoInicialAno += val
@@ -427,6 +437,7 @@ export const CaixaService = {
       .eq("empresa_id", empresaId)
       .gte("competencia", `${ano}-01`)
       .lte("competencia", `${ano}-12`)
+      .limit(10000)
 
     if (categoriaFiltro && categoriaFiltro !== "todas") {
       query = query.eq("categoria", categoriaFiltro)
@@ -526,6 +537,7 @@ export const CaixaService = {
       .eq("empresa_id", empresaId)
       .eq("tipo", "entrada")
       .not("obra_nome", "is", null)
+      .limit(10000)
 
     if (competencia) {
       query = query.eq("competencia", competencia)

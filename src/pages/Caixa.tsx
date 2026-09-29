@@ -73,8 +73,22 @@ import { AbaImportadorCaixa } from "@/components/caixa/AbaImportadorCaixa"
 
 export default function Caixa() {
   const { toast } = useToast()
-  const { empresas, empresaAtiva } = useEmpresa()
+  const { empresas, empresaAtiva, selecionarEmpresa } = useEmpresa()
   const [searchParams, setSearchParams] = useSearchParams()
+
+  // Unidade específica do Caixa (permite navegar entre SJE, Monteiro, COSAMPA, AURÉLIO, CONCRETISA)
+  const [unidadeCaixaId, setUnidadeCaixaId] = useState<string>(
+    empresaAtiva?.id || "",
+  )
+
+  useEffect(() => {
+    if (empresaAtiva?.id && !unidadeCaixaId) {
+      setUnidadeCaixaId(empresaAtiva.id)
+    }
+  }, [empresaAtiva?.id, unidadeCaixaId])
+
+  const empresaCaixaAtual =
+    empresas.find((e) => e.id === unidadeCaixaId) || empresaAtiva
 
   // Aba ativa pela URL (?tab=lancamentos | fechamento | anual | obras | importar)
   const tabAtiva = searchParams.get("tab") || "lancamentos"
@@ -82,16 +96,14 @@ export default function Caixa() {
     setSearchParams({ tab: novaTab })
   }
 
-  // Competência padrão (mês atual YYYY-MM)
+  // Competência padrão (mês mais recente do caixa ou mês atual YYYY-MM)
   const hoje = new Date()
   const mesAtualStr = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`
 
   // Estados gerais
   const [competenciaSelecionada, setCompetenciaSelecionada] =
-    useState<string>(mesAtualStr)
-  const [anoSelecionado, setAnoSelecionado] = useState<number>(
-    hoje.getFullYear(),
-  )
+    useState<string>("2026-09")
+  const [anoSelecionado, setAnoSelecionado] = useState<number>(2026)
   const [categorias, setCategorias] = useState<CaixaCategoria[]>([])
   const [obras, setObras] = useState<Obra[]>([])
   const [carregando, setCarregando] = useState<boolean>(false)
@@ -147,16 +159,16 @@ export default function Caixa() {
     })
   }
 
-  // Carregar dados de base quando a empresa ativa mudar
+  // Carregar dados de base quando a unidade do caixa mudar
   useEffect(() => {
-    if (!empresaAtiva) return
+    if (!empresaCaixaAtual) return
     carregarAuxiliares()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empresaAtiva?.id])
+  }, [empresaCaixaAtual?.id])
 
   // Recarregar dados da aba atual
   useEffect(() => {
-    if (!empresaAtiva) return
+    if (!empresaCaixaAtual) return
     if (tabAtiva === "lancamentos") {
       carregarLancamentos()
     } else if (tabAtiva === "fechamento") {
@@ -168,7 +180,7 @@ export default function Caixa() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    empresaAtiva?.id,
+    empresaCaixaAtual?.id,
     tabAtiva,
     competenciaSelecionada,
     anoSelecionado,
@@ -179,11 +191,11 @@ export default function Caixa() {
   ])
 
   const carregarAuxiliares = async () => {
-    if (!empresaAtiva) return
+    if (!empresaCaixaAtual) return
     try {
       const [cats, obs] = await Promise.all([
-        CaixaService.listarCategorias(empresaAtiva.id),
-        CaixaService.listarObras(empresaAtiva.id),
+        CaixaService.listarCategorias(empresaCaixaAtual.id),
+        CaixaService.listarObras(empresaCaixaAtual.id),
       ])
       setCategorias(cats)
       setObras(obs)
@@ -193,10 +205,10 @@ export default function Caixa() {
   }
 
   const carregarLancamentos = async () => {
-    if (!empresaAtiva) return
+    if (!empresaCaixaAtual) return
     setCarregando(true)
     try {
-      const lista = await CaixaService.listarLancamentos(empresaAtiva.id, {
+      const lista = await CaixaService.listarLancamentos(empresaCaixaAtual.id, {
         competencia:
           competenciaSelecionada !== "todas"
             ? competenciaSelecionada
@@ -219,11 +231,11 @@ export default function Caixa() {
   }
 
   const carregarFechamentoMensal = async () => {
-    if (!empresaAtiva) return
+    if (!empresaCaixaAtual) return
     setCarregando(true)
     try {
       const res = await CaixaService.calcularFechamentoMensal(
-        empresaAtiva.id,
+        empresaCaixaAtual.id,
         competenciaSelecionada,
       )
       setFechamentoTotais(res.totais)
@@ -242,11 +254,11 @@ export default function Caixa() {
   }
 
   const carregarFechamentoAnual = async () => {
-    if (!empresaAtiva) return
+    if (!empresaCaixaAtual) return
     setCarregando(true)
     try {
       const res = await CaixaService.calcularFechamentoAnual(
-        empresaAtiva.id,
+        empresaCaixaAtual.id,
         anoSelecionado,
         filtroCatAnual,
       )
@@ -270,11 +282,11 @@ export default function Caixa() {
   }
 
   const carregarObrasConsolidado = async () => {
-    if (!empresaAtiva) return
+    if (!empresaCaixaAtual) return
     setCarregando(true)
     try {
       const res = await CaixaService.consolidarObras(
-        empresaAtiva.id,
+        empresaCaixaAtual.id,
         anoSelecionado,
       )
       setDadosObras(res)
@@ -346,8 +358,38 @@ export default function Caixa() {
           </div>
         </div>
 
-        {/* AÇÕES RÁPIDAS NO TOPO */}
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        {/* SELETOR DE UNIDADE DO CAIXA E NOVO LANÇAMENTO */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          {/* Seletor de Unidade / Empresa Parceira (SJE, Monteiro, COSAMPA, AURÉLIO, CONCRETISA) */}
+          <div className="flex items-center gap-1.5 bg-card/80 border border-border/60 rounded-lg px-2.5 py-1">
+            <Building2 className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-xs font-semibold text-muted-foreground">
+              Unidade:
+            </span>
+            <Select
+              value={empresaCaixaAtual?.id || ""}
+              onValueChange={(novaId) => {
+                setUnidadeCaixaId(novaId)
+                selecionarEmpresa(novaId)
+              }}
+            >
+              <SelectTrigger className="h-7 border-0 bg-transparent shadow-none text-xs font-bold text-foreground focus:ring-0 w-[140px]">
+                <SelectValue placeholder="Selecione a Unidade" />
+              </SelectTrigger>
+              <SelectContent>
+                {empresas.map((emp) => (
+                  <SelectItem
+                    key={emp.id}
+                    value={emp.id}
+                    className="text-xs font-semibold"
+                  >
+                    {emp.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <Button
             onClick={() => {
               setLancamentoEmEdicao(null)
@@ -358,6 +400,23 @@ export default function Caixa() {
             <Plus className="w-4 h-4" />
             Novo Lançamento
           </Button>
+        </div>
+      </div>
+
+      {/* AVISO DE ISOLAMENTO E INDEPENDÊNCIA */}
+      <div className="p-3 bg-muted/30 border border-border/40 rounded-xl flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className="text-[10px] bg-primary/10 text-primary border-primary/20 font-bold"
+          >
+            CAIXA INDEPENDENTE
+          </Badge>
+          <span>
+            Módulo autônomo da unidade{" "}
+            <strong>{empresaCaixaAtual?.nome}</strong> — sem vínculo com ordens
+            de serviço, insumos de usina ou folha de pagamento.
+          </span>
         </div>
       </div>
 
@@ -721,10 +780,10 @@ export default function Caixa() {
                 onChange={(e) => setCompetenciaSelecionada(e.target.value)}
                 className="h-8 w-36 text-xs font-mono font-bold"
               />
-              {fechamentoTotais && empresaAtiva && (
+              {fechamentoTotais && empresaCaixaAtual && (
                 <ImpressaoFechamentoA4
-                  empresaNome={empresaAtiva.nome}
-                  empresaCnpj={empresaAtiva.cnpj}
+                  empresaNome={empresaCaixaAtual.nome}
+                  empresaCnpj={empresaCaixaAtual.cnpj}
                   competencia={competenciaSelecionada}
                   totais={fechamentoTotais}
                   categoriasEntradas={fechamentoEntradas}
@@ -957,15 +1016,15 @@ export default function Caixa() {
                   <SelectValue placeholder="Ano" />
                 </SelectTrigger>
                 <SelectContent>
-                  {[2023, 2024, 2025, 2026, 2027].map((a) => (
+                  {[2023, 2024, 2025, 2026].map((a) => (
                     <SelectItem
                       key={a}
                       value={a.toString()}
-                      className="text-xs font-mono"
+                      className="text-xs font-mono font-bold"
                     >
-                      {a}
+                      Ano {a}
                     </SelectItem>
-                  ))}
+                  ))}{" "}
                 </SelectContent>
               </Select>
 
@@ -986,10 +1045,10 @@ export default function Caixa() {
                 </SelectContent>
               </Select>
 
-              {dadosAnual && empresaAtiva && (
+              {dadosAnual && empresaCaixaAtual && (
                 <ImpressaoAnualA4
-                  empresaNome={empresaAtiva.nome}
-                  empresaCnpj={empresaAtiva.cnpj}
+                  empresaNome={empresaCaixaAtual.nome}
+                  empresaCnpj={empresaCaixaAtual.cnpj}
                   ano={anoSelecionado}
                   categoriaFiltro={filtroCatAnual}
                   saldoInicialAno={dadosAnual.saldoInicialAno}
@@ -1129,13 +1188,13 @@ export default function Caixa() {
                 <SelectValue placeholder="Ano" />
               </SelectTrigger>
               <SelectContent>
-                {[2023, 2024, 2025, 2026, 2027].map((a) => (
+                {[2023, 2024, 2025, 2026].map((a) => (
                   <SelectItem
                     key={a}
                     value={a.toString()}
-                    className="text-xs font-mono"
+                    className="text-xs font-mono font-bold"
                   >
-                    {a}
+                    Ano {a}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1208,9 +1267,10 @@ export default function Caixa() {
         <TabsContent value="importar" className="space-y-4">
           <AbaImportadorCaixa
             empresas={empresas}
-            empresaAtiva={empresaAtiva}
+            empresaAtiva={empresaCaixaAtual}
             onImportadoSucesso={() => {
               carregarLancamentos()
+              carregarAuxiliares()
               setTabAtiva("lancamentos")
             }}
           />
@@ -1218,11 +1278,11 @@ export default function Caixa() {
       </Tabs>
 
       {/* MODAL DE CRIAÇÃO / EDIÇÃO DE LANÇAMENTO */}
-      {empresaAtiva && (
+      {empresaCaixaAtual && (
         <ModalLancamentoCaixa
           open={modalLancamentoAberto}
           onOpenChange={setModalLancamentoAberto}
-          empresaId={empresaAtiva.id}
+          empresaId={empresaCaixaAtual.id}
           lancamentoEmEdicao={lancamentoEmEdicao}
           categorias={categorias}
           obras={obras}

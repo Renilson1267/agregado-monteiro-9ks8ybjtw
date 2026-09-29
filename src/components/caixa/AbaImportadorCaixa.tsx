@@ -90,7 +90,7 @@ export function AbaImportadorCaixa({
       } else {
         toast({
           title: "Planilha processada com sucesso!",
-          description: `${resultado.linhasValidas.length} lançamentos válidos em ${resultado.competenciasEncontradas.length} competências (${resultado.totalAbas} abas lidas).`,
+          description: `${resultado.linhasValidas.length} lançamentos válidos (${resultado.totalLinhasMensais} mensais + ${resultado.totalLinhasObras} de obras) em ${resultado.competenciasEncontradas.length} competências (${resultado.totalAbas} abas lidas).`,
         })
       }
     } catch (err: any) {
@@ -197,9 +197,12 @@ export function AbaImportadorCaixa({
                 Importador de Planilhas de Caixa (Fec_Caixa SJE / 78 Abas)
               </CardTitle>
               <CardDescription className="text-xs">
-                Faça upload do arquivo XLSX do Caixa. O sistema lê as abas
-                mensais (2023 a 2026), detecta recebimentos, obras vinculadas e
-                saídas operacionais.
+                Faça upload do arquivo XLSX do Caixa ("Fec_ Caixa SJE"). O
+                importador lê fielmente as
+                <strong> abas mensais</strong> (Janeiro 2023 a Agos2026) e as{" "}
+                <strong>abas de Obras por mês</strong> (ObrasSET2023,
+                ObrasJANE2024, etc.), com prévia completa antes de gravar no
+                Supabase.
               </CardDescription>
             </div>
             {empresaAtiva && (
@@ -207,12 +210,19 @@ export function AbaImportadorCaixa({
                 variant="outline"
                 className="text-xs bg-primary/10 text-primary border-primary/30 w-fit"
               >
-                Empresa Ativa: {empresaAtiva.nome}
+                Unidade Ativa: {empresaAtiva.nome}
               </Badge>
             )}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 dark:text-amber-400">
+            <strong>Módulo Caixa 100% Independente:</strong> Este módulo não
+            compartilha nem puxa dados de cargas, insumos, clientes externos ou
+            folha de pagamento. Os lançamentos vêm exclusivamente da importação
+            desta planilha e de lançamentos digitados diretamente nesta tela.
+          </div>
+
           {!preview && !carregandoArquivo && (
             <div
               onClick={() => fileInputRef.current?.click()}
@@ -223,11 +233,13 @@ export function AbaImportadorCaixa({
               </div>
               <div>
                 <p className="font-semibold text-sm text-foreground">
-                  Clique para selecionar a planilha .XLSX ou .XLS do Caixa
+                  Clique para selecionar a planilha .XLSX do Caixa (Fec_ Caixa
+                  SJE)
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Compatível com <strong>Fec_Caixa SJE</strong> (78 abas, CAIXA
-                  3 EMPRESAS, Obras e Fechamentos)
+                  Reconhece abas mensais (JANEIRO 2023 a Agos2026), abas Obras
+                  (ObrasSET2023, ObrasJANE2024...) e empresas parceiras
+                  (COSAMPA, AURÉLIO, CONCRETISA)
                 </p>
               </div>
               <input
@@ -269,7 +281,9 @@ export function AbaImportadorCaixa({
                       </Badge>
                     </h4>
                     <p className="text-[11px] text-muted-foreground">
-                      {preview.linhasValidas.length} lançamentos válidos •{" "}
+                      {preview.linhasValidas.length} lançamentos (
+                      {preview.totalLinhasMensais} abas mensais,{" "}
+                      {preview.totalLinhasObras} abas obras) •{" "}
                       {preview.competenciasEncontradas.length} competências
                       detectadas
                     </p>
@@ -291,18 +305,19 @@ export function AbaImportadorCaixa({
                 </Button>
               </div>
 
-              {/* CARDS COM TOTAIS DA PRÉVIA */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              {/* DETALHAMENTO DE ABAS IDENTIFICADAS */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <Card className="bg-card/70 border-border/40">
                   <CardContent className="p-3">
                     <span className="text-[10px] font-semibold text-muted-foreground uppercase">
-                      Lançamentos
+                      Total de Lançamentos
                     </span>
                     <div className="text-xl font-bold font-mono text-foreground mt-1">
                       {preview.linhasValidas.length}
                     </div>
                     <span className="text-[10px] text-muted-foreground">
-                      em {preview.competenciasEncontradas.length} meses
+                      {preview.totalLinhasMensais} Mensais •{" "}
+                      {preview.totalLinhasObras} Obras
                     </span>
                   </CardContent>
                 </Card>
@@ -357,7 +372,7 @@ export function AbaImportadorCaixa({
                   <div className="space-y-2">
                     <Label className="text-xs font-bold flex items-center gap-1.5">
                       <Building2 className="w-4 h-4 text-primary" />
-                      Empresa de Destino no Supabase *
+                      Unidade de Destino no Supabase *
                     </Label>
                     <select
                       value={empresaDestinoId}
@@ -366,13 +381,15 @@ export function AbaImportadorCaixa({
                     >
                       {empresas.map((emp) => (
                         <option key={emp.id} value={emp.id}>
-                          {emp.nome} ({emp.razao_social || emp.slug})
+                          {emp.nome}{" "}
+                          {emp.razao_social ? `— ${emp.razao_social}` : ""}
                         </option>
                       ))}
                     </select>
                     <p className="text-[10px] text-muted-foreground">
-                      Conforme regra multi-empresa, os dados ficam estritamente
-                      isolados para a unidade escolhida.
+                      Unidades disponíveis: SJE, Monteiro, COSAMPA, AURÉLIO e
+                      CONCRETISA. Os dados ficam estritamente isolados para a
+                      unidade escolhida.
                     </p>
                   </div>
 
@@ -482,6 +499,7 @@ export function AbaImportadorCaixa({
                   <table className="w-full text-left text-xs">
                     <thead className="bg-muted/50 font-semibold border-b border-border/40 text-[11px] text-muted-foreground">
                       <tr>
+                        <th className="py-2 px-3">Origem</th>
                         <th className="py-2 px-3">Data</th>
                         <th className="py-2 px-3">Tipo</th>
                         <th className="py-2 px-3">Categoria</th>
@@ -493,6 +511,18 @@ export function AbaImportadorCaixa({
                     <tbody className="divide-y divide-border/20">
                       {preview.linhasValidas.slice(0, 8).map((l, idx) => (
                         <tr key={idx} className="hover:bg-muted/20">
+                          <td className="py-2 px-3">
+                            <Badge
+                              variant="outline"
+                              className={
+                                l.tipoOrigem === "obras"
+                                  ? "bg-sky-500/10 text-sky-600 border-sky-500/30 text-[9px]"
+                                  : "bg-muted text-muted-foreground text-[9px]"
+                              }
+                            >
+                              {l.origemAba}
+                            </Badge>
+                          </td>
                           <td className="py-2 px-3 font-mono text-[11px]">
                             {l.data}
                           </td>
