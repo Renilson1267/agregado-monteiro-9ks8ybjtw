@@ -3908,7 +3908,7 @@ export function FolhaPagamento() {
         </TabsContent>
 
         {/* =========================================================================
-            NOVA ABA: 13º SALÁRIO (DÉCIMO TERCEIRO)
+            ABA: 13º SALÁRIO (DÉCIMO TERCEIRO)
         ========================================================================== */}
         <TabsContent value="decimo" className="space-y-4">
           <AbaDecimoTerceiro
