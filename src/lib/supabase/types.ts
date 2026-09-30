@@ -1543,15 +1543,19 @@ export type Tables<
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
       : never
-    : never
+    : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Views"]
+      ? DefaultSchema["Views"][DefaultSchemaTableNameOrOptions] extends {
+          Row: infer R
+        }
+        ? R
+        : never
+      : never
 
 export type TablesInsert<DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"] | {
   schema: keyof DatabaseWithoutInternals

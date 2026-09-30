@@ -1376,9 +1376,9 @@ export default function Relatorios() {
               )}
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto max-h-[600px]">
-                <table className="w-full text-xs text-left">
-                  <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 sticky top-0 border-b border-border/40 backdrop-blur">
+              <div className="overflow-x-auto max-h-[600px] print:max-h-none print:overflow-visible">
+                <table className="w-full text-xs text-left border-collapse print:text-[8pt]">
+                  <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 sticky top-0 border-b border-border/40 backdrop-blur print:static print:bg-gray-100 print:text-black">
                     <tr>
                       <th className="py-2.5 px-3">Carga #</th>
                       <th className="py-2.5 px-3">Data</th>
@@ -1414,7 +1414,7 @@ export default function Relatorios() {
                     {cargas.map((c) => (
                       <tr
                         key={c.id}
-                        className="hover:bg-muted/20 transition-colors"
+                        className="hover:bg-muted/20 transition-colors break-inside-avoid page-break-inside-avoid"
                       >
                         <td className="py-2 px-3 font-mono font-medium text-foreground">
                           #{String(c.numero_carga).padStart(4, "0")}

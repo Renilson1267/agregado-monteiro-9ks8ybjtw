@@ -381,6 +381,16 @@
     fill: #000000 !important;
   }
 
+  /* Anulação de scrolls e limites de altura para paginação completa A4 */
+  .overflow-x-auto,
+  .overflow-y-auto,
+  [class*="overflow-x-auto"],
+  [class*="overflow-y-auto"],
+  [class*="max-h-"] {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
   /* Quebras de página controladas */
   .page-break-before {
     page-break-before: always !important;
@@ -395,20 +405,21 @@
   /* Tabelas */
   table {
     width: 100% !important;
-    table-layout: fixed !important;
     border-collapse: collapse !important;
   }
 
-  tr {
-    page-break-inside: avoid;
+  thead {
+    display: table-header-group !important;
+    position: static !important;
   }
 
-  thead {
-    display: table-header-group;
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   tfoot {
-    display: table-footer-group;
+    display: table-footer-group !important;
   }
 }
 
