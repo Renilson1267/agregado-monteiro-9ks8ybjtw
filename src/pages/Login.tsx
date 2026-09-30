@@ -44,9 +44,9 @@ export default function Login() {
   const [modoPrimeiroAcesso, setModoPrimeiroAcesso] = useState(false)
 
   useEffect(() => {
-    // Se já estiver logado, redirecionar
+    // Se já estiver logado, redirecionar para o Painel Gerencial Executivo
     if (!authLoading && user) {
-      navigate("/", { replace: true })
+      navigate("/painel", { replace: true })
     }
   }, [user, authLoading, navigate])
 
@@ -115,7 +115,7 @@ export default function Login() {
           console.warn("Registro de perfil no banco:", dbErr)
         }
 
-        navigate("/", { replace: true })
+        navigate("/painel", { replace: true })
         return
       }
 
@@ -154,10 +154,10 @@ export default function Login() {
         if (appUser?.perfil === "balanceiro") {
           navigate("/lancamentos", { replace: true })
         } else {
-          navigate("/", { replace: true })
+          navigate("/painel", { replace: true })
         }
       } else {
-        navigate("/", { replace: true })
+        navigate("/painel", { replace: true })
       }
     } catch (err: any) {
       console.error("Erro no login:", err)

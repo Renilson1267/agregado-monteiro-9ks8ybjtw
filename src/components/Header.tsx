@@ -64,7 +64,7 @@ export function Header({
   const getPageTitle = () => {
     const path = location.pathname
     const search = location.search
-    if (path === "/") {
+    if (path === "/" || path === "/dashboard") {
       return isBalanceiro ? "Dashboard Operacional" : "Dashboard de Produção"
     }
     if (path === "/painel") return "Painel Gerencial Executivo"

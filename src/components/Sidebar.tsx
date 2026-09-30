@@ -131,7 +131,7 @@ export function Sidebar({
         {
           icon: LayoutDashboard,
           label: isBalanceiro ? "Dashboard Operacional" : "Dashboard Geral",
-          path: "/",
+          path: "/dashboard",
           group: "operacao",
         },
         {
@@ -393,7 +393,7 @@ export function Sidebar({
           )}
         >
           <Link
-            to="/"
+            to="/painel"
             className={cn(
               "flex items-center gap-2.5 overflow-hidden group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg",
               collapsed && "justify-center",
@@ -713,7 +713,7 @@ export function Sidebar({
           {!collapsed && (
             <div className="pt-0.5 text-center">
               <span className="text-[10px] text-muted-foreground/50 font-mono">
-                GC MIX v0.0.87
+                GC MIX v0.0.102
               </span>
             </div>
           )}
@@ -819,7 +819,7 @@ export function Sidebar({
 
             <div className="pt-1 text-center">
               <span className="text-[10px] text-muted-foreground/60 font-mono">
-                GC MIX v0.0.87
+                GC MIX v0.0.102
               </span>
             </div>
           </div>

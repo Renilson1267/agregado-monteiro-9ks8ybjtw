@@ -39,9 +39,13 @@ const App = () => (
                 {/* Rotas Protegidas Globais (Requer estar logado) */}
                 <Route element={<ProtectedRoute />}>
                   <Route element={<Layout />}>
-                    {/* Acesso liberado a Balanceiro & Admin (Dashboard e Estoque sem valores financeiros) */}
-                    <Route path="/" element={<Index />} />
+                    {/* Acesso liberado a Balanceiro & Admin (Painel Gerencial como tela inicial /) */}
+                    <Route
+                      path="/"
+                      element={<Navigate to="/painel" replace />}
+                    />
                     <Route path="/painel" element={<PainelGerencial />} />
+                    <Route path="/dashboard" element={<Index />} />
                     <Route path="/lancamentos" element={<LancamentoCargas />} />
                     <Route path="/estoque" element={<Estoque />} />
                     <Route path="/ordens" element={<Ordens />} />
