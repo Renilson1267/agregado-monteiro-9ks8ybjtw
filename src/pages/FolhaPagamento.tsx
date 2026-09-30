@@ -94,6 +94,82 @@ import {
 } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
+const ID_EMPRESA_MONTEIRO = "11111111-1111-1111-1111-111111111111"
+const ID_EMPRESA_SJE = "22222222-2222-2222-2222-222222222222"
+
+interface CalculoUnidadeConsolidada {
+  totalFuncionarios: number
+  totalTerceiros: number
+  valorReal: number
+  qtdFuncionarios: number
+  qtdTerceiros: number
+  linhasCount: number
+}
+
+function calcularValorRealEmpresa(
+  linhasEmpresa: FolhaPagamentoLinha[],
+  terceirosCadastradosEmpresa: FolhaTerceiro[] = [],
+): CalculoUnidadeConsolidada {
+  if (!linhasEmpresa || linhasEmpresa.length === 0) {
+    return {
+      totalFuncionarios: 0,
+      totalTerceiros: 0,
+      valorReal: 0,
+      qtdFuncionarios: 0,
+      qtdTerceiros: 0,
+      linhasCount: 0,
+    }
+  }
+
+  // 1. Funcionários (inclui ocultos como Renilson)
+  const funcs = linhasEmpresa.filter((l) => l.tipo !== "Terceiro")
+  let totalFuncionarios = 0
+  funcs.forEach((l) => {
+    const obras = Number(l.obras || 0)
+    const valorObra = Number(l.valor_obra ?? 20)
+    const producao =
+      l.producao !== undefined && Number(l.producao) > 0
+        ? Number(l.producao)
+        : obras * valorObra
+    const mensal = Number(l.mensal_liquido || 0)
+    totalFuncionarios += mensal + producao
+  })
+  totalFuncionarios = Math.round(totalFuncionarios * 100) / 100
+
+  // 2. Terceiros
+  const tercs = linhasEmpresa.filter((l) => l.tipo === "Terceiro")
+  let totalTerceiros = 0
+  tercs.forEach((t) => {
+    const cadastrado = terceirosCadastradosEmpresa.find(
+      (c) =>
+        (t.id && c.id === t.id) ||
+        (t.nome &&
+          c.nome &&
+          c.nome.trim().toUpperCase() === t.nome.trim().toUpperCase()),
+    )
+    const ehVendedor = Boolean(
+      cadastrado?.eh_vendedor ||
+        (t.nome && t.nome.toUpperCase().includes("MARCIO LUAN")),
+    )
+    const valorMes = ehVendedor
+      ? Number(t.comissao || 0) + Number(t.ajuda_custo || 0)
+      : Number(t.salario_liquido || t.bruto || 0)
+    totalTerceiros += valorMes
+  })
+  totalTerceiros = Math.round(totalTerceiros * 100) / 100
+
+  const valorReal = Math.round((totalFuncionarios + totalTerceiros) * 100) / 100
+
+  return {
+    totalFuncionarios,
+    totalTerceiros,
+    valorReal,
+    qtdFuncionarios: funcs.length,
+    qtdTerceiros: tercs.length,
+    linhasCount: linhasEmpresa.length,
+  }
+}
+
 export function FolhaPagamento() {
   const { empresaAtiva } = useEmpresa()
   const { isAdministrador } = useUsuario()
@@ -171,6 +247,17 @@ export function FolhaPagamento() {
     useState<any[]>([])
   const [historicoLinhasAno, setHistoricoLinhasAno] = useState<any[]>([])
   const printRef = useRef<HTMLDivElement>(null)
+
+  // Estado da Consolidação das Duas Folhas (MONTEIRO + SJE)
+  const [linhasConsolidacaoMonteiro, setLinhasConsolidacaoMonteiro] =
+    useState<FolhaPagamentoLinha[]>([])
+  const [linhasConsolidacaoSje, setLinhasConsolidacaoSje] =
+    useState<FolhaPagamentoLinha[]>([])
+  const [terceirosMonteiro, setTerceirosMonteiro] = useState<FolhaTerceiro[]>(
+    [],
+  )
+  const [terceirosSje, setTerceirosSje] = useState<FolhaTerceiro[]>([])
+  const [carregandoConsolidacao, setCarregandoConsolidacao] = useState(false)
 
   // 1. Carregar lista de competências disponíveis
   useEffect(() => {
@@ -271,6 +358,33 @@ export function FolhaPagamento() {
     }
     carregarDados()
   }, [empresaAtiva?.id, competencia, toast])
+
+  // 4. Carregar em paralelo dados consolidados das duas empresas (Monteiro e SJE) para a competência
+  useEffect(() => {
+    async function carregarConsolidacao() {
+      if (!competencia) return
+      setCarregandoConsolidacao(true)
+      try {
+        const [linhasMont, linhasSjeData, tercsMont, tercsSjeData] =
+          await Promise.all([
+            FolhaService.getLinhasCompetencia(ID_EMPRESA_MONTEIRO, competencia),
+            FolhaService.getLinhasCompetencia(ID_EMPRESA_SJE, competencia),
+            FolhaService.getTerceiros(ID_EMPRESA_MONTEIRO),
+            FolhaService.getTerceiros(ID_EMPRESA_SJE),
+          ])
+
+        setLinhasConsolidacaoMonteiro(linhasMont || [])
+        setLinhasConsolidacaoSje(linhasSjeData || [])
+        setTerceirosMonteiro(tercsMont || [])
+        setTerceirosSje(tercsSjeData || [])
+      } catch (err) {
+        console.warn("Erro ao carregar dados consolidados da folha:", err)
+      } finally {
+        setCarregandoConsolidacao(false)
+      }
+    }
+    carregarConsolidacao()
+  }, [competencia])
 
   // Salvar cabeçalho da competência (% quinzena ou data)
   const salvarConfigCompetencia = async (
@@ -879,6 +993,76 @@ export function FolhaPagamento() {
         totaisVendasFuncionarios.comissao + totaisVendasTerceiros.comissao,
     }
   }, [totaisVendasFuncionarios, totaisVendasTerceiros])
+
+  // CÁLCULO DA CONSOLIDAÇÃO DAS DUAS FOLHAS (MONTEIRO + SJE)
+  const consolidacaoDuasFolhas = useMemo(() => {
+    // Se a empresa ativa atual for Monteiro ou SJE, podemos usar os dados já calculados e reativos da tela para a empresa ativa
+    const isAtivaMonteiro = empresaAtiva?.id === ID_EMPRESA_MONTEIRO
+    const isAtivaSje = empresaAtiva?.id === ID_EMPRESA_SJE
+
+    // Cálculo Monteiro
+    let monteiro: CalculoUnidadeConsolidada
+    if (isAtivaMonteiro) {
+      monteiro = {
+        totalFuncionarios: Math.round(totaisGeral.liquidoGeral * 100) / 100,
+        totalTerceiros: Math.round(totaisTerceiros.valorMes * 100) / 100,
+        valorReal:
+          Math.round(
+            (totaisGeral.liquidoGeral + totaisTerceiros.valorMes) * 100,
+          ) / 100,
+        qtdFuncionarios: linhasGeralProcessadas.length,
+        qtdTerceiros: terceirosProcessados.length,
+        linhasCount: linhas.length,
+      }
+    } else {
+      monteiro = calcularValorRealEmpresa(
+        linhasConsolidacaoMonteiro,
+        terceirosMonteiro,
+      )
+    }
+
+    // Cálculo SJE
+    let sje: CalculoUnidadeConsolidada
+    if (isAtivaSje) {
+      sje = {
+        totalFuncionarios: Math.round(totaisGeral.liquidoGeral * 100) / 100,
+        totalTerceiros: Math.round(totaisTerceiros.valorMes * 100) / 100,
+        valorReal:
+          Math.round(
+            (totaisGeral.liquidoGeral + totaisTerceiros.valorMes) * 100,
+          ) / 100,
+        qtdFuncionarios: linhasGeralProcessadas.length,
+        qtdTerceiros: terceirosProcessados.length,
+        linhasCount: linhas.length,
+      }
+    } else {
+      sje = calcularValorRealEmpresa(linhasConsolidacaoSje, terceirosSje)
+    }
+
+    const temMonteiro = monteiro.linhasCount > 0
+    const temSje = sje.linhasCount > 0
+    const totalConsolidado =
+      Math.round((monteiro.valorReal + sje.valorReal) * 100) / 100
+
+    return {
+      monteiro,
+      sje,
+      temMonteiro,
+      temSje,
+      totalConsolidado,
+    }
+  }, [
+    empresaAtiva?.id,
+    totaisGeral.liquidoGeral,
+    totaisTerceiros.valorMes,
+    linhasGeralProcessadas.length,
+    terceirosProcessados.length,
+    linhas.length,
+    linhasConsolidacaoMonteiro,
+    terceirosMonteiro,
+    linhasConsolidacaoSje,
+    terceirosSje,
+  ])
 
   // RESUMO GERAL CONSOLIDADO (Aba 6)
   const resumo = useMemo(() => {
@@ -2635,6 +2819,155 @@ export function FolhaPagamento() {
                     <span className="text-[11px] text-muted-foreground mt-0.5 block">
                       Funcionários + Terceiros (total competência)
                     </span>
+                  </div>
+                </div>
+
+                {/* BLOCO DESTACADO: SOMA DAS DUAS FOLHAS (MONTEIRO + SJE) */}
+                <div className="mt-4 p-4 rounded-xl border-2 border-blue-500/40 bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-blue-50/70 dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-blue-950/30 shadow-md">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-blue-200/60 dark:border-blue-800/60">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-blue-600 text-white text-xs font-black shadow-sm">
+                        Σ
+                      </span>
+                      <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-950 dark:text-blue-100">
+                        SOMA DAS DUAS FOLHAS (MONTEIRO + SJE)
+                      </h4>
+                      <Badge
+                        variant="outline"
+                        className="border-blue-400 text-blue-700 dark:text-blue-300 font-mono text-[10px] bg-white/80 dark:bg-background/80"
+                      >
+                        {rotuloCompetenciaMesAno}
+                      </Badge>
+                    </div>
+                    {carregandoConsolidacao && (
+                      <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium animate-pulse">
+                        Atualizando valores consolidados...
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-3">
+                    {/* CARD MONTEIRO */}
+                    <div className="p-3 rounded-lg border bg-background/90 dark:bg-card/90 shadow-xs flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-foreground">
+                            Monteiro
+                          </span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {consolidacaoDuasFolhas.temMonteiro
+                              ? `${consolidacaoDuasFolhas.monteiro.qtdFuncionarios} func. + ${consolidacaoDuasFolhas.monteiro.qtdTerceiros} terc.`
+                              : "0 registros"}
+                          </span>
+                        </div>
+                        <span className="text-lg font-bold font-mono text-foreground mt-1.5 block">
+                          {fmtMoeda(consolidacaoDuasFolhas.monteiro.valorReal)}
+                        </span>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-border/50 text-[11px] text-muted-foreground">
+                        {consolidacaoDuasFolhas.temMonteiro ? (
+                          <div className="space-y-0.5 text-[10.5px]">
+                            <div className="flex justify-between">
+                              <span>Líquido func.:</span>
+                              <span className="font-mono font-medium">
+                                {fmtMoeda(
+                                  consolidacaoDuasFolhas.monteiro
+                                    .totalFuncionarios,
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Terceiros:</span>
+                              <span className="font-mono font-medium">
+                                {fmtMoeda(
+                                  consolidacaoDuasFolhas.monteiro
+                                    .totalTerceiros,
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-amber-700 dark:text-amber-400 font-medium">
+                            competência não lançada na unidade Monteiro
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* CARD SJE */}
+                    <div className="p-3 rounded-lg border bg-background/90 dark:bg-card/90 shadow-xs flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-foreground">
+                            SJE / Caldas & Amaral
+                          </span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {consolidacaoDuasFolhas.temSje
+                              ? `${consolidacaoDuasFolhas.sje.qtdFuncionarios} func. + ${consolidacaoDuasFolhas.sje.qtdTerceiros} terc.`
+                              : "0 registros"}
+                          </span>
+                        </div>
+                        <span className="text-lg font-bold font-mono text-foreground mt-1.5 block">
+                          {fmtMoeda(consolidacaoDuasFolhas.sje.valorReal)}
+                        </span>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-border/50 text-[11px] text-muted-foreground">
+                        {consolidacaoDuasFolhas.temSje ? (
+                          <div className="space-y-0.5 text-[10.5px]">
+                            <div className="flex justify-between">
+                              <span>Líquido func.:</span>
+                              <span className="font-mono font-medium">
+                                {fmtMoeda(
+                                  consolidacaoDuasFolhas.sje.totalFuncionarios,
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Terceiros:</span>
+                              <span className="font-mono font-medium">
+                                {fmtMoeda(
+                                  consolidacaoDuasFolhas.sje.totalTerceiros,
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-amber-700 dark:text-amber-400 font-medium">
+                            competência não lançada na unidade SJE
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* CARD TOTAL CONSOLIDADO */}
+                    <div className="p-3 rounded-lg border-2 border-blue-600 bg-blue-600/10 dark:bg-blue-600/20 shadow-xs flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black uppercase tracking-wide text-blue-900 dark:text-blue-200">
+                            TOTAL CONSOLIDADO
+                          </span>
+                          <Badge className="bg-blue-600 text-white font-bold text-[10px] hover:bg-blue-700">
+                            GC MIX GERAL
+                          </Badge>
+                        </div>
+                        <span className="text-2xl font-black font-mono text-blue-700 dark:text-blue-300 mt-1 block">
+                          {fmtMoeda(consolidacaoDuasFolhas.totalConsolidado)}
+                        </span>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-blue-300 dark:border-blue-700 text-[11px] text-muted-foreground flex items-center justify-between">
+                        <span>Soma real das unidades</span>
+                        {!consolidacaoDuasFolhas.temMonteiro ||
+                        !consolidacaoDuasFolhas.temSje ? (
+                          <span className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">
+                            Reflete apenas unidade lançada
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold">
+                            Duas unidades somadas
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -4816,6 +5149,130 @@ export function FolhaPagamento() {
                 </table>
               </div>
             )}
+
+            {/* BOX DE CONSOLIDAÇÃO GERAL GC MIX NA IMPRESSÃO A4 (SOMA DAS DUAS UNIDADES) */}
+            <div className="space-y-1.5 pt-3">
+              <div className="font-black text-[10px] uppercase tracking-wide bg-gray-200 border border-gray-400 p-1.5 flex items-center justify-between">
+                <span>
+                  CONSOLIDAÇÃO GERAL GC MIX (SOMA DAS DUAS UNIDADES) —{" "}
+                  {rotuloCompetenciaMesAno}
+                </span>
+                <span className="text-[9px] font-semibold text-gray-700">
+                  MONTEIRO + SJE / CALDAS & AMARAL
+                </span>
+              </div>
+              <table className="w-full border-collapse border border-gray-400 text-[9px]">
+                <thead className="bg-gray-100 font-bold uppercase text-gray-800">
+                  <tr>
+                    <th className="border border-gray-400 p-1 text-left">
+                      UNIDADE
+                    </th>
+                    <th className="border border-gray-400 p-1 text-center w-28">
+                      COLABORADORES
+                    </th>
+                    <th className="border border-gray-400 p-1 text-right">
+                      LÍQUIDO FUNCIONÁRIOS
+                    </th>
+                    <th className="border border-gray-400 p-1 text-right">
+                      TOTAL TERCEIROS
+                    </th>
+                    <th className="border border-gray-400 p-1 text-right font-bold">
+                      VALOR REAL DA FOLHA
+                    </th>
+                    <th className="border border-gray-400 p-1 text-left">
+                      SITUAÇÃO
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-gray-400 p-1 font-semibold">
+                      UNIDADE MONTEIRO
+                    </td>
+                    <td className="border border-gray-400 p-1 text-center font-mono">
+                      {consolidacaoDuasFolhas.temMonteiro
+                        ? `${consolidacaoDuasFolhas.monteiro.qtdFuncionarios} func. + ${consolidacaoDuasFolhas.monteiro.qtdTerceiros} terc.`
+                        : "0"}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono">
+                      {fmtMoeda(
+                        consolidacaoDuasFolhas.monteiro.totalFuncionarios,
+                      )}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono">
+                      {fmtMoeda(consolidacaoDuasFolhas.monteiro.totalTerceiros)}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono font-bold">
+                      {fmtMoeda(consolidacaoDuasFolhas.monteiro.valorReal)}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-[8px]">
+                      {consolidacaoDuasFolhas.temMonteiro
+                        ? "Competência lançada"
+                        : "Competência não lançada"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-gray-400 p-1 font-semibold">
+                      UNIDADE SJE (CALDAS & AMARAL)
+                    </td>
+                    <td className="border border-gray-400 p-1 text-center font-mono">
+                      {consolidacaoDuasFolhas.temSje
+                        ? `${consolidacaoDuasFolhas.sje.qtdFuncionarios} func. + ${consolidacaoDuasFolhas.sje.qtdTerceiros} terc.`
+                        : "0"}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono">
+                      {fmtMoeda(consolidacaoDuasFolhas.sje.totalFuncionarios)}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono">
+                      {fmtMoeda(consolidacaoDuasFolhas.sje.totalTerceiros)}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono font-bold">
+                      {fmtMoeda(consolidacaoDuasFolhas.sje.valorReal)}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-[8px]">
+                      {consolidacaoDuasFolhas.temSje
+                        ? "Competência lançada"
+                        : "Competência não lançada"}
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot className="bg-gray-200 font-bold border-t-2 border-gray-500">
+                  <tr>
+                    <td className="border border-gray-400 p-1.5 uppercase font-black">
+                      TOTAL CONSOLIDADO GC MIX
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-center font-mono">
+                      {consolidacaoDuasFolhas.monteiro.qtdFuncionarios +
+                        consolidacaoDuasFolhas.monteiro.qtdTerceiros +
+                        consolidacaoDuasFolhas.sje.qtdFuncionarios +
+                        consolidacaoDuasFolhas.sje.qtdTerceiros}{" "}
+                      total
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-right font-mono">
+                      {fmtMoeda(
+                        consolidacaoDuasFolhas.monteiro.totalFuncionarios +
+                          consolidacaoDuasFolhas.sje.totalFuncionarios,
+                      )}
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-right font-mono">
+                      {fmtMoeda(
+                        consolidacaoDuasFolhas.monteiro.totalTerceiros +
+                          consolidacaoDuasFolhas.sje.totalTerceiros,
+                      )}
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-right font-mono text-[10px] font-black text-black">
+                      {fmtMoeda(consolidacaoDuasFolhas.totalConsolidado)}
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-[8px]">
+                      {!consolidacaoDuasFolhas.temMonteiro ||
+                      !consolidacaoDuasFolhas.temSje
+                        ? "Total parcial (unidade pendente)"
+                        : "Consolidação completa das 2 unidades"}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
         )}
 
