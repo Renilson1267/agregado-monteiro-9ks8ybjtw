@@ -29,13 +29,20 @@ import { usePwaInstall } from "@/hooks/use-pwa-install"
 
 export default function Login() {
   const navigate = useNavigate()
-  const { user, signIn, signUp, loading: authLoading } = useAuth()
+  const {
+    user,
+    signIn,
+    signUp,
+    resetPasswordForEmail,
+    loading: authLoading,
+  } = useAuth()
   const { isInstallable, installApp } = usePwaInstall()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [nome, setNome] = useState("")
   const [loading, setLoading] = useState(false)
+  const [loadingReset, setLoadingReset] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
 
@@ -167,6 +174,37 @@ export default function Login() {
     }
   }
 
+  const handleEsqueciSenha = async () => {
+    setErro(null)
+    setSucesso(null)
+
+    if (!email.trim()) {
+      setErro(
+        "Informe o e-mail cadastrado no campo acima para receber o link de redefinição de senha.",
+      )
+      return
+    }
+
+    setLoadingReset(true)
+    try {
+      const { error: resetErr } = await resetPasswordForEmail(email.trim())
+      if (resetErr) {
+        setErro(
+          resetErr.message ||
+            "Não foi possível enviar o e-mail de redefinição.",
+        )
+      } else {
+        setSucesso(
+          `Link de redefinição de senha enviado para ${email.trim().toLowerCase()}. Verifique sua caixa de entrada e spam.`,
+        )
+      }
+    } catch (e: any) {
+      setErro("Erro inesperado ao solicitar redefinição de senha.")
+    } finally {
+      setLoadingReset(false)
+    }
+  }
+
   const preencherPadrao = () => {
     setEmail("gcmixsje@gmail.com")
     setPassword("Skip@Pass123")
@@ -278,13 +316,25 @@ export default function Login() {
             </div>
 
             <div className="space-y-1.5">
-              <Label
-                htmlFor="password"
-                className="text-xs font-semibold flex items-center gap-1.5"
-              >
-                <Lock className="w-3.5 h-3.5 text-muted-foreground" />
-                Senha
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="password"
+                  className="text-xs font-semibold flex items-center gap-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                  Senha
+                </Label>
+                {!modoPrimeiroAcesso && (
+                  <button
+                    type="button"
+                    onClick={handleEsqueciSenha}
+                    disabled={loading || loadingReset}
+                    className="text-[11px] text-primary hover:underline font-medium transition-colors disabled:opacity-50"
+                  >
+                    {loadingReset ? "Enviando link..." : "Esqueci minha senha"}
+                  </button>
+                )}
+              </div>
               <Input
                 id="password"
                 type="password"

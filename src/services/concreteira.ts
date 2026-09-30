@@ -2130,6 +2130,55 @@ export const ConcreteiraService = {
       .is("user_id", null)
   },
 
+  /**
+   * Confirma o e-mail de um usuário de autenticação (auth.users)
+   * Tenta via Edge Function Admin (Service Role) e fallback para RPC segura
+   */
+  async confirmarEmailAuthUsuario(userId: string, email?: string): Promise<{
+    success: boolean
+    message?: string
+    error?: string
+  }> {
+    try {
+      // 1. Tentar Edge Function dedicada
+      const { data, error } = await supabase.functions.invoke(
+        "confirmar-email-admin",
+        {
+          body: { userId, email },
+        },
+      )
+      if (!error && data?.success) {
+        return { success: true, message: data.message }
+      }
+      if (error) {
+        console.warn(
+          "Edge function confirmar-email-admin falhou, tentando fallback RPC:",
+          error,
+        )
+      }
+    } catch (e) {
+      console.warn("Falha ao invocar edge function confirmar-email-admin:", e)
+    }
+
+    // 2. Fallback via RPC segura no banco
+    try {
+      const { data: rpcData, error: rpcError } = await (supabase as any).rpc(
+        "confirmar_email_auth_usuario",
+        {
+          p_user_id: userId,
+        },
+      )
+      if (rpcError) throw rpcError
+      return rpcData || { success: true, message: "E-mail confirmado via RPC." }
+    } catch (rpcErr: any) {
+      return {
+        success: false,
+        error:
+          rpcErr?.message || "Não foi possível confirmar o e-mail do usuário.",
+      }
+    }
+  },
+
   // Importação em Lote de Cargas do Controle Diário (com deduplicação e auto-cadastro)
   async importarCargasControleDiario(
     empresaId: string,

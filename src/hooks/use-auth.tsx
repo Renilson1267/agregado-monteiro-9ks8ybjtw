@@ -26,6 +26,7 @@ interface AuthContextType {
     data?: any
     error: any
   }>
+  resetPasswordForEmail: (email: string) => Promise<{ error: any }>
   signOut: () => Promise<{ error: any }>
   loading: boolean
 }
@@ -86,6 +87,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { data: res.data, error: res.error }
   }
 
+  const resetPasswordForEmail = async (email: string) => {
+    const res = await supabase.auth.resetPasswordForEmail(
+      email.trim().toLowerCase(),
+      {
+        redirectTo: `${window.location.origin}/`,
+      },
+    )
+    return { error: res.error }
+  }
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
     return { error }
@@ -98,6 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         session,
         signUp,
         signIn,
+        resetPasswordForEmail,
         signOut,
         loading,
       }}
