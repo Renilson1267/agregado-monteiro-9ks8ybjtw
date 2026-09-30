@@ -1040,6 +1040,40 @@ export const ConcreteiraService = {
     return carga
   },
 
+  // Exclusão de carga com integridade fiscal e estorno de estoque (Apenas Administrador)
+  async excluirCarga(cargaId: string): Promise<void> {
+    // 1. Verifica se existe Ordem de Serviço / Recibo vinculado a esta carga
+    const { data: osVinculada, error: osErr } = await (supabase as any)
+      .from("ordens_servico")
+      .select("id, numero_os")
+      .eq("carga_id", cargaId)
+      .maybeSingle()
+
+    if (osErr) throw osErr
+
+    if (osVinculada) {
+      throw new Error(
+        `Não é possível excluir esta carga pois o Recibo/OS Nº ${osVinculada.numero_os} está vinculado a ela. A numeração de recibos é sequencial e protegida por integridade fiscal e operacional.`,
+      )
+    }
+
+    // 2. Estorna/deleta movimentações de estoque vinculadas a esta carga
+    const { error: movErr } = await (supabase as any)
+      .from("movimentacoes_estoque")
+      .delete()
+      .eq("carga_id", cargaId)
+
+    if (movErr) throw movErr
+
+    // 3. Deleta o registro da carga
+    const { error: cargaErr } = await (supabase as any)
+      .from("cargas")
+      .delete()
+      .eq("id", cargaId)
+
+    if (cargaErr) throw cargaErr
+  },
+
   // Salva a carga e gera automaticamente a Ordem de Serviço sequencial (SJE seguindo 4337+, etc.)
   async criarCargaComOS(payload: {
     carga: {
