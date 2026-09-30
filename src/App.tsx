@@ -46,10 +46,11 @@ const App = () => (
                   <Route element={<Layout />}>
                     {/* Rota Raiz: redireciona conforme o perfil (Balanceiro -> /lancamentos, Admin -> /painel) */}
                     <Route path="/" element={<RotaRaizRedirect />} />
-                    {/* Módulos Permitidos para Balanceiro & Admin (Os 3 módulos do Balanceiro) */}
+                    {/* Módulos Permitidos para Balanceiro & Admin (Lançamentos, Estoque, Ordens e Relatório de Produção) */}
                     <Route path="/lancamentos" element={<LancamentoCargas />} />
                     <Route path="/estoque" element={<Estoque />} />
                     <Route path="/ordens" element={<Ordens />} />
+                    <Route path="/relatorios" element={<Relatorios />} />
                     {/* Rotas Restritas a Administrador (Balanceiro é redirecionado para /lancamentos) */}
                     <Route
                       element={<ProtectedRoute permitirApenasAdmin={true} />}
@@ -57,7 +58,6 @@ const App = () => (
                       <Route path="/painel" element={<PainelGerencial />} />
                       <Route path="/dashboard" element={<Index />} />
                       <Route path="/tracos" element={<Tracos />} />
-                      <Route path="/relatorios" element={<Relatorios />} />
                       <Route
                         path="/comparativo"
                         element={

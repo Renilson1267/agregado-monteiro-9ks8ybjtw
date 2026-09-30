@@ -11,6 +11,7 @@ import {
   Sun,
   Moon,
   Menu,
+  KeyRound,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
@@ -27,6 +28,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { useEmpresa } from "@/hooks/use-empresa"
 import { useUsuario } from "@/hooks/use-usuario"
 import { ModalGerenciarEmpresas } from "@/components/ModalGerenciarEmpresas"
+import { ModalTrocarSenha } from "@/components/ModalTrocarSenha"
 import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from "@/assets/logos"
 
 interface HeaderProps {
@@ -57,6 +59,7 @@ export function Header({
     empresaVinculadaNome,
   } = useUsuario()
   const [modalEmpresasOpen, setModalEmpresasOpen] = useState(false)
+  const [modalTrocarSenhaOpen, setModalTrocarSenhaOpen] = useState(false)
 
   const nomeEmpresa = empresaAtiva?.nome || "Selecione"
 
@@ -289,6 +292,14 @@ export function Header({
               </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem
+                onClick={() => setModalTrocarSenhaOpen(true)}
+                className="text-xs cursor-pointer gap-2 py-2"
+              >
+                <KeyRound className="w-4 h-4 text-primary" />
+                <span>Trocar Senha</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
                 onClick={handleLogout}
                 className="text-xs text-destructive focus:text-destructive cursor-pointer gap-2 py-2"
               >
@@ -303,6 +314,10 @@ export function Header({
       <ModalGerenciarEmpresas
         open={modalEmpresasOpen}
         onOpenChange={setModalEmpresasOpen}
+      />
+      <ModalTrocarSenha
+        open={modalTrocarSenhaOpen}
+        onOpenChange={setModalTrocarSenhaOpen}
       />
     </>
   )

@@ -46,6 +46,7 @@ import {
   ArrowUpDown,
   Calendar,
   Pencil,
+  Boxes,
 } from "lucide-react"
 import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from "@/assets/logos"
 import {
@@ -66,16 +67,22 @@ export default function Relatorios() {
 
   const tabParam = searchParams.get("tab")
   const [abaAtiva, setAbaAtiva] = useState<"operacional" | "comparativo">(
-    tabParam === "comparativo" ? "comparativo" : "operacional",
+    isAdministrador && tabParam === "comparativo"
+      ? "comparativo"
+      : "operacional",
   )
 
   useEffect(() => {
+    if (!isAdministrador) {
+      if (abaAtiva !== "operacional") setAbaAtiva("operacional")
+      return
+    }
     if (tabParam === "comparativo" && abaAtiva !== "comparativo") {
       setAbaAtiva("comparativo")
-    } else if (tabParam === "operacional" && abaAtiva !== "operacional") {
+    } else if (tabParam !== "comparativo" && abaAtiva !== "operacional") {
       setAbaAtiva("operacional")
     }
-  }, [tabParam, abaAtiva])
+  }, [tabParam, abaAtiva, isAdministrador])
 
   const handleMudarAba = (novaAba: "operacional" | "comparativo") => {
     setAbaAtiva(novaAba)
@@ -319,49 +326,89 @@ export default function Relatorios() {
       cargas: c.cargas,
     }))
 
-  // Exportar CSV
+  // Exportar CSV (se balanceiro, omite colunas financeiras)
   const exportarCSV = () => {
-    const headers = [
-      "Carga #",
-      "Data",
-      "Volume (m3)",
-      "Traço",
-      "Custo Total (R$)",
-      "Custo por m3 (R$)",
-      `${materiais.find((m) => m.codigo === "cimento")?.nome || "CP II F-40 / CP V ARI"} (kg)`,
-      `${materiais.find((m) => m.codigo === "aditivo")?.nome || "Aditivo"} (L)`,
-      `${materiais.find((m) => m.codigo === "agua")?.nome || "Água"} (L)`,
-      `${materiais.find((m) => m.codigo === "areia")?.nome || "Areia"} (kg)`,
-      `${materiais.find((m) => m.codigo === "brita12")?.nome || "Brita 12"} (kg)`,
-      `${materiais.find((m) => m.codigo === "brita19")?.nome || "Brita 19"} (kg)`,
-      `${materiais.find((m) => m.codigo === "po_pedra")?.nome || "Pó de Pedra"} (kg)`,
-      "Motorista",
-      "Placa",
-      "Cidade",
-      "Carga Zerada",
-      "Observação",
-    ]
+    const headers = isAdministrador
+      ? [
+          "Carga #",
+          "Data",
+          "Volume (m3)",
+          "Traço",
+          "Custo Total (R$)",
+          "Custo por m3 (R$)",
+          `${materiais.find((m) => m.codigo === "cimento")?.nome || "CP II F-40 / CP V ARI"} (kg)`,
+          `${materiais.find((m) => m.codigo === "aditivo")?.nome || "Aditivo"} (L)`,
+          `${materiais.find((m) => m.codigo === "agua")?.nome || "Água"} (L)`,
+          `${materiais.find((m) => m.codigo === "areia")?.nome || "Areia"} (kg)`,
+          `${materiais.find((m) => m.codigo === "brita12")?.nome || "Brita 12"} (kg)`,
+          `${materiais.find((m) => m.codigo === "brita19")?.nome || "Brita 19"} (kg)`,
+          `${materiais.find((m) => m.codigo === "po_pedra")?.nome || "Pó de Pedra"} (kg)`,
+          "Motorista",
+          "Placa",
+          "Cidade",
+          "Carga Zerada",
+          "Observação",
+        ]
+      : [
+          "Carga #",
+          "Data",
+          "Volume (m3)",
+          "Traço",
+          `${materiais.find((m) => m.codigo === "cimento")?.nome || "CP II F-40 / CP V ARI"} (kg)`,
+          `${materiais.find((m) => m.codigo === "aditivo")?.nome || "Aditivo"} (L)`,
+          `${materiais.find((m) => m.codigo === "agua")?.nome || "Água"} (L)`,
+          `${materiais.find((m) => m.codigo === "areia")?.nome || "Areia"} (kg)`,
+          `${materiais.find((m) => m.codigo === "brita12")?.nome || "Brita 12"} (kg)`,
+          `${materiais.find((m) => m.codigo === "brita19")?.nome || "Brita 19"} (kg)`,
+          `${materiais.find((m) => m.codigo === "po_pedra")?.nome || "Pó de Pedra"} (kg)`,
+          "Motorista",
+          "Placa",
+          "Cidade",
+          "Carga Zerada",
+          "Observação",
+        ]
 
-    const rows = cargas.map((c) => [
-      c.numero_carga,
-      c.data,
-      c.volume_m3,
-      `"${c.traco_nome || ""}"`,
-      c.custo?.total || 0,
-      c.custo?.custoPorM3 || 0,
-      c.consumo_cimento,
-      c.consumo_aditivo,
-      c.consumo_agua || 0,
-      c.consumo_areia,
-      c.consumo_brita12,
-      c.consumo_brita19,
-      c.consumo_po_pedra,
-      `"${c.motorista_nome || ""}"`,
-      `"${c.veiculo_placa || ""}"`,
-      `"${c.cidade_nome || ""}"`,
-      c.carga_zerada ? "SIM" : "NAO",
-      `"${(c.observacao || "").replace(/"/g, '""')}"`,
-    ])
+    const rows = cargas.map((c) =>
+      isAdministrador
+        ? [
+            c.numero_carga,
+            c.data,
+            c.volume_m3,
+            `"${c.traco_nome || ""}"`,
+            c.custo?.total || 0,
+            c.custo?.custoPorM3 || 0,
+            c.consumo_cimento,
+            c.consumo_aditivo,
+            c.consumo_agua || 0,
+            c.consumo_areia,
+            c.consumo_brita12,
+            c.consumo_brita19,
+            c.consumo_po_pedra,
+            `"${c.motorista_nome || ""}"`,
+            `"${c.veiculo_placa || ""}"`,
+            `"${c.cidade_nome || ""}"`,
+            c.carga_zerada ? "SIM" : "NAO",
+            `"${(c.observacao || "").replace(/"/g, '""')}"`,
+          ]
+        : [
+            c.numero_carga,
+            c.data,
+            c.volume_m3,
+            `"${c.traco_nome || ""}"`,
+            c.consumo_cimento,
+            c.consumo_aditivo,
+            c.consumo_agua || 0,
+            c.consumo_areia,
+            c.consumo_brita12,
+            c.consumo_brita19,
+            c.consumo_po_pedra,
+            `"${c.motorista_nome || ""}"`,
+            `"${c.veiculo_placa || ""}"`,
+            `"${c.cidade_nome || ""}"`,
+            c.carga_zerada ? "SIM" : "NAO",
+            `"${(c.observacao || "").replace(/"/g, '""')}"`,
+          ],
+    )
 
     const csvContent =
       "data:text/csv;charset=utf-8," +
@@ -464,7 +511,9 @@ export default function Relatorios() {
               <p className="text-xs font-bold text-black">
                 {abaAtiva === "comparativo"
                   ? "Comparativo Operacional de Produção, Consumo de Insumos e Custos"
-                  : "Relatório Operacional, Expedição de Cargas e Auditoria de Custos"}
+                  : isAdministrador
+                    ? "Relatório Operacional, Expedição de Cargas e Auditoria de Custos"
+                    : "Relatório de Produção, Expedição de Cargas e Consumo de Insumos"}
               </p>
               {empresaAtiva?.cnpj && abaAtiva !== "comparativo" && (
                 <p className="text-[11px] text-black">
@@ -501,7 +550,9 @@ export default function Relatorios() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <FileSpreadsheet className="w-6 h-6 text-primary" />
-            Relatórios, Auditoria e Comparativo
+            {isAdministrador
+              ? "Relatórios, Auditoria e Comparativo"
+              : "Relatório de Produção e Expedição"}
             {empresaAtiva && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-normal">
                 {empresaAtiva.nome}
@@ -509,8 +560,9 @@ export default function Relatorios() {
             )}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Custos de insumos por carga, filtros por material/cidade/motorista e
-            relatório comparativo Monteiro × SJE
+            {isAdministrador
+              ? "Custos de insumos por carga, filtros por material/cidade/motorista e relatório comparativo Monteiro × SJE"
+              : "Expedição de cargas, consumos de cimento, areia, britas, água e aditivo no período selecionado"}
           </p>
         </div>
 
@@ -560,16 +612,18 @@ export default function Relatorios() {
         onValueChange={(v) => handleMudarAba(v as any)}
         className="w-full"
       >
-        <TabsList className="no-print grid grid-cols-2 w-full max-w-md">
-          <TabsTrigger value="operacional" className="gap-2">
-            <Truck className="w-4 h-4" />
-            Relatório da Unidade ({empresaAtiva?.nome || "Ativa"})
-          </TabsTrigger>
-          <TabsTrigger value="comparativo" className="gap-2">
-            <Scale className="w-4 h-4" />
-            Comparativo Monteiro × SJE
-          </TabsTrigger>
-        </TabsList>
+        {isAdministrador ? (
+          <TabsList className="no-print grid grid-cols-2 w-full max-w-md">
+            <TabsTrigger value="operacional" className="gap-2">
+              <Truck className="w-4 h-4" />
+              Relatório da Unidade ({empresaAtiva?.nome || "Ativa"})
+            </TabsTrigger>
+            <TabsTrigger value="comparativo" className="gap-2">
+              <Scale className="w-4 h-4" />
+              Comparativo Monteiro × SJE
+            </TabsTrigger>
+          </TabsList>
+        ) : null}
 
         {/* ========================================================= */}
         {/* TAB 1: OPERACIONAL E CUSTOS DA UNIDADE ATIVA */}
@@ -745,183 +799,315 @@ export default function Relatorios() {
             </CardContent>
           </Card>
 
-          {/* Resumo de Custos e Totais Operacionais */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="p-3.5 rounded-lg border border-border/40 bg-card/60">
-              <p className="text-xs text-muted-foreground">
-                Volume Total Filtrado
-              </p>
-              <p className="text-2xl font-bold font-mono text-foreground mt-1">
-                {totalVolume.toFixed(1)} m³
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                {cargas.length} cargas (
-                {cargas.filter((c) => c.carga_zerada).length} zeradas)
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10">
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                <DollarSign className="w-3.5 h-3.5" />
-                Custo Total dos Insumos
-              </p>
-              <p className="text-2xl font-bold font-mono text-foreground mt-1">
-                R${" "}
-                {totalCusto.toLocaleString("pt-BR", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Soma de todos insumos consumidos
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-lg border border-primary/30 bg-primary/10">
-              <p className="text-xs text-primary font-semibold flex items-center gap-1">
-                <Coins className="w-3.5 h-3.5" />
-                Custo Médio dos Insumos / m³
-              </p>
-              <p className="text-2xl font-bold font-mono text-foreground mt-1">
-                R${" "}
-                {custoMedioM3.toLocaleString("pt-BR", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Custo médio ponderado por m³
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-lg border border-border/40 bg-card/60">
-              <p
-                className="text-xs text-muted-foreground truncate"
-                title={
-                  materiais.find((m) => m.codigo === "cimento")?.nome ||
-                  "CP II F-40 / CP V ARI"
-                }
-              >
-                {materiais.find((m) => m.codigo === "cimento")?.nome ||
-                  "CP II F-40 / CP V ARI"}{" "}
-                Consumido
-              </p>
-              <p className="text-2xl font-bold font-mono text-foreground mt-1">
-                {(totalCimento / 1000).toFixed(2)} t
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                R${" "}
-                {custoCimento.toLocaleString("pt-BR", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </p>
-            </div>
-          </div>
-
-          {/* Breakdown de Custos por Insumo no Período */}
-          <Card className="border-border/40 bg-card/60">
-            <CardHeader className="py-3 px-4">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Coins className="w-4 h-4 text-primary" />
-                Composição de Custos por Material no Filtro Selecionado
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
-                <div className="p-2.5 rounded bg-background/60 border border-border/30">
-                  <span
-                    className="text-muted-foreground block text-[11px] truncate"
-                    title={
-                      materiais.find((m) => m.codigo === "cimento")?.nome ||
-                      "CP II F-40 / CP V ARI"
-                    }
-                  >
-                    {materiais.find((m) => m.codigo === "cimento")?.nome ||
-                      "CP II F-40 / CP V ARI"}
-                  </span>
-                  <span className="font-mono font-bold text-foreground block text-sm">
-                    R$ {custoCimento.toFixed(2)}
-                  </span>
-                  <span className="text-muted-foreground text-[10px]">
-                    {totalCimento.toLocaleString("pt-BR")} kg
-                  </span>
-                </div>
-
-                <div className="p-2.5 rounded bg-background/60 border border-border/30">
-                  <span className="text-muted-foreground block text-[11px]">
-                    Aditivo
-                  </span>
-                  <span className="font-mono font-bold text-foreground block text-sm">
-                    R$ {custoAditivo.toFixed(2)}
-                  </span>
-                  <span className="text-muted-foreground text-[10px]">
-                    {totalAditivo.toLocaleString("pt-BR")} L
-                  </span>
-                </div>
-
-                <div className="p-2.5 rounded bg-cyan-500/10 border border-cyan-500/20">
-                  <span className="text-cyan-700 dark:text-cyan-300 block text-[11px] font-medium">
-                    Água (L)
-                  </span>
-                  <span className="font-mono font-bold text-foreground block text-sm">
-                    R$ {custoAgua.toFixed(2)}
-                  </span>
-                  <span className="text-muted-foreground text-[10px]">
-                    {totalAgua.toLocaleString("pt-BR")} L
-                  </span>
-                </div>
-
-                <div className="p-2.5 rounded bg-background/60 border border-border/30">
-                  <span className="text-muted-foreground block text-[11px]">
-                    Areia
-                  </span>
-                  <span className="font-mono font-bold text-foreground block text-sm">
-                    R$ {custoAreia.toFixed(2)}
-                  </span>
-                  <span className="text-muted-foreground text-[10px]">
-                    {totalAreia.toLocaleString("pt-BR")} kg
-                  </span>
-                </div>
-
-                <div className="p-2.5 rounded bg-background/60 border border-border/30">
-                  <span className="text-muted-foreground block text-[11px]">
-                    Brita 12
-                  </span>
-                  <span className="font-mono font-bold text-foreground block text-sm">
-                    R$ {custoBrita12.toFixed(2)}
-                  </span>
-                  <span className="text-muted-foreground text-[10px]">
-                    {totalBrita12.toLocaleString("pt-BR")} kg
-                  </span>
-                </div>
-
-                <div className="p-2.5 rounded bg-background/60 border border-border/30">
-                  <span className="text-muted-foreground block text-[11px]">
-                    Brita 19
-                  </span>
-                  <span className="font-mono font-bold text-foreground block text-sm">
-                    R$ {custoBrita19.toFixed(2)}
-                  </span>
-                  <span className="text-muted-foreground text-[10px]">
-                    {totalBrita19.toLocaleString("pt-BR")} kg
-                  </span>
-                </div>
-
-                <div className="p-2.5 rounded bg-background/60 border border-border/30">
-                  <span className="text-muted-foreground block text-[11px]">
-                    Pó de Pedra
-                  </span>
-                  <span className="font-mono font-bold text-foreground block text-sm">
-                    R$ {custoPoPedra.toFixed(2)}
-                  </span>
-                  <span className="text-muted-foreground text-[10px]">
-                    {totalPoPedra.toLocaleString("pt-BR")} kg
-                  </span>
-                </div>
+          {/* Resumo Operacional (KPIs financeiros apenas para Administrador) */}
+          {isAdministrador ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="p-3.5 rounded-lg border border-border/40 bg-card/60">
+                <p className="text-xs text-muted-foreground">
+                  Volume Total Filtrado
+                </p>
+                <p className="text-2xl font-bold font-mono text-foreground mt-1">
+                  {totalVolume.toFixed(1)} m³
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {cargas.length} cargas (
+                  {cargas.filter((c) => c.carga_zerada).length} zeradas)
+                </p>
               </div>
-            </CardContent>
-          </Card>
+
+              <div className="p-3.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10">
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                  <DollarSign className="w-3.5 h-3.5" />
+                  Custo Total dos Insumos
+                </p>
+                <p className="text-2xl font-bold font-mono text-foreground mt-1">
+                  R${" "}
+                  {totalCusto.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Soma de todos insumos consumidos
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-lg border border-primary/30 bg-primary/10">
+                <p className="text-xs text-primary font-semibold flex items-center gap-1">
+                  <Coins className="w-3.5 h-3.5" />
+                  Custo Médio dos Insumos / m³
+                </p>
+                <p className="text-2xl font-bold font-mono text-foreground mt-1">
+                  R${" "}
+                  {custoMedioM3.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Custo médio ponderado por m³
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-lg border border-border/40 bg-card/60">
+                <p
+                  className="text-xs text-muted-foreground truncate"
+                  title={
+                    materiais.find((m) => m.codigo === "cimento")?.nome ||
+                    "CP II F-40 / CP V ARI"
+                  }
+                >
+                  {materiais.find((m) => m.codigo === "cimento")?.nome ||
+                    "CP II F-40 / CP V ARI"}{" "}
+                  Consumido
+                </p>
+                <p className="text-2xl font-bold font-mono text-foreground mt-1">
+                  {(totalCimento / 1000).toFixed(2)} t
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  R${" "}
+                  {custoCimento.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="p-3.5 rounded-lg border border-primary/30 bg-primary/10">
+                <p className="text-xs text-primary font-semibold">
+                  Volume Total de Concreto
+                </p>
+                <p className="text-2xl font-bold font-mono text-foreground mt-1">
+                  {totalVolume.toFixed(1)} m³
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Volume expedido no período
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-lg border border-border/40 bg-card/60">
+                <p className="text-xs text-muted-foreground">Total de Cargas</p>
+                <p className="text-2xl font-bold font-mono text-foreground mt-1">
+                  {cargas.length}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {cargas.filter((c) => c.carga_zerada).length} zeradas /
+                  canceladas
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-lg border border-border/40 bg-card/60">
+                <p
+                  className="text-xs text-muted-foreground truncate"
+                  title={
+                    materiais.find((m) => m.codigo === "cimento")?.nome ||
+                    "CP II F-40 / CP V ARI"
+                  }
+                >
+                  {materiais.find((m) => m.codigo === "cimento")?.nome ||
+                    "CP II F-40 / CP V ARI"}
+                </p>
+                <p className="text-2xl font-bold font-mono text-foreground mt-1">
+                  {(totalCimento / 1000).toFixed(2)} t
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {totalCimento.toLocaleString("pt-BR")} kg consumidos
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-lg border border-border/40 bg-card/60">
+                <p className="text-xs text-muted-foreground">
+                  Consumo de Água & Aditivo
+                </p>
+                <p className="text-2xl font-bold font-mono text-foreground mt-1">
+                  {totalAgua.toLocaleString("pt-BR")} L
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {totalAditivo.toLocaleString("pt-BR")} L de aditivo
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Breakdown de Custos por Insumo no Período (Apenas para Administrador) */}
+          {isAdministrador ? (
+            <Card className="border-border/40 bg-card/60">
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-primary" />
+                  Composição de Custos por Material no Filtro Selecionado
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
+                  <div className="p-2.5 rounded bg-background/60 border border-border/30">
+                    <span
+                      className="text-muted-foreground block text-[11px] truncate"
+                      title={
+                        materiais.find((m) => m.codigo === "cimento")?.nome ||
+                        "CP II F-40 / CP V ARI"
+                      }
+                    >
+                      {materiais.find((m) => m.codigo === "cimento")?.nome ||
+                        "CP II F-40 / CP V ARI"}
+                    </span>
+                    <span className="font-mono font-bold text-foreground block text-sm">
+                      R$ {custoCimento.toFixed(2)}
+                    </span>
+                    <span className="text-muted-foreground text-[10px]">
+                      {totalCimento.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[11px]">
+                      Aditivo
+                    </span>
+                    <span className="font-mono font-bold text-foreground block text-sm">
+                      R$ {custoAditivo.toFixed(2)}
+                    </span>
+                    <span className="text-muted-foreground text-[10px]">
+                      {totalAditivo.toLocaleString("pt-BR")} L
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded bg-cyan-500/10 border border-cyan-500/20">
+                    <span className="text-cyan-700 dark:text-cyan-300 block text-[11px] font-medium">
+                      Água (L)
+                    </span>
+                    <span className="font-mono font-bold text-foreground block text-sm">
+                      R$ {custoAgua.toFixed(2)}
+                    </span>
+                    <span className="text-muted-foreground text-[10px]">
+                      {totalAgua.toLocaleString("pt-BR")} L
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[11px]">
+                      Areia
+                    </span>
+                    <span className="font-mono font-bold text-foreground block text-sm">
+                      R$ {custoAreia.toFixed(2)}
+                    </span>
+                    <span className="text-muted-foreground text-[10px]">
+                      {totalAreia.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[11px]">
+                      Brita 12
+                    </span>
+                    <span className="font-mono font-bold text-foreground block text-sm">
+                      R$ {custoBrita12.toFixed(2)}
+                    </span>
+                    <span className="text-muted-foreground text-[10px]">
+                      {totalBrita12.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[11px]">
+                      Brita 19
+                    </span>
+                    <span className="font-mono font-bold text-foreground block text-sm">
+                      R$ {custoBrita19.toFixed(2)}
+                    </span>
+                    <span className="text-muted-foreground text-[10px]">
+                      {totalBrita19.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[11px]">
+                      Pó de Pedra
+                    </span>
+                    <span className="font-mono font-bold text-foreground block text-sm">
+                      R$ {custoPoPedra.toFixed(2)}
+                    </span>
+                    <span className="text-muted-foreground text-[10px]">
+                      {totalPoPedra.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-border/40 bg-card/60">
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Boxes className="w-4 h-4 text-primary" />
+                  Consumo Total de Insumos da Operação no Filtro
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
+                  <div className="p-2.5 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[11px] truncate">
+                      Cimento
+                    </span>
+                    <span className="font-mono font-bold text-foreground block text-sm">
+                      {(totalCimento / 1000).toFixed(2)} t
+                    </span>
+                    <span className="text-muted-foreground text-[10px]">
+                      {totalCimento.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[11px]">
+                      Aditivo
+                    </span>
+                    <span className="font-mono font-bold text-foreground block text-sm">
+                      {totalAditivo.toLocaleString("pt-BR")} L
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded bg-cyan-500/10 border border-cyan-500/20">
+                    <span className="text-cyan-700 dark:text-cyan-300 block text-[11px] font-medium">
+                      Água
+                    </span>
+                    <span className="font-mono font-bold text-foreground block text-sm">
+                      {totalAgua.toLocaleString("pt-BR")} L
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[11px]">
+                      Areia
+                    </span>
+                    <span className="font-mono font-bold text-foreground block text-sm">
+                      {totalAreia.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[11px]">
+                      Brita 12
+                    </span>
+                    <span className="font-mono font-bold text-foreground block text-sm">
+                      {totalBrita12.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[11px]">
+                      Brita 19
+                    </span>
+                    <span className="font-mono font-bold text-foreground block text-sm">
+                      {totalBrita19.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded bg-background/60 border border-border/30">
+                    <span className="text-muted-foreground block text-[11px]">
+                      Pó de Pedra
+                    </span>
+                    <span className="font-mono font-bold text-foreground block text-sm">
+                      {totalPoPedra.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Rankings: Destinos e Caminhões (apenas em tela) */}
           <div className="no-print grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1017,18 +1203,22 @@ export default function Relatorios() {
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-base font-semibold">
-                  Tabela Detalhada de Cargas e Custos dos Insumos
+                  {isAdministrador
+                    ? "Tabela Detalhada de Cargas e Custos dos Insumos"
+                    : "Tabela Detalhada de Expedição de Cargas & Consumo"}
                 </CardTitle>
                 <CardDescription className="text-xs">
                   {cargas.length} registros no filtro selecionado
                 </CardDescription>
               </div>
-              <span className="text-xs font-mono text-muted-foreground">
-                Total: R${" "}
-                {totalCusto.toLocaleString("pt-BR", {
-                  minimumFractionDigits: 2,
-                })}
-              </span>
+              {isAdministrador && (
+                <span className="text-xs font-mono text-muted-foreground">
+                  Total: R${" "}
+                  {totalCusto.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                  })}
+                </span>
+              )}
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto max-h-[600px]">
@@ -1039,8 +1229,12 @@ export default function Relatorios() {
                       <th className="py-2.5 px-3">Data</th>
                       <th className="py-2.5 px-3">Volume</th>
                       <th className="py-2.5 px-3">Traço</th>
-                      <th className="py-2.5 px-3">Custo Total</th>
-                      <th className="py-2.5 px-3">Custo/m³</th>
+                      {isAdministrador && (
+                        <>
+                          <th className="py-2.5 px-3">Custo Total</th>
+                          <th className="py-2.5 px-3">Custo/m³</th>
+                        </>
+                      )}
                       <th className="py-2.5 px-3">
                         {materiais.find((m) => m.codigo === "cimento")?.nome ||
                           "CP II F-40 / CP V ARI"}{" "}
@@ -1082,16 +1276,20 @@ export default function Relatorios() {
                         >
                           {c.traco_nome || "—"}
                         </td>
-                        <td className="py-2 px-3 font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                          {c.carga_zerada
-                            ? "—"
-                            : `R$ ${(c.custo?.total || 0).toFixed(2)}`}
-                        </td>
-                        <td className="py-2 px-3 font-mono text-muted-foreground">
-                          {c.carga_zerada || !c.custo?.custoPorM3
-                            ? "—"
-                            : `R$ ${c.custo.custoPorM3.toFixed(2)}`}
-                        </td>
+                        {isAdministrador && (
+                          <>
+                            <td className="py-2 px-3 font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                              {c.carga_zerada
+                                ? "—"
+                                : `R$ ${(c.custo?.total || 0).toFixed(2)}`}
+                            </td>
+                            <td className="py-2 px-3 font-mono text-muted-foreground">
+                              {c.carga_zerada || !c.custo?.custoPorM3
+                                ? "—"
+                                : `R$ ${c.custo.custoPorM3.toFixed(2)}`}
+                            </td>
+                          </>
+                        )}
                         <td className="py-2 px-3 font-mono">
                           {Number(c.consumo_cimento).toLocaleString("pt-BR")}
                         </td>

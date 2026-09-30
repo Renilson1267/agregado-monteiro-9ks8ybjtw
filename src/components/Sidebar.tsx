@@ -27,6 +27,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  KeyRound,
 } from "lucide-react"
 import {
   LOGO_GC_MIX_QUADRADA,
@@ -54,6 +55,7 @@ import { useEmpresa } from "@/hooks/use-empresa"
 import { useUsuario } from "@/hooks/use-usuario"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
 import { ModalGerenciarEmpresas } from "@/components/ModalGerenciarEmpresas"
+import { ModalTrocarSenha } from "@/components/ModalTrocarSenha"
 
 interface SidebarProps {
   collapsed?: boolean
@@ -103,6 +105,7 @@ export function Sidebar({
   const { isInstallable, installApp } = usePwaInstall()
 
   const [modalEmpresasOpen, setModalEmpresasOpen] = useState(false)
+  const [modalTrocarSenhaOpen, setModalTrocarSenhaOpen] = useState(false)
 
   // Definição dos grupos lógicos objetivos de navegação (em português claro)
   // Estrutura organizada para que o usuário encontre qualquer tela em até 2 cliques:
@@ -154,7 +157,6 @@ export function Sidebar({
           label: "Relatórios de Produção",
           path: "/relatorios",
           group: "operacao",
-          adminOnly: true,
         },
       ],
     },
@@ -702,6 +704,13 @@ export function Sidebar({
                   <span>Gerenciar Empresas</span>
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem
+                onClick={() => setModalTrocarSenhaOpen(true)}
+                className="text-xs cursor-pointer gap-2"
+              >
+                <KeyRound className="w-4 h-4 text-primary" />
+                <span>Trocar Senha</span>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleLogout}
@@ -716,7 +725,7 @@ export function Sidebar({
           {!collapsed && (
             <div className="pt-0.5 text-center">
               <span className="text-[10px] text-muted-foreground/50 font-mono">
-                GC MIX v0.0.105
+                GC MIX v0.0.108
               </span>
             </div>
           )}
@@ -807,22 +816,37 @@ export function Sidebar({
               </Button>
             </div>
 
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => {
-                if (onMobileClose) onMobileClose()
-                handleLogout()
-              }}
-              className="w-full justify-center gap-2 h-9 text-xs"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Sair do Sistema</span>
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (onMobileClose) onMobileClose()
+                  setModalTrocarSenhaOpen(true)
+                }}
+                className="flex-1 justify-center gap-1.5 h-9 text-xs"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-primary" />
+                <span>Trocar Senha</span>
+              </Button>
+
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  if (onMobileClose) onMobileClose()
+                  handleLogout()
+                }}
+                className="flex-1 justify-center gap-1.5 h-9 text-xs"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sair</span>
+              </Button>
+            </div>
 
             <div className="pt-1 text-center">
               <span className="text-[10px] text-muted-foreground/60 font-mono">
-                GC MIX v0.0.105
+                GC MIX v0.0.108
               </span>
             </div>
           </div>
@@ -832,6 +856,10 @@ export function Sidebar({
       <ModalGerenciarEmpresas
         open={modalEmpresasOpen}
         onOpenChange={setModalEmpresasOpen}
+      />
+      <ModalTrocarSenha
+        open={modalTrocarSenhaOpen}
+        onOpenChange={setModalTrocarSenhaOpen}
       />
     </>
   )

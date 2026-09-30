@@ -27,6 +27,10 @@ interface AuthContextType {
     error: any
   }>
   resetPasswordForEmail: (email: string) => Promise<{ error: any }>
+  updatePassword: (
+    newPassword: string,
+    currentPassword?: string,
+  ) => Promise<{ error: any }>
   signOut: () => Promise<{ error: any }>
   loading: boolean
 }
@@ -97,6 +101,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: res.error }
   }
 
+  const updatePassword = async (
+    newPassword: string,
+    currentPassword?: string,
+  ) => {
+    // Se a senha atual for fornecida, reautentica primeiro para garantir segurança
+    if (currentPassword && user?.email) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      })
+      if (signInError) {
+        return {
+          error: new Error("A senha atual informada está incorreta."),
+        }
+      }
+    }
+
+    const res = await supabase.auth.updateUser({
+      password: newPassword,
+    })
+    return { error: res.error }
+  }
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
     return { error }
@@ -110,6 +137,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signUp,
         signIn,
         resetPasswordForEmail,
+        updatePassword,
         signOut,
         loading,
       }}
