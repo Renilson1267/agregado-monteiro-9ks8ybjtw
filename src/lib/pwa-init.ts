@@ -14,7 +14,6 @@ export function initializePwaAssets() {
     try {
       const sizes = [32, 180, 192, 512]
       const icons: Record<number, string> = {}
-      const blobs: Record<number, Blob> = {}
 
       for (const size of sizes) {
         const canvas = document.createElement("canvas")
