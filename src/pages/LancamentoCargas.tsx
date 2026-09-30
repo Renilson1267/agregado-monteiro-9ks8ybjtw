@@ -29,37 +29,23 @@ import type {
   Cidade,
   PrecoMaterial,
   Material,
-  Cliente,
-  OrdemServico,
   Carga,
 } from "@/types/concreteira"
 import {
   Truck,
   Calculator,
   CheckCircle2,
-  AlertCircle,
   ArrowLeft,
   DollarSign,
   Edit3,
   Sparkles,
   RotateCcw,
-  FileText,
-  Printer,
-  UserPlus,
-  Search,
-  Building2,
-  Clock,
-  Gauge,
-  KeyRound,
-  Check,
   FileSpreadsheet,
   MapPin,
-  RefreshCw,
   User,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
-import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -69,36 +55,37 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { ReciboImpressao } from "@/components/ReciboImpressao"
-import { printElementInIsolatedIframe } from "@/lib/imprimir-recibo"
 import {
-  formatarCpfCnpj,
-  formatarTelefone,
-  formatarCep,
-  limparMascara,
-  consultarCNPJ,
-  consultarCEP,
-} from "@/lib/documentos"
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function LancamentoCargas() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const editarCargaId = searchParams.get("editar")
   const { empresaAtiva } = useEmpresa()
-  const { isBalanceiro, isAdministrador } = useUsuario()
+  const { isBalanceiro } = useUsuario()
   const [tracos, setTracos] = useState<Traco[]>([])
   const [precos, setPrecos] = useState<PrecoMaterial[]>([])
   const [motoristas, setMotoristas] = useState<Motorista[]>([])
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [cidades, setCidades] = useState<Cidade[]>([])
   const [materiais, setMateriais] = useState<Material[]>([])
-  const [clientes, setClientes] = useState<Cliente[]>([])
   const [salvando, setSalvando] = useState(false)
 
   // Estado para controle de edição de carga gravada
   const [cargaOriginal, setCargaOriginal] = useState<Carga | null>(null)
   const [carregandoCargaEdicao, setCarregandoCargaEdicao] = useState(false)
   const [modalConfirmarEdicaoAberta, setModalConfirmarEdicaoAberta] =
+    useState(false)
+  const [modalConfirmarGravacaoAberta, setModalConfirmarGravacaoAberta] =
     useState(false)
 
   // Modo de dosagem: 'automatico' (por traço) ou 'manual' (digitação dos insumos).
@@ -148,106 +135,17 @@ export default function LancamentoCargas() {
   const [aguaEditadaManualmente, setAguaEditadaManualmente] =
     useState<boolean>(false)
 
-  // Form states - Bloco de Entrega / Ordem de Serviço
-  const [clienteSelecionadoId, setClienteSelecionadoId] = useState<string>("")
-  const [buscaCliente, setBuscaCliente] = useState<string>("")
-  const [clienteDropdownAberto, setClienteDropdownAberto] =
-    useState<boolean>(false)
-
-  const [destinatarioNome, setDestinatarioNome] = useState<string>("")
-  const [destinatarioCpfCnpj, setDestinatarioCpfCnpj] = useState<string>("")
-  const [destinatarioTelefone, setDestinatarioTelefone] = useState<string>("")
-  const [destinatarioEndereco, setDestinatarioEndereco] = useState<string>("")
-  const [destinatarioBairro, setDestinatarioBairro] = useState<string>("")
-  const [destinatarioCidade, setDestinatarioCidade] = useState<string>("")
-  const [destinatarioUf, setDestinatarioUf] = useState<string>("PB")
-  const [destinatarioCep, setDestinatarioCep] = useState<string>("")
-
-  const [nomeObra, setNomeObra] = useState<string>("")
-  const [localDescarga, setLocalDescarga] = useState<string>("")
-  const [discriminacaoProduto, setDiscriminacaoProduto] = useState<string>("")
-  const [slumpCentralMedido, setSlumpCentralMedido] = useState<string>("")
-  const [slumpCentralSaida, setSlumpCentralSaida] = useState<string>("")
-  const [slumpTolerancia, setSlumpTolerancia] = useState<string>("+-2")
-  const [lacre, setLacre] = useState<string>("")
-  const [kmInicial, setKmInicial] = useState<string>("")
-  const [kmFinal, setKmFinal] = useState<string>("")
-
-  // Helper para somar minutos a um horário "HH:mm"
-  const somarMinutosHora = (hora: string, minutos: number): string => {
-    if (!hora || !hora.includes(":")) return ""
-    const [h, m] = hora.split(":").map((v) => parseInt(v, 10))
-    if (isNaN(h) || isNaN(m)) return ""
-    const totalMinutos = (h * 60 + m + minutos) % (24 * 60)
-    const totalPositivo = (totalMinutos + 24 * 60) % (24 * 60)
-    const nh = Math.floor(totalPositivo / 60)
-    const nm = totalPositivo % 60
-    return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`
-  }
-
-  // Horários: hora da carga inicializa com a hora atual, saída usina com +30 min
-  const [horaCarga, setHoraCarga] = useState<string>(() =>
-    new Date().toTimeString().slice(0, 5),
-  )
-  const [horaSaidaCentral, setHoraSaidaCentral] = useState<string>(() => {
-    const agora = new Date()
-    agora.setMinutes(agora.getMinutes() + 30)
-    return agora.toTimeString().slice(0, 5)
-  })
-  const [saidaCentralEditadaManualmente, setSaidaCentralEditadaManualmente] =
-    useState<boolean>(false)
-  const [horaChegadaObra, setHoraChegadaObra] = useState<string>("")
-  const [horaInicioDescarga, setHoraInicioDescarga] = useState<string>("")
-  const [horaFimDescarga, setHoraFimDescarga] = useState<string>("")
-  const [horaSaidaObra, setHoraSaidaObra] = useState<string>("")
-  const [vistoObra, setVistoObra] = useState<string>("")
-  const TEXTO_OBSERVACOES_PADRAO =
-    "Cuidado com a cura do concreto para evitar frisuras"
-  const [observacoesEntrega, setObservacoesEntrega] = useState<string>("")
-
-  // Interruptor de Insumos na OS (inicia com padrão do cliente, mas pode ser invertido)
-  const [exibirInsumosNaOs, setExibirInsumosNaOs] = useState<boolean>(true)
-
-  // Modal de Cadastro Rápido de Cliente sem perder dados
-  const [modalNovoClienteAberto, setModalNovoClienteAberto] =
-    useState<boolean>(false)
-  const [novoClienteTipo, setNovoClienteTipo] = useState<"PF" | "PJ">("PJ")
-  const [novoClienteCpfCnpj, setNovoClienteCpfCnpj] = useState<string>("")
-  const [novoClienteNome, setNovoClienteNome] = useState<string>("")
-  const [novoClienteNomeFantasia, setNovoClienteNomeFantasia] =
-    useState<string>("")
-  const [novoClienteTelefone, setNovoClienteTelefone] = useState<string>("")
-  const [novoClienteCep, setNovoClienteCep] = useState<string>("")
-  const [novoClienteLogradouro, setNovoClienteLogradouro] = useState<string>("")
-  const [novoClienteNumero, setNovoClienteNumero] = useState<string>("")
-  const [novoClienteBairro, setNovoClienteBairro] = useState<string>("")
-  const [novoClienteCidade, setNovoClienteCidade] = useState<string>("")
-  const [novoClienteUf, setNovoClienteUf] = useState<string>("PB")
-  const [novoClienteExibirInsumos, setNovoClienteExibirInsumos] =
-    useState<boolean>(true)
-  const [salvandoClienteRapido, setSalvandoClienteRapido] =
-    useState<boolean>(false)
-  const [buscandoCnpjRapido, setBuscandoCnpjRapido] = useState<boolean>(false)
-  const [buscandoCepRapido, setBuscandoCepRapido] = useState<boolean>(false)
-
-  // Estado da OS gerada para impressão imediata
-  const [osGeradaParaImpressao, setOsGeradaParaImpressao] =
-    useState<OrdemServico | null>(null)
-  const [modalImpressaoAberta, setModalImpressaoAberta] =
-    useState<boolean>(false)
-
   useEffect(() => {
     async function init() {
       if (!empresaAtiva) return
       try {
-        const [tr, mot, veic, cid, prc, mats, clis] = await Promise.all([
+        const [tr, mot, veic, cid, prc, mats] = await Promise.all([
           ConcreteiraService.getTracos(empresaAtiva.id),
           ConcreteiraService.getMotoristas(empresaAtiva.id),
           ConcreteiraService.getVeiculos(empresaAtiva.id),
           ConcreteiraService.getCidades(empresaAtiva.id),
           ConcreteiraService.getPrecosMaterial(empresaAtiva.id),
           ConcreteiraService.getMateriais(empresaAtiva.id),
-          ConcreteiraService.getClientes(empresaAtiva.id),
         ])
         setTracos(tr)
         setPrecos(prc)
@@ -255,7 +153,6 @@ export default function LancamentoCargas() {
         setVeiculos(veic)
         setCidades(cid)
         setMateriais(mats)
-        setClientes(clis)
 
         if (tr.length > 0) {
           setTracoSelecionadoId(tr[0].id)
@@ -377,40 +274,6 @@ export default function LancamentoCargas() {
         setAgua(Number(c.consumo_agua || 0))
         setAguaBruta(Number(c.consumo_agua || 0))
         setAguaEditadaManualmente(true)
-
-        // Se houver OS vinculada, preenche os campos do bloco de entrega
-        if (c.ordem_servico) {
-          const os = c.ordem_servico
-          if (os.cliente_id) setClienteSelecionadoId(os.cliente_id)
-          setDestinatarioNome(os.destinatario_nome || "")
-          setDestinatarioCpfCnpj(os.destinatario_cpf_cnpj || "")
-          setDestinatarioTelefone(os.destinatario_telefone || "")
-          setDestinatarioEndereco(os.destinatario_endereco || "")
-          setDestinatarioBairro(os.destinatario_bairro || "")
-          setDestinatarioCidade(os.destinatario_cidade || "")
-          setDestinatarioUf(os.destinatario_uf || "PB")
-          setDestinatarioCep(os.destinatario_cep || "")
-          setNomeObra(os.nome_obra || "")
-          setLocalDescarga(os.local_descarga || "")
-          if (os.itens && os.itens[0]?.discriminacao) {
-            setDiscriminacaoProduto(os.itens[0].discriminacao)
-          }
-          setSlumpCentralMedido(os.slump_central_medido || "")
-          setSlumpCentralSaida(os.slump_central_saida || "")
-          setSlumpTolerancia(os.slump_tolerancia || "+-2")
-          setLacre(os.lacre || "")
-          setKmInicial(os.km_inicial != null ? String(os.km_inicial) : "")
-          setKmFinal(os.km_final != null ? String(os.km_final) : "")
-          setHoraCarga(os.hora_carga || "")
-          setHoraSaidaCentral(os.hora_saida_central || "")
-          setHoraChegadaObra(os.hora_chegada_obra || "")
-          setHoraInicioDescarga(os.hora_inicio_descarga || "")
-          setHoraFimDescarga(os.hora_fim_descarga || "")
-          setHoraSaidaObra(os.hora_saida_obra || "")
-          setVistoObra(os.visto_obra || "")
-          setObservacoesEntrega(os.observacoes || "")
-          setExibirInsumosNaOs(os.exibir_insumos_os !== false)
-        }
       } catch (err: any) {
         console.error("Erro ao carregar carga para edição:", err)
         toast({
@@ -426,148 +289,6 @@ export default function LancamentoCargas() {
     carregarCargaParaEdicao()
   }, [editarCargaId, isBalanceiro, navigate, tracos])
 
-  // Preenche dados quando um cliente é selecionado
-  const selecionarCliente = (cli: Cliente) => {
-    setClienteSelecionadoId(cli.id)
-    setBuscaCliente(cli.nome)
-    setDestinatarioNome(cli.nome)
-    setDestinatarioCpfCnpj(cli.cpf_cnpj ? formatarCpfCnpj(cli.cpf_cnpj) : "")
-    setDestinatarioTelefone(cli.telefone ? formatarTelefone(cli.telefone) : "")
-    setDestinatarioEndereco(
-      [cli.logradouro, cli.numero].filter(Boolean).join(", ") || "",
-    )
-    setDestinatarioBairro(cli.bairro || "")
-    setDestinatarioCidade(cli.cidade || "")
-    setDestinatarioUf(cli.uf || "PB")
-    setDestinatarioCep(cli.cep ? formatarCep(cli.cep) : "")
-    if (cli.cidade && !cidadeNome) {
-      setCidadeNome(cli.cidade)
-    }
-    // Inicializa o interruptor de insumos com o valor configurado no cadastro do cliente
-    setExibirInsumosNaOs(cli.exibir_insumos_os !== false)
-    setClienteDropdownAberto(false)
-  }
-
-  // Busca automática de CNPJ no cadastro rápido de cliente (BrasilAPI)
-  const handleBlurCpfCnpjRapido = async () => {
-    const raw = limparMascara(novoClienteCpfCnpj)
-    if (novoClienteTipo === "PJ" && raw.length === 14) {
-      setBuscandoCnpjRapido(true)
-      try {
-        const dados = await consultarCNPJ(raw)
-        if (dados.razao_social) {
-          setNovoClienteNome(dados.razao_social)
-        }
-        if (dados.nome_fantasia) {
-          setNovoClienteNomeFantasia(dados.nome_fantasia)
-        }
-        if (dados.logradouro) setNovoClienteLogradouro(dados.logradouro)
-        if (dados.numero) setNovoClienteNumero(dados.numero)
-        if (dados.bairro) setNovoClienteBairro(dados.bairro)
-        if (dados.municipio) setNovoClienteCidade(dados.municipio)
-        if (dados.uf) setNovoClienteUf(dados.uf)
-        if (dados.cep) setNovoClienteCep(formatarCep(dados.cep))
-        if (dados.ddd_telefone_1 && !novoClienteTelefone) {
-          setNovoClienteTelefone(formatarTelefone(dados.ddd_telefone_1))
-        }
-
-        toast({
-          title: "Dados do CNPJ preenchidos automaticamente!",
-          description: dados.razao_social,
-        })
-      } catch (err: any) {
-        toast({
-          title: "Aviso de consulta de CNPJ",
-          description: err.message,
-        })
-      } finally {
-        setBuscandoCnpjRapido(false)
-      }
-    }
-  }
-
-  // Busca automática de CEP no cadastro rápido de cliente (ViaCEP)
-  const handleBlurCepRapido = async () => {
-    const raw = limparMascara(novoClienteCep)
-    if (raw.length !== 8) return
-
-    setBuscandoCepRapido(true)
-    try {
-      const dados = await consultarCEP(raw)
-      if (dados.logradouro) setNovoClienteLogradouro(dados.logradouro)
-      if (dados.bairro) setNovoClienteBairro(dados.bairro)
-      if (dados.localidade) setNovoClienteCidade(dados.localidade)
-      if (dados.uf) setNovoClienteUf(dados.uf)
-
-      toast({
-        title: "Endereço localizado via CEP!",
-        description: `${dados.localidade} - ${dados.uf}`,
-      })
-    } catch (err: any) {
-      toast({
-        title: "Aviso de CEP",
-        description: err.message,
-      })
-    } finally {
-      setBuscandoCepRapido(false)
-    }
-  }
-
-  // Cadastro rápido de cliente
-  const handleSalvarClienteRapido = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!novoClienteNome.trim()) {
-      toast({
-        title: "Nome obrigatório",
-        description: "Informe o nome ou razão social do cliente.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setSalvandoClienteRapido(true)
-    try {
-      const novo = await ConcreteiraService.salvarCliente(
-        {
-          empresa_id: empresaAtiva?.id,
-          tipo: novoClienteTipo,
-          cpf_cnpj: limparMascara(novoClienteCpfCnpj),
-          nome: novoClienteNome.trim(),
-          nome_fantasia: novoClienteNomeFantasia.trim() || null,
-          telefone: limparMascara(novoClienteTelefone) || null,
-          cep: limparMascara(novoClienteCep) || null,
-          logradouro: novoClienteLogradouro.trim() || null,
-          numero: novoClienteNumero.trim() || null,
-          bairro: novoClienteBairro.trim() || null,
-          cidade: novoClienteCidade.trim() || null,
-          uf: novoClienteUf.trim().toUpperCase() || "PB",
-          exibir_insumos_os: novoClienteExibirInsumos,
-          ativo: true,
-        },
-        empresaAtiva?.id,
-      )
-
-      // Atualiza lista e já deixa selecionado na tela de lançamento sem perder nada
-      setClientes((prev) => [novo, ...prev])
-      selecionarCliente(novo)
-      setModalNovoClienteAberto(false)
-
-      toast({
-        title: "Cliente cadastrado com sucesso!",
-        description: `${novo.nome} foi vinculado à tela de entrega.`,
-      })
-    } catch (err: any) {
-      console.error(err)
-      toast({
-        title: "Erro ao cadastrar cliente",
-        description: err.message || "Falha ao salvar cliente.",
-        variant: "destructive",
-      })
-    } finally {
-      setSalvandoClienteRapido(false)
-    }
-  }
-
   // Função utilitária para aplicar dosagem base do traço aos campos
   const aplicarDosagemTraco = (tracoId: string, vol: number) => {
     const traco = tracos.find((t) => t.id === tracoId)
@@ -578,18 +299,6 @@ export default function LancamentoCargas() {
       setAreia(Number(traco.consumo_areia) || 0)
       setPoPedra(Number(traco.consumo_po_pedra) || 0)
       setCimento(cimentoDosagem)
-
-      // Atualiza discriminação padrão se necessário
-      if (
-        !discriminacaoProduto ||
-        discriminacaoProduto.startsWith("CONCRETO")
-      ) {
-        setDiscriminacaoProduto(
-          `CONCRETO USINADO ${traco.nome}${
-            traco.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ""
-          } - SLUMP 12+-2`,
-        )
-      }
 
       // Resetar flags de edição manual para reaplicar os valores calculados
       setAditivoEditadoManualmente(false)
@@ -859,17 +568,7 @@ export default function LancamentoCargas() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!validarFormulario()) return
-
-    // Se estiver em modo de edição, abre o modal de confirmação com resumo das alterações
-    if (editarCargaId) {
-      setModalConfirmarEdicaoAberta(true)
-      return
-    }
-
+  const executarCriarCarga = async () => {
     const traco = tracos.find((t) => t.id === tracoSelecionadoId)
 
     // Nome descritivo do traço gravado na carga
@@ -938,6 +637,8 @@ export default function LancamentoCargas() {
         carga_zerada: cargaZerada,
       })
 
+      setModalConfirmarGravacaoAberta(false)
+
       toast({
         title: "Carga lançada com sucesso!",
         description: cargaZerada
@@ -958,164 +659,19 @@ export default function LancamentoCargas() {
     }
   }
 
-  // Função "Salvar e gerar OS"
-  const handleSalvarEGerarOS = async () => {
-    if (!dataCarga) {
-      toast({
-        title: "Atenção",
-        description: "Informe a data da carga",
-        variant: "destructive",
-      })
-      return
-    }
-    if (volume <= 0) {
-      toast({
-        title: "Atenção",
-        description: "O volume deve ser maior que zero",
-        variant: "destructive",
-      })
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!validarFormulario()) return
+
+    // Se estiver em modo de edição, abre o modal de confirmação com resumo das alterações
+    if (editarCargaId) {
+      setModalConfirmarEdicaoAberta(true)
       return
     }
 
-    if (modoDosagem === "manual" && !cargaZerada) {
-      const somaDosagens =
-        brita12 + brita19 + areia + poPedra + cimento + aditivo
-      if (somaDosagens <= 0) {
-        toast({
-          title: "Insumos não informados",
-          description:
-            "No modo manual, informe a dosagem (kg/m³) de pelo menos um dos insumos ou marque a carga como cancelada.",
-          variant: "destructive",
-        })
-        return
-      }
-    }
-
-    const traco = tracos.find((t) => t.id === tracoSelecionadoId)
-    let nomeTracoGravado = traco?.nome || "Traço manual"
-    if (modoDosagem === "manual") {
-      nomeTracoGravado = traco ? `${traco.nome} (Manual)` : "Dosagem Manual"
-    }
-
-    const descr =
-      discriminacaoProduto.trim() ||
-      `${nomeTracoGravado}${traco?.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ""}${
-        slumpCentralMedido ? ` - SLUMP ${slumpCentralMedido}` : ""
-      }`
-
-    setSalvando(true)
-    try {
-      const resultado = await ConcreteiraService.criarCargaComOS({
-        carga: {
-          empresa_id: empresaAtiva?.id,
-          data: dataCarga,
-          volume_m3: volume,
-          traco_id: traco?.id,
-          traco_nome: nomeTracoGravado,
-          motorista_nome: motoristaNome || undefined,
-          veiculo_placa: veiculoPlaca || undefined,
-          cidade_nome: destinatarioCidade || cidadeNome || undefined,
-          consumo_brita12: consumoReal.brita12,
-          consumo_brita19: consumoReal.brita19,
-          consumo_areia: consumoReal.areia,
-          consumo_po_pedra: consumoReal.poPedra,
-          consumo_cimento: consumoReal.cimento,
-          consumo_aditivo: consumoReal.aditivo,
-          consumo_agua: consumoReal.agua,
-          observacao: observacao
-            ? modoDosagem === "manual"
-              ? `[Modo Manual | Aditivo: ${consumoReal.aditivo}L${
-                  aditivoEditadoManualmente
-                    ? " (manual)"
-                    : ` (fator ${fatorAditivoManual})`
-                } | Água: ${consumoReal.agua}L${
-                  aguaEditadaManualmente
-                    ? " (manual)"
-                    : ` (fator ${fatorAguaManual})`
-                }] ${observacao}`
-              : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${
-                  aditivoEditadoManualmente
-                    ? " (manual)"
-                    : ` (fator ${fatorAditivoManual})`
-                } | Água: ${consumoReal.agua}L${
-                  aguaEditadaManualmente
-                    ? " (manual)"
-                    : ` (fator ${fatorAguaManual})`
-                }] ${observacao}`
-            : modoDosagem === "manual"
-              ? `[Lançamento manual | Aditivo: ${consumoReal.aditivo}L${
-                  aditivoEditadoManualmente
-                    ? " (manual)"
-                    : ` (fator ${fatorAditivoManual})`
-                } | Água: ${consumoReal.agua}L${
-                  aguaEditadaManualmente
-                    ? " (manual)"
-                    : ` (fator ${fatorAguaManual})`
-                }]`
-              : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${
-                  aditivoEditadoManualmente
-                    ? " (manual)"
-                    : ` (fator ${fatorAditivoManual})`
-                } | Água: ${consumoReal.agua}L${
-                  aguaEditadaManualmente
-                    ? " (manual)"
-                    : ` (fator ${fatorAguaManual})`
-                }]`,
-          carga_zerada: cargaZerada,
-        },
-        entrega: {
-          cliente_id: clienteSelecionadoId || null,
-          destinatario_nome:
-            destinatarioNome.trim() ||
-            buscaCliente.trim() ||
-            "CONSUMIDOR FINAL",
-          destinatario_cpf_cnpj: destinatarioCpfCnpj.trim() || null,
-          destinatario_telefone: destinatarioTelefone.trim() || null,
-          destinatario_endereco: destinatarioEndereco.trim() || null,
-          destinatario_bairro: destinatarioBairro.trim() || null,
-          destinatario_cidade: destinatarioCidade.trim() || cidadeNome || null,
-          destinatario_uf: destinatarioUf.trim().toUpperCase() || "PB",
-          destinatario_cep: destinatarioCep.trim() || null,
-          nome_obra: nomeObra.trim() || null,
-          local_descarga: localDescarga.trim() || null,
-          discriminacao_produto: descr,
-          slump_central_medido: slumpCentralMedido.trim() || null,
-          slump_central_saida: slumpCentralSaida.trim() || null,
-          slump_tolerancia: slumpTolerancia.trim() || "+-2",
-          lacre: lacre.trim() || null,
-          km_inicial: kmInicial ? Number(kmInicial) : null,
-          km_final: kmFinal ? Number(kmFinal) : null,
-          hora_carga: horaCarga || null,
-          hora_saida_central: horaSaidaCentral || null,
-          hora_chegada_obra: horaChegadaObra || null,
-          hora_inicio_descarga: horaInicioDescarga || null,
-          hora_fim_descarga: horaFimDescarga || null,
-          hora_saida_obra: horaSaidaObra || null,
-          visto_obra: vistoObra.trim() || null,
-          visto_motorista_central: motoristaNome || null,
-          observacoes: observacoesEntrega.trim() || observacao.trim() || null,
-          exibir_insumos_os: exibirInsumosNaOs,
-        },
-      })
-
-      toast({
-        title: `OS Nº ${resultado.ordemServico.numero_os} gerada com sucesso!`,
-        description: `Carga Nº ${resultado.carga.numero_carga} vinculada à OS. Preparando recibo para impressão...`,
-      })
-
-      // Abre modal de impressão com a OS recém-criada
-      setOsGeradaParaImpressao(resultado.ordemServico)
-      setModalImpressaoAberta(true)
-    } catch (err: any) {
-      console.error(err)
-      toast({
-        title: "Erro ao salvar carga e gerar OS",
-        description: err.message || "Falha na comunicação com o banco.",
-        variant: "destructive",
-      })
-    } finally {
-      setSalvando(false)
-    }
+    // Gravação nova: abre o modal de confirmação com resumo
+    setModalConfirmarGravacaoAberta(true)
   }
 
   const tracoAtual = tracos.find((t) => t.id === tracoSelecionadoId)
@@ -2305,698 +1861,48 @@ export default function LancamentoCargas() {
           </CardContent>
         </Card>
 
-        {/* Bloco 3: Cadastro de Entrega Unificado com a Ordem de Serviço (OS) */}
-        <Card className="border-border/60 bg-card shadow-sm">
-          <CardHeader className="border-b border-border/40 pb-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-primary" />
-                  Dados de Entrega & Ordem de Serviço (OS)
-                </CardTitle>
-                <CardDescription className="text-xs mt-1">
-                  Campos opcionais integrados para impressão do recibo da OS
-                  (cura úmida, termo de água e canhoto). Você pode completar
-                  agora ou depois.
-                </CardDescription>
-              </div>
-
-              {/* Interruptor: Mostrar insumos na OS */}
-              <div className="flex items-center gap-3 p-2 rounded-lg border border-border/50 bg-muted/30">
-                <div className="text-right">
-                  <Label
-                    htmlFor="toggleInsumosOS"
-                    className="text-xs font-semibold cursor-pointer block"
-                  >
-                    Mostrar insumos na OS
-                  </Label>
-                  <span className="text-[10px] text-muted-foreground block">
-                    {exibirInsumosNaOs
-                      ? "Exibindo quilos/litros"
-                      : "Oculto no recibo"}
-                  </span>
-                </div>
-                <Switch
-                  id="toggleInsumosOS"
-                  checked={exibirInsumosNaOs}
-                  onCheckedChange={setExibirInsumosNaOs}
-                />
-              </div>
-            </div>
+        {/* Bloco 3: Observações e Destino/Cidade */}
+        <Card className="border-border/40 bg-card/70">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-primary" />
+              Destino e Observações
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Informe a cidade ou obra de destino e eventuais observações da
+              carga
+            </CardDescription>
           </CardHeader>
-
-          <CardContent className="space-y-5 pt-4">
-            {/* Seção 1: Busca de Cliente e Cadastro Rápido */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Building2 className="w-3.5 h-3.5" />
-                  1. Cliente / Destinatário
-                </Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setNovoClienteNome(buscaCliente || destinatarioNome)
-                    setNovoClienteCpfCnpj(destinatarioCpfCnpj)
-                    setNovoClienteTelefone(destinatarioTelefone)
-                    setNovoClienteLogradouro(destinatarioEndereco)
-                    setNovoClienteBairro(destinatarioBairro)
-                    setNovoClienteCidade(destinatarioCidade || cidadeNome)
-                    setNovoClienteCep(destinatarioCep)
-                    setNovoClienteExibirInsumos(exibirInsumosNaOs)
-                    setModalNovoClienteAberto(true)
-                  }}
-                  className="h-7 text-xs gap-1.5 border-dashed border-primary/50 text-primary hover:bg-primary/5"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  Cadastrar cliente aqui
-                </Button>
-              </div>
-
-              {/* Input com Autocomplete de Clientes */}
-              <div className="relative">
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cidadeDestino">Cidade / Destino</Label>
                 <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                   <Input
-                    placeholder="Digite o nome, razão social ou CPF/CNPJ do cliente..."
-                    value={buscaCliente}
-                    onFocus={() => setClienteDropdownAberto(true)}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      setBuscaCliente(val)
-                      setDestinatarioNome(val)
-                      setClienteDropdownAberto(true)
-                      if (!val.trim()) {
-                        setClienteSelecionadoId("")
-                      }
-                    }}
-                    className="pl-9 pr-24 text-sm font-medium"
+                    id="cidadeDestino"
+                    list="lista-cidades"
+                    value={cidadeNome}
+                    onChange={(e) => setCidadeNome(e.target.value)}
+                    placeholder="Selecione ou digite a cidade..."
+                    className="h-10 text-xs bg-background"
                   />
-                  {clienteSelecionadoId && (
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                      <Badge
-                        variant="secondary"
-                        className="text-[10px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                      >
-                        <Check className="w-2.5 h-2.5 mr-0.5" /> Cadastrado
-                      </Badge>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                          setClienteSelecionadoId("")
-                          setBuscaCliente("")
-                          setDestinatarioNome("")
-                          setDestinatarioCpfCnpj("")
-                          setDestinatarioTelefone("")
-                          setDestinatarioEndereco("")
-                          setDestinatarioBairro("")
-                          setDestinatarioCep("")
-                        }}
-                      >
-                        ✕
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Dropdown de sugestões de cliente */}
-                {clienteDropdownAberto && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setClienteDropdownAberto(false)}
-                    />
-                    <div className="absolute z-20 top-full mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                      {clientes.filter((c) => {
-                        if (!buscaCliente) return true
-                        const term = buscaCliente.toLowerCase()
-                        return (
-                          c.nome?.toLowerCase().includes(term) ||
-                          c.nome_fantasia?.toLowerCase().includes(term) ||
-                          c.cpf_cnpj?.includes(term)
-                        )
-                      }).length > 0 ? (
-                        clientes
-                          .filter((c) => {
-                            if (!buscaCliente) return true
-                            const term = buscaCliente.toLowerCase()
-                            return (
-                              c.nome?.toLowerCase().includes(term) ||
-                              c.nome_fantasia?.toLowerCase().includes(term) ||
-                              c.cpf_cnpj?.includes(term)
-                            )
-                          })
-                          .slice(0, 10)
-                          .map((cli) => (
-                            <button
-                              type="button"
-                              key={cli.id}
-                              onClick={() => selecionarCliente(cli)}
-                              className="w-full text-left px-3 py-2 text-xs hover:bg-accent flex items-center justify-between border-b border-border/30 last:border-b-0"
-                            >
-                              <div>
-                                <div className="font-semibold text-foreground">
-                                  {cli.nome}
-                                </div>
-                                <div className="text-muted-foreground text-[11px] font-mono">
-                                  {cli.cpf_cnpj
-                                    ? formatarCpfCnpj(cli.cpf_cnpj)
-                                    : "Sem documento"}{" "}
-                                  • {cli.cidade || "Sem cidade"}
-                                </div>
-                              </div>
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] shrink-0"
-                              >
-                                {cli.exibir_insumos_os !== false
-                                  ? "Com insumos"
-                                  : "Sem insumos"}
-                              </Badge>
-                            </button>
-                          ))
-                      ) : (
-                        <div className="p-3 text-xs text-center text-muted-foreground">
-                          Nenhum cliente cadastrado com esse nome.{" "}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setClienteDropdownAberto(false)
-                              setNovoClienteNome(buscaCliente)
-                              setModalNovoClienteAberto(true)
-                            }}
-                            className="text-primary underline font-medium hover:text-primary/80 ml-1"
-                          >
-                            Cadastrar agora?
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Grid com Documento, Telefone, Endereço e Bairro */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="destCpfCnpj"
-                    className="text-xs text-muted-foreground"
-                  >
-                    CPF / CNPJ
-                  </Label>
-                  <Input
-                    id="destCpfCnpj"
-                    placeholder="000.000.000-00"
-                    value={destinatarioCpfCnpj}
-                    onChange={(e) => setDestinatarioCpfCnpj(e.target.value)}
-                    className="text-xs font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="destTelefone"
-                    className="text-xs text-muted-foreground"
-                  >
-                    Telefone de Contato
-                  </Label>
-                  <Input
-                    id="destTelefone"
-                    placeholder="(83) 90000-0000"
-                    value={destinatarioTelefone}
-                    onChange={(e) => setDestinatarioTelefone(e.target.value)}
-                    className="text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1 sm:col-span-2">
-                  <Label
-                    htmlFor="destEndereco"
-                    className="text-xs text-muted-foreground"
-                  >
-                    Endereço Completo
-                  </Label>
-                  <Input
-                    id="destEndereco"
-                    placeholder="Rua, número, complemento..."
-                    value={destinatarioEndereco}
-                    onChange={(e) => setDestinatarioEndereco(e.target.value)}
-                    className="text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="destBairro"
-                    className="text-xs text-muted-foreground"
-                  >
-                    Bairro
-                  </Label>
-                  <Input
-                    id="destBairro"
-                    placeholder="Bairro"
-                    value={destinatarioBairro}
-                    onChange={(e) => setDestinatarioBairro(e.target.value)}
-                    className="text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="destCidade"
-                    className="text-xs text-muted-foreground"
-                  >
-                    Cidade
-                  </Label>
-                  <Input
-                    id="destCidade"
-                    placeholder="Cidade"
-                    value={destinatarioCidade}
-                    onChange={(e) => {
-                      setDestinatarioCidade(e.target.value)
-                      if (!cidadeNome) setCidadeNome(e.target.value)
-                    }}
-                    className="text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="destUf"
-                    className="text-xs text-muted-foreground"
-                  >
-                    UF
-                  </Label>
-                  <Input
-                    id="destUf"
-                    placeholder="PB"
-                    maxLength={2}
-                    value={destinatarioUf}
-                    onChange={(e) =>
-                      setDestinatarioUf(e.target.value.toUpperCase())
-                    }
-                    className="text-xs uppercase"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="destCep"
-                    className="text-xs text-muted-foreground"
-                  >
-                    CEP
-                  </Label>
-                  <Input
-                    id="destCep"
-                    placeholder="00000-000"
-                    value={destinatarioCep}
-                    onChange={(e) => setDestinatarioCep(e.target.value)}
-                    className="text-xs font-mono"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Seção 2: Obra, Local de Descarga e Discriminação do Traço */}
-            <div className="space-y-3 pt-3 border-t border-border/40">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5" />
-                2. Obra, Descarga & Discriminação do Concreto
-              </Label>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="nomeObra" className="text-xs">
-                    Nome da Obra
-                  </Label>
-                  <Input
-                    id="nomeObra"
-                    placeholder="Ex: Residencial Alphaville - Bloco B"
-                    value={nomeObra}
-                    onChange={(e) => setNomeObra(e.target.value)}
-                    className="text-xs font-medium"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor="localDescarga" className="text-xs">
-                    Local de Descarga
-                  </Label>
-                  <Input
-                    id="localDescarga"
-                    placeholder="Ex: Laje do 2º pavimento, vigas, fundação, piso..."
-                    value={localDescarga}
-                    onChange={(e) => setLocalDescarga(e.target.value)}
-                    className="text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1 sm:col-span-2">
-                  <div className="flex justify-between items-center">
-                    <Label htmlFor="discriminacao" className="text-xs">
-                      Discriminação do Produto (Automática pelo traço
-                      selecionado)
-                    </Label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const traco = tracos.find(
-                          (t) => t.id === tracoSelecionadoId,
-                        )
-                        if (traco) {
-                          setDiscriminacaoProduto(
-                            `CONCRETO USINADO ${traco.nome}${
-                              traco.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ""
-                            }${
-                              slumpCentralMedido
-                                ? ` - SLUMP ${slumpCentralMedido} ${slumpTolerancia || "+-2"}`
-                                : ""
-                            }`,
-                          )
-                        }
-                      }}
-                      className="text-[11px] text-primary hover:underline"
-                    >
-                      Restaurar automático
-                    </button>
-                  </div>
-                  <Input
-                    id="discriminacao"
-                    placeholder="Descrição para a Ordem de Serviço..."
-                    value={discriminacaoProduto}
-                    onChange={(e) => setDiscriminacaoProduto(e.target.value)}
-                    className="text-xs font-semibold"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Seção 3: Slump Central, Tolerância e Transporte */}
-            <div className="space-y-3 pt-3 border-t border-border/40">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Gauge className="w-3.5 h-3.5" />
-                3. Slump, Tolerância & Transporte (Betoneira)
-              </Label>
-
-              <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="slumpMedido" className="text-xs">
-                    Slump Central
-                  </Label>
-                  <Input
-                    id="slumpMedido"
-                    value={slumpCentralMedido}
-                    onChange={(e) => setSlumpCentralMedido(e.target.value)}
-                    className="text-xs font-mono font-semibold"
-                    placeholder="Em branco (motorista preenche)"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor="slumpTol" className="text-xs">
-                    Tolerância
-                  </Label>
-                  <Input
-                    id="slumpTol"
-                    value={slumpTolerancia}
-                    onChange={(e) => setSlumpTolerancia(e.target.value)}
-                    className="text-xs font-mono"
-                    placeholder="+-2"
-                  />
-                </div>
-
-                <div className="space-y-1 sm:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="motoristaEntrega" className="text-xs">
-                      Motorista
-                    </Label>
-                    <span className="text-[10px] text-muted-foreground">
-                      Sincronizado
-                    </span>
-                  </div>
-                  <Input
-                    id="motoristaEntrega"
-                    list="lista-motoristas"
-                    value={motoristaNome}
-                    onChange={(e) => setMotoristaNome(e.target.value)}
-                    placeholder="Nome do motorista (ou selecione da lista)"
-                    className="text-xs"
-                  />
-                  <datalist id="lista-motoristas">
-                    {motoristas.map((m) => (
-                      <option key={m.id} value={m.nome}>
-                        {m.nome}
-                      </option>
+                  <datalist id="lista-cidades">
+                    {cidades.map((c) => (
+                      <option key={c.id} value={c.nome} />
                     ))}
                   </datalist>
                 </div>
-
-                <div className="space-y-1 sm:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="veiculoEntrega" className="text-xs">
-                      Placa da Betoneira
-                    </Label>
-                    <span className="text-[10px] text-muted-foreground">
-                      Sincronizado
-                    </span>
-                  </div>
-                  <Select value={veiculoPlaca} onValueChange={setVeiculoPlaca}>
-                    <SelectTrigger id="veiculoEntrega" className="text-xs">
-                      <SelectValue placeholder="Selecione a betoneira" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {veiculos.map((v) => (
-                        <SelectItem
-                          key={v.id}
-                          value={v.placa}
-                          className="text-xs font-mono"
-                        >
-                          {v.placa} {v.modelo ? `- ${v.modelo}` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1 sm:col-span-2">
-                  <Label
-                    htmlFor="lacre"
-                    className="text-xs flex items-center gap-1"
-                  >
-                    <KeyRound className="w-3 h-3 text-muted-foreground" />
-                    Nº do Lacre
-                  </Label>
-                  <Input
-                    id="lacre"
-                    placeholder="Lacre de segurança"
-                    value={lacre}
-                    onChange={(e) => setLacre(e.target.value)}
-                    className="text-xs font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1 sm:col-span-2">
-                  <Label htmlFor="kmInicial" className="text-xs">
-                    KM Saída
-                  </Label>
-                  <Input
-                    id="kmInicial"
-                    type="number"
-                    placeholder="Ex: 125430"
-                    value={kmInicial}
-                    onChange={(e) => setKmInicial(e.target.value)}
-                    className="text-xs font-mono"
-                  />
-                </div>
-
-                <div className="space-y-1 sm:col-span-2">
-                  <Label htmlFor="kmFinal" className="text-xs">
-                    KM Chegada
-                  </Label>
-                  <Input
-                    id="kmFinal"
-                    type="number"
-                    placeholder="Ex: 125485"
-                    value={kmFinal}
-                    onChange={(e) => setKmFinal(e.target.value)}
-                    className="text-xs font-mono"
-                  />
-                </div>
               </div>
-            </div>
 
-            {/* Seção 4: Horários e Visto */}
-            <div className="space-y-3 pt-3 border-t border-border/40">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" />
-                4. Horários & Assinatura
-              </Label>
-
-              <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="horaCarga"
-                    className="text-xs text-muted-foreground"
-                  >
-                    Carregamento
-                  </Label>
-                  <Input
-                    id="horaCarga"
-                    type="time"
-                    value={horaCarga}
-                    onChange={(e) => {
-                      const novaHora = e.target.value
-                      setHoraCarga(novaHora)
-                      if (!saidaCentralEditadaManualmente) {
-                        setHoraSaidaCentral(somarMinutosHora(novaHora, 30))
-                      }
-                    }}
-                    className="text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor="horaSaidaCentral"
-                      className="text-xs text-muted-foreground"
-                    >
-                      Saída Usina
-                    </Label>
-                    <span className="text-[10px] text-muted-foreground">
-                      {saidaCentralEditadaManualmente ? "(editado)" : "(+30m)"}
-                    </span>
-                  </div>
-                  <Input
-                    id="horaSaidaCentral"
-                    type="time"
-                    value={horaSaidaCentral}
-                    onChange={(e) => {
-                      setHoraSaidaCentral(e.target.value)
-                      setSaidaCentralEditadaManualmente(true)
-                    }}
-                    className="text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="horaChegadaObra"
-                    className="text-xs text-muted-foreground"
-                  >
-                    Chegada Obra
-                  </Label>
-                  <Input
-                    id="horaChegadaObra"
-                    type="time"
-                    value={horaChegadaObra}
-                    onChange={(e) => setHoraChegadaObra(e.target.value)}
-                    className="text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="horaInicioDescarga"
-                    className="text-xs text-muted-foreground"
-                  >
-                    Início Descarga
-                  </Label>
-                  <Input
-                    id="horaInicioDescarga"
-                    type="time"
-                    value={horaInicioDescarga}
-                    onChange={(e) => setHoraInicioDescarga(e.target.value)}
-                    className="text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="horaFimDescarga"
-                    className="text-xs text-muted-foreground"
-                  >
-                    Fim Descarga
-                  </Label>
-                  <Input
-                    id="horaFimDescarga"
-                    type="time"
-                    value={horaFimDescarga}
-                    onChange={(e) => setHoraFimDescarga(e.target.value)}
-                    className="text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="horaSaidaObra"
-                    className="text-xs text-muted-foreground"
-                  >
-                    Saída Obra
-                  </Label>
-                  <Input
-                    id="horaSaidaObra"
-                    type="time"
-                    value={horaSaidaObra}
-                    onChange={(e) => setHoraSaidaObra(e.target.value)}
-                    className="text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1 sm:col-span-3">
-                  <Label htmlFor="vistoObra" className="text-xs">
-                    Visto / Recebedor na Obra
-                  </Label>
-                  <Input
-                    id="vistoObra"
-                    placeholder="Nome de quem recebeu o concreto na obra"
-                    value={vistoObra}
-                    onChange={(e) => setVistoObra(e.target.value)}
-                    className="text-xs font-medium"
-                  />
-                </div>
-
-                <div className="space-y-1 sm:col-span-3">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="obsEntrega" className="text-xs">
-                      Observações da OS
-                    </Label>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setObservacoesEntrega(TEXTO_OBSERVACOES_PADRAO)
-                        if (!observacao) setObservacao(TEXTO_OBSERVACOES_PADRAO)
-                      }}
-                      className="h-6 px-2 text-[10px] text-primary hover:text-primary gap-1 font-medium hover:bg-primary/10"
-                      title="Preenche com o texto objetivo sugerido: Cuidado com a cura do concreto para evitar frisuras"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      Sugestão: Aviso de Cura
-                    </Button>
-                  </div>
-                  <Input
-                    id="obsEntrega"
-                    placeholder="Cuidado com a cura do concreto para evitar frisuras"
-                    value={observacoesEntrega}
-                    onChange={(e) => {
-                      setObservacoesEntrega(e.target.value)
-                      if (!observacao) setObservacao(e.target.value)
-                    }}
-                    className="text-xs"
-                  />
-                  <p className="text-[10px] text-muted-foreground">
-                    Texto curto e objetivo para a entrega. Clique em
-                    &quot;Sugestão: Aviso de Cura&quot; para preencher rápido.
-                  </p>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="obsCarga">Observações</Label>
+                <Input
+                  id="obsCarga"
+                  value={observacao}
+                  onChange={(e) => setObservacao(e.target.value)}
+                  placeholder="Observação da carga (opcional)..."
+                  className="h-10 text-xs bg-background"
+                />
               </div>
             </div>
           </CardContent>
@@ -3031,410 +1937,187 @@ export default function LancamentoCargas() {
               )}
             </Button>
           ) : (
-            <>
-              {/* Botão Secundário: Registrar carga apenas */}
-              <Button
-                type="submit"
-                variant="secondary"
-                disabled={salvando}
-                className="w-full sm:w-auto gap-2"
-              >
-                {salvando ? (
-                  "Salvando..."
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    Apenas Lançar Carga
-                  </>
-                )}
-              </Button>
-
-              {/* Botão Principal: Salvar e gerar OS com impressão automática */}
-              <Button
-                type="button"
-                onClick={handleSalvarEGerarOS}
-                disabled={salvando}
-                className="w-full sm:w-auto gap-2 bg-primary text-primary-foreground font-semibold shadow-md px-6 hover:brightness-105"
-              >
-                {salvando ? (
-                  "Processando OS..."
-                ) : (
-                  <>
-                    <Printer className="w-4 h-4" />
-                    Salvar e gerar OS
-                  </>
-                )}
-              </Button>
-            </>
+            <Button
+              type="submit"
+              variant="default"
+              disabled={salvando}
+              className="w-full sm:w-auto gap-2 bg-primary text-primary-foreground font-semibold shadow-md px-6 hover:brightness-105"
+            >
+              {salvando ? (
+                "Salvando..."
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  Gravar Lançamento da Carga
+                </>
+              )}
+            </Button>
           )}
         </div>
       </form>
 
-      {/* Modal de Cadastro Rápido de Cliente */}
-      <Dialog
-        open={modalNovoClienteAberto}
-        onOpenChange={setModalNovoClienteAberto}
+      {/* Modal de Confirmação com Resumo Antes de Gravar Novo Lançamento */}
+      <AlertDialog
+        open={modalConfirmarGravacaoAberta}
+        onOpenChange={setModalConfirmarGravacaoAberta}
       >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <UserPlus className="w-4 h-4 text-primary" />
-              Cadastrar Cliente Rápido
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Cadastre o cliente sem sair do lançamento e sem perder nada do que
-              já foi preenchido na carga.
-            </DialogDescription>
-          </DialogHeader>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+              <CheckCircle2 className="w-5 h-5 text-primary" />
+              Confirmar Gravação do Lançamento de Carga
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              Confira os dados e os consumos calculados antes de confirmar o
+              lançamento e a baixa automática no estoque.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
-          <form onSubmit={handleSalvarClienteRapido} className="space-y-4">
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={novoClienteTipo === "PJ" ? "default" : "outline"}
-                onClick={() => setNovoClienteTipo("PJ")}
-                className="text-xs flex-1"
-              >
-                Pessoa Jurídica (PJ)
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={novoClienteTipo === "PF" ? "default" : "outline"}
-                onClick={() => setNovoClienteTipo("PF")}
-                className="text-xs flex-1"
-              >
-                Pessoa Física (PF)
-              </Button>
-            </div>
-
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="nomeRapido" className="text-xs">
-                  Nome / Razão Social *
-                </Label>
-                <Input
-                  id="nomeRapido"
-                  value={novoClienteNome}
-                  onChange={(e) => setNovoClienteNome(e.target.value)}
-                  placeholder="Nome do cliente ou empresa"
-                  required
-                  className="text-xs"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="cpfRapido" className="text-xs">
-                      {novoClienteTipo === "PJ"
-                        ? "CNPJ (Busca Automática) *"
-                        : "CPF *"}
-                    </Label>
-                    {buscandoCnpjRapido && (
-                      <span className="text-[10px] text-primary flex items-center gap-1 animate-pulse">
-                        <RefreshCw className="w-3 h-3 animate-spin" />
-                        Buscando...
-                      </span>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <Input
-                      id="cpfRapido"
-                      value={novoClienteCpfCnpj}
-                      onChange={(e) =>
-                        setNovoClienteCpfCnpj(formatarCpfCnpj(e.target.value))
-                      }
-                      onBlur={handleBlurCpfCnpjRapido}
-                      placeholder={
-                        novoClienteTipo === "PJ"
-                          ? "00.000.000/0000-00"
-                          : "000.000.000-00"
-                      }
-                      className="text-xs font-mono"
-                    />
-                    {novoClienteTipo === "PJ" && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleBlurCpfCnpjRapido}
-                        className="absolute right-1 top-1 h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
-                        title="Buscar dados do CNPJ na BrasilAPI"
-                      >
-                        Buscar
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor="telRapido" className="text-xs">
-                    Telefone / WhatsApp
-                  </Label>
-                  <Input
-                    id="telRapido"
-                    value={novoClienteTelefone}
-                    onChange={(e) =>
-                      setNovoClienteTelefone(formatarTelefone(e.target.value))
-                    }
-                    placeholder="(83) 90000-0000"
-                    className="text-xs font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Endereço com Busca Automática de CEP */}
-              <div className="p-2.5 rounded-lg border border-border/40 bg-muted/20 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5 text-primary">
-                    <MapPin className="w-3.5 h-3.5" />
-                    Endereço
-                  </span>
-                  {buscandoCepRapido && (
-                    <span className="text-[10px] text-primary flex items-center gap-1 animate-pulse font-normal">
-                      <RefreshCw className="w-3 h-3 animate-spin" />
-                      Buscando ViaCEP...
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="cepRapido" className="text-xs">
-                      CEP (Busca Automática)
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="cepRapido"
-                        value={novoClienteCep}
-                        onChange={(e) =>
-                          setNovoClienteCep(formatarCep(e.target.value))
-                        }
-                        onBlur={handleBlurCepRapido}
-                        placeholder="58000-000"
-                        className="text-xs font-mono"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleBlurCepRapido}
-                        className="absolute right-1 top-1 h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
-                        title="Buscar CEP na ViaCEP"
-                      >
-                        Buscar
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 sm:col-span-2">
-                    <Label htmlFor="endRapido" className="text-xs">
-                      Logradouro / Rua
-                    </Label>
-                    <Input
-                      id="endRapido"
-                      value={novoClienteLogradouro}
-                      onChange={(e) => setNovoClienteLogradouro(e.target.value)}
-                      placeholder="Rua / Av / Sítio"
-                      className="text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-4 gap-2">
-                  <div className="space-y-1 col-span-1">
-                    <Label htmlFor="numRapido" className="text-xs">
-                      Número
-                    </Label>
-                    <Input
-                      id="numRapido"
-                      value={novoClienteNumero}
-                      onChange={(e) => setNovoClienteNumero(e.target.value)}
-                      placeholder="Nº ou S/N"
-                      className="text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-1 col-span-1">
-                    <Label htmlFor="bairroRapido" className="text-xs">
-                      Bairro
-                    </Label>
-                    <Input
-                      id="bairroRapido"
-                      value={novoClienteBairro}
-                      onChange={(e) => setNovoClienteBairro(e.target.value)}
-                      placeholder="Bairro"
-                      className="text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-1 col-span-1">
-                    <Label htmlFor="cidRapido" className="text-xs">
-                      Cidade
-                    </Label>
-                    <Input
-                      id="cidRapido"
-                      value={novoClienteCidade}
-                      onChange={(e) => setNovoClienteCidade(e.target.value)}
-                      placeholder="Cidade"
-                      className="text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-1 col-span-1">
-                    <Label htmlFor="ufRapido" className="text-xs">
-                      UF
-                    </Label>
-                    <Input
-                      id="ufRapido"
-                      value={novoClienteUf}
-                      onChange={(e) =>
-                        setNovoClienteUf(e.target.value.toUpperCase())
-                      }
-                      placeholder="PB"
-                      maxLength={2}
-                      className="text-xs font-mono uppercase"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Exibir insumos por padrão */}
-              <div className="p-3 rounded-lg border border-border/50 bg-muted/20 flex items-center justify-between">
+          <div className="space-y-3 py-2 text-xs">
+            <div className="rounded-lg border border-border/50 overflow-hidden bg-background divide-y divide-border/20">
+              <div className="p-2.5 bg-muted/30 grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <div className="text-xs font-semibold">
-                    Exibir insumos na OS impressa
+                  <span className="text-muted-foreground block text-[11px]">
+                    Data da Carga:
+                  </span>
+                  <span className="font-semibold font-mono">
+                    {dataCarga.split("-").reverse().join("/")}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Volume:
+                  </span>
+                  <span className="font-bold font-mono text-primary">
+                    {Number(volume).toFixed(1)} m³
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Traço / Dosagem:
+                  </span>
+                  <span className="font-semibold">
+                    {modoDosagem === "manual"
+                      ? tracoAtual
+                        ? `${tracoAtual.nome} (Manual)`
+                        : "Dosagem Manual"
+                      : tracoAtual?.nome || "Não selecionado"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Status:
+                  </span>
+                  <span className="font-semibold">
+                    {cargaZerada ? (
+                      <span className="text-amber-600">Zerada / Cancelada</span>
+                    ) : (
+                      <span className="text-emerald-600">Carga Normal</span>
+                    )}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Motorista:
+                  </span>
+                  <span className="font-semibold">
+                    {motoristaNome || "Não informado"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Placa Betoneira:
+                  </span>
+                  <span className="font-semibold font-mono">
+                    {veiculoPlaca || "Não informada"}
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground block text-[11px]">
+                    Destino / Cidade:
+                  </span>
+                  <span className="font-semibold">
+                    {cidadeNome || "Não informado"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Totais de Insumos */}
+              <div className="p-2.5 space-y-1.5">
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase">
+                  Consumos Totais da Carga (kg / L):
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Cimento:</span>
+                    <span className="font-bold text-primary">
+                      {consumoReal.cimento.toLocaleString("pt-BR")} kg
+                    </span>
                   </div>
-                  <div className="text-[10px] text-muted-foreground">
-                    Mostrar o peso de cimento, britas, areia e aditivo no recibo
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Aditivo:</span>
+                    <span className="font-bold text-primary">
+                      {consumoReal.aditivo.toLocaleString("pt-BR")} L
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Água:</span>
+                    <span className="font-bold text-cyan-600 dark:text-cyan-400">
+                      {consumoReal.agua.toLocaleString("pt-BR")} L
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Areia:</span>
+                    <span className="font-semibold">
+                      {consumoReal.areia.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Brita 12:</span>
+                    <span className="font-semibold">
+                      {consumoReal.brita12.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Brita 19:</span>
+                    <span className="font-semibold">
+                      {consumoReal.brita19.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Pó de Pedra:</span>
+                    <span className="font-semibold">
+                      {consumoReal.poPedra.toLocaleString("pt-BR")} kg
+                    </span>
                   </div>
                 </div>
-                <Switch
-                  checked={novoClienteExibirInsumos}
-                  onCheckedChange={setNovoClienteExibirInsumos}
-                />
               </div>
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setModalNovoClienteAberto(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                size="sm"
-                disabled={salvandoClienteRapido}
-                className="gap-1.5"
-              >
-                {salvandoClienteRapido ? "Salvando..." : "Cadastrar e Vincular"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+            {!cargaZerada && (
+              <div className="p-2.5 rounded bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-700 dark:text-blue-300">
+                ℹ️ Esta gravação registrará a carga e abaterá automaticamente do
+                estoque as quantidades de <strong>Cimento</strong> (
+                {consumoReal.cimento} kg) e <strong>Aditivo</strong> (
+                {consumoReal.aditivo} L).
+              </div>
+            )}
+          </div>
 
-      {/* Modal de Impressão do Recibo da OS */}
-      <Dialog
-        open={modalImpressaoAberta}
-        onOpenChange={(open) => {
-          setModalImpressaoAberta(open)
-          if (!open && !isBalanceiro) {
-            navigate("/")
-          }
-        }}
-      >
-        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between pr-6 text-base">
-              <span className="flex items-center gap-2">
-                <Printer className="w-5 h-5 text-primary" />
-                Ordem de Serviço Nº {osGeradaParaImpressao?.numero_os} Gerada!
-              </span>
-              <Button
-                type="button"
-                onClick={async () => {
-                  const el = document.getElementById(
-                    "recibo-impressao-modal-lancamento",
-                  )
-                  if (el) {
-                    await printElementInIsolatedIframe(el, {
-                      title: `OS_${osGeradaParaImpressao?.numero_os}_Recibo_GC_MIX`,
-                      waitForImages: true,
-                      delayMs: 300,
-                    })
-                  } else {
-                    window.print()
-                  }
-                }}
-                className="gap-2 bg-primary text-primary-foreground text-xs h-8"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                Imprimir Recibo (A4)
-              </Button>
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Recibo formatado com cabeçalho oficial, dados de transporte, termo
-              de responsabilidade de adição de água, aviso de cura úmida e
-              canhoto de recebimento.
-            </DialogDescription>
-          </DialogHeader>
-
-          {osGeradaParaImpressao && (
-            <div
-              id="recibo-impressao-modal-lancamento"
-              className="mt-2 border rounded-lg p-2 bg-white text-black shadow-inner print:border-none print:p-0 print:m-0 print:shadow-none"
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={salvando}>
+              Voltar e Revisar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={salvando}
+              onClick={executarCriarCarga}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
             >
-              <ReciboImpressao
-                ordem={osGeradaParaImpressao}
-                empresa={empresaAtiva || null}
-              />
-            </div>
-          )}
-
-          <DialogFooter className="gap-2 sm:gap-0 mt-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setModalImpressaoAberta(false)
-                if (!isBalanceiro) {
-                  navigate("/")
-                }
-              }}
-            >
-              {isBalanceiro ? "Concluir" : "Concluir e Voltar ao Início"}
-            </Button>
-            <Button
-              type="button"
-              onClick={async () => {
-                const el = document.getElementById(
-                  "recibo-impressao-modal-lancamento",
-                )
-                if (el) {
-                  await printElementInIsolatedIframe(el, {
-                    title: `OS_${osGeradaParaImpressao?.numero_os}_Recibo_GC_MIX`,
-                    waitForImages: true,
-                    delayMs: 300,
-                  })
-                } else {
-                  window.print()
-                }
-              }}
-              className="gap-2"
-            >
-              <Printer className="w-4 h-4" />
-              Imprimir Recibo
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              {salvando ? "Gravando..." : "Sim, Gravar Lançamento"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Modal de Confirmação com Resumo do que Muda na Edição */}
       <Dialog

@@ -20,6 +20,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -60,6 +70,8 @@ export default function Estoque() {
   )
   const [documentoEntrada, setDocumentoEntrada] = useState("")
   const [obsEntrada, setObsEntrada] = useState("")
+  const [modalConfirmarEntradaAberta, setModalConfirmarEntradaAberta] =
+    useState(false)
 
   // Dialog Editar Mínimo
   const [openMinimo, setOpenMinimo] = useState(false)
@@ -68,6 +80,8 @@ export default function Estoque() {
   )
   const [novoMinimo, setNovoMinimo] = useState<number>(0)
   const [salvandoMinimo, setSalvandoMinimo] = useState(false)
+  const [modalConfirmarMinimoAberta, setModalConfirmarMinimoAberta] =
+    useState(false)
 
   const carregarDados = async () => {
     if (!empresaAtiva) return
@@ -111,17 +125,7 @@ export default function Estoque() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtroMaterial, empresaAtiva?.id])
 
-  const handleSalvarEntrada = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!materialEntradaId || quantidadeEntrada <= 0) {
-      toast({
-        title: "Atenção",
-        description: "Informe material e quantidade positiva.",
-        variant: "destructive",
-      })
-      return
-    }
-
+  const executarSalvarEntrada = async () => {
     setSalvandoEntrada(true)
     try {
       await ConcreteiraService.registrarEntradaEstoque({
@@ -136,6 +140,7 @@ export default function Estoque() {
         title: "Entrada registrada com sucesso!",
         description: "Estoque atualizado com a reposição.",
       })
+      setModalConfirmarEntradaAberta(false)
       setOpenEntrada(false)
       setQuantidadeEntrada(0)
       setDocumentoEntrada("")
@@ -152,8 +157,21 @@ export default function Estoque() {
     }
   }
 
-  const handleSalvarMinimo = async (e: React.FormEvent) => {
+  const handleSalvarEntrada = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!materialEntradaId || quantidadeEntrada <= 0) {
+      toast({
+        title: "Atenção",
+        description: "Informe material e quantidade positiva.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setModalConfirmarEntradaAberta(true)
+  }
+
+  const executarSalvarMinimo = async () => {
     if (!materialEditando) return
 
     setSalvandoMinimo(true)
@@ -166,6 +184,7 @@ export default function Estoque() {
         title: "Estoque mínimo atualizado",
         description: `Margem de segurança de ${materialEditando.nome} redefinida.`,
       })
+      setModalConfirmarMinimoAberta(false)
       setOpenMinimo(false)
       setMaterialEditando(null)
       carregarDados()
@@ -178,6 +197,13 @@ export default function Estoque() {
     } finally {
       setSalvandoMinimo(false)
     }
+  }
+
+  const handleSalvarMinimo = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!materialEditando) return
+
+    setModalConfirmarMinimoAberta(true)
   }
 
   return (
@@ -676,6 +702,163 @@ export default function Estoque() {
           </div>
         </CardContent>
       </Card>
+      {/* AlertDialog de Confirmação com Resumo Antes de Gravar Entrada */}
+      <AlertDialog
+        open={modalConfirmarEntradaAberta}
+        onOpenChange={setModalConfirmarEntradaAberta}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+              <PlusCircle className="w-5 h-5 text-primary" />
+              Confirmar Entrada de Insumo no Estoque
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              Confira os dados da movimentação antes de confirmar a reposição.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-2 py-2 text-xs">
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5 font-mono">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">Insumo:</span>
+                <span className="font-bold text-foreground">
+                  {materiais.find((m) => m.id === materialEntradaId)?.nome ||
+                    "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">
+                  Tipo de Movimentação:
+                </span>
+                <span className="font-semibold text-emerald-600">
+                  ENTRADA / REPOSIÇÃO
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">
+                  Quantidade:
+                </span>
+                <span className="font-bold text-primary">
+                  {Number(quantidadeEntrada).toLocaleString("pt-BR")}{" "}
+                  {materiais.find((m) => m.id === materialEntradaId)?.unidade ||
+                    ""}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">
+                  Data da Entrada:
+                </span>
+                <span>{dataEntrada.split("-").reverse().join("/")}</span>
+              </div>
+              {documentoEntrada && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground font-sans">
+                    Documento / NF:
+                  </span>
+                  <span>{documentoEntrada}</span>
+                </div>
+              )}
+              {obsEntrada && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground font-sans">
+                    Observação:
+                  </span>
+                  <span className="text-right max-w-[200px] truncate">
+                    {obsEntrada}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={salvandoEntrada}>
+              Voltar e Revisar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={salvandoEntrada}
+              onClick={executarSalvarEntrada}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+            >
+              {salvandoEntrada ? "Gravando..." : "Sim, Confirmar Entrada"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* AlertDialog de Confirmação com Resumo Antes de Gravar Novo Mínimo */}
+      <AlertDialog
+        open={modalConfirmarMinimoAberta}
+        onOpenChange={setModalConfirmarMinimoAberta}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+              <Settings2 className="w-5 h-5 text-primary" />
+              Confirmar Alteração de Estoque Mínimo
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              Confira os parâmetros de alerta de estoque para o insumo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-2 py-2 text-xs">
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5 font-mono">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">Insumo:</span>
+                <span className="font-bold text-foreground">
+                  {materialEditando?.nome}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">Tipo:</span>
+                <span className="font-semibold">AJUSTE DE PARÂMETRO</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">
+                  Mínimo Anterior:
+                </span>
+                <span>
+                  {materialEditando?.estoque_minimo.toLocaleString("pt-BR")}{" "}
+                  {materialEditando?.unidade}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">
+                  Novo Mínimo:
+                </span>
+                <span className="font-bold text-primary">
+                  {Number(novoMinimo).toLocaleString("pt-BR")}{" "}
+                  {materialEditando?.unidade}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">
+                  Saldo Atual:
+                </span>
+                <span>
+                  {materialEditando?.saldo?.toLocaleString("pt-BR")}{" "}
+                  {materialEditando?.unidade}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={salvandoMinimo}>
+              Voltar e Revisar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={salvandoMinimo}
+              onClick={executarSalvarMinimo}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+            >
+              {salvandoMinimo ? "Salvando..." : "Sim, Atualizar Mínimo"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

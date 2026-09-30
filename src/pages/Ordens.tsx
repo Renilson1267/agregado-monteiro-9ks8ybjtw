@@ -19,6 +19,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -74,6 +84,7 @@ export default function Ordens() {
   const [modalOpen, setModalOpen] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [ordemEditando, setOrdemEditando] = useState<OrdemServico | null>(null)
+  const [modalConfirmarAberta, setModalConfirmarAberta] = useState(false)
 
   // Documento selecionado para impressão
   const [ordemParaImprimir, setOrdemParaImprimir] =
@@ -198,7 +209,19 @@ export default function Ordens() {
     setDestinatarioCep(cli.cep || "")
   }
 
-  // Vincula dados de uma carga existente
+  // Cargas sem OS vinculada (ou que já é a carga vinculada à OS em edição)
+  const cargasSemOS = useMemo(() => {
+    const idsCargasComOS = new Set(
+      ordens
+        .map((o) => o.carga_id)
+        .filter(
+          (id): id is string => Boolean(id) && id !== ordemEditando?.carga_id,
+        ),
+    )
+    return cargas.filter((c) => !idsCargasComOS.has(c.id))
+  }, [cargas, ordens, ordemEditando?.carga_id])
+
+  // Vincula dados de uma carga existente (pré-preenche volume, motorista, placa e destino)
   const handleVincularCarga = (cargaId: string) => {
     setCargaSelecionadaId(cargaId)
     if (cargaId === "none") return
@@ -212,7 +235,7 @@ export default function Ordens() {
       setVistoMotoristaPeca(carga.motorista_nome)
     }
     if (carga.veiculo_placa) setVeiculoPlaca(carga.veiculo_placa)
-    if (carga.cidade_nome && !destinatarioCidade) {
+    if (carga.cidade_nome) {
       setDestinatarioCidade(carga.cidade_nome)
     }
 
@@ -381,19 +404,9 @@ export default function Ordens() {
     setItens((prev) => prev.filter((_, i) => i !== index))
   }
 
-  // Salvar OS
-  const handleSalvarOSSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // Executar a gravação de fato da OS após confirmação
+  const executarSalvarOS = async () => {
     if (!empresaAtiva) return
-
-    if (!destinatarioNome.trim()) {
-      toast({
-        title: "Nome do Destinatário é obrigatório",
-        description: "Selecione um cliente cadastrado ou digite o nome.",
-        variant: "destructive",
-      })
-      return
-    }
 
     setSalvando(true)
     try {
@@ -460,6 +473,7 @@ export default function Ordens() {
           : `Recibo Nº ${salva.numero_os} gerado com sucesso!`,
       })
 
+      setModalConfirmarAberta(false)
       setModalOpen(false)
       carregarDados()
     } catch (err: any) {
@@ -471,6 +485,23 @@ export default function Ordens() {
     } finally {
       setSalvando(false)
     }
+  }
+
+  // Validação e abertura do AlertDialog com resumo antes de salvar
+  const handleSalvarOSSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!empresaAtiva) return
+
+    if (!destinatarioNome.trim()) {
+      toast({
+        title: "Nome do Destinatário é obrigatório",
+        description: "Selecione um cliente cadastrado ou digite o nome.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setModalConfirmarAberta(true)
   }
 
   // Ação de Impressão
@@ -769,21 +800,39 @@ export default function Ordens() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs">Puxar Carga Existente</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Cargas sem OS vinculada</Label>
+                    <span className="text-[10px] text-primary font-medium">
+                      {cargasSemOS.length} disponíveis
+                    </span>
+                  </div>
                   <Select
                     value={cargaSelecionadaId}
                     onValueChange={handleVincularCarga}
                   >
                     <SelectTrigger className="h-9 text-xs">
-                      <SelectValue placeholder="Vincular carga..." />
+                      <SelectValue placeholder="Selecione carga sem OS..." />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhuma</SelectItem>
-                      {cargas.slice(0, 30).map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          Carga #{c.numero_carga} - {c.volume_m3}m³ ({c.data})
-                        </SelectItem>
-                      ))}
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="none">Nenhuma (avulsa)</SelectItem>
+                      {cargasSemOS.map((c) => {
+                        const dataFmt = c.data
+                          ? c.data.split("-").reverse().join("/")
+                          : "s/ data"
+                        const vol = Number(c.volume_m3 || 0).toFixed(1)
+                        const mot = c.motorista_nome || "s/ mot."
+                        const plc = c.veiculo_placa || "s/ placa"
+                        const dest = c.cidade_nome || "s/ dest."
+                        return (
+                          <SelectItem
+                            key={c.id}
+                            value={c.id}
+                            className="text-xs font-mono"
+                          >
+                            {dataFmt} | {vol}m³ | {mot} | {plc} | {dest}
+                          </SelectItem>
+                        )
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1288,6 +1337,102 @@ export default function Ordens() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog de Confirmação com Resumo Antes de Gravar a OS */}
+      <AlertDialog
+        open={modalConfirmarAberta}
+        onOpenChange={setModalConfirmarAberta}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+              <FileText className="w-5 h-5 text-primary" />
+              {ordemEditando
+                ? `Confirmar Alteração do Recibo Nº ${numeroOs}`
+                : `Confirmar Emissão do Recibo Nº ${numeroOs}`}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              Confira os dados principais da Ordem de Serviço antes de gravar. O
+              número do recibo é sequencial e imutável.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-2 py-2 text-xs">
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5 font-mono">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">
+                  Nº da OS:
+                </span>
+                <span className="font-bold text-primary">#{numeroOs}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">
+                  Data Emissão:
+                </span>
+                <span>{dataEmissao.split("-").reverse().join("/")}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">
+                  Cliente / Destinatário:
+                </span>
+                <span className="font-semibold text-right max-w-[200px] truncate">
+                  {destinatarioNome || "Não informado"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">
+                  Obra / Destino:
+                </span>
+                <span className="text-right max-w-[200px] truncate">
+                  {destinatarioCidade ||
+                    destinatarioEndereco ||
+                    "Não informado"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">
+                  Volume Total:
+                </span>
+                <span className="font-bold text-primary">
+                  {itens
+                    .reduce((acc, it) => acc + Number(it.quantidade || 0), 0)
+                    .toFixed(1)}{" "}
+                  m³
+                </span>
+              </div>
+              {veiculoPlaca && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground font-sans">
+                    Betoneira (Placa):
+                  </span>
+                  <span>{veiculoPlaca}</span>
+                </div>
+              )}
+              {motoristaNome && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground font-sans">
+                    Motorista:
+                  </span>
+                  <span>{motoristaNome}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={salvando}>
+              Voltar e Revisar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={salvando}
+              onClick={executarSalvarOS}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+            >
+              {salvando ? "Gravando..." : "Sim, Gravar OS"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
