@@ -40,6 +40,7 @@ import {
   FileSpreadsheet,
   MapPin,
   User,
+  Layers,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
@@ -692,42 +693,50 @@ export default function LancamentoCargas() {
   ]
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="max-w-5xl mx-auto space-y-6">
+      {/* Topo / Header da Página */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Button asChild variant="outline" size="icon" className="h-9 w-9">
+          <Button
+            asChild
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+          >
             <Link to={isBalanceiro ? "/lancamentos" : "/"}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2 flex-wrap">
               {editarCargaId ? (
                 <>
-                  Editar Carga #
-                  {cargaOriginal
-                    ? String(cargaOriginal.numero_carga).padStart(4, "0")
-                    : ""}
+                  <span>
+                    Editar Carga #
+                    {cargaOriginal
+                      ? String(cargaOriginal.numero_carga).padStart(4, "0")
+                      : ""}
+                  </span>
                   <Badge
                     variant="outline"
                     className="border-amber-500/50 bg-amber-500/10 text-amber-500 text-xs font-semibold uppercase"
                   >
-                    Modo Edição (Administrador)
+                    Modo Edição
                   </Badge>
                 </>
               ) : (
-                "Lançamento Rápido de Carga"
+                <span>Lançamento Rápido de Carga</span>
               )}
               {empresaAtiva && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-normal">
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
                   {empresaAtiva.nome}
                 </span>
               )}
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               {editarCargaId
-                ? "Corrija os dados da carga já lançada. Ao salvar, os movimentos de estoque anteriores serão estornados e recalculados."
-                : `Registro de despacho na balança com dosagem e baixa automática no estoque da unidade ${empresaAtiva?.nome || ""}`}
+                ? "Ajuste os dados e confirme a regravação com recálculo automático de estoque."
+                : "Entrada rápida para balanceiro: preencha os dados da viagem e a pesagem dos insumos."}
             </p>
           </div>
         </div>
@@ -737,74 +746,130 @@ export default function LancamentoCargas() {
             asChild
             variant="outline"
             size="sm"
-            className="gap-2 text-xs font-semibold shadow-sm border-border/60 hover:bg-muted/40"
+            className="gap-2 text-xs font-semibold shadow-sm border-border/60 hover:bg-muted/40 self-start sm:self-auto"
             title="Ir para tela de cadastros e importação de planilha de controle diário"
           >
             <Link to="/cadastros">
               <FileSpreadsheet className="w-4 h-4 text-primary" />
-              Importar CSV da Unidade
+              Importar Planilha CSV
             </Link>
           </Button>
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Bloco 1: Dados da Expedição */}
-        <Card className="border-border/40 bg-card/70">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Truck className="w-4 h-4 text-primary" />
-              Dados da Expedição
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Informe a data, o volume solicitado em m³ e a dosagem (traço)
-            </CardDescription>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Bloco 1: Dados Essenciais da Expedição (Data, Volume, Traço, Motorista, Placa, Destino) */}
+        <Card className="border-border/50 bg-card/80 shadow-sm">
+          <CardHeader className="pb-3 pt-4 px-4 sm:px-6 border-b border-border/30">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2 text-foreground">
+                  <Truck className="w-4 h-4 text-primary" />
+                  1. Dados da Expedição e Viagem
+                </CardTitle>
+                <CardDescription className="text-xs mt-0.5">
+                  Campos essenciais para identificação rápida da viagem na
+                  balança
+                </CardDescription>
+              </div>
+
+              {/* Checkbox Carga Zerada Compacto no Topo */}
+              <div className="flex items-center space-x-2 pt-1 sm:pt-0">
+                <Checkbox
+                  id="cargaZerada"
+                  checked={cargaZerada}
+                  onCheckedChange={(checked) => setCargaZerada(!!checked)}
+                />
+                <Label
+                  htmlFor="cargaZerada"
+                  className="text-xs font-medium cursor-pointer flex items-center gap-1.5"
+                >
+                  <span
+                    className={
+                      cargaZerada
+                        ? "text-amber-500 font-bold"
+                        : "text-muted-foreground"
+                    }
+                  >
+                    Carga Zerada / Cancelada
+                  </span>
+                  <span className="text-[11px] text-muted-foreground hidden md:inline">
+                    (Sem baixa de estoque)
+                  </span>
+                </Label>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="data">Data de Expedição *</Label>
+
+          <CardContent className="p-4 sm:p-6 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Data da Carga */}
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="data"
+                  className="text-xs font-semibold text-foreground"
+                >
+                  Data de Expedição *
+                </Label>
                 <Input
                   id="data"
                   type="date"
                   value={dataCarga}
                   onChange={(e) => setDataCarga(e.target.value)}
                   required
+                  className="h-10 text-sm bg-background font-mono"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="volume">Volume (m³) *</Label>
-                <Input
-                  id="volume"
-                  type="number"
-                  step="0.5"
-                  min="0.5"
-                  max="15"
-                  value={volume || ""}
-                  onChange={(e) => {
-                    const val =
-                      e.target.value === "" ? 0 : Number(e.target.value)
-                    setVolume(isNaN(val) ? 0 : val)
-                  }}
-                  required
-                />
+              {/* Volume m³ em destaque */}
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="volume"
+                  className="text-xs font-semibold text-foreground flex items-center justify-between"
+                >
+                  <span>Volume da Carga *</span>
+                  <span className="text-[11px] text-primary font-mono font-bold">
+                    m³
+                  </span>
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="volume"
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    max="15"
+                    value={volume || ""}
+                    onChange={(e) => {
+                      const val =
+                        e.target.value === "" ? 0 : Number(e.target.value)
+                      setVolume(isNaN(val) ? 0 : val)
+                    }}
+                    required
+                    className="h-10 text-base font-bold font-mono text-primary bg-background pr-9 text-left"
+                    placeholder="8.0"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
+                    m³
+                  </span>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="traco">
+              {/* Traço / Dosagem */}
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="traco"
+                  className="text-xs font-semibold text-foreground"
+                >
                   {modoDosagem === "manual"
-                    ? "Traço de Referência (Opcional)"
+                    ? "Traço de Referência"
                     : "Traço / Dosagem *"}
                 </Label>
                 <Select
                   value={tracoSelecionadoId}
                   onValueChange={(val) => {
                     setTracoSelecionadoId(val)
-                    const traco = tracos.find((t) => t.id === val)
                     if (isBalanceiro && modoDosagem === "manual") {
-                      // REGRA BALANCEIRO no modo manual:
-                      // Seleciona o traço como referência, mas mantém campos em branco para digitação na balança
                       setCimento(0)
                       setBrita12(0)
                       setBrita19(0)
@@ -817,45 +882,131 @@ export default function LancamentoCargas() {
                       setAditivoEditadoManualmente(false)
                       setAguaEditadaManualmente(false)
                     } else {
-                      // Se estiver no modo automático (ou modo manual de admin): aplica a dosagem do traço
                       aplicarDosagemTraco(val, volume)
                     }
                   }}
                   disabled={cargaZerada}
                 >
-                  <SelectTrigger id="traco">
+                  <SelectTrigger
+                    id="traco"
+                    className="h-10 text-xs sm:text-sm bg-background"
+                  >
                     <SelectValue placeholder="Selecione o traço" />
                   </SelectTrigger>
                   <SelectContent>
                     {tracos.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
+                      <SelectItem
+                        key={t.id}
+                        value={t.id}
+                        className="text-xs sm:text-sm"
+                      >
                         {t.nome} {t.fck_mpa ? `(${t.fck_mpa} MPa)` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Motorista */}
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="motorista"
+                  className="text-xs font-semibold text-foreground flex items-center gap-1"
+                >
+                  <User className="w-3.5 h-3.5 text-primary" />
+                  Motorista
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="motorista"
+                    list="lista-motoristas"
+                    value={motoristaNome}
+                    onChange={(e) => setMotoristaNome(e.target.value)}
+                    placeholder="Nome do motorista..."
+                    className="h-10 text-xs sm:text-sm bg-background"
+                  />
+                  <datalist id="lista-motoristas">
+                    {motoristas.map((m) => (
+                      <option key={m.id} value={m.nome} />
+                    ))}
+                  </datalist>
+                </div>
+              </div>
+
+              {/* Placa da Betoneira */}
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="veiculo"
+                  className="text-xs font-semibold text-foreground flex items-center gap-1"
+                >
+                  <Truck className="w-3.5 h-3.5 text-primary" />
+                  Placa Betoneira
+                </Label>
+                <Select value={veiculoPlaca} onValueChange={setVeiculoPlaca}>
+                  <SelectTrigger
+                    id="veiculo"
+                    className="h-10 text-xs sm:text-sm bg-background font-mono"
+                  >
+                    <SelectValue placeholder="Selecione o veículo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {veiculos.map((v) => (
+                      <SelectItem
+                        key={v.id}
+                        value={v.placa}
+                        className="text-xs sm:text-sm font-mono"
+                      >
+                        {v.placa} {v.modelo ? `- ${v.modelo}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Cidade / Destino */}
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="cidade"
+                  className="text-xs font-semibold text-foreground flex items-center gap-1"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-primary" />
+                  Destino / Cidade
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="cidade"
+                    list="lista-cidades"
+                    value={cidadeNome}
+                    onChange={(e) => setCidadeNome(e.target.value)}
+                    placeholder="Cidade ou obra de destino..."
+                    className="h-10 text-xs sm:text-sm bg-background"
+                  />
+                  <datalist id="lista-cidades">
+                    {cidades.map((c) => (
+                      <option key={c.id} value={c.nome} />
+                    ))}
+                  </datalist>
+                </div>
+              </div>
             </div>
 
-            {/* Checkbox Carga Zerada */}
-            <div className="flex items-center space-x-2 pt-2 border-t border-border/40">
-              <Checkbox
-                id="cargaZerada"
-                checked={cargaZerada}
-                onCheckedChange={(checked) => setCargaZerada(!!checked)}
-              />
-              <Label
-                htmlFor="cargaZerada"
-                className="text-sm font-medium cursor-pointer flex items-center gap-2"
-              >
-                <span className="text-amber-500 font-semibold">
-                  Carga Zerada / Cancelada
-                </span>
-                <span className="text-xs text-muted-foreground font-normal">
-                  (Registra o frete/viagem mas não abate nenhum insumo do
-                  estoque)
-                </span>
-              </Label>
+            {/* Observações da Carga (linha compacta) */}
+            <div className="pt-2 border-t border-border/30">
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="observacao"
+                  className="text-xs font-medium text-muted-foreground"
+                >
+                  Observações adicionais (opcional)
+                </Label>
+                <Input
+                  id="observacao"
+                  value={observacao}
+                  onChange={(e) => setObservacao(e.target.value)}
+                  placeholder="Ex.: Obra Centro, concreto bombeado, nota fiscal na entrega..."
+                  className="h-9 text-xs bg-background"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1687,131 +1838,127 @@ export default function LancamentoCargas() {
                   </div>
                 )}
               </div>
-
-              {/* Motorista (ao lado de Pó de Pedra) */}
-              <div className="space-y-1.5 p-3 rounded-lg border border-border/40 bg-background/50">
-                <Label
-                  htmlFor="motoristaAoLadoPoPedra"
-                  className="text-xs text-muted-foreground flex justify-between items-center"
-                >
-                  <span className="font-semibold text-foreground flex items-center gap-1">
-                    <User className="w-3.5 h-3.5 text-primary" />
-                    Motorista
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    Livre / Sugestão
-                  </span>
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="motoristaAoLadoPoPedra"
-                    list="lista-motoristas"
-                    value={motoristaNome}
-                    onChange={(e) => setMotoristaNome(e.target.value)}
-                    placeholder="Nome do motorista..."
-                    className="h-10 text-xs bg-background font-medium"
-                  />
-                </div>
-                <div className="text-[11px] text-muted-foreground flex justify-between items-center pt-0.5">
-                  <span>Vinculado à carga e OS</span>
-                  {motoristaNome && (
-                    <span className="font-semibold text-primary truncate max-w-[130px]">
-                      {motoristaNome}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Placa da Betoneira (ao lado de Pó de Pedra) */}
-              <div className="space-y-1.5 p-3 rounded-lg border border-border/40 bg-background/50">
-                <Label
-                  htmlFor="veiculoAoLadoPoPedra"
-                  className="text-xs text-muted-foreground flex justify-between items-center"
-                >
-                  <span className="font-semibold text-foreground flex items-center gap-1">
-                    <Truck className="w-3.5 h-3.5 text-primary" />
-                    Placa da Betoneira
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    Veículos da unidade
-                  </span>
-                </Label>
-                <div className="relative">
-                  <Select value={veiculoPlaca} onValueChange={setVeiculoPlaca}>
-                    <SelectTrigger
-                      id="veiculoAoLadoPoPedra"
-                      className="h-10 text-xs bg-background font-mono font-semibold"
-                    >
-                      <SelectValue placeholder="Selecione a betoneira" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {veiculos.map((v) => (
-                        <SelectItem
-                          key={v.id}
-                          value={v.placa}
-                          className="text-xs font-mono"
-                        >
-                          {v.placa} {v.modelo ? `- ${v.modelo}` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="text-[11px] text-muted-foreground flex justify-between items-center pt-0.5">
-                  <span>Caminhão selecionado</span>
-                  {veiculoPlaca && (
-                    <span className="font-semibold text-primary font-mono">
-                      {veiculoPlaca}
-                    </span>
-                  )}
-                </div>
-              </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Bloco 3: Observações e Destino/Cidade */}
-        <Card className="border-border/40 bg-card/70">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-primary" />
-              Destino e Observações
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Informe a cidade ou obra de destino e eventuais observações da
-              carga
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="cidadeDestino">Cidade / Destino</Label>
-                <div className="relative">
-                  <Input
-                    id="cidadeDestino"
-                    list="lista-cidades"
-                    value={cidadeNome}
-                    onChange={(e) => setCidadeNome(e.target.value)}
-                    placeholder="Selecione ou digite a cidade..."
-                    className="h-10 text-xs bg-background"
-                  />
-                  <datalist id="lista-cidades">
-                    {cidades.map((c) => (
-                      <option key={c.id} value={c.nome} />
-                    ))}
-                  </datalist>
-                </div>
+            {/* Resumo Dinâmico e Clean de Insumos e Agregados Totais da Carga */}
+            <div className="mt-4 pt-4 border-t border-border/40 bg-muted/20 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-4 sm:p-5 rounded-b-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-primary" />
+                  Resumo de Insumos e Agregados da Carga ({volume || 0} m³)
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  {modoDosagem === "manual"
+                    ? "Cálculo: Dosagem × Volume"
+                    : "Cálculo: Traço Selecionado × Volume"}
+                </span>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="obsCarga">Observações</Label>
-                <Input
-                  id="obsCarga"
-                  value={observacao}
-                  onChange={(e) => setObservacao(e.target.value)}
-                  placeholder="Observação da carga (opcional)..."
-                  className="h-10 text-xs bg-background"
-                />
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                {/* Cimento */}
+                <div className="p-2.5 rounded-lg border border-primary/30 bg-primary/5 flex flex-col justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    Cimento
+                  </span>
+                  <div className="mt-1">
+                    <span className="text-sm font-bold font-mono text-primary block leading-tight">
+                      {consumoReal.cimento.toLocaleString("pt-BR")}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      kg
+                    </span>
+                  </div>
+                </div>
+
+                {/* Aditivo */}
+                <div className="p-2.5 rounded-lg border border-primary/30 bg-primary/5 flex flex-col justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    Aditivo
+                  </span>
+                  <div className="mt-1">
+                    <span className="text-sm font-bold font-mono text-primary block leading-tight">
+                      {consumoReal.aditivo.toLocaleString("pt-BR")}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      L
+                    </span>
+                  </div>
+                </div>
+
+                {/* Água */}
+                <div className="p-2.5 rounded-lg border border-cyan-500/30 bg-cyan-500/5 flex flex-col justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    Água
+                  </span>
+                  <div className="mt-1">
+                    <span className="text-sm font-bold font-mono text-cyan-600 dark:text-cyan-400 block leading-tight">
+                      {consumoReal.agua.toLocaleString("pt-BR")}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      L
+                    </span>
+                  </div>
+                </div>
+
+                {/* Areia */}
+                <div className="p-2.5 rounded-lg border border-border/50 bg-background flex flex-col justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    Areia
+                  </span>
+                  <div className="mt-1">
+                    <span className="text-sm font-bold font-mono text-foreground block leading-tight">
+                      {consumoReal.areia.toLocaleString("pt-BR")}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      kg
+                    </span>
+                  </div>
+                </div>
+
+                {/* Brita 12 */}
+                <div className="p-2.5 rounded-lg border border-border/50 bg-background flex flex-col justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    Brita 12
+                  </span>
+                  <div className="mt-1">
+                    <span className="text-sm font-bold font-mono text-foreground block leading-tight">
+                      {consumoReal.brita12.toLocaleString("pt-BR")}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      kg
+                    </span>
+                  </div>
+                </div>
+
+                {/* Brita 19 */}
+                <div className="p-2.5 rounded-lg border border-border/50 bg-background flex flex-col justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    Brita 19
+                  </span>
+                  <div className="mt-1">
+                    <span className="text-sm font-bold font-mono text-foreground block leading-tight">
+                      {consumoReal.brita19.toLocaleString("pt-BR")}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      kg
+                    </span>
+                  </div>
+                </div>
+
+                {/* Pó de Pedra */}
+                <div className="p-2.5 rounded-lg border border-border/50 bg-background flex flex-col justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    Pó de Pedra
+                  </span>
+                  <div className="mt-1">
+                    <span className="text-sm font-bold font-mono text-foreground block leading-tight">
+                      {consumoReal.poPedra.toLocaleString("pt-BR")}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      kg
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
