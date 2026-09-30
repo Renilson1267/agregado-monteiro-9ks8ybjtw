@@ -41,6 +41,7 @@ import {
   MapPin,
   User,
   Layers,
+  AlertCircle,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
@@ -130,6 +131,9 @@ export default function LancamentoCargas() {
     useState<boolean>(false)
   const [aguaEditadaManualmente, setAguaEditadaManualmente] =
     useState<boolean>(false)
+
+  // Estado que rastreia tentativa de submissão para destacar campos obrigatórios faltantes
+  const [tentouGravar, setTentouGravar] = useState<boolean>(false)
 
   useEffect(() => {
     async function init() {
@@ -478,36 +482,106 @@ export default function LancamentoCargas() {
     agua: Math.round(agua),
   }
 
-  const validarFormulario = (): boolean => {
-    if (!dataCarga) {
-      toast({
-        title: "Atenção",
-        description: "Informe a data da carga",
-        variant: "destructive",
-      })
-      return false
+  // Validação estrita: "SO ACEITAR GRAVAR SE TODOS OS CAMPOS ESTIVEREM PREENCHIDOS"
+  // Campos essenciais: data de expedição, volume (>0), traço/dosagem, aditivo, motorista, placa da betoneira e destino/cidade
+  const obterErrosValidacao = () => {
+    interface ItemErro {
+      campo: string
+      rotulo: string
+      mensagem: string
     }
-    if (volume <= 0) {
-      toast({
-        title: "Atenção",
-        description: "O volume deve ser maior que zero",
-        variant: "destructive",
+    const faltantes: ItemErro[] = []
+
+    if (!dataCarga || dataCarga.trim() === "") {
+      faltantes.push({
+        campo: "data",
+        rotulo: "Data de Expedição",
+        mensagem: "Informe a data de expedição",
       })
-      return false
     }
 
+    if (!volume || Number(volume) <= 0) {
+      faltantes.push({
+        campo: "volume",
+        rotulo: "Volume da Carga",
+        mensagem: "Volume deve ser maior que 0 m³",
+      })
+    }
+
+    if (!tracoSelecionadoId || tracoSelecionadoId.trim() === "") {
+      faltantes.push({
+        campo: "traco",
+        rotulo: "Traço / Dosagem",
+        mensagem: "Selecione o traço ou dosagem da carga",
+      })
+    }
+
+    if (!motoristaNome || motoristaNome.trim() === "") {
+      faltantes.push({
+        campo: "motorista",
+        rotulo: "Motorista",
+        mensagem: "Informe o nome do motorista",
+      })
+    }
+
+    if (!veiculoPlaca || veiculoPlaca.trim() === "") {
+      faltantes.push({
+        campo: "veiculo",
+        rotulo: "Placa Betoneira",
+        mensagem: "Selecione o veículo / placa da betoneira",
+      })
+    }
+
+    if (!cidadeNome || cidadeNome.trim() === "") {
+      faltantes.push({
+        campo: "cidade",
+        rotulo: "Destino / Cidade",
+        mensagem: "Informe o destino ou cidade da entrega",
+      })
+    }
+
+    // Aditivo: deve ser informado / maior que zero (a menos que seja carga cancelada/zerada)
+    if (
+      !cargaZerada &&
+      (aditivo === undefined || aditivo === null || Number(aditivo) <= 0)
+    ) {
+      faltantes.push({
+        campo: "aditivo",
+        rotulo: "Aditivo (L)",
+        mensagem: "Informe o volume de aditivo (L)",
+      })
+    }
+
+    // Se estiver no modo manual sem ser cancelada, deve haver consumo de insumos/cimento
     if (modoDosagem === "manual" && !cargaZerada) {
       const somaDosagens =
         brita12 + brita19 + areia + poPedra + cimento + aditivo
       if (somaDosagens <= 0) {
-        toast({
-          title: "Insumos não informados",
-          description:
-            "No modo manual, informe a dosagem (kg/m³) de pelo menos um dos insumos ou marque a carga como cancelada/zerada.",
-          variant: "destructive",
+        faltantes.push({
+          campo: "insumos",
+          rotulo: "Insumos (kg/m³)",
+          mensagem: "No modo manual, informe a dosagem de cimento e agregados",
         })
-        return false
       }
+    }
+
+    return faltantes
+  }
+
+  const errosValidacao = obterErrosValidacao()
+  const formularioValido = errosValidacao.length === 0
+
+  const validarFormulario = (): boolean => {
+    setTentouGravar(true)
+
+    if (errosValidacao.length > 0) {
+      const listaFaltantes = errosValidacao.map((e) => e.rotulo).join(", ")
+      toast({
+        title: "Preencha todos os campos para gravar",
+        description: `Campos obrigatórios pendentes: ${listaFaltantes}.`,
+        variant: "destructive",
+      })
+      return false
     }
     return true
   }
@@ -807,9 +881,18 @@ export default function LancamentoCargas() {
               <div className="space-y-1.5">
                 <Label
                   htmlFor="data"
-                  className="text-xs sm:text-sm font-semibold text-foreground"
+                  className={`text-xs sm:text-sm font-semibold flex items-center justify-between ${
+                    tentouGravar && (!dataCarga || dataCarga.trim() === "")
+                      ? "text-destructive font-bold"
+                      : "text-foreground"
+                  }`}
                 >
-                  Data de Expedição *
+                  <span>Data de Expedição *</span>
+                  {tentouGravar && (!dataCarga || dataCarga.trim() === "") && (
+                    <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
+                      <AlertCircle className="w-3.5 h-3.5" /> Obrigatório
+                    </span>
+                  )}
                 </Label>
                 <Input
                   id="data"
@@ -817,7 +900,11 @@ export default function LancamentoCargas() {
                   value={dataCarga}
                   onChange={(e) => setDataCarga(e.target.value)}
                   required
-                  className="min-h-[44px] h-11 sm:h-10 text-sm sm:text-base bg-background font-mono rounded-xl px-3"
+                  className={`min-h-[44px] h-11 sm:h-10 text-sm sm:text-base bg-background font-mono rounded-xl px-3 transition-colors ${
+                    tentouGravar && (!dataCarga || dataCarga.trim() === "")
+                      ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5"
+                      : ""
+                  }`}
                 />
               </div>
 
@@ -825,12 +912,23 @@ export default function LancamentoCargas() {
               <div className="space-y-1.5">
                 <Label
                   htmlFor="volume"
-                  className="text-xs sm:text-sm font-semibold text-foreground flex items-center justify-between"
+                  className={`text-xs sm:text-sm font-semibold flex items-center justify-between ${
+                    tentouGravar && (!volume || Number(volume) <= 0)
+                      ? "text-destructive font-bold"
+                      : "text-foreground"
+                  }`}
                 >
                   <span>Volume da Carga *</span>
-                  <span className="text-xs text-primary font-mono font-bold">
-                    m³
-                  </span>
+                  {tentouGravar && (!volume || Number(volume) <= 0) ? (
+                    <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
+                      <AlertCircle className="w-3.5 h-3.5" /> Informe volume
+                      &gt; 0
+                    </span>
+                  ) : (
+                    <span className="text-xs text-primary font-mono font-bold">
+                      m³
+                    </span>
+                  )}
                 </Label>
                 <div className="relative">
                   <Input
@@ -847,7 +945,11 @@ export default function LancamentoCargas() {
                       setVolume(isNaN(val) ? 0 : val)
                     }}
                     required
-                    className="min-h-[44px] h-11 sm:h-10 text-base sm:text-lg font-bold font-mono text-primary bg-background pr-10 text-left rounded-xl"
+                    className={`min-h-[44px] h-11 sm:h-10 text-base sm:text-lg font-bold font-mono text-primary bg-background pr-10 text-left rounded-xl transition-colors ${
+                      tentouGravar && (!volume || Number(volume) <= 0)
+                        ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5 text-destructive"
+                        : ""
+                    }`}
                     placeholder="8.0"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
@@ -877,11 +979,26 @@ export default function LancamentoCargas() {
               <div className="space-y-1.5">
                 <Label
                   htmlFor="traco"
-                  className="text-xs sm:text-sm font-semibold text-foreground"
+                  className={`text-xs sm:text-sm font-semibold flex items-center justify-between ${
+                    tentouGravar &&
+                    (!tracoSelecionadoId || tracoSelecionadoId.trim() === "")
+                      ? "text-destructive font-bold"
+                      : "text-foreground"
+                  }`}
                 >
-                  {modoDosagem === "manual"
-                    ? "Traço de Referência"
-                    : "Traço / Dosagem *"}
+                  <span>
+                    {modoDosagem === "manual"
+                      ? "Traço de Referência *"
+                      : "Traço / Dosagem *"}
+                  </span>
+                  {tentouGravar &&
+                    (!tracoSelecionadoId ||
+                      tracoSelecionadoId.trim() === "") && (
+                      <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
+                        <AlertCircle className="w-3.5 h-3.5" /> Selecione o
+                        traço
+                      </span>
+                    )}
                 </Label>
                 <Select
                   value={tracoSelecionadoId}
@@ -907,7 +1024,12 @@ export default function LancamentoCargas() {
                 >
                   <SelectTrigger
                     id="traco"
-                    className="min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background rounded-xl px-3"
+                    className={`min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background rounded-xl px-3 transition-colors ${
+                      tentouGravar &&
+                      (!tracoSelecionadoId || tracoSelecionadoId.trim() === "")
+                        ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5"
+                        : ""
+                    }`}
                   >
                     <SelectValue placeholder="Selecione o traço" />
                   </SelectTrigger>
@@ -929,10 +1051,23 @@ export default function LancamentoCargas() {
               <div className="space-y-1.5">
                 <Label
                   htmlFor="motorista"
-                  className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1"
+                  className={`text-xs sm:text-sm font-semibold flex items-center justify-between ${
+                    tentouGravar &&
+                    (!motoristaNome || motoristaNome.trim() === "")
+                      ? "text-destructive font-bold"
+                      : "text-foreground"
+                  }`}
                 >
-                  <User className="w-4 h-4 text-primary" />
-                  Motorista
+                  <span className="flex items-center gap-1">
+                    <User className="w-4 h-4 text-primary" />
+                    Motorista *
+                  </span>
+                  {tentouGravar &&
+                    (!motoristaNome || motoristaNome.trim() === "") && (
+                      <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
+                        <AlertCircle className="w-3.5 h-3.5" /> Obrigatório
+                      </span>
+                    )}
                 </Label>
                 <div className="relative">
                   <Input
@@ -941,7 +1076,12 @@ export default function LancamentoCargas() {
                     value={motoristaNome}
                     onChange={(e) => setMotoristaNome(e.target.value)}
                     placeholder="Nome do motorista..."
-                    className="min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background rounded-xl px-3"
+                    className={`min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background rounded-xl px-3 transition-colors ${
+                      tentouGravar &&
+                      (!motoristaNome || motoristaNome.trim() === "")
+                        ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5"
+                        : ""
+                    }`}
                   />
                   <datalist id="lista-motoristas">
                     {motoristas.map((m) => (
@@ -955,15 +1095,33 @@ export default function LancamentoCargas() {
               <div className="space-y-1.5">
                 <Label
                   htmlFor="veiculo"
-                  className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1"
+                  className={`text-xs sm:text-sm font-semibold flex items-center justify-between ${
+                    tentouGravar &&
+                    (!veiculoPlaca || veiculoPlaca.trim() === "")
+                      ? "text-destructive font-bold"
+                      : "text-foreground"
+                  }`}
                 >
-                  <Truck className="w-4 h-4 text-primary" />
-                  Placa Betoneira
+                  <span className="flex items-center gap-1">
+                    <Truck className="w-4 h-4 text-primary" />
+                    Placa Betoneira *
+                  </span>
+                  {tentouGravar &&
+                    (!veiculoPlaca || veiculoPlaca.trim() === "") && (
+                      <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
+                        <AlertCircle className="w-3.5 h-3.5" /> Obrigatório
+                      </span>
+                    )}
                 </Label>
                 <Select value={veiculoPlaca} onValueChange={setVeiculoPlaca}>
                   <SelectTrigger
                     id="veiculo"
-                    className="min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background font-mono rounded-xl px-3"
+                    className={`min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background font-mono rounded-xl px-3 transition-colors ${
+                      tentouGravar &&
+                      (!veiculoPlaca || veiculoPlaca.trim() === "")
+                        ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5"
+                        : ""
+                    }`}
                   >
                     <SelectValue placeholder="Selecione o veículo" />
                   </SelectTrigger>
@@ -985,10 +1143,22 @@ export default function LancamentoCargas() {
               <div className="space-y-1.5">
                 <Label
                   htmlFor="cidade"
-                  className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1"
+                  className={`text-xs sm:text-sm font-semibold flex items-center justify-between ${
+                    tentouGravar && (!cidadeNome || cidadeNome.trim() === "")
+                      ? "text-destructive font-bold"
+                      : "text-foreground"
+                  }`}
                 >
-                  <MapPin className="w-4 h-4 text-primary" />
-                  Destino / Cidade
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4 text-primary" />
+                    Destino / Cidade *
+                  </span>
+                  {tentouGravar &&
+                    (!cidadeNome || cidadeNome.trim() === "") && (
+                      <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
+                        <AlertCircle className="w-3.5 h-3.5" /> Obrigatório
+                      </span>
+                    )}
                 </Label>
                 <div className="relative">
                   <Input
@@ -997,7 +1167,11 @@ export default function LancamentoCargas() {
                     value={cidadeNome}
                     onChange={(e) => setCidadeNome(e.target.value)}
                     placeholder="Cidade ou obra de destino..."
-                    className="min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background rounded-xl px-3"
+                    className={`min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background rounded-xl px-3 transition-colors ${
+                      tentouGravar && (!cidadeNome || cidadeNome.trim() === "")
+                        ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5"
+                        : ""
+                    }`}
                   />
                   <datalist id="lista-cidades">
                     {cidades.map((c) => (
@@ -1244,17 +1418,31 @@ export default function LancamentoCargas() {
               {/* Aditivo: CALCULADO POR FATOR (MESMO COMPORTAMENTO NO MODO AUTOMÁTICO E MANUAL) */}
               <div
                 className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
-                  modoDosagem === "manual"
-                    ? "border-primary/50 bg-primary/10 ring-1 ring-primary/30"
-                    : "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
+                  tentouGravar &&
+                  !cargaZerada &&
+                  (aditivo === undefined ||
+                    aditivo === null ||
+                    Number(aditivo) <= 0)
+                    ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5"
+                    : modoDosagem === "manual"
+                      ? "border-primary/50 bg-primary/10 ring-1 ring-primary/30"
+                      : "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
                 }`}
               >
                 <Label
                   htmlFor="aditivo"
-                  className="text-xs text-muted-foreground flex justify-between items-center"
+                  className={`text-xs flex justify-between items-center ${
+                    tentouGravar &&
+                    !cargaZerada &&
+                    (aditivo === undefined ||
+                      aditivo === null ||
+                      Number(aditivo) <= 0)
+                      ? "text-destructive font-bold"
+                      : "text-muted-foreground"
+                  }`}
                 >
-                  <span className="font-semibold text-foreground flex items-center gap-1">
-                    Aditivo (L)
+                  <span className="font-semibold flex items-center gap-1">
+                    Aditivo (L) *
                     <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal">
                       Estoque
                     </span>
@@ -1268,12 +1456,24 @@ export default function LancamentoCargas() {
                       </span>
                     )}
                   </span>
-                  {tracoAtual && (
-                    <span className="text-[10px] text-muted-foreground">
-                      Traço:{" "}
-                      {(Number(tracoAtual.consumo_aditivo) * volume).toFixed(2)}{" "}
-                      L ({tracoAtual.consumo_aditivo} L/m³)
+                  {tentouGravar &&
+                  !cargaZerada &&
+                  (aditivo === undefined ||
+                    aditivo === null ||
+                    Number(aditivo) <= 0) ? (
+                    <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
+                      <AlertCircle className="w-3.5 h-3.5" /> Obrigatório &gt; 0
                     </span>
+                  ) : (
+                    tracoAtual && (
+                      <span className="text-[10px] text-muted-foreground">
+                        Traço:{" "}
+                        {(Number(tracoAtual.consumo_aditivo) * volume).toFixed(
+                          2,
+                        )}{" "}
+                        L ({tracoAtual.consumo_aditivo} L/m³)
+                      </span>
+                    )
                   )}
                 </Label>
 
@@ -1992,6 +2192,34 @@ export default function LancamentoCargas() {
           </CardContent>
         </Card>
 
+        {/* Aviso de campos pendentes caso haja erro de validação */}
+        {!formularioValido && (
+          <div
+            className={`p-3 sm:p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs transition-colors ${
+              tentouGravar
+                ? "bg-destructive/10 border-destructive/30 text-destructive"
+                : "bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300"
+            }`}
+          >
+            <div className="flex items-start sm:items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 sm:mt-0" />
+              <div>
+                <span className="font-bold block sm:inline">
+                  {tentouGravar
+                    ? "Preencha todos os campos para gravar:"
+                    : "Campos obrigatórios pendentes para gravação:"}
+                </span>{" "}
+                <span className="font-medium">
+                  {errosValidacao.map((e) => e.rotulo).join(", ")}
+                </span>
+              </div>
+            </div>
+            <span className="text-[11px] opacity-80 shrink-0 font-medium">
+              Todos os campos são obrigatórios
+            </span>
+          </div>
+        )}
+
         {/* Barra de Ações com Botões Grandes de Toque (Fixo na base no celular para acesso imediato com o polegar) */}
         <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-2">
           <Button
@@ -2003,13 +2231,22 @@ export default function LancamentoCargas() {
             <Link to={isBalanceiro ? "/lancamentos" : "/"}>Cancelar</Link>
           </Button>
 
-          {/* Botão de Gravação / Alteração */}
+          {/* Botão de Gravação / Alteração com bloqueio visual quando há campos pendentes */}
           {editarCargaId ? (
             <Button
               type="submit"
               variant="default"
-              disabled={salvando || carregandoCargaEdicao}
-              className="w-full sm:w-auto min-h-[48px] sm:min-h-[40px] h-12 sm:h-10 gap-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm sm:text-base shadow-md px-8 rounded-xl"
+              disabled={salvando || carregandoCargaEdicao || !formularioValido}
+              title={
+                !formularioValido
+                  ? `Preencha todos os campos: faltam ${errosValidacao.map((e) => e.rotulo).join(", ")}`
+                  : undefined
+              }
+              className={`w-full sm:w-auto min-h-[48px] sm:min-h-[40px] h-12 sm:h-10 gap-2 font-bold text-sm sm:text-base shadow-md px-8 rounded-xl transition-all ${
+                !formularioValido
+                  ? "bg-muted text-muted-foreground cursor-not-allowed opacity-60 border border-border/40"
+                  : "bg-amber-600 hover:bg-amber-700 text-white"
+              }`}
             >
               {salvando ? (
                 "Salvando alteração..."
@@ -2024,8 +2261,17 @@ export default function LancamentoCargas() {
             <Button
               type="submit"
               variant="default"
-              disabled={salvando}
-              className="w-full sm:w-auto min-h-[48px] sm:min-h-[40px] h-12 sm:h-10 gap-2 bg-primary text-primary-foreground font-bold text-sm sm:text-base shadow-md px-8 hover:brightness-105 rounded-xl"
+              disabled={salvando || !formularioValido}
+              title={
+                !formularioValido
+                  ? `Preencha todos os campos: faltam ${errosValidacao.map((e) => e.rotulo).join(", ")}`
+                  : undefined
+              }
+              className={`w-full sm:w-auto min-h-[48px] sm:min-h-[40px] h-12 sm:h-10 gap-2 font-bold text-sm sm:text-base shadow-md px-8 rounded-xl transition-all ${
+                !formularioValido
+                  ? "bg-muted text-muted-foreground cursor-not-allowed opacity-60 border border-border/40"
+                  : "bg-primary text-primary-foreground hover:brightness-105"
+              }`}
             >
               {salvando ? (
                 "Gravando Carga..."
