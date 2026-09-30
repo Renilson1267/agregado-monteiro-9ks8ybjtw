@@ -725,7 +725,7 @@ export function Sidebar({
           {!collapsed && (
             <div className="pt-0.5 text-center">
               <span className="text-[10px] text-muted-foreground/50 font-mono">
-                GC MIX v0.0.108
+                GC MIX v0.0.110
               </span>
             </div>
           )}
@@ -846,7 +846,7 @@ export function Sidebar({
 
             <div className="pt-1 text-center">
               <span className="text-[10px] text-muted-foreground/60 font-mono">
-                GC MIX v0.0.108
+                GC MIX v0.0.110
               </span>
             </div>
           </div>
