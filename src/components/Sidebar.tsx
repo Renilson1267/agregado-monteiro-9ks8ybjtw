@@ -106,11 +106,11 @@ export function Sidebar({
 
   // Definição dos grupos lógicos objetivos de navegação (em português claro)
   // Estrutura organizada para que o usuário encontre qualquer tela em até 2 cliques:
-  // 1. OPERAÇÃO (Lançamento de Cargas, Dashboard, Ordens & Recibos, Quadro Comparativo, Relatórios)
-  // 2. ESTOQUE & TRAÇOS (Estoque de Insumos, Traços & Dosagens)
-  // 3. FOLHA DE PAGAMENTO (Folha Mensal/Quinzena, Tabelas Oficiais INSS/IRRF)
-  // 4. CADASTROS (Cadastros Gerais: Clientes, Motoristas, Caminhões, etc; Gestão de Usuários)
-  // 5. FERRAMENTAS & SUPORTE (Controle de Exames ASO, Backup & Restauração)
+  // Administrador: acesso a todos os módulos
+  // Balanceiro: acesso estrito e exclusivo a 3 módulos:
+  //   1. Lançamento de Cargas (/lancamentos)
+  //   2. Estoque de Insumos (/estoque)
+  //   3. Ordens & Recibos (/ordens)
   const navGroups: NavGroupDef[] = [
     {
       id: "operacao",
@@ -121,6 +121,7 @@ export function Sidebar({
           label: "Painel Gerencial",
           path: "/painel",
           group: "operacao",
+          adminOnly: true,
         },
         {
           icon: Truck,
@@ -130,9 +131,10 @@ export function Sidebar({
         },
         {
           icon: LayoutDashboard,
-          label: isBalanceiro ? "Dashboard Operacional" : "Dashboard Geral",
+          label: "Dashboard de Produção",
           path: "/dashboard",
           group: "operacao",
+          adminOnly: true,
         },
         {
           icon: FileText,
@@ -204,7 +206,7 @@ export function Sidebar({
           label: "Controle de Férias",
           path: "/cadastros?tab=ferias",
           group: "cadastros",
-          adminOnly: false,
+          adminOnly: true,
         },
         {
           icon: Users,
@@ -231,6 +233,7 @@ export function Sidebar({
           label: "Controle de Exames (ASO)",
           path: "/exames",
           group: "ferramentas",
+          adminOnly: true,
         },
         {
           icon: Download,
@@ -393,7 +396,7 @@ export function Sidebar({
           )}
         >
           <Link
-            to="/painel"
+            to={isBalanceiro ? "/lancamentos" : "/painel"}
             className={cn(
               "flex items-center gap-2.5 overflow-hidden group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg",
               collapsed && "justify-center",
@@ -713,7 +716,7 @@ export function Sidebar({
           {!collapsed && (
             <div className="pt-0.5 text-center">
               <span className="text-[10px] text-muted-foreground/50 font-mono">
-                GC MIX v0.0.102
+                GC MIX v0.0.105
               </span>
             </div>
           )}
@@ -819,7 +822,7 @@ export function Sidebar({
 
             <div className="pt-1 text-center">
               <span className="text-[10px] text-muted-foreground/60 font-mono">
-                GC MIX v0.0.102
+                GC MIX v0.0.105
               </span>
             </div>
           </div>

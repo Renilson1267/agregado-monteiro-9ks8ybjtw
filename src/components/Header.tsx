@@ -65,7 +65,7 @@ export function Header({
     const path = location.pathname
     const search = location.search
     if (path === "/" || path === "/dashboard") {
-      return isBalanceiro ? "Dashboard Operacional" : "Dashboard de Produção"
+      return "Dashboard de Produção"
     }
     if (path === "/painel") return "Painel Gerencial Executivo"
     if (path === "/lancamentos") return "Lançamento de Cargas"

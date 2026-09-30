@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/hooks/use-auth"
-import { UsuarioProvider } from "@/hooks/use-usuario"
+import { UsuarioProvider, useUsuario } from "@/hooks/use-usuario"
 import { EmpresaProvider } from "@/hooks/use-empresa"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import Layout from "./components/Layout"
@@ -20,6 +20,11 @@ import ControleExames from "./pages/ControleExames"
 import FolhaPagamento from "./pages/FolhaPagamento"
 import PainelGerencial from "./pages/PainelGerencial"
 import NotFound from "./pages/NotFound"
+
+function RotaRaizRedirect() {
+  const { isBalanceiro } = useUsuario()
+  return <Navigate to={isBalanceiro ? "/lancamentos" : "/painel"} replace />
+}
 
 const App = () => (
   <BrowserRouter
@@ -39,21 +44,18 @@ const App = () => (
                 {/* Rotas Protegidas Globais (Requer estar logado) */}
                 <Route element={<ProtectedRoute />}>
                   <Route element={<Layout />}>
-                    {/* Acesso liberado a Balanceiro & Admin (Painel Gerencial como tela inicial /) */}
-                    <Route
-                      path="/"
-                      element={<Navigate to="/painel" replace />}
-                    />
-                    <Route path="/painel" element={<PainelGerencial />} />
-                    <Route path="/dashboard" element={<Index />} />
+                    {/* Rota Raiz: redireciona conforme o perfil (Balanceiro -> /lancamentos, Admin -> /painel) */}
+                    <Route path="/" element={<RotaRaizRedirect />} />
+                    {/* Módulos Permitidos para Balanceiro & Admin (Os 3 módulos do Balanceiro) */}
                     <Route path="/lancamentos" element={<LancamentoCargas />} />
                     <Route path="/estoque" element={<Estoque />} />
                     <Route path="/ordens" element={<Ordens />} />
-                    <Route path="/exames" element={<ControleExames />} />
-                    {/* Rotas Restritas a Administrador */}
+                    {/* Rotas Restritas a Administrador (Balanceiro é redirecionado para /lancamentos) */}
                     <Route
                       element={<ProtectedRoute permitirApenasAdmin={true} />}
                     >
+                      <Route path="/painel" element={<PainelGerencial />} />
+                      <Route path="/dashboard" element={<Index />} />
                       <Route path="/tracos" element={<Tracos />} />
                       <Route path="/relatorios" element={<Relatorios />} />
                       <Route
@@ -62,8 +64,21 @@ const App = () => (
                           <Navigate to="/relatorios?tab=comparativo" replace />
                         }
                       />
+                      <Route path="/exames" element={<ControleExames />} />
                       <Route path="/folha" element={<FolhaPagamento />} />
                       <Route path="/cadastros" element={<Cadastros />} />
+                      <Route
+                        path="/usuarios"
+                        element={
+                          <Navigate to="/cadastros?tab=usuarios" replace />
+                        }
+                      />
+                      <Route
+                        path="/ferias"
+                        element={
+                          <Navigate to="/cadastros?tab=ferias" replace />
+                        }
+                      />
                     </Route>{" "}
                   </Route>
                 </Route>

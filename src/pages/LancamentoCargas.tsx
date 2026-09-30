@@ -846,7 +846,7 @@ export default function LancamentoCargas() {
           "Movimentações de estoque recalculadas e integridade do saldo mantida.",
       })
 
-      navigate("/")
+      navigate(isBalanceiro ? "/lancamentos" : "/")
     } catch (err: any) {
       console.error("Erro ao atualizar carga:", err)
       toast({
@@ -945,7 +945,7 @@ export default function LancamentoCargas() {
           : "Baixa de estoque nos materiais controlados (Cimento e Aditivo) realizada com sucesso.",
       })
 
-      navigate("/")
+      navigate(isBalanceiro ? "/lancamentos" : "/")
     } catch (err: any) {
       console.error(err)
       toast({
@@ -1187,7 +1187,7 @@ export default function LancamentoCargas() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button asChild variant="outline" size="icon" className="h-9 w-9">
-            <Link to="/">
+            <Link to={isBalanceiro ? "/lancamentos" : "/"}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -3010,7 +3010,7 @@ export default function LancamentoCargas() {
             type="button"
             className="w-full sm:w-auto"
           >
-            <Link to="/">Cancelar</Link>
+            <Link to={isBalanceiro ? "/lancamentos" : "/"}>Cancelar</Link>
           </Button>
 
           {/* Botão de Gravação / Alteração */}
@@ -3345,7 +3345,7 @@ export default function LancamentoCargas() {
         open={modalImpressaoAberta}
         onOpenChange={(open) => {
           setModalImpressaoAberta(open)
-          if (!open) {
+          if (!open && !isBalanceiro) {
             navigate("/")
           }
         }}
@@ -3404,10 +3404,12 @@ export default function LancamentoCargas() {
               variant="outline"
               onClick={() => {
                 setModalImpressaoAberta(false)
-                navigate("/")
+                if (!isBalanceiro) {
+                  navigate("/")
+                }
               }}
             >
-              Concluir e Voltar ao Início
+              {isBalanceiro ? "Concluir" : "Concluir e Voltar ao Início"}
             </Button>
             <Button
               type="button"
