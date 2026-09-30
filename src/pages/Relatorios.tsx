@@ -46,8 +46,20 @@ import {
   ArrowUpDown,
   Calendar,
   Pencil,
+  Trash2,
   Boxes,
 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
 import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from "@/assets/logos"
 import {
   ResponsiveContainer,
@@ -99,6 +111,8 @@ export default function Relatorios() {
   const [materiais, setMateriais] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
 
+  const { toast } = useToast()
+
   // Filtros operacionais
   const [dataInicio, setDataInicio] = useState("")
   const [dataFim, setDataFim] = useState("")
@@ -107,6 +121,14 @@ export default function Relatorios() {
   const [veiculoFiltro, setVeiculoFiltro] = useState("ALL")
   const [motoristaFiltro, setMotoristaFiltro] = useState("ALL")
   const [apenasZeradas, setApenasZeradas] = useState(false)
+  const [periodoAtivo, setPeriodoAtivo] =
+    useState<"mes_atual" | "mes_anterior" | "anual" | "todos" | "personalizado">(
+      "todos",
+    )
+
+  // Estado da lixeira / exclusão de carga
+  const [cargaParaExcluir, setCargaParaExcluir] = useState<Carga | null>(null)
+  const [excluindoCarga, setExcluindoCarga] = useState(false)
 
   // Dados comparativos Monteiro × SJE
   const [loadingComparativo, setLoadingComparativo] = useState(false)
@@ -152,14 +174,24 @@ export default function Relatorios() {
     }
   }
 
-  const carregarRelatorio = async () => {
+  const carregarRelatorio = async (datasOverride?: {
+    ini?: string
+    fim?: string
+  }) => {
     if (!empresaAtiva) return
     setLoading(true)
     try {
+      const iniEfetivo =
+        datasOverride !== undefined
+          ? datasOverride.ini
+          : dataInicio || undefined
+      const fimEfetivo =
+        datasOverride !== undefined ? datasOverride.fim : dataFim || undefined
+
       const dados = await ConcreteiraService.getCargas({
         empresaId: empresaAtiva.id,
-        dataInicio: dataInicio || undefined,
-        dataFim: dataFim || undefined,
+        dataInicio: iniEfetivo,
+        dataFim: fimEfetivo,
         cidade: cidadeFiltro,
         veiculo: veiculoFiltro,
         motorista: motoristaFiltro,
@@ -172,6 +204,41 @@ export default function Relatorios() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const aplicarPeriodoRapidoOperacional = (
+    tipo: "mes_atual" | "mes_anterior" | "anual" | "todos",
+  ) => {
+    setPeriodoAtivo(tipo)
+    const hoje = new Date()
+    const anoAtual = hoje.getFullYear()
+    const mesAtual = hoje.getMonth() + 1 // 1 a 12
+
+    let ini = ""
+    let fim = ""
+
+    if (tipo === "mes_atual") {
+      const ultimoDia = new Date(anoAtual, mesAtual, 0).getDate()
+      ini = `${anoAtual}-${String(mesAtual).padStart(2, "0")}-01`
+      fim = `${anoAtual}-${String(mesAtual).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}`
+    } else if (tipo === "mes_anterior") {
+      const dAnt = new Date(anoAtual, mesAtual - 2, 1)
+      const aAnt = dAnt.getFullYear()
+      const mAnt = dAnt.getMonth() + 1
+      const ultimoDiaAnt = new Date(aAnt, mAnt, 0).getDate()
+      ini = `${aAnt}-${String(mAnt).padStart(2, "0")}-01`
+      fim = `${aAnt}-${String(mAnt).padStart(2, "0")}-${String(ultimoDiaAnt).padStart(2, "0")}`
+    } else if (tipo === "anual") {
+      ini = `${anoAtual}-01-01`
+      fim = `${anoAtual}-12-31`
+    } else if (tipo === "todos") {
+      ini = ""
+      fim = ""
+    }
+
+    setDataInicio(ini)
+    setDataFim(fim)
+    carregarRelatorio({ ini: ini || undefined, fim: fim || undefined })
   }
 
   const carregarComparativo = async (datasOverride?: {
@@ -199,33 +266,41 @@ export default function Relatorios() {
   }
 
   const aplicarPredefinicaoComparativo = (
-    tipo: "mes_atual" | "hoje" | "7dias" | "mes_anterior" | "personalizado" | "todos",
+    tipo: "mes_atual" | "hoje" | "7dias" | "mes_anterior" | "anual" | "personalizado" | "todos",
   ) => {
-    setTipoPeriodoComparativo(tipo)
+    setTipoPeriodoComparativo(tipo as any)
     const hoje = new Date()
-    const hojeStr = hoje.toISOString().split("T")[0]
+    const anoAtual = hoje.getFullYear()
+    const mesAtual = hoje.getMonth() + 1
 
     let ini = ""
     let fim = ""
 
     if (tipo === "hoje") {
+      const hojeStr = `${anoAtual}-${String(mesAtual).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`
       ini = hojeStr
       fim = hojeStr
     } else if (tipo === "7dias") {
       const d7 = new Date()
       d7.setDate(d7.getDate() - 6)
-      ini = d7.toISOString().split("T")[0]
-      fim = hojeStr
+      const a7 = d7.getFullYear()
+      const m7 = d7.getMonth() + 1
+      ini = `${a7}-${String(m7).padStart(2, "0")}-${String(d7.getDate()).padStart(2, "0")}`
+      fim = `${anoAtual}-${String(mesAtual).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`
     } else if (tipo === "mes_atual") {
-      const ano = hoje.getFullYear()
-      const mes = hoje.getMonth()
-      ini = new Date(ano, mes, 1).toISOString().split("T")[0]
-      fim = new Date(ano, mes + 1, 0).toISOString().split("T")[0]
+      const ultimoDia = new Date(anoAtual, mesAtual, 0).getDate()
+      ini = `${anoAtual}-${String(mesAtual).padStart(2, "0")}-01`
+      fim = `${anoAtual}-${String(mesAtual).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}`
     } else if (tipo === "mes_anterior") {
-      const ano = hoje.getFullYear()
-      const mes = hoje.getMonth() - 1
-      ini = new Date(ano, mes, 1).toISOString().split("T")[0]
-      fim = new Date(ano, mes + 1, 0).toISOString().split("T")[0]
+      const dAnt = new Date(anoAtual, mesAtual - 2, 1)
+      const aAnt = dAnt.getFullYear()
+      const mAnt = dAnt.getMonth() + 1
+      const ultimoDiaAnt = new Date(aAnt, mAnt, 0).getDate()
+      ini = `${aAnt}-${String(mAnt).padStart(2, "0")}-01`
+      fim = `${aAnt}-${String(mAnt).padStart(2, "0")}-${String(ultimoDiaAnt).padStart(2, "0")}`
+    } else if (tipo === "anual") {
+      ini = `${anoAtual}-01-01`
+      fim = `${anoAtual}-12-31`
     } else if (tipo === "todos") {
       ini = ""
       fim = ""
@@ -264,6 +339,7 @@ export default function Relatorios() {
   const limparFiltros = () => {
     setDataInicio("")
     setDataFim("")
+    setPeriodoAtivo("todos")
     setMaterialFiltro("ALL")
     setCidadeFiltro("ALL")
     setVeiculoFiltro("ALL")
@@ -276,6 +352,31 @@ export default function Relatorios() {
         )
       }
     }, 50)
+  }
+
+  const handleConfirmarExclusaoCarga = async () => {
+    if (!cargaParaExcluir) return
+    setExcluindoCarga(true)
+    try {
+      await ConcreteiraService.excluirCarga(cargaParaExcluir.id)
+      toast({
+        title: "Carga excluída com sucesso",
+        description: `Carga #${cargaParaExcluir.numero_carga} (${cargaParaExcluir.volume_m3} m³) excluída e movimentações de estoque estornadas.`,
+      })
+      setCargaParaExcluir(null)
+      await carregarRelatorio()
+    } catch (err: any) {
+      console.error(err)
+      toast({
+        title: "Não foi possível excluir a carga",
+        description:
+          err?.message ||
+          "Erro ao excluir a carga. Verifique se existe OS/Recibo vinculado ou tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setExcluindoCarga(false)
+    }
   }
 
   const handleImprimir = () => {
@@ -638,6 +739,54 @@ export default function Relatorios() {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Botões de Período Rápido */}
+              <div className="mb-4 pb-3 border-b border-border/40 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground mr-1 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-primary" />
+                  Período Rápido:
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={periodoAtivo === "mes_atual" ? "default" : "outline"}
+                  onClick={() => aplicarPeriodoRapidoOperacional("mes_atual")}
+                  className="h-7 text-xs font-medium"
+                >
+                  Mês Corrente
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={
+                    periodoAtivo === "mes_anterior" ? "default" : "outline"
+                  }
+                  onClick={() =>
+                    aplicarPeriodoRapidoOperacional("mes_anterior")
+                  }
+                  className="h-7 text-xs font-medium"
+                >
+                  Mês Anterior
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={periodoAtivo === "anual" ? "default" : "outline"}
+                  onClick={() => aplicarPeriodoRapidoOperacional("anual")}
+                  className="h-7 text-xs font-medium"
+                >
+                  Anual ({new Date().getFullYear()})
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={periodoAtivo === "todos" ? "default" : "outline"}
+                  onClick={() => aplicarPeriodoRapidoOperacional("todos")}
+                  className="h-7 text-xs font-medium"
+                >
+                  Todo o Histórico
+                </Button>
+              </div>
+
               <form onSubmit={handleFiltrar} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                   <div className="space-y-1">
@@ -648,7 +797,10 @@ export default function Relatorios() {
                       id="dtIni"
                       type="date"
                       value={dataInicio}
-                      onChange={(e) => setDataInicio(e.target.value)}
+                      onChange={(e) => {
+                        setDataInicio(e.target.value)
+                        setPeriodoAtivo("personalizado")
+                      }}
                       className="h-8 text-xs"
                     />
                   </div>
@@ -661,7 +813,10 @@ export default function Relatorios() {
                       id="dtFim"
                       type="date"
                       value={dataFim}
-                      onChange={(e) => setDataFim(e.target.value)}
+                      onChange={(e) => {
+                        setDataFim(e.target.value)
+                        setPeriodoAtivo("personalizado")
+                      }}
                       className="h-8 text-xs"
                     />
                   </div>
@@ -1334,18 +1489,31 @@ export default function Relatorios() {
                         </td>
                         {isAdministrador && (
                           <td className="py-2 px-3 text-center no-print">
-                            <Button
-                              asChild
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-500/10"
-                              title="Editar carga (Administrador)"
-                            >
-                              <Link to={`/lancamentos?editar=${c.id}`}>
-                                <Pencil className="w-3.5 h-3.5" />
-                                <span className="sr-only">Editar carga</span>
-                              </Link>
-                            </Button>
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                asChild
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-500/10"
+                                title="Editar carga (Administrador)"
+                              >
+                                <Link to={`/lancamentos?editar=${c.id}`}>
+                                  <Pencil className="w-3.5 h-3.5" />
+                                  <span className="sr-only">Editar carga</span>
+                                </Link>
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCargaParaExcluir(c)}
+                                className="h-7 w-7 p-0 text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-500/10"
+                                title="Excluir carga e estornar estoque (Administrador)"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span className="sr-only">Excluir carga</span>
+                              </Button>
+                            </div>
                           </td>
                         )}
                       </tr>
@@ -1434,6 +1602,9 @@ export default function Relatorios() {
                         <SelectItem value="mes_atual">Mês Atual</SelectItem>
                         <SelectItem value="mes_anterior">
                           Mês Anterior
+                        </SelectItem>
+                        <SelectItem value="anual">
+                          Anual ({new Date().getFullYear()})
                         </SelectItem>
                         <SelectItem value="personalizado">
                           Personalizado
@@ -2243,6 +2414,71 @@ export default function Relatorios() {
           </Card>
         </TabsContent>
       </Tabs>
+      {/* Modal de Confirmação para Exclusão de Carga (Somente Administrador) */}
+      <AlertDialog
+        open={!!cargaParaExcluir}
+        onOpenChange={(aberto) => {
+          if (!aberto && !excluindoCarga) setCargaParaExcluir(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              Confirmar Exclusão de Carga
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-sm text-foreground pt-2">
+              <p>
+                Deseja realmente excluir esta carga de{" "}
+                <strong>
+                  {Number(cargaParaExcluir?.volume_m3 || 0).toFixed(1)} m³
+                </strong>{" "}
+                do dia{" "}
+                <strong>
+                  {cargaParaExcluir?.data
+                    ? cargaParaExcluir.data.split("-").reverse().join("/")
+                    : ""}
+                </strong>
+                {cargaParaExcluir?.numero_carga
+                  ? ` (Carga #${cargaParaExcluir.numero_carga})`
+                  : ""}
+                ?
+              </p>
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-800 dark:text-amber-300">
+                <strong>Atenção:</strong> As movimentações de saída de estoque
+                geradas por esta carga (cimento e aditivo) serão estornadas
+                automaticamente. Cargas com Recibo / Ordem de Serviço vinculada
+                NÃO podem ser excluídas por integridade fiscal e operacional.
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluindoCarga}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleConfirmarExclusaoCarga()
+              }}
+              disabled={excluindoCarga}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1.5"
+            >
+              {excluindoCarga ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Sim, Excluir Carga
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
