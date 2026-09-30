@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
+  TrendingUp,
   Truck,
   Boxes,
   FlaskConical,
@@ -115,6 +116,12 @@ export function Sidebar({
       id: "operacao",
       label: "Operação",
       items: [
+        {
+          icon: TrendingUp,
+          label: "Painel Gerencial",
+          path: "/painel",
+          group: "operacao",
+        },
         {
           icon: Truck,
           label: "Lançamento de Cargas",

@@ -67,6 +67,7 @@ export function Header({
     if (path === "/") {
       return isBalanceiro ? "Dashboard Operacional" : "Dashboard de Produção"
     }
+    if (path === "/painel") return "Painel Gerencial Executivo"
     if (path === "/lancamentos") return "Lançamento de Cargas"
     if (path === "/ordens") return "Ordens de Serviço & Recibos"
     if (path === "/estoque") return "Estoque de Insumos"

@@ -18,6 +18,7 @@ import Ordens from "./pages/Ordens"
 import Relatorios from "./pages/Relatorios"
 import ControleExames from "./pages/ControleExames"
 import FolhaPagamento from "./pages/FolhaPagamento"
+import PainelGerencial from "./pages/PainelGerencial"
 import NotFound from "./pages/NotFound"
 
 const App = () => (
@@ -40,6 +41,7 @@ const App = () => (
                   <Route element={<Layout />}>
                     {/* Acesso liberado a Balanceiro & Admin (Dashboard e Estoque sem valores financeiros) */}
                     <Route path="/" element={<Index />} />
+                    <Route path="/painel" element={<PainelGerencial />} />
                     <Route path="/lancamentos" element={<LancamentoCargas />} />
                     <Route path="/estoque" element={<Estoque />} />
                     <Route path="/ordens" element={<Ordens />} />
