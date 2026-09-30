@@ -1,12 +1,13 @@
 // Service Worker simples e seguro para o PWA GC MIX Concreto Usinado
 // Versão do cache: alterar para invalidar cache estático
-const CACHE_NAME = "gcmix-pwa-v1"
+const CACHE_NAME = "gcmix-pwa-v2"
 
 // Recursos estáticos básicos essenciais para abrir o shell do app offline
 const PRECACHE_ASSETS = [
   "/",
   "/index.html",
   "/manifest.webmanifest",
+  "/manifest.json",
   "/favicon.ico",
   "/pwa-192x192.png",
   "/pwa-512x512.png",
@@ -68,6 +69,26 @@ self.addEventListener("fetch", (event) => {
     return
   }
 
+  // Interceptar requisições para os ícones PWA caso não existam em disco físico
+  if (
+    url.origin === self.location.origin &&
+    (url.pathname === "/pwa-192x192.png" ||
+      url.pathname === "/pwa-512x512.png" ||
+      url.pathname === "/apple-touch-icon.png" ||
+      url.pathname === "/pwa-maskable-192x192.png" ||
+      url.pathname === "/pwa-maskable-512x512.png")
+  ) {
+    event.respondWith(caches.match(request).then((cached) => {
+        if (cached) return cached
+        return fetch(request).catch(async () => {
+          // Se não existir, tenta favicon ou retorna do cache do shell
+          const cache = await caches.open(CACHE_NAME)
+          const fallback = await cache.match("/favicon.ico")
+          return fallback || new Response("", { status: 404 })
+        })
+      }))
+    return
+  }
   // Se for navegação de página SPA (documentos HTML)
   if (request.mode === "navigate") {
     event.respondWith(

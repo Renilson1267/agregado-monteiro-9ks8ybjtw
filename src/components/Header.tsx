@@ -103,15 +103,15 @@ export function Header({
       <header className="no-print flex items-center justify-between px-3 sm:px-6 h-14 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 sticky top-0 z-30 w-full border-b border-border/30">
         {/* Esquerda: Botão Mobile Hambúrguer ou Toggle Desktop + Título da Página Atual */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          {/* Botão Hambúrguer Mobile */}
+          {/* Botão Hambúrguer Mobile com área de toque mínima de 44px */}
           <Button
             variant="ghost"
             size="icon"
             onClick={onOpenMobileMenu}
-            className="md:hidden h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+            className="md:hidden min-h-[44px] min-w-[44px] h-11 w-11 shrink-0 text-foreground hover:bg-muted/70 rounded-xl"
             aria-label="Abrir menu de navegação"
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="h-6 w-6 text-foreground" />
           </Button>
 
           {/* Botão de Toggle da Sidebar em Desktop (quando visível) */}
@@ -140,7 +140,7 @@ export function Header({
               className="h-8 max-w-[130px] sm:max-w-[160px] object-contain rounded-sm hidden sm:block shrink-0"
             />
             <div className="min-w-0 flex items-center gap-2">
-              <h1 className="text-sm sm:text-base font-bold text-foreground truncate tracking-tight">
+              <h1 className="text-xs sm:text-base font-bold text-foreground truncate tracking-tight">
                 {getPageTitle()}
               </h1>
               <span className="hidden lg:inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">

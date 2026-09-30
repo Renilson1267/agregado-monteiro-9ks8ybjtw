@@ -7,13 +7,14 @@ import { LOGO_GC_MIX_QUADRADA } from "@/assets/logos"
 export function initializePwaAssets() {
   if (typeof window === "undefined") return
 
-  // Gera ícone em Canvas a partir da logo oficial com bordas e fundo da identidade GC MIX
+  // Gera ícones em Canvas a partir da logo oficial com fundo e proporção perfeitos
   const img = new Image()
   img.crossOrigin = "anonymous"
   img.onload = () => {
     try {
       const sizes = [32, 180, 192, 512]
       const icons: Record<number, string> = {}
+      const blobs: Record<number, Blob> = {}
 
       for (const size of sizes) {
         const canvas = document.createElement("canvas")
@@ -26,12 +27,35 @@ export function initializePwaAssets() {
         ctx.fillStyle = "#0d1b2a"
         ctx.fillRect(0, 0, size, size)
 
-        // Moldura sutil com borda arredondada se for ícone maior
+        // Moldura proporcional com padding para safe-area de ícone maskable e padrão
         const pad = Math.round(size * 0.08)
         const innerSize = size - pad * 2
         ctx.drawImage(img, pad, pad, innerSize, innerSize)
 
         icons[size] = canvas.toDataURL("image/png")
+
+        // Armazenar no Cache Storage do navegador diretamente para que
+        // requisições a /pwa-192x192.png e /pwa-512x512.png respondam com o PNG
+        canvas.toBlob((blob) => {
+          if (blob && "caches" in window) {
+            caches.open("gcmix-pwa-v2").then((cache) => {
+              const headers = new Headers({
+                "Content-Type": "image/png",
+                "Cache-Control": "public, max-age=31536000",
+              })
+              const response = new Response(blob, { headers })
+              if (size === 192) {
+                cache.put("/pwa-192x192.png", response.clone())
+                cache.put("/pwa-maskable-192x192.png", response.clone())
+              } else if (size === 512) {
+                cache.put("/pwa-512x512.png", response.clone())
+                cache.put("/pwa-maskable-512x512.png", response.clone())
+              } else if (size === 180) {
+                cache.put("/apple-touch-icon.png", response.clone())
+              }
+            })
+          }
+        }, "image/png")
       }
 
       // Atualizar favicon dinamicamente
@@ -49,15 +73,12 @@ export function initializePwaAssets() {
 
       // Atualizar apple-touch-icon
       if (icons[180]) {
-        let linkApple = document.querySelector<HTMLLinkElement>(
+        const appleLinks = document.querySelectorAll<HTMLLinkElement>(
           'link[rel="apple-touch-icon"]',
         )
-        if (!linkApple) {
-          linkApple = document.createElement("link")
-          linkApple.rel = "apple-touch-icon"
-          document.head.appendChild(linkApple)
-        }
-        linkApple.href = icons[180]
+        appleLinks.forEach((link) => {
+          link.href = icons[180]
+        })
       }
     } catch (e) {
       console.warn("Falha ao processar assets PWA via Canvas:", e)

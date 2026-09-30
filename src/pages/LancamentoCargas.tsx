@@ -693,25 +693,25 @@ export default function LancamentoCargas() {
   ]
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      {/* Topo / Header da Página */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+    <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6 pb-20 sm:pb-8">
+      {/* Topo / Header da Página Adaptado Mobile/Tablet */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <Button
             asChild
             variant="outline"
             size="icon"
-            className="h-9 w-9 shrink-0"
+            className="h-10 w-10 sm:h-9 sm:w-9 shrink-0 rounded-xl"
           >
             <Link to={isBalanceiro ? "/lancamentos" : "/"}>
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-5 w-5 sm:h-4 sm:w-4" />
             </Link>
           </Button>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2 flex-wrap">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-1.5 sm:gap-2 flex-wrap">
               {editarCargaId ? (
                 <>
-                  <span>
+                  <span className="truncate">
                     Editar Carga #
                     {cargaOriginal
                       ? String(cargaOriginal.numero_carga).padStart(4, "0")
@@ -719,24 +719,24 @@ export default function LancamentoCargas() {
                   </span>
                   <Badge
                     variant="outline"
-                    className="border-amber-500/50 bg-amber-500/10 text-amber-500 text-xs font-semibold uppercase"
+                    className="border-amber-500/50 bg-amber-500/10 text-amber-500 text-[10px] sm:text-xs font-semibold uppercase"
                   >
                     Modo Edição
                   </Badge>
                 </>
               ) : (
-                <span>Lançamento Rápido de Carga</span>
+                <span className="truncate">Lançamento de Carga</span>
               )}
               {empresaAtiva && (
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
+                <span className="text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold truncate max-w-[140px] sm:max-w-none">
                   {empresaAtiva.nome}
                 </span>
               )}
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">
+            <p className="text-[11px] sm:text-sm text-muted-foreground truncate">
               {editarCargaId
-                ? "Ajuste os dados e confirme a regravação com recálculo automático de estoque."
-                : "Entrada rápida para balanceiro: preencha os dados da viagem e a pesagem dos insumos."}
+                ? "Ajuste os dados e confirme a regravação."
+                : "Entrada rápida para balanceiro: viagem e insumos."}
             </p>
           </div>
         </div>
@@ -746,7 +746,7 @@ export default function LancamentoCargas() {
             asChild
             variant="outline"
             size="sm"
-            className="gap-2 text-xs font-semibold shadow-sm border-border/60 hover:bg-muted/40 self-start sm:self-auto"
+            className="gap-2 text-xs font-semibold shadow-xs border-border/60 hover:bg-muted/40 self-stretch sm:self-auto h-9"
             title="Ir para tela de cadastros e importação de planilha de controle diário"
           >
             <Link to="/cadastros">
@@ -757,7 +757,7 @@ export default function LancamentoCargas() {
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
         {/* Bloco 1: Dados Essenciais da Expedição (Data, Volume, Traço, Motorista, Placa, Destino) */}
         <Card className="border-border/50 bg-card/80 shadow-sm">
           <CardHeader className="pb-3 pt-4 px-4 sm:px-6 border-b border-border/30">
@@ -801,13 +801,13 @@ export default function LancamentoCargas() {
             </div>
           </CardHeader>
 
-          <CardContent className="p-4 sm:p-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <CardContent className="p-3.5 sm:p-6 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
               {/* Data da Carga */}
               <div className="space-y-1.5">
                 <Label
                   htmlFor="data"
-                  className="text-xs font-semibold text-foreground"
+                  className="text-xs sm:text-sm font-semibold text-foreground"
                 >
                   Data de Expedição *
                 </Label>
@@ -817,18 +817,18 @@ export default function LancamentoCargas() {
                   value={dataCarga}
                   onChange={(e) => setDataCarga(e.target.value)}
                   required
-                  className="h-10 text-sm bg-background font-mono"
+                  className="min-h-[44px] h-11 sm:h-10 text-sm sm:text-base bg-background font-mono rounded-xl px-3"
                 />
               </div>
 
-              {/* Volume m³ em destaque */}
+              {/* Volume m³ em destaque com botões rápidos para celular/tablet */}
               <div className="space-y-1.5">
                 <Label
                   htmlFor="volume"
-                  className="text-xs font-semibold text-foreground flex items-center justify-between"
+                  className="text-xs sm:text-sm font-semibold text-foreground flex items-center justify-between"
                 >
                   <span>Volume da Carga *</span>
-                  <span className="text-[11px] text-primary font-mono font-bold">
+                  <span className="text-xs text-primary font-mono font-bold">
                     m³
                   </span>
                 </Label>
@@ -836,6 +836,7 @@ export default function LancamentoCargas() {
                   <Input
                     id="volume"
                     type="number"
+                    inputMode="decimal"
                     step="0.5"
                     min="0.5"
                     max="15"
@@ -846,12 +847,29 @@ export default function LancamentoCargas() {
                       setVolume(isNaN(val) ? 0 : val)
                     }}
                     required
-                    className="h-10 text-base font-bold font-mono text-primary bg-background pr-9 text-left"
+                    className="min-h-[44px] h-11 sm:h-10 text-base sm:text-lg font-bold font-mono text-primary bg-background pr-10 text-left rounded-xl"
                     placeholder="8.0"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
                     m³
                   </span>
+                </div>
+                {/* Botões rápidos de volume comuns em betoneira (4, 6, 8 m³) para toque com 1 dedo */}
+                <div className="flex items-center gap-1.5 pt-0.5">
+                  {[4, 6, 7, 8].map((vRapido) => (
+                    <button
+                      key={vRapido}
+                      type="button"
+                      onClick={() => setVolume(vRapido)}
+                      className={`px-2.5 py-1 text-xs font-mono font-bold rounded-lg border transition-colors ${
+                        volume === vRapido
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/60 text-muted-foreground hover:bg-muted border-border/50"
+                      }`}
+                    >
+                      {vRapido}m³
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -859,7 +877,7 @@ export default function LancamentoCargas() {
               <div className="space-y-1.5">
                 <Label
                   htmlFor="traco"
-                  className="text-xs font-semibold text-foreground"
+                  className="text-xs sm:text-sm font-semibold text-foreground"
                 >
                   {modoDosagem === "manual"
                     ? "Traço de Referência"
@@ -889,7 +907,7 @@ export default function LancamentoCargas() {
                 >
                   <SelectTrigger
                     id="traco"
-                    className="h-10 text-xs sm:text-sm bg-background"
+                    className="min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background rounded-xl px-3"
                   >
                     <SelectValue placeholder="Selecione o traço" />
                   </SelectTrigger>
@@ -898,7 +916,7 @@ export default function LancamentoCargas() {
                       <SelectItem
                         key={t.id}
                         value={t.id}
-                        className="text-xs sm:text-sm"
+                        className="text-xs sm:text-sm py-2.5"
                       >
                         {t.nome} {t.fck_mpa ? `(${t.fck_mpa} MPa)` : ""}
                       </SelectItem>
@@ -907,13 +925,13 @@ export default function LancamentoCargas() {
                 </Select>
               </div>
 
-              {/* Motorista */}
+              {/* Motorista com Datalist e campo alto */}
               <div className="space-y-1.5">
                 <Label
                   htmlFor="motorista"
-                  className="text-xs font-semibold text-foreground flex items-center gap-1"
+                  className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1"
                 >
-                  <User className="w-3.5 h-3.5 text-primary" />
+                  <User className="w-4 h-4 text-primary" />
                   Motorista
                 </Label>
                 <div className="relative">
@@ -923,7 +941,7 @@ export default function LancamentoCargas() {
                     value={motoristaNome}
                     onChange={(e) => setMotoristaNome(e.target.value)}
                     placeholder="Nome do motorista..."
-                    className="h-10 text-xs sm:text-sm bg-background"
+                    className="min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background rounded-xl px-3"
                   />
                   <datalist id="lista-motoristas">
                     {motoristas.map((m) => (
@@ -937,15 +955,15 @@ export default function LancamentoCargas() {
               <div className="space-y-1.5">
                 <Label
                   htmlFor="veiculo"
-                  className="text-xs font-semibold text-foreground flex items-center gap-1"
+                  className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1"
                 >
-                  <Truck className="w-3.5 h-3.5 text-primary" />
+                  <Truck className="w-4 h-4 text-primary" />
                   Placa Betoneira
                 </Label>
                 <Select value={veiculoPlaca} onValueChange={setVeiculoPlaca}>
                   <SelectTrigger
                     id="veiculo"
-                    className="h-10 text-xs sm:text-sm bg-background font-mono"
+                    className="min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background font-mono rounded-xl px-3"
                   >
                     <SelectValue placeholder="Selecione o veículo" />
                   </SelectTrigger>
@@ -954,7 +972,7 @@ export default function LancamentoCargas() {
                       <SelectItem
                         key={v.id}
                         value={v.placa}
-                        className="text-xs sm:text-sm font-mono"
+                        className="text-xs sm:text-sm font-mono py-2.5"
                       >
                         {v.placa} {v.modelo ? `- ${v.modelo}` : ""}
                       </SelectItem>
@@ -967,9 +985,9 @@ export default function LancamentoCargas() {
               <div className="space-y-1.5">
                 <Label
                   htmlFor="cidade"
-                  className="text-xs font-semibold text-foreground flex items-center gap-1"
+                  className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1"
                 >
-                  <MapPin className="w-3.5 h-3.5 text-primary" />
+                  <MapPin className="w-4 h-4 text-primary" />
                   Destino / Cidade
                 </Label>
                 <div className="relative">
@@ -979,7 +997,7 @@ export default function LancamentoCargas() {
                     value={cidadeNome}
                     onChange={(e) => setCidadeNome(e.target.value)}
                     placeholder="Cidade ou obra de destino..."
-                    className="h-10 text-xs sm:text-sm bg-background"
+                    className="min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background rounded-xl px-3"
                   />
                   <datalist id="lista-cidades">
                     {cidades.map((c) => (
@@ -1004,7 +1022,7 @@ export default function LancamentoCargas() {
                   value={observacao}
                   onChange={(e) => setObservacao(e.target.value)}
                   placeholder="Ex.: Obra Centro, concreto bombeado, nota fiscal na entrega..."
-                  className="h-9 text-xs bg-background"
+                  className="min-h-[44px] h-11 sm:h-9 text-xs sm:text-sm bg-background rounded-xl px-3"
                 />
               </div>
             </div>
@@ -1107,22 +1125,22 @@ export default function LancamentoCargas() {
             )}
 
             {/* SEÇÃO INTEGRADA DE VOLUME NO MESMO AMBIENTE DOS INSUMOS */}
-            <div className="p-3.5 rounded-lg border border-border/60 bg-muted/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-3.5 rounded-xl border border-border/60 bg-muted/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-md bg-primary/10 text-primary">
-                  <Truck className="w-4 h-4" />
+                <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+                  <Truck className="w-5 h-5" />
                 </div>
                 <div>
                   <Label
                     htmlFor="volume-ambiente-insumos"
-                    className="text-xs font-semibold text-foreground block"
+                    className="text-xs sm:text-sm font-semibold text-foreground block"
                   >
                     Volume da Carga (m³)
                   </Label>
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-[11px] text-muted-foreground block">
                     {modoDosagem === "manual"
-                      ? "Multiplicador aplicado às dosagens (kg/m³) para obter o consumo total real de cimento, agregados, aditivo e água"
-                      : "Volume em metros cúbicos multiplicado pelos insumos do traço e cimento total para cálculo do aditivo/água"}
+                      ? "Multiplicador aplicado às dosagens (kg/m³) para obter o consumo total"
+                      : "Multiplica os consumos do traço e define aditivo/água por fator"}
                   </span>
                 </div>
               </div>
@@ -1132,6 +1150,7 @@ export default function LancamentoCargas() {
                   <Input
                     id="volume-ambiente-insumos"
                     type="number"
+                    inputMode="decimal"
                     step="0.5"
                     min="0.5"
                     max="15"
@@ -1142,21 +1161,21 @@ export default function LancamentoCargas() {
                       setVolume(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
-                    className="font-mono font-bold text-center pr-9 h-9 text-base bg-background"
+                    className="font-mono font-bold text-center pr-9 min-h-[44px] h-11 text-base sm:text-lg bg-background rounded-xl"
                     placeholder="8.0"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
                     m³
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Grid dos Insumos (Cimento, Aditivo, ÁGUA, Areia, Brita 12, Brita 19, Pó de Pedra) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Grid dos Insumos (Cimento, Aditivo, ÁGUA, Areia, Brita 12, Brita 19, Pó de Pedra) - Otimizado com campos altos touch-friendly */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
               {/* Cimento */}
               <div
-                className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
+                className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
                   modoDosagem === "manual"
                     ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
                     : "border-border/40 bg-background/50"
@@ -1189,6 +1208,7 @@ export default function LancamentoCargas() {
                   <Input
                     id="cimento"
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     step="1"
                     value={
@@ -1200,14 +1220,14 @@ export default function LancamentoCargas() {
                       setCimento(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
-                    className={`font-mono font-semibold ${
+                    className={`font-mono font-semibold min-h-[44px] h-11 text-base rounded-xl ${
                       modoDosagem === "manual"
                         ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
-                        : "pr-9"
+                        : "pr-10"
                     }`}
                     placeholder="0"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
                     {modoDosagem === "manual" ? "kg/m³" : "kg"}
                   </span>
                 </div>
@@ -1223,7 +1243,7 @@ export default function LancamentoCargas() {
 
               {/* Aditivo: CALCULADO POR FATOR (MESMO COMPORTAMENTO NO MODO AUTOMÁTICO E MANUAL) */}
               <div
-                className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
+                className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
                   modoDosagem === "manual"
                     ? "border-primary/50 bg-primary/10 ring-1 ring-primary/30"
                     : "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
@@ -1264,6 +1284,7 @@ export default function LancamentoCargas() {
                       <Input
                         id="aditivo"
                         type="number"
+                        inputMode="numeric"
                         min="0"
                         step="1"
                         value={
@@ -1278,7 +1299,7 @@ export default function LancamentoCargas() {
                           setAditivo(isNaN(val) ? 0 : Math.round(val))
                         }}
                         disabled={cargaZerada}
-                        className="font-mono font-bold text-base bg-background text-foreground pr-8 border-primary/40 focus-visible:ring-primary"
+                        className="font-mono font-bold text-base bg-background text-foreground pr-8 border-primary/40 focus-visible:ring-primary min-h-[44px] h-11 rounded-xl"
                         placeholder="0"
                         title="Digite o volume de aditivo (L) ou use o cálculo do fator"
                       />
@@ -1294,10 +1315,10 @@ export default function LancamentoCargas() {
                       size="icon"
                       onClick={handleRecalcularAditivo}
                       disabled={cargaZerada}
-                      className="h-9 w-9 shrink-0"
+                      className="min-h-[44px] min-w-[44px] h-11 w-11 rounded-xl shrink-0"
                       title="Recalcular aditivo pela fórmula (cimento total × fator)"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
+                      <RotateCcw className="w-4 h-4" />
                     </Button>
                   </div>
 
@@ -1329,7 +1350,7 @@ export default function LancamentoCargas() {
                     >
                       <SelectTrigger
                         id="fator-aditivo-select"
-                        className="h-8 text-xs font-mono font-medium flex-1 px-2 bg-background border-border/70 shadow-sm"
+                        className="min-h-[40px] h-10 text-xs font-mono font-medium flex-1 px-2.5 bg-background border-border/70 shadow-xs rounded-lg"
                       >
                         <SelectValue placeholder="Selecione o fator">
                           {OPCOES_FATOR_ADITIVO.some(
@@ -1344,7 +1365,7 @@ export default function LancamentoCargas() {
                           <SelectItem
                             key={op.valor}
                             value={String(op.valor)}
-                            className="font-mono text-xs cursor-pointer"
+                            className="font-mono text-xs cursor-pointer py-2.5"
                           >
                             Fator {op.rotulo}
                           </SelectItem>
@@ -1354,7 +1375,7 @@ export default function LancamentoCargas() {
                         ) && (
                           <SelectItem
                             value="custom"
-                            className="font-mono text-xs cursor-pointer"
+                            className="font-mono text-xs cursor-pointer py-2.5"
                           >
                             {String(fatorAditivoManual).replace(".", ",")}{" "}
                             (Personalizado)
@@ -1367,6 +1388,7 @@ export default function LancamentoCargas() {
                     <Input
                       id="fator-aditivo"
                       type="number"
+                      inputMode="decimal"
                       step="0.0005"
                       min="0.001"
                       max="0.05"
@@ -1378,7 +1400,7 @@ export default function LancamentoCargas() {
                         setAditivoEditadoManualmente(false)
                       }}
                       disabled={cargaZerada}
-                      className="h-8 w-20 text-xs font-mono font-medium text-center px-1 bg-background border-border/70"
+                      className="min-h-[40px] h-10 w-20 text-xs font-mono font-medium text-center px-1 bg-background border-border/70 rounded-lg"
                       title="Ou digite manualmente o fator de aditivo"
                       placeholder="0.006"
                     />
@@ -1401,8 +1423,8 @@ export default function LancamentoCargas() {
                     </div>
                     <div className="text-[9px] text-muted-foreground/80">
                       {aditivoEditadoManualmente
-                        ? "Valor manual digitado pelo operador (clique em ↺ para restaurar a fórmula)"
-                        : "Arredondamento inteiro: ≥ 0,5 sobe | Campo aberto para digitação"}
+                        ? "Valor manual digitado (toque em ↺ para restaurar)"
+                        : "Arredondamento inteiro: ≥ 0,5 sobe | Digite ou use fator"}
                     </div>
                   </div>
                 </div>
@@ -1410,7 +1432,7 @@ export default function LancamentoCargas() {
 
               {/* NOVO: ÁGUA (Calculada com opção de digitação manual) */}
               <div
-                className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
+                className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
                   modoDosagem === "manual"
                     ? "border-cyan-500/50 bg-cyan-500/10 ring-1 ring-cyan-500/30"
                     : "border-border/40 bg-background/50"
@@ -1448,6 +1470,7 @@ export default function LancamentoCargas() {
                       <Input
                         id="agua"
                         type="number"
+                        inputMode="numeric"
                         min="0"
                         step="1"
                         value={agua === 0 && aguaEditadaManualmente ? "" : agua}
@@ -1458,7 +1481,7 @@ export default function LancamentoCargas() {
                           setAgua(isNaN(val) ? 0 : Math.round(val))
                         }}
                         disabled={cargaZerada}
-                        className="font-mono font-bold text-base bg-background text-foreground pr-8 border-cyan-500/40 focus-visible:ring-cyan-500"
+                        className="font-mono font-bold text-base bg-background text-foreground pr-8 border-cyan-500/40 focus-visible:ring-cyan-500 min-h-[44px] h-11 rounded-xl"
                         placeholder="0"
                         title="Digite o volume de água (L) ou use o cálculo do fator"
                       />
@@ -1472,10 +1495,10 @@ export default function LancamentoCargas() {
                       size="icon"
                       onClick={handleRecalcularAgua}
                       disabled={cargaZerada}
-                      className="h-9 w-9 shrink-0"
+                      className="min-h-[44px] min-w-[44px] h-11 w-11 rounded-xl shrink-0"
                       title="Recalcular água pela fórmula (cimento total × fator)"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
+                      <RotateCcw className="w-4 h-4" />
                     </Button>
                   </div>
 
@@ -1507,7 +1530,7 @@ export default function LancamentoCargas() {
                     >
                       <SelectTrigger
                         id="fator-agua-select"
-                        className="h-8 text-xs font-mono font-medium flex-1 px-2 bg-background border-border/70 shadow-sm"
+                        className="min-h-[40px] h-10 text-xs font-mono font-medium flex-1 px-2.5 bg-background border-border/70 shadow-xs rounded-lg"
                       >
                         <SelectValue placeholder="Selecione o fator">
                           {OPCOES_FATOR_AGUA.some(
@@ -1522,7 +1545,7 @@ export default function LancamentoCargas() {
                           <SelectItem
                             key={op.valor}
                             value={String(op.valor)}
-                            className="font-mono text-xs cursor-pointer"
+                            className="font-mono text-xs cursor-pointer py-2.5"
                           >
                             Fator {op.rotulo}
                           </SelectItem>
@@ -1532,7 +1555,7 @@ export default function LancamentoCargas() {
                         ) && (
                           <SelectItem
                             value="custom"
-                            className="font-mono text-xs cursor-pointer"
+                            className="font-mono text-xs cursor-pointer py-2.5"
                           >
                             {String(fatorAguaManual).replace(".", ",")}{" "}
                             (Personalizado)
@@ -1545,6 +1568,7 @@ export default function LancamentoCargas() {
                     <Input
                       id="fator-agua"
                       type="number"
+                      inputMode="decimal"
                       step="0.01"
                       min="0.30"
                       max="1.20"
@@ -1556,7 +1580,7 @@ export default function LancamentoCargas() {
                         setAguaEditadaManualmente(false)
                       }}
                       disabled={cargaZerada}
-                      className="h-8 w-20 text-xs font-mono font-medium text-center px-1 bg-background border-border/70"
+                      className="min-h-[40px] h-10 w-20 text-xs font-mono font-medium text-center px-1 bg-background border-border/70 rounded-lg"
                       title="Ou digite manualmente o fator de água"
                       placeholder="0.55"
                     />
@@ -1580,8 +1604,8 @@ export default function LancamentoCargas() {
                     </div>
                     <div className="text-[9px] text-muted-foreground/80">
                       {aguaEditadaManualmente
-                        ? "Valor manual digitado pelo operador (clique em ↺ para restaurar a fórmula | Sem controle de estoque)"
-                        : "(Arredondamento inteiro: ≥ 0,5 sobe | Sem controle de estoque | Aberto para digitação)"}
+                        ? "Valor manual digitado (toque em ↺ para restaurar | Sem estoque)"
+                        : "(Arredondamento inteiro: ≥ 0,5 sobe | Sem estoque)"}
                     </div>
                   </div>
                 </div>
@@ -1589,7 +1613,7 @@ export default function LancamentoCargas() {
 
               {/* Areia */}
               <div
-                className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
+                className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
                   modoDosagem === "manual"
                     ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
                     : "border-border/40 bg-background/50"
@@ -1617,6 +1641,7 @@ export default function LancamentoCargas() {
                   <Input
                     id="areia"
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     step="1"
                     value={areia === 0 && modoDosagem === "manual" ? "" : areia}
@@ -1626,14 +1651,14 @@ export default function LancamentoCargas() {
                       setAreia(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
-                    className={`font-mono font-semibold ${
+                    className={`font-mono font-semibold min-h-[44px] h-11 text-base rounded-xl ${
                       modoDosagem === "manual"
                         ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
-                        : "pr-9"
+                        : "pr-10"
                     }`}
                     placeholder="0"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
                     {modoDosagem === "manual" ? "kg/m³" : "kg"}
                   </span>
                 </div>
@@ -1649,7 +1674,7 @@ export default function LancamentoCargas() {
 
               {/* Brita 12 */}
               <div
-                className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
+                className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
                   modoDosagem === "manual"
                     ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
                     : "border-border/40 bg-background/50"
@@ -1679,6 +1704,7 @@ export default function LancamentoCargas() {
                   <Input
                     id="brita12"
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     step="1"
                     value={
@@ -1690,14 +1716,14 @@ export default function LancamentoCargas() {
                       setBrita12(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
-                    className={`font-mono font-semibold ${
+                    className={`font-mono font-semibold min-h-[44px] h-11 text-base rounded-xl ${
                       modoDosagem === "manual"
                         ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
-                        : "pr-9"
+                        : "pr-10"
                     }`}
                     placeholder="0"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
                     {modoDosagem === "manual" ? "kg/m³" : "kg"}
                   </span>
                 </div>
@@ -1713,7 +1739,7 @@ export default function LancamentoCargas() {
 
               {/* Brita 19 */}
               <div
-                className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
+                className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
                   modoDosagem === "manual"
                     ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
                     : "border-border/40 bg-background/50"
@@ -1743,6 +1769,7 @@ export default function LancamentoCargas() {
                   <Input
                     id="brita19"
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     step="1"
                     value={
@@ -1754,14 +1781,14 @@ export default function LancamentoCargas() {
                       setBrita19(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
-                    className={`font-mono font-semibold ${
+                    className={`font-mono font-semibold min-h-[44px] h-11 text-base rounded-xl ${
                       modoDosagem === "manual"
                         ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
-                        : "pr-9"
+                        : "pr-10"
                     }`}
                     placeholder="0"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
                     {modoDosagem === "manual" ? "kg/m³" : "kg"}
                   </span>
                 </div>
@@ -1777,7 +1804,7 @@ export default function LancamentoCargas() {
 
               {/* Pó de Pedra */}
               <div
-                className={`space-y-1.5 p-3 rounded-lg border transition-colors ${
+                className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
                   modoDosagem === "manual"
                     ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
                     : "border-border/40 bg-background/50"
@@ -1807,6 +1834,7 @@ export default function LancamentoCargas() {
                   <Input
                     id="poPedra"
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     step="1"
                     value={
@@ -1818,14 +1846,14 @@ export default function LancamentoCargas() {
                       setPoPedra(isNaN(val) ? 0 : val)
                     }}
                     disabled={cargaZerada}
-                    className={`font-mono font-semibold ${
+                    className={`font-mono font-semibold min-h-[44px] h-11 text-base rounded-xl ${
                       modoDosagem === "manual"
                         ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
-                        : "pr-9"
+                        : "pr-10"
                     }`}
                     placeholder="0"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
                     {modoDosagem === "manual" ? "kg/m³" : "kg"}
                   </span>
                 </div>
@@ -1840,73 +1868,73 @@ export default function LancamentoCargas() {
               </div>
             </div>
 
-            {/* Resumo Dinâmico e Clean de Insumos e Agregados Totais da Carga */}
-            <div className="mt-4 pt-4 border-t border-border/40 bg-muted/20 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-4 sm:p-5 rounded-b-lg">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+            {/* Resumo Dinâmico e Clean de Insumos e Agregados Totais da Carga - Cartões responsivos compactos para mobile */}
+            <div className="mt-4 pt-4 border-t border-border/40 bg-muted/20 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-3.5 sm:p-5 rounded-b-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2.5">
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-primary" />
-                  Resumo de Insumos e Agregados da Carga ({volume || 0} m³)
+                  <Layers className="w-4 h-4 text-primary" />
+                  Consumo Total Calculado ({volume || 0} m³)
                 </span>
                 <span className="text-[11px] text-muted-foreground">
                   {modoDosagem === "manual"
-                    ? "Cálculo: Dosagem × Volume"
-                    : "Cálculo: Traço Selecionado × Volume"}
+                    ? "Fórmula: Dosagem (kg/m³) × Volume"
+                    : "Fórmula: Traço Selecionado × Volume"}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
                 {/* Cimento */}
-                <div className="p-2.5 rounded-lg border border-primary/30 bg-primary/5 flex flex-col justify-between">
-                  <span className="text-[11px] font-medium text-muted-foreground">
-                    Cimento
+                <div className="p-2.5 rounded-xl border border-primary/40 bg-primary/10 flex flex-col justify-between shadow-2xs">
+                  <span className="text-[11px] font-bold text-foreground">
+                    Cimento (CP)
                   </span>
                   <div className="mt-1">
-                    <span className="text-sm font-bold font-mono text-primary block leading-tight">
+                    <span className="text-base sm:text-lg font-black font-mono text-primary block leading-tight">
                       {consumoReal.cimento.toLocaleString("pt-BR")}
                     </span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
+                    <span className="text-[10px] text-muted-foreground font-mono font-semibold">
                       kg
                     </span>
                   </div>
                 </div>
 
                 {/* Aditivo */}
-                <div className="p-2.5 rounded-lg border border-primary/30 bg-primary/5 flex flex-col justify-between">
-                  <span className="text-[11px] font-medium text-muted-foreground">
+                <div className="p-2.5 rounded-xl border border-primary/40 bg-primary/10 flex flex-col justify-between shadow-2xs">
+                  <span className="text-[11px] font-bold text-foreground">
                     Aditivo
                   </span>
                   <div className="mt-1">
-                    <span className="text-sm font-bold font-mono text-primary block leading-tight">
+                    <span className="text-base sm:text-lg font-black font-mono text-primary block leading-tight">
                       {consumoReal.aditivo.toLocaleString("pt-BR")}
                     </span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      L
+                    <span className="text-[10px] text-muted-foreground font-mono font-semibold">
+                      Litros
                     </span>
                   </div>
                 </div>
 
                 {/* Água */}
-                <div className="p-2.5 rounded-lg border border-cyan-500/30 bg-cyan-500/5 flex flex-col justify-between">
-                  <span className="text-[11px] font-medium text-muted-foreground">
+                <div className="p-2.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 flex flex-col justify-between shadow-2xs">
+                  <span className="text-[11px] font-bold text-cyan-700 dark:text-cyan-300">
                     Água
                   </span>
                   <div className="mt-1">
-                    <span className="text-sm font-bold font-mono text-cyan-600 dark:text-cyan-400 block leading-tight">
+                    <span className="text-base sm:text-lg font-black font-mono text-cyan-600 dark:text-cyan-400 block leading-tight">
                       {consumoReal.agua.toLocaleString("pt-BR")}
                     </span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      L
+                    <span className="text-[10px] text-muted-foreground font-mono font-semibold">
+                      Litros
                     </span>
                   </div>
                 </div>
 
                 {/* Areia */}
-                <div className="p-2.5 rounded-lg border border-border/50 bg-background flex flex-col justify-between">
+                <div className="p-2.5 rounded-xl border border-border/60 bg-background flex flex-col justify-between shadow-2xs">
                   <span className="text-[11px] font-medium text-muted-foreground">
                     Areia
                   </span>
                   <div className="mt-1">
-                    <span className="text-sm font-bold font-mono text-foreground block leading-tight">
+                    <span className="text-sm sm:text-base font-bold font-mono text-foreground block leading-tight">
                       {consumoReal.areia.toLocaleString("pt-BR")}
                     </span>
                     <span className="text-[10px] text-muted-foreground font-mono">
@@ -1916,12 +1944,12 @@ export default function LancamentoCargas() {
                 </div>
 
                 {/* Brita 12 */}
-                <div className="p-2.5 rounded-lg border border-border/50 bg-background flex flex-col justify-between">
+                <div className="p-2.5 rounded-xl border border-border/60 bg-background flex flex-col justify-between shadow-2xs">
                   <span className="text-[11px] font-medium text-muted-foreground">
                     Brita 12
                   </span>
                   <div className="mt-1">
-                    <span className="text-sm font-bold font-mono text-foreground block leading-tight">
+                    <span className="text-sm sm:text-base font-bold font-mono text-foreground block leading-tight">
                       {consumoReal.brita12.toLocaleString("pt-BR")}
                     </span>
                     <span className="text-[10px] text-muted-foreground font-mono">
@@ -1931,12 +1959,12 @@ export default function LancamentoCargas() {
                 </div>
 
                 {/* Brita 19 */}
-                <div className="p-2.5 rounded-lg border border-border/50 bg-background flex flex-col justify-between">
+                <div className="p-2.5 rounded-xl border border-border/60 bg-background flex flex-col justify-between shadow-2xs">
                   <span className="text-[11px] font-medium text-muted-foreground">
                     Brita 19
                   </span>
                   <div className="mt-1">
-                    <span className="text-sm font-bold font-mono text-foreground block leading-tight">
+                    <span className="text-sm sm:text-base font-bold font-mono text-foreground block leading-tight">
                       {consumoReal.brita19.toLocaleString("pt-BR")}
                     </span>
                     <span className="text-[10px] text-muted-foreground font-mono">
@@ -1946,12 +1974,12 @@ export default function LancamentoCargas() {
                 </div>
 
                 {/* Pó de Pedra */}
-                <div className="p-2.5 rounded-lg border border-border/50 bg-background flex flex-col justify-between">
+                <div className="p-2.5 rounded-xl border border-border/60 bg-background col-span-2 sm:col-span-1 flex flex-col justify-between shadow-2xs">
                   <span className="text-[11px] font-medium text-muted-foreground">
                     Pó de Pedra
                   </span>
                   <div className="mt-1">
-                    <span className="text-sm font-bold font-mono text-foreground block leading-tight">
+                    <span className="text-sm sm:text-base font-bold font-mono text-foreground block leading-tight">
                       {consumoReal.poPedra.toLocaleString("pt-BR")}
                     </span>
                     <span className="text-[10px] text-muted-foreground font-mono">
@@ -1964,13 +1992,13 @@ export default function LancamentoCargas() {
           </CardContent>
         </Card>
 
-        {/* Botões de Ação */}
-        <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2">
+        {/* Barra de Ações com Botões Grandes de Toque (Fixo na base no celular para acesso imediato com o polegar) */}
+        <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-2">
           <Button
             asChild
             variant="outline"
             type="button"
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto min-h-[44px] h-11 sm:h-10 text-sm font-semibold rounded-xl"
           >
             <Link to={isBalanceiro ? "/lancamentos" : "/"}>Cancelar</Link>
           </Button>
@@ -1981,13 +2009,13 @@ export default function LancamentoCargas() {
               type="submit"
               variant="default"
               disabled={salvando || carregandoCargaEdicao}
-              className="w-full sm:w-auto gap-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-md px-6"
+              className="w-full sm:w-auto min-h-[48px] sm:min-h-[40px] h-12 sm:h-10 gap-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm sm:text-base shadow-md px-8 rounded-xl"
             >
               {salvando ? (
                 "Salvando alteração..."
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="w-5 h-5" />
                   Salvar Alteração da Carga
                 </>
               )}
@@ -1997,13 +2025,13 @@ export default function LancamentoCargas() {
               type="submit"
               variant="default"
               disabled={salvando}
-              className="w-full sm:w-auto gap-2 bg-primary text-primary-foreground font-semibold shadow-md px-6 hover:brightness-105"
+              className="w-full sm:w-auto min-h-[48px] sm:min-h-[40px] h-12 sm:h-10 gap-2 bg-primary text-primary-foreground font-bold text-sm sm:text-base shadow-md px-8 hover:brightness-105 rounded-xl"
             >
               {salvando ? (
-                "Salvando..."
+                "Gravando Carga..."
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="w-5 h-5" />
                   Gravar Lançamento da Carga
                 </>
               )}
@@ -2012,16 +2040,16 @@ export default function LancamentoCargas() {
         </div>
       </form>
 
-      {/* Modal de Confirmação com Resumo Antes de Gravar Novo Lançamento */}
+      {/* Modal de Confirmação com Resumo Antes de Gravar Novo Lançamento (Scrollável e Responsivo para Celular/Tablet) */}
       <AlertDialog
         open={modalConfirmarGravacaoAberta}
         onOpenChange={setModalConfirmarGravacaoAberta}
       >
-        <AlertDialogContent className="max-w-lg">
+        <AlertDialogContent className="w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
-              <CheckCircle2 className="w-5 h-5 text-primary" />
-              Confirmar Gravação do Lançamento de Carga
+            <AlertDialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-foreground">
+              <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
+              <span>Confirmar Gravação da Carga</span>
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs">
               Confira os dados e os consumos calculados antes de confirmar o
@@ -2030,13 +2058,13 @@ export default function LancamentoCargas() {
           </AlertDialogHeader>
 
           <div className="space-y-3 py-2 text-xs">
-            <div className="rounded-lg border border-border/50 overflow-hidden bg-background divide-y divide-border/20">
-              <div className="p-2.5 bg-muted/30 grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-xl border border-border/50 overflow-hidden bg-background divide-y divide-border/20">
+              <div className="p-3 bg-muted/30 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 <div>
                   <span className="text-muted-foreground block text-[11px]">
                     Data da Carga:
                   </span>
-                  <span className="font-semibold font-mono">
+                  <span className="font-semibold font-mono text-sm">
                     {dataCarga.split("-").reverse().join("/")}
                   </span>
                 </div>
@@ -2044,7 +2072,7 @@ export default function LancamentoCargas() {
                   <span className="text-muted-foreground block text-[11px]">
                     Volume:
                   </span>
-                  <span className="font-bold font-mono text-primary">
+                  <span className="font-bold font-mono text-primary text-base">
                     {Number(volume).toFixed(1)} m³
                   </span>
                 </div>
@@ -2052,7 +2080,7 @@ export default function LancamentoCargas() {
                   <span className="text-muted-foreground block text-[11px]">
                     Traço / Dosagem:
                   </span>
-                  <span className="font-semibold">
+                  <span className="font-semibold text-xs sm:text-sm">
                     {modoDosagem === "manual"
                       ? tracoAtual
                         ? `${tracoAtual.nome} (Manual)`
@@ -2066,9 +2094,13 @@ export default function LancamentoCargas() {
                   </span>
                   <span className="font-semibold">
                     {cargaZerada ? (
-                      <span className="text-amber-600">Zerada / Cancelada</span>
+                      <span className="text-amber-600 font-bold">
+                        Zerada / Cancelada
+                      </span>
                     ) : (
-                      <span className="text-emerald-600">Carga Normal</span>
+                      <span className="text-emerald-600 font-bold">
+                        Carga Normal
+                      </span>
                     )}
                   </span>
                 </div>
@@ -2088,7 +2120,7 @@ export default function LancamentoCargas() {
                     {veiculoPlaca || "Não informada"}
                   </span>
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1 sm:col-span-2">
                   <span className="text-muted-foreground block text-[11px]">
                     Destino / Cidade:
                   </span>
@@ -2099,48 +2131,48 @@ export default function LancamentoCargas() {
               </div>
 
               {/* Totais de Insumos */}
-              <div className="p-2.5 space-y-1.5">
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase">
-                  Consumos Totais da Carga (kg / L):
+              <div className="p-3 space-y-1.5">
+                <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">
+                  Consumos Totais da Carga:
                 </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Cimento:</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs font-mono">
+                  <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
+                    <span className="text-muted-foreground">Cimento (CP):</span>
                     <span className="font-bold text-primary">
                       {consumoReal.cimento.toLocaleString("pt-BR")} kg
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
                     <span className="text-muted-foreground">Aditivo:</span>
                     <span className="font-bold text-primary">
                       {consumoReal.aditivo.toLocaleString("pt-BR")} L
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
                     <span className="text-muted-foreground">Água:</span>
                     <span className="font-bold text-cyan-600 dark:text-cyan-400">
                       {consumoReal.agua.toLocaleString("pt-BR")} L
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
                     <span className="text-muted-foreground">Areia:</span>
                     <span className="font-semibold">
                       {consumoReal.areia.toLocaleString("pt-BR")} kg
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
                     <span className="text-muted-foreground">Brita 12:</span>
                     <span className="font-semibold">
                       {consumoReal.brita12.toLocaleString("pt-BR")} kg
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
                     <span className="text-muted-foreground">Brita 19:</span>
                     <span className="font-semibold">
                       {consumoReal.brita19.toLocaleString("pt-BR")} kg
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between py-0.5">
                     <span className="text-muted-foreground">Pó de Pedra:</span>
                     <span className="font-semibold">
                       {consumoReal.poPedra.toLocaleString("pt-BR")} kg
@@ -2151,7 +2183,7 @@ export default function LancamentoCargas() {
             </div>
 
             {!cargaZerada && (
-              <div className="p-2.5 rounded bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-700 dark:text-blue-300">
+              <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-700 dark:text-blue-300">
                 ℹ️ Esta gravação registrará a carga e abaterá automaticamente do
                 estoque as quantidades de <strong>Cimento</strong> (
                 {consumoReal.cimento} kg) e <strong>Aditivo</strong> (
@@ -2160,35 +2192,39 @@ export default function LancamentoCargas() {
             )}
           </div>
 
-          <AlertDialogFooter className="gap-2 sm:gap-0">
-            <AlertDialogCancel disabled={salvando}>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+            <AlertDialogCancel
+              disabled={salvando}
+              className="w-full sm:w-auto min-h-[44px] h-11 text-xs rounded-xl"
+            >
               Voltar e Revisar
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={salvando}
               onClick={executarCriarCarga}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+              className="w-full sm:w-auto min-h-[44px] h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs sm:text-sm rounded-xl"
             >
-              {salvando ? "Gravando..." : "Sim, Gravar Lançamento"}
+              {salvando ? "Gravando Carga..." : "Sim, Gravar Lançamento"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Modal de Confirmação com Resumo do que Muda na Edição */}
+      {/* Modal de Confirmação com Resumo do que Muda na Edição (Scrollável e Responsivo) */}
       <Dialog
         open={modalConfirmarEdicaoAberta}
         onOpenChange={setModalConfirmarEdicaoAberta}
       >
-        <DialogContent className="max-w-xl">
+        <DialogContent className="w-[95vw] max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base text-amber-500 font-bold">
-              <CheckCircle2 className="w-5 h-5 text-amber-500" />
-              Confirmar alteração do lançamento #
-              {cargaOriginal
-                ? String(cargaOriginal.numero_carga).padStart(4, "0")
-                : ""}
-              ?
+              <CheckCircle2 className="w-5 h-5 text-amber-500 shrink-0" />
+              <span>
+                Confirmar alteração do lançamento #
+                {cargaOriginal
+                  ? String(cargaOriginal.numero_carga).padStart(4, "0")
+                  : ""}
+              </span>
             </DialogTitle>
             <DialogDescription className="text-xs">
               Confira abaixo o resumo das alterações antes de gravar. O estoque
@@ -2442,13 +2478,14 @@ export default function LancamentoCargas() {
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
               disabled={salvando}
               onClick={() => setModalConfirmarEdicaoAberta(false)}
+              className="w-full sm:w-auto min-h-[44px] h-11 text-xs rounded-xl"
             >
               Voltar e Revisar
             </Button>
@@ -2457,9 +2494,9 @@ export default function LancamentoCargas() {
               size="sm"
               disabled={salvando}
               onClick={executarSalvarEdicao}
-              className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+              className="w-full sm:w-auto min-h-[44px] h-11 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs sm:text-sm rounded-xl"
             >
-              {salvando ? "Salvando..." : "Sim, Confirmar e Salvar"}
+              {salvando ? "Salvando Alteração..." : "Sim, Confirmar e Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>

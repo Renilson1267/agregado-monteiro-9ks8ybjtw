@@ -322,19 +322,25 @@ export function Sidebar({
                       if (isMobileView && onMobileClose) onMobileClose()
                     }}
                     className={cn(
-                      "group relative flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-150",
-                      collapsed && !isMobileView
-                        ? "justify-center px-0 w-11 h-11 mx-auto"
-                        : "w-full",
+                      "group relative flex items-center gap-3 rounded-xl transition-all duration-150",
+                      isMobileView
+                        ? "px-3.5 py-3 text-sm min-h-[46px]"
+                        : collapsed
+                          ? "justify-center px-0 w-11 h-11 mx-auto text-xs"
+                          : "w-full px-3 py-2 text-xs sm:text-sm",
                       active
-                        ? "bg-primary text-primary-foreground shadow-xs font-semibold"
-                        : "text-muted-foreground hover:bg-accent/70 hover:text-foreground",
+                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                        : "text-muted-foreground hover:bg-accent/70 hover:text-foreground font-medium",
                     )}
                   >
                     <item.icon
                       className={cn(
                         "shrink-0 transition-transform duration-150 group-hover:scale-105",
-                        collapsed && !isMobileView ? "w-5 h-5" : "w-4 h-4",
+                        isMobileView
+                          ? "w-5 h-5"
+                          : collapsed && !isMobileView
+                            ? "w-5 h-5"
+                            : "w-4 h-4",
                         active
                           ? "text-primary-foreground"
                           : "text-muted-foreground group-hover:text-foreground",
@@ -725,7 +731,7 @@ export function Sidebar({
           {!collapsed && (
             <div className="pt-0.5 text-center">
               <span className="text-[10px] text-muted-foreground/50 font-mono">
-                GC MIX v0.0.110
+                GC MIX v0.0.117
               </span>
             </div>
           )}
@@ -739,26 +745,24 @@ export function Sidebar({
       >
         <SheetContent
           side="left"
-          className="no-print w-[280px] p-0 bg-card border-r-border/40 flex flex-col h-full"
+          className="no-print w-[300px] max-w-[85vw] p-0 bg-card border-r-border/40 flex flex-col h-full"
         >
           {/* TOPO MOBILE */}
           <div className="flex items-center justify-between p-4 border-b border-border/30">
             <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-2">
-                <img
-                  src={LOGO_GC_MIX_HORIZONTAL}
-                  alt={LOGO_ALT_TEXT}
-                  className="h-9 w-auto max-w-[170px] object-contain rounded-sm"
-                />
-              </div>
+              <img
+                src={LOGO_GC_MIX_HORIZONTAL}
+                alt={LOGO_ALT_TEXT}
+                className="h-9 w-auto max-w-[170px] object-contain rounded-sm"
+              />
             </div>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-10 w-10 rounded-xl"
               onClick={onMobileClose}
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </Button>
           </div>
 
@@ -774,7 +778,7 @@ export function Sidebar({
                   selecionarEmpresa(e.target.value)
                   if (onMobileClose) onMobileClose()
                 }}
-                className="w-full h-9 rounded-lg bg-background border border-border/60 text-xs px-2.5 font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full h-10 rounded-xl bg-background border border-border/60 text-xs px-3 font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 {empresas.map((emp) => (
                   <option key={emp.id} value={emp.id}>
@@ -785,13 +789,29 @@ export function Sidebar({
             </div>
           )}
 
-          {/* LINKS DE NAVEGAÇÃO */}
+          {/* LINKS DE NAVEGAÇÃO COM ITENS TOUCH-FRIENDLY */}
           <div className="flex-1 overflow-y-auto py-3">
             {renderNavList(true)}
           </div>
 
           {/* RODAPÉ MOBILE */}
-          <div className="p-3 border-t border-border/30 bg-muted/20 flex flex-col gap-2">
+          <div className="p-3.5 border-t border-border/30 bg-muted/20 flex flex-col gap-2.5">
+            {/* Botão PWA no rodapé mobile caso disponível */}
+            {isInstallable && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (onMobileClose) onMobileClose()
+                  installApp()
+                }}
+                className="w-full justify-center gap-2 min-h-[44px] h-11 text-xs border-primary/40 bg-primary/10 text-primary font-bold rounded-xl"
+              >
+                <Download className="w-4 h-4 text-primary shrink-0 animate-bounce" />
+                <span>Adicionar à Tela Inicial</span>
+              </Button>
+            )}
+
             <div className="flex items-center justify-between text-xs px-1">
               <div className="min-w-0">
                 <span className="block font-bold text-foreground truncate">
@@ -805,7 +825,7 @@ export function Sidebar({
                 variant="ghost"
                 size="icon"
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="h-8 w-8 rounded-lg"
+                className="h-10 w-10 rounded-xl"
                 title="Alternar Tema"
               >
                 {theme === "dark" ? (
@@ -824,7 +844,7 @@ export function Sidebar({
                   if (onMobileClose) onMobileClose()
                   setModalTrocarSenhaOpen(true)
                 }}
-                className="flex-1 justify-center gap-1.5 h-9 text-xs"
+                className="flex-1 justify-center gap-1.5 min-h-[42px] h-10 text-xs rounded-xl"
               >
                 <KeyRound className="w-3.5 h-3.5 text-primary" />
                 <span>Trocar Senha</span>
@@ -837,16 +857,16 @@ export function Sidebar({
                   if (onMobileClose) onMobileClose()
                   handleLogout()
                 }}
-                className="flex-1 justify-center gap-1.5 h-9 text-xs"
+                className="flex-1 justify-center gap-1.5 min-h-[42px] h-10 text-xs rounded-xl"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Sair</span>
               </Button>
             </div>
 
-            <div className="pt-1 text-center">
+            <div className="pt-0.5 text-center">
               <span className="text-[10px] text-muted-foreground/60 font-mono">
-                GC MIX v0.0.110
+                GC MIX v0.0.117
               </span>
             </div>
           </div>
