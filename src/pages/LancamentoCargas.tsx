@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Select,
@@ -27,7 +26,6 @@ import type {
   Motorista,
   Veiculo,
   Cidade,
-  PrecoMaterial,
   Material,
   Carga,
 } from "@/types/concreteira"
@@ -36,7 +34,6 @@ import {
   Calculator,
   CheckCircle2,
   ArrowLeft,
-  DollarSign,
   Edit3,
   Sparkles,
   RotateCcw,
@@ -73,13 +70,11 @@ export default function LancamentoCargas() {
   const { empresaAtiva } = useEmpresa()
   const { isBalanceiro } = useUsuario()
   const [tracos, setTracos] = useState<Traco[]>([])
-  const [precos, setPrecos] = useState<PrecoMaterial[]>([])
   const [motoristas, setMotoristas] = useState<Motorista[]>([])
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [cidades, setCidades] = useState<Cidade[]>([])
   const [materiais, setMateriais] = useState<Material[]>([])
   const [salvando, setSalvando] = useState(false)
-
   // Estado para controle de edição de carga gravada
   const [cargaOriginal, setCargaOriginal] = useState<Carga | null>(null)
   const [carregandoCargaEdicao, setCarregandoCargaEdicao] = useState(false)
@@ -139,16 +134,14 @@ export default function LancamentoCargas() {
     async function init() {
       if (!empresaAtiva) return
       try {
-        const [tr, mot, veic, cid, prc, mats] = await Promise.all([
+        const [tr, mot, veic, cid, mats] = await Promise.all([
           ConcreteiraService.getTracos(empresaAtiva.id),
           ConcreteiraService.getMotoristas(empresaAtiva.id),
           ConcreteiraService.getVeiculos(empresaAtiva.id),
           ConcreteiraService.getCidades(empresaAtiva.id),
-          ConcreteiraService.getPrecosMaterial(empresaAtiva.id),
           ConcreteiraService.getMateriais(empresaAtiva.id),
         ])
         setTracos(tr)
-        setPrecos(prc)
         setMotoristas(mot)
         setVeiculos(veic)
         setCidades(cid)
@@ -676,46 +669,6 @@ export default function LancamentoCargas() {
 
   const tracoAtual = tracos.find((t) => t.id === tracoSelecionadoId)
 
-  // Estimativa de custo da carga a ser lançada (usando o consumo REAL multiplicado)
-  const custoEstimado = cargaZerada
-    ? {
-        total: 0,
-        custoPorM3: 0,
-        cimento: 0,
-        aditivo: 0,
-        areia: 0,
-        brita12: 0,
-        brita19: 0,
-        po_pedra: 0,
-        agua: 0,
-      }
-    : ConcreteiraService.calcularCustoCarga(
-        {
-          id: "",
-          numero_carga: 0,
-          data: dataCarga,
-          volume_m3: volume,
-          traco_id: tracoSelecionadoId,
-          traco_nome: tracoAtual?.nome || null,
-          motorista_id: null,
-          motorista_nome: null,
-          veiculo_id: null,
-          veiculo_placa: null,
-          cidade_id: null,
-          cidade_nome: null,
-          consumo_brita12: consumoReal.brita12,
-          consumo_brita19: consumoReal.brita19,
-          consumo_areia: consumoReal.areia,
-          consumo_po_pedra: consumoReal.poPedra,
-          consumo_cimento: consumoReal.cimento,
-          consumo_aditivo: consumoReal.aditivo,
-          consumo_agua: consumoReal.agua,
-          observacao: null,
-          carga_zerada: false,
-        },
-        precos,
-      )
-
   // Faixa de fatores do aditivo pedida pelo usuário: 0,005 a 0,010
   const OPCOES_FATOR_ADITIVO = [
     { valor: 0.005, rotulo: "0,005" },
@@ -849,15 +802,6 @@ export default function LancamentoCargas() {
                   onValueChange={(val) => {
                     setTracoSelecionadoId(val)
                     const traco = tracos.find((t) => t.id === val)
-                    if (traco) {
-                      // Atualiza a discriminação do produto na OS mesmo sem preencher os insumos
-                      setDiscriminacaoProduto(
-                        `CONCRETO USINADO ${traco.nome}${
-                          traco.fck_mpa ? ` FCK ${traco.fck_mpa} MPA` : ""
-                        } - SLUMP 12+-2`,
-                      )
-                    }
-
                     if (isBalanceiro && modoDosagem === "manual") {
                       // REGRA BALANCEIRO no modo manual:
                       // Seleciona o traço como referência, mas mantém campos em branco para digitação na balança
@@ -928,7 +872,7 @@ export default function LancamentoCargas() {
                 <CardDescription className="text-xs mt-1">
                   {modoDosagem === "automatico"
                     ? `Dosagem base do traço multiplicada pelo volume (${volume} m³). Aditivo liderado por fator sobre cimento total (com seletor e edição manual). Baixa de estoque apenas para ${materiais.find((m) => m.codigo === "cimento")?.nome || "CP II F-40 / CP V ARI"} e Aditivo.`
-                    : `Modo manual ativo: informe a dosagem de cada insumo em kg/m³. O consumo gravado e os custos são multiplicados automaticamente pelo volume (${volume} m³).`}
+                    : `Modo manual ativo: informe a dosagem de cada insumo em kg/m³. O consumo gravado é multiplicado automaticamente pelo volume (${volume} m³).`}
                 </CardDescription>
               </div>
 
@@ -1026,7 +970,7 @@ export default function LancamentoCargas() {
                   </Label>
                   <span className="text-[11px] text-muted-foreground">
                     {modoDosagem === "manual"
-                      ? "Multiplicador aplicado às dosagens (kg/m³) para obter o consumo total real, aditivo e custos"
+                      ? "Multiplicador aplicado às dosagens (kg/m³) para obter o consumo total real de cimento, agregados, aditivo e água"
                       : "Volume em metros cúbicos multiplicado pelos insumos do traço e cimento total para cálculo do aditivo/água"}
                   </span>
                 </div>
@@ -1057,41 +1001,6 @@ export default function LancamentoCargas() {
               </div>
             </div>
 
-            {/* Box de Custo Estimado da Carga (Apenas para Administrador) */}
-            {!isBalanceiro && (
-              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-5 h-5 text-emerald-500 shrink-0" />
-                  <div>
-                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 block">
-                      Custo Calculado dos Insumos da Carga
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {modoDosagem === "manual"
-                        ? `Calculado sobre o consumo real da carga (${volume} m³ × dosagem)`
-                        : "Calculado com base na tabela de preços unitários vigente na data"}
-                      {custoEstimado.aditivo > 0 && (
-                        <span className="ml-1 text-emerald-700 dark:text-emerald-300 font-mono">
-                          • Aditivo: R$ {custoEstimado.aditivo.toFixed(2)}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-xl font-bold font-mono text-foreground">
-                    R${" "}
-                    {custoEstimado.total.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                  <span className="text-xs text-muted-foreground font-mono">
-                    (R$ {custoEstimado.custoPorM3.toFixed(2)}/m³)
-                  </span>
-                </div>
-              </div>
-            )}
             {/* Grid dos Insumos (Cimento, Aditivo, ÁGUA, Areia, Brita 12, Brita 19, Pó de Pedra) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Cimento */}
@@ -2381,7 +2290,7 @@ export default function LancamentoCargas() {
                 {cargaOriginal.consumo_aditivo} L) gravadas anteriormente para
                 esta carga e lançará as novas movimentações (
                 {consumoReal.cimento} kg de cimento e {consumoReal.aditivo} L de
-                aditivo), recalculando os custos automaticamente.
+                aditivo).
               </div>
             </div>
           )}
