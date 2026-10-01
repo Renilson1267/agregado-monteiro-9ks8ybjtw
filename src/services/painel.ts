@@ -70,6 +70,21 @@ export interface AlertaOperacional {
   empresaNome?: string
 }
 
+export interface ItemEstoqueInsumo {
+  id: string
+  nome: string
+  codigo: string
+  unidade: string
+  controlaEstoque: boolean
+  estoqueMinimo: number
+  saldo: number
+  saldoMonteiro?: number
+  saldoSje?: number
+  abaixoMinimo: boolean
+  defasagem: number
+  empresaId?: string
+}
+
 export interface DadosPainelGerencial {
   competenciaSelecionada: string
   competenciasDisponiveis: string[]
@@ -79,6 +94,7 @@ export interface DadosPainelGerencial {
   topClientesObras: TopRankingItem[]
   topCidades: TopRankingItem[]
   mixTracos: MixTracoItem[]
+  saldosInsumos: ItemEstoqueInsumo[]
   alertas: {
     totalCriticos: number
     totalAlertas: number
@@ -671,7 +687,7 @@ export const PainelService = {
     // Ordenar exames: Vencidos primeiro, depois dias menores
     examesCriticos.sort((a, b) => a.dias - b.dias)
 
-    // 3. ESTOQUE CRÍTICO DE INSUMOS
+    // 3. ESTOQUE E SALDO DE INSUMOS
     const todosMateriais: Material[] = [
       ...materiaisMonteiroRes,
       ...materiaisSjeRes,
@@ -703,6 +719,144 @@ export const PainelService = {
       })
 
     estoqueBaixo.sort((a, b) => b.defasagem - a.defasagem)
+
+    // Montagem estruturada do Saldo de Insumos para o Painel
+    // Se visão for 'monteiro', exibe materiais de Monteiro
+    // Se visão for 'sje', exibe materiais de SJE
+    // Se visão for 'todas' (consolidado), consolida materiais por código/nome com saldo somado e discriminação
+    const saldosInsumos: ItemEstoqueInsumo[] = []
+
+    if (empresaFiltro === "monteiro") {
+      materiaisMonteiroRes.forEach((m) => {
+        const saldo = Number(m.saldo || 0)
+        const minimo = Number(m.estoque_minimo || 0)
+        const controla = m.controla_estoque !== false
+        const abaixoMinimo = controla && minimo > 0 && saldo <= minimo
+        saldosInsumos.push({
+          id: m.id,
+          nome: m.nome,
+          codigo: m.codigo,
+          unidade: m.unidade || "kg",
+          controlaEstoque: controla,
+          estoqueMinimo: minimo,
+          saldo,
+          saldoMonteiro: saldo,
+          abaixoMinimo,
+          defasagem: abaixoMinimo
+            ? Math.round((minimo - saldo) * 100) / 100
+            : 0,
+          empresaId: m.empresa_id,
+        })
+      })
+    } else if (empresaFiltro === "sje") {
+      materiaisSjeRes.forEach((m) => {
+        const saldo = Number(m.saldo || 0)
+        const minimo = Number(m.estoque_minimo || 0)
+        const controla = m.controla_estoque !== false
+        const abaixoMinimo = controla && minimo > 0 && saldo <= minimo
+        saldosInsumos.push({
+          id: m.id,
+          nome: m.nome,
+          codigo: m.codigo,
+          unidade: m.unidade || "kg",
+          controlaEstoque: controla,
+          estoqueMinimo: minimo,
+          saldo,
+          saldoSje: saldo,
+          abaixoMinimo,
+          defasagem: abaixoMinimo
+            ? Math.round((minimo - saldo) * 100) / 100
+            : 0,
+          empresaId: m.empresa_id,
+        })
+      })
+    } else {
+      // Consolidado: agrupa insumos por código (ou nome)
+      const mapaConsolidado = new Map<string, {
+        id: string
+        nome: string
+        codigo: string
+        unidade: string
+        controlaEstoque: boolean
+        estoqueMinimo: number
+        saldoTotal: number
+        saldoMonteiro: number
+        saldoSje: number
+        abaixoMinimo: boolean
+        defasagem: number
+      }>()
+
+      // Primeiro Monteiro
+      materiaisMonteiroRes.forEach((m) => {
+        const key = m.codigo || m.nome.toLowerCase()
+        const saldo = Number(m.saldo || 0)
+        const minimo = Number(m.estoque_minimo || 0)
+        const controla = m.controla_estoque !== false
+        const abaixo = controla && minimo > 0 && saldo <= minimo
+        mapaConsolidado.set(key, {
+          id: m.id,
+          nome: m.nome,
+          codigo: m.codigo,
+          unidade: m.unidade || "kg",
+          controlaEstoque: controla,
+          estoqueMinimo: minimo,
+          saldoTotal: saldo,
+          saldoMonteiro: saldo,
+          saldoSje: 0,
+          abaixoMinimo: abaixo,
+          defasagem: abaixo ? minimo - saldo : 0,
+        })
+      })
+
+      // Depois SJE somando / complementando
+      materiaisSjeRes.forEach((m) => {
+        const key = m.codigo || m.nome.toLowerCase()
+        const saldo = Number(m.saldo || 0)
+        const minimo = Number(m.estoque_minimo || 0)
+        const controla = m.controla_estoque !== false
+
+        if (mapaConsolidado.has(key)) {
+          const item = mapaConsolidado.get(key)!
+          item.saldoSje = saldo
+          item.saldoTotal = Math.round((item.saldoTotal + saldo) * 100) / 100
+          item.estoqueMinimo = Math.max(item.estoqueMinimo, minimo)
+          // Se qualquer das unidades ou o total estiver crítico
+          const abaixoSje = controla && minimo > 0 && saldo <= minimo
+          if (abaixoSje) item.abaixoMinimo = true
+        } else {
+          const abaixo = controla && minimo > 0 && saldo <= minimo
+          mapaConsolidado.set(key, {
+            id: m.id,
+            nome: m.nome,
+            codigo: m.codigo,
+            unidade: m.unidade || "kg",
+            controlaEstoque: controla,
+            estoqueMinimo: minimo,
+            saldoTotal: saldo,
+            saldoMonteiro: 0,
+            saldoSje: saldo,
+            abaixoMinimo: abaixo,
+            defasagem: abaixo ? minimo - saldo : 0,
+          })
+        }
+      })
+
+      mapaConsolidado.forEach((val) => {
+        saldosInsumos.push({
+          id: val.id,
+          nome: val.nome,
+          codigo: val.codigo,
+          unidade: val.unidade,
+          controlaEstoque: val.controlaEstoque,
+          estoqueMinimo: val.estoqueMinimo,
+          saldo: val.saldoTotal,
+          saldoMonteiro: val.saldoMonteiro,
+          saldoSje: val.saldoSje,
+          abaixoMinimo: val.abaixoMinimo,
+          defasagem: Math.round(val.defasagem * 100) / 100,
+        })
+      })
+    }
 
     const totalCriticos =
       examesCriticos.filter((e) => e.status === "VENCIDO").length +
@@ -738,6 +892,7 @@ export const PainelService = {
       topClientesObras,
       topCidades,
       mixTracos,
+      saldosInsumos,
       alertas: {
         totalCriticos,
         totalAlertas,
