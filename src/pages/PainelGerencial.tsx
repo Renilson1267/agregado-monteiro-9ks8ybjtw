@@ -3,23 +3,18 @@ import {
   TrendingUp,
   Truck,
   Boxes,
-  Users,
   Calendar,
-  AlertTriangle,
-  Clock,
   Printer,
   RefreshCw,
   Building2,
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
-  ArrowUpRight,
   Sparkles,
   PieChart as PieChartIcon,
   MapPin,
   Briefcase,
   HeartPulse,
-  Info,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -32,7 +27,6 @@ import {
   Cell,
   PieChart,
   Pie,
-  Legend,
 } from "recharts"
 import { useEmpresa } from "@/hooks/use-empresa"
 import { useUsuario } from "@/hooks/use-usuario"
@@ -88,8 +82,8 @@ function fmtDataBr(iso?: string | null): string {
 }
 
 export function PainelGerencial() {
-  const { empresaAtiva, empresas } = useEmpresa()
-  const { isBalanceiro, isAdministrador } = useUsuario()
+  const { empresaAtiva } = useEmpresa()
+  const { isBalanceiro } = useUsuario()
 
   // Determinar visão inicial de empresa (consolidada por padrão se admin, ou vinculada à selecionada)
   const [modoVisao, setModoVisao] = useState<"todas" | "monteiro" | "sje">(
