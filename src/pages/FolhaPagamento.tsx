@@ -101,6 +101,8 @@ interface CalculoUnidadeConsolidada {
   totalFuncionarios: number
   totalTerceiros: number
   valorReal: number
+  totalVendas: number
+  totalComissoes: number
   qtdFuncionarios: number
   qtdTerceiros: number
   linhasCount: number
@@ -115,6 +117,8 @@ function calcularValorRealEmpresa(
       totalFuncionarios: 0,
       totalTerceiros: 0,
       valorReal: 0,
+      totalVendas: 0,
+      totalComissoes: 0,
       qtdFuncionarios: 0,
       qtdTerceiros: 0,
       linhasCount: 0,
@@ -124,21 +128,35 @@ function calcularValorRealEmpresa(
   // 1. Funcionários (inclui ocultos como Renilson)
   const funcs = linhasEmpresa.filter((l) => l.tipo !== "Terceiro")
   let totalFuncionarios = 0
+  let totalVendasFuncs = 0
+  let totalComissoesFuncs = 0
   funcs.forEach((l) => {
+    const isValdercleiton = (l.nome || "")
+      .toUpperCase()
+      .includes("VALDERCLEITON")
     const obras = Number(l.obras || 0)
     const valorObra = Number(l.valor_obra ?? 20)
-    const producao =
-      l.producao !== undefined && Number(l.producao) > 0
+    const producao = isValdercleiton
+      ? 0
+      : l.producao !== undefined && Number(l.producao) > 0
         ? Number(l.producao)
         : obras * valorObra
     const mensal = Number(l.mensal_liquido || 0)
     totalFuncionarios += mensal + producao
+
+    const vObra = Number(l.vendas_obra || 0)
+    const comissaoAuto = calcularComissaoVendas(vObra)
+    const comissao = Number(l.comissao || comissaoAuto)
+    totalVendasFuncs += vObra
+    totalComissoesFuncs += comissao
   })
   totalFuncionarios = Math.round(totalFuncionarios * 100) / 100
 
   // 2. Terceiros
   const tercs = linhasEmpresa.filter((l) => l.tipo === "Terceiro")
   let totalTerceiros = 0
+  let totalVendasTercs = 0
+  let totalComissoesTercs = 0
   tercs.forEach((t) => {
     const cadastrado = terceirosCadastradosEmpresa.find(
       (c) =>
@@ -155,15 +173,26 @@ function calcularValorRealEmpresa(
       ? Number(t.comissao || 0) + Number(t.ajuda_custo || 0)
       : Number(t.salario_liquido || t.bruto || 0)
     totalTerceiros += valorMes
+
+    if (ehVendedor && !t.nome.toUpperCase().includes("RAIMUNDO")) {
+      totalVendasTercs += Number(t.vendas_obra || 0)
+      totalComissoesTercs += Number(t.comissao || 0)
+    }
   })
   totalTerceiros = Math.round(totalTerceiros * 100) / 100
 
   const valorReal = Math.round((totalFuncionarios + totalTerceiros) * 100) / 100
+  const totalVendas =
+    Math.round((totalVendasFuncs + totalVendasTercs) * 100) / 100
+  const totalComissoes =
+    Math.round((totalComissoesFuncs + totalComissoesTercs) * 100) / 100
 
   return {
     totalFuncionarios,
     totalTerceiros,
     valorReal,
+    totalVendas,
+    totalComissoes,
     qtdFuncionarios: funcs.length,
     qtdTerceiros: tercs.length,
     linhasCount: linhasEmpresa.length,
@@ -540,11 +569,17 @@ export function FolhaPagamento() {
           ? Number(l.quinzena)
           : quinzenaCalc
 
+      // Regra Valdercleiton: forçar producaoTotal = 0 e usar mensal_liquido puro sem recálculo com obras
+      const isValdercleiton = (l.nome || "")
+        .toUpperCase()
+        .includes("VALDERCLEITON")
+
       // Extras
       const obras = Number(l.obras || 0)
       const valorObra = Number(l.valor_obra ?? 20)
-      const producaoTotal =
-        l.producao !== undefined && Number(l.producao) > 0
+      const producaoTotal = isValdercleiton
+        ? 0
+        : l.producao !== undefined && Number(l.producao) > 0
           ? Number(l.producao)
           : obras * valorObra
       const limpezaTotal = Number(l.limpeza || 0)
@@ -557,32 +592,41 @@ export function FolhaPagamento() {
       const adiantamentoTotal = Number(l.adiantamento || 0)
 
       // Cálculo do MENSAL LÍQUIDO (sem produção)
-      const mensalCalculadoSemProd = calcularMensalSemProducao(
-        bruto,
-        inssFinal,
-        familiaFinal,
-        irrfFinal,
-        quinzenaFinal,
-        {
-          limpeza: limpezaTotal,
-          sabado: sabadoTotal,
-          ferias: feriasTotal,
-          ajuda_custo: ajudaTotal,
-          gratificacao: gratificacaoTotal,
-          adiantamento: adiantamentoTotal,
-          comissao: comissaoTotal,
-          vendas_ajuda: vendasAjudaTotal,
-        },
-      )
+      const mensalCalculadoSemProd =
+        isValdercleiton &&
+        l.mensal_liquido !== undefined &&
+        l.mensal_liquido !== null
+          ? Number(l.mensal_liquido)
+          : calcularMensalSemProducao(
+              bruto,
+              inssFinal,
+              familiaFinal,
+              irrfFinal,
+              quinzenaFinal,
+              {
+                limpeza: limpezaTotal,
+                sabado: sabadoTotal,
+                ferias: feriasTotal,
+                ajuda_custo: ajudaTotal,
+                gratificacao: gratificacaoTotal,
+                adiantamento: adiantamentoTotal,
+                comissao: comissaoTotal,
+                vendas_ajuda: vendasAjudaTotal,
+              },
+            )
 
       // Se a linha tem mensal_liquido gravado e válido, respeita-o;
       // se não tiver ou estiver zerado, usa o mensal sem produção
       const mensalFinal =
+        isValdercleiton &&
         l.mensal_liquido !== undefined &&
-        l.mensal_liquido !== null &&
-        Number(l.mensal_liquido) !== 0
+        l.mensal_liquido !== null
           ? Number(l.mensal_liquido)
-          : mensalCalculadoSemProd
+          : l.mensal_liquido !== undefined &&
+              l.mensal_liquido !== null &&
+              Number(l.mensal_liquido) !== 0
+            ? Number(l.mensal_liquido)
+            : mensalCalculadoSemProd
 
       const mensalCalc = mensalCalculadoSemProd
 
@@ -734,6 +778,7 @@ export function FolhaPagamento() {
       (l) =>
         Number(l.vendas_obra || 0) > 0 ||
         Number(l.comissao || 0) > 0 ||
+        (l.nome && l.nome.toUpperCase().includes("VALDERCLEITON")) ||
         (l.funcao && l.funcao.toUpperCase().includes("VENDEDOR")) ||
         (l.cargo && l.cargo.toUpperCase().includes("VENDEDOR")),
     )
@@ -1010,6 +1055,8 @@ export function FolhaPagamento() {
           Math.round(
             (totaisGeral.liquidoGeral + totaisTerceiros.valorMes) * 100,
           ) / 100,
+        totalVendas: Math.round(totaisVendas.vendas_obra * 100) / 100,
+        totalComissoes: Math.round(totaisVendas.comissao * 100) / 100,
         qtdFuncionarios: linhasGeralProcessadas.length,
         qtdTerceiros: terceirosProcessados.length,
         linhasCount: linhas.length,
@@ -1031,6 +1078,8 @@ export function FolhaPagamento() {
           Math.round(
             (totaisGeral.liquidoGeral + totaisTerceiros.valorMes) * 100,
           ) / 100,
+        totalVendas: Math.round(totaisVendas.vendas_obra * 100) / 100,
+        totalComissoes: Math.round(totaisVendas.comissao * 100) / 100,
         qtdFuncionarios: linhasGeralProcessadas.length,
         qtdTerceiros: terceirosProcessados.length,
         linhasCount: linhas.length,
@@ -1043,6 +1092,10 @@ export function FolhaPagamento() {
     const temSje = sje.linhasCount > 0
     const totalConsolidado =
       Math.round((monteiro.valorReal + sje.valorReal) * 100) / 100
+    const totalVendasConsolidado =
+      Math.round((monteiro.totalVendas + sje.totalVendas) * 100) / 100
+    const totalComissoesConsolidado =
+      Math.round((monteiro.totalComissoes + sje.totalComissoes) * 100) / 100
 
     return {
       monteiro,
@@ -1050,11 +1103,15 @@ export function FolhaPagamento() {
       temMonteiro,
       temSje,
       totalConsolidado,
+      totalVendasConsolidado,
+      totalComissoesConsolidado,
     }
   }, [
     empresaAtiva?.id,
     totaisGeral.liquidoGeral,
     totaisTerceiros.valorMes,
+    totaisVendas.vendas_obra,
+    totaisVendas.comissao,
     linhasGeralProcessadas.length,
     terceirosProcessados.length,
     linhas.length,
@@ -2885,6 +2942,23 @@ export function FolhaPagamento() {
                                 )}
                               </span>
                             </div>
+                            <div className="flex justify-between text-blue-600 dark:text-blue-400 pt-0.5 border-t border-border/30">
+                              <span>Vendas / Obras:</span>
+                              <span className="font-mono font-medium">
+                                {fmtMoeda(
+                                  consolidacaoDuasFolhas.monteiro.totalVendas,
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                              <span>Comissões:</span>
+                              <span className="font-mono font-medium">
+                                {fmtMoeda(
+                                  consolidacaoDuasFolhas.monteiro
+                                    .totalComissoes,
+                                )}
+                              </span>
+                            </div>
                           </div>
                         ) : (
                           <span className="text-amber-700 dark:text-amber-400 font-medium">
@@ -2930,6 +3004,22 @@ export function FolhaPagamento() {
                                 )}
                               </span>
                             </div>
+                            <div className="flex justify-between text-blue-600 dark:text-blue-400 pt-0.5 border-t border-border/30">
+                              <span>Vendas / Obras:</span>
+                              <span className="font-mono font-medium">
+                                {fmtMoeda(
+                                  consolidacaoDuasFolhas.sje.totalVendas,
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                              <span>Comissões:</span>
+                              <span className="font-mono font-medium">
+                                {fmtMoeda(
+                                  consolidacaoDuasFolhas.sje.totalComissoes,
+                                )}
+                              </span>
+                            </div>
                           </div>
                         ) : (
                           <span className="text-amber-700 dark:text-amber-400 font-medium">
@@ -2954,18 +3044,36 @@ export function FolhaPagamento() {
                           {fmtMoeda(consolidacaoDuasFolhas.totalConsolidado)}
                         </span>
                       </div>
-                      <div className="mt-2 pt-2 border-t border-blue-300 dark:border-blue-700 text-[11px] text-muted-foreground flex items-center justify-between">
-                        <span>Soma real das unidades</span>
-                        {!consolidacaoDuasFolhas.temMonteiro ||
-                        !consolidacaoDuasFolhas.temSje ? (
-                          <span className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">
-                            Reflete apenas unidade lançada
+                      <div className="mt-2 pt-2 border-t border-blue-300 dark:border-blue-700 text-[11px] text-muted-foreground flex flex-col gap-1">
+                        <div className="flex items-center justify-between text-xs font-semibold text-blue-900 dark:text-blue-200">
+                          <span>Total de Vendas (Monteiro + SJE):</span>
+                          <span className="font-mono font-bold text-blue-700 dark:text-blue-300">
+                            {fmtMoeda(
+                              consolidacaoDuasFolhas.totalVendasConsolidado,
+                            )}
                           </span>
-                        ) : (
-                          <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold">
-                            Duas unidades somadas
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-amber-800 dark:text-amber-300 font-medium">
+                          <span>Total de Comissões:</span>
+                          <span className="font-mono font-bold">
+                            {fmtMoeda(
+                              consolidacaoDuasFolhas.totalComissoesConsolidado,
+                            )}
                           </span>
-                        )}
+                        </div>
+                        <div className="flex items-center justify-between pt-1 border-t border-blue-200 dark:border-blue-800 text-[10px]">
+                          <span>Soma real das unidades</span>
+                          {!consolidacaoDuasFolhas.temMonteiro ||
+                          !consolidacaoDuasFolhas.temSje ? (
+                            <span className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">
+                              Reflete apenas unidade lançada
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold">
+                              Duas unidades somadas
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -4944,6 +5052,9 @@ export function FolhaPagamento() {
                 ? "Exercício: 2026"
                 : `Competência: ${rotuloCompetenciaMesAno}`}
             </p>
+            <p className="text-[10px] text-gray-600 print-only">
+              Emitido em {new Date().toLocaleDateString("pt-BR")}
+            </p>
           </div>
         </div>
 
@@ -5176,6 +5287,12 @@ export function FolhaPagamento() {
                     <th className="border border-gray-400 p-1 text-right">
                       TOTAL TERCEIROS
                     </th>
+                    <th className="border border-gray-400 p-1 text-right">
+                      TOTAL DE VENDAS
+                    </th>
+                    <th className="border border-gray-400 p-1 text-right">
+                      COMISSÕES
+                    </th>
                     <th className="border border-gray-400 p-1 text-right font-bold">
                       VALOR REAL DA FOLHA
                     </th>
@@ -5202,6 +5319,12 @@ export function FolhaPagamento() {
                     <td className="border border-gray-400 p-1 text-right font-mono">
                       {fmtMoeda(consolidacaoDuasFolhas.monteiro.totalTerceiros)}
                     </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono text-blue-800">
+                      {fmtMoeda(consolidacaoDuasFolhas.monteiro.totalVendas)}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono text-amber-800">
+                      {fmtMoeda(consolidacaoDuasFolhas.monteiro.totalComissoes)}
+                    </td>
                     <td className="border border-gray-400 p-1 text-right font-mono font-bold">
                       {fmtMoeda(consolidacaoDuasFolhas.monteiro.valorReal)}
                     </td>
@@ -5225,6 +5348,12 @@ export function FolhaPagamento() {
                     </td>
                     <td className="border border-gray-400 p-1 text-right font-mono">
                       {fmtMoeda(consolidacaoDuasFolhas.sje.totalTerceiros)}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono text-blue-800">
+                      {fmtMoeda(consolidacaoDuasFolhas.sje.totalVendas)}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono text-amber-800">
+                      {fmtMoeda(consolidacaoDuasFolhas.sje.totalComissoes)}
                     </td>
                     <td className="border border-gray-400 p-1 text-right font-mono font-bold">
                       {fmtMoeda(consolidacaoDuasFolhas.sje.valorReal)}
@@ -5258,6 +5387,14 @@ export function FolhaPagamento() {
                       {fmtMoeda(
                         consolidacaoDuasFolhas.monteiro.totalTerceiros +
                           consolidacaoDuasFolhas.sje.totalTerceiros,
+                      )}
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-right font-mono font-bold text-blue-900">
+                      {fmtMoeda(consolidacaoDuasFolhas.totalVendasConsolidado)}
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-right font-mono font-bold text-amber-900">
+                      {fmtMoeda(
+                        consolidacaoDuasFolhas.totalComissoesConsolidado,
                       )}
                     </td>
                     <td className="border border-gray-400 p-1.5 text-right font-mono text-[10px] font-black text-black">

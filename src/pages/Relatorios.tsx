@@ -624,7 +624,10 @@ export default function Relatorios() {
             </div>
           </div>
           <div className="text-right text-xs text-black">
-            <p className="font-semibold">
+            <p className="font-semibold print-only">
+              Emitido em {new Date().toLocaleDateString("pt-BR")}
+            </p>
+            <p className="font-semibold no-print">
               Emissão: {new Date().toLocaleString("pt-BR")}
             </p>
             <p>Padrão A4 • Fundo Branco</p>

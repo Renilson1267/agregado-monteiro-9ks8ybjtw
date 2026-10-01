@@ -147,10 +147,14 @@ export function calcularValorRealEmpresa(
   const funcs = linhasEmpresa.filter((l) => l.tipo !== "Terceiro")
   let totalFuncionarios = 0
   funcs.forEach((l) => {
+    const isValdercleiton = (l.nome || "")
+      .toUpperCase()
+      .includes("VALDERCLEITON")
     const obras = Number(l.obras || 0)
     const valorObra = Number(l.valor_obra ?? 20)
-    const producao =
-      l.producao !== undefined && Number(l.producao) > 0
+    const producao = isValdercleiton
+      ? 0
+      : l.producao !== undefined && Number(l.producao) > 0
         ? Number(l.producao)
         : obras * valorObra
     const mensal = Number(l.mensal_liquido || 0)
