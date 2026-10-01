@@ -1500,15 +1500,22 @@ export type Database = {
     Views: { [_ in never]: never }
     Functions: {
       atualizar_email_usuario: {
-        Args: { p_novo_email: string; p_usuario_app_id: string }
+        Args: {
+          p_novo_email: string
+          p_usuario_app_id: string
+        }
         Returns: Json
       }
       confirmar_email_auth_usuario: {
-        Args: { p_user_id: string }
+        Args: {
+          p_user_id: string
+        }
         Returns: Json
       }
       proximo_numero_os: {
-        Args: { p_empresa_id: string }
+        Args: {
+          p_empresa_id: string
+        }
         Returns: number
       }
     }
