@@ -15,6 +15,7 @@ import {
   MapPin,
   Briefcase,
   HeartPulse,
+  Coins,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -86,22 +87,23 @@ export function PainelGerencial() {
   const { isBalanceiro } = useUsuario()
 
   // Determinar visão inicial de empresa (consolidada por padrão se admin, ou vinculada à selecionada)
-  const [modoVisao, setModoVisao] = useState<"todas" | "monteiro" | "sje">(
-    () => {
-      if (empresaAtiva?.id === ID_EMPRESA_MONTEIRO) return "monteiro"
-      if (empresaAtiva?.id === ID_EMPRESA_SJE) return "sje"
-      return "todas"
-    },
-  )
+  const [modoVisao, setModoVisao] = useState<string>(() => {
+    if (empresaAtiva?.slug) return empresaAtiva.slug.toLowerCase()
+    if (empresaAtiva?.id === ID_EMPRESA_MONTEIRO) return "monteiro"
+    if (empresaAtiva?.id === ID_EMPRESA_SJE) return "sje"
+    return "todas"
+  })
 
   // Sincroniza com seletor do topo quando o usuário altera no Header
   useEffect(() => {
-    if (empresaAtiva?.id === ID_EMPRESA_MONTEIRO) {
+    if (empresaAtiva?.slug) {
+      setModoVisao(empresaAtiva.slug.toLowerCase())
+    } else if (empresaAtiva?.id === ID_EMPRESA_MONTEIRO) {
       setModoVisao("monteiro")
     } else if (empresaAtiva?.id === ID_EMPRESA_SJE) {
       setModoVisao("sje")
     }
-  }, [empresaAtiva?.id])
+  }, [empresaAtiva?.id, empresaAtiva?.slug])
 
   // Competência padrão inicial: '2026-09' (última competência ativa com dados consolidados)
   const [competencia, setCompetencia] = useState<string>("2026-09")
@@ -193,7 +195,9 @@ export function PainelGerencial() {
   const nomeUnidadeVisao = useMemo(() => {
     if (modoVisao === "monteiro") return "Unidade Monteiro"
     if (modoVisao === "sje") return "Unidade SJE / Caldas & Amaral"
-    return "Consolidado Geral (Monteiro + SJE)"
+    if (modoVisao === "caico") return "Unidade Caicó"
+    if (modoVisao === "patos") return "Unidade Patos"
+    return "Consolidado Geral (Monteiro, SJE, Caicó e Patos)"
   }, [modoVisao])
 
   return (
@@ -334,6 +338,102 @@ export function PainelGerencial() {
         </table>
       </div>
 
+      {/* BLOCO DE CUSTOS DE INSUMOS EXCLUSIVO PARA IMPRESSÃO A4 PAISAGEM */}
+      <div className="print-only mb-4 border border-slate-300 rounded-lg p-3 bg-white text-black page-break-inside-avoid">
+        <div className="flex items-center justify-between border-b border-slate-300 pb-2 mb-2">
+          <div className="flex items-center gap-2">
+            <strong className="text-xs uppercase font-black tracking-wide text-slate-900">
+              Custos de Insumos da Produção ({rotuloCompetencia} •{" "}
+              {nomeUnidadeVisao})
+            </strong>
+          </div>
+          <div className="text-[10px] text-slate-700 font-mono flex items-center gap-3">
+            <span>
+              Volume:{" "}
+              <strong>
+                {dados?.custosInsumos?.volumeTotalM3.toLocaleString("pt-BR") ||
+                  0}{" "}
+                m³
+              </strong>
+            </span>
+            <span>
+              Custo Total:{" "}
+              <strong className="text-slate-900">
+                {fmtMoeda(dados?.custosInsumos?.custoTotalGeral || 0)}
+              </strong>
+            </span>
+            <span>
+              Custo/m³:{" "}
+              <strong>
+                {fmtMoeda(dados?.custosInsumos?.custoMedioPorM3 || 0)}/m³
+              </strong>
+            </span>
+          </div>
+        </div>
+
+        <table className="w-full text-[10px] text-left border-collapse">
+          <thead>
+            <tr className="border-b border-slate-300 bg-slate-100 text-slate-700 font-bold uppercase">
+              <th className="py-1 px-2">Insumo</th>
+              <th className="py-1 px-2 text-right">Consumo no Período</th>
+              <th className="py-1 px-2 text-right">Custo Médio Unitário</th>
+              <th className="py-1 px-2 text-right">Custo Total (R$)</th>
+              <th className="py-1 px-2 text-right">% do Custo</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {(dados?.custosInsumos?.itens || []).map((item) => (
+              <tr key={`print-custo-${item.codigo}`}>
+                <td className="py-1 px-2 font-bold text-slate-900">
+                  {item.nome}
+                </td>
+                <td className="py-1 px-2 text-right font-mono text-slate-800">
+                  {item.quantidadeConsumida.toLocaleString("pt-BR", {
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  {item.unidade}
+                  {item.unidade === "kg" &&
+                    item.quantidadeConsumida >= 1000 && (
+                      <span className="text-slate-500 font-normal ml-1">
+                        ({(item.quantidadeConsumida / 1000).toFixed(2)} t)
+                      </span>
+                    )}
+                </td>
+                <td className="py-1 px-2 text-right font-mono text-slate-600">
+                  {item.custoUnitarioMedio > 0
+                    ? `R$ ${item.custoUnitarioMedio.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 4,
+                      })}/${item.unidade}`
+                    : "—"}
+                </td>
+                <td className="py-1 px-2 text-right font-mono font-bold text-slate-900">
+                  {fmtMoeda(item.custoTotal)}
+                </td>
+                <td className="py-1 px-2 text-right font-mono text-slate-700">
+                  {item.percentualDoTotal.toFixed(1)}%
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-slate-400 bg-slate-100 font-bold text-slate-900">
+              <td className="py-1.5 px-2 uppercase">Total de Insumos</td>
+              <td className="py-1.5 px-2 text-right font-mono text-slate-600">
+                {dados?.custosInsumos?.totalCargasValidas || 0} viagens
+              </td>
+              <td className="py-1.5 px-2 text-right font-mono text-slate-700">
+                {fmtMoeda(dados?.custosInsumos?.custoMedioPorM3 || 0)}/m³
+              </td>
+              <td className="py-1.5 px-2 text-right font-mono text-xs">
+                {fmtMoeda(dados?.custosInsumos?.custoTotalGeral || 0)}
+              </td>
+              <td className="py-1.5 px-2 text-right font-mono">100,0%</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
       {/* =========================================================================
           TOPO EM TELA: TÍTULO, SELETOR DE MÊS, SELETOR DE VISÃO E AÇÕES
       ========================================================================== */}
@@ -362,21 +462,39 @@ export function PainelGerencial() {
 
         {/* Controles de Período e Unidade */}
         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-          {/* Seletor de Visão de Empresa (Consolidada ou Individual) */}
+          {/* Seletor de Visão de Empresa (Consolidada ou Individual: Monteiro, SJE, Caicó, Patos) */}
           <Tabs
             value={modoVisao}
-            onValueChange={(v) => setModoVisao(v as any)}
+            onValueChange={(v) => setModoVisao(v)}
             className="w-full sm:w-auto"
           >
-            <TabsList className="grid grid-cols-3 h-9 text-xs">
-              <TabsTrigger value="todas" className="px-2.5 font-bold">
+            <TabsList className="grid grid-cols-5 h-9 text-xs">
+              <TabsTrigger
+                value="todas"
+                className="px-2 font-bold text-[11px] sm:text-xs"
+              >
                 Consolidado
               </TabsTrigger>
-              <TabsTrigger value="monteiro" className="px-2.5">
+              <TabsTrigger
+                value="monteiro"
+                className="px-2 text-[11px] sm:text-xs"
+              >
                 Monteiro
               </TabsTrigger>
-              <TabsTrigger value="sje" className="px-2.5">
+              <TabsTrigger value="sje" className="px-2 text-[11px] sm:text-xs">
                 SJE
+              </TabsTrigger>
+              <TabsTrigger
+                value="caico"
+                className="px-2 text-[11px] sm:text-xs"
+              >
+                Caicó
+              </TabsTrigger>
+              <TabsTrigger
+                value="patos"
+                className="px-2 text-[11px] sm:text-xs"
+              >
+                Patos
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -614,11 +732,7 @@ export function PainelGerencial() {
                 variant="outline"
                 className="text-xs font-mono text-primary border-primary/30"
               >
-                {modoVisao === "todas"
-                  ? "Consolidado (Monteiro + SJE)"
-                  : modoVisao === "monteiro"
-                    ? "Unidade Monteiro"
-                    : "Unidade SJE"}
+                {nomeUnidadeVisao}
               </Badge>
               {dados?.saldosInsumos?.some((s) => s.abaixoMinimo) && (
                 <Badge
@@ -795,6 +909,247 @@ export function PainelGerencial() {
           ) : (
             <div className="py-8 text-center text-xs text-muted-foreground bg-muted/20 rounded-lg">
               Nenhum insumo encontrado para a unidade selecionada.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* =========================================================================
+          SEÇÃO 1.6: CUSTOS DE INSUMOS (CONSUMO NO PERÍODO E CUSTO FINANCEIRO EM R$)
+      ========================================================================== */}
+      <Card className="border-border/40 shadow-xs overflow-hidden">
+        <CardHeader className="py-4 px-5 border-b border-border/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Coins className="w-4 h-4 text-emerald-500" />
+              <CardTitle className="text-base font-bold">
+                Custos de Insumos da Produção
+              </CardTitle>
+              <Badge
+                variant="outline"
+                className="text-xs font-mono text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+              >
+                {nomeUnidadeVisao}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="text-xs font-mono text-muted-foreground"
+              >
+                Competência: {rotuloCompetencia}
+              </Badge>
+            </div>
+            <CardDescription className="text-xs mt-1">
+              Consumo efetivo dos materiais nas cargas expedidas × custo
+              unitário do cadastro no período.
+            </CardDescription>
+          </div>
+
+          <div className="flex items-center gap-3 bg-muted/40 p-2.5 rounded-xl border border-border/40 text-xs">
+            <div>
+              <span className="text-[10px] text-muted-foreground block uppercase font-semibold">
+                Total Insumos
+              </span>
+              <span className="font-mono font-black text-sm text-foreground">
+                {fmtMoeda(dados?.custosInsumos?.custoTotalGeral || 0)}
+              </span>
+            </div>
+            <div className="w-px h-6 bg-border/60" />
+            <div>
+              <span className="text-[10px] text-muted-foreground block uppercase font-semibold">
+                Custo / m³
+              </span>
+              <span className="font-mono font-bold text-xs text-primary">
+                {fmtMoeda(dados?.custosInsumos?.custoMedioPorM3 || 0)}/m³
+              </span>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-4 sm:p-5">
+          {dados?.custosInsumos && dados.custosInsumos.itens.length > 0 ? (
+            <div className="space-y-4">
+              {/* Grid de Cards de Custos por Insumo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {dados.custosInsumos.itens.map((item) => {
+                  const temConsumo = item.quantidadeConsumida > 0
+                  return (
+                    <div
+                      key={`card-custo-${item.codigo}`}
+                      className="rounded-xl border border-border/50 bg-card/60 p-3.5 flex flex-col justify-between transition-all hover:border-border shadow-xs relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500/70" />
+                      <div>
+                        <div className="flex items-start justify-between gap-2 mb-1.5 pt-0.5">
+                          <div className="min-w-0">
+                            <span
+                              className="font-bold text-sm text-foreground truncate block"
+                              title={item.nome}
+                            >
+                              {item.nome}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground uppercase tracking-wider font-mono">
+                              Consumo em {item.unidade}
+                            </span>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-mono shrink-0"
+                          >
+                            {item.percentualDoTotal.toFixed(1)}% do total
+                          </Badge>
+                        </div>
+
+                        {/* Valor em R$ Principal */}
+                        <div className="my-2">
+                          <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-foreground block">
+                            {fmtMoeda(item.custoTotal)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Quantidade Consumida e Custo Médio Unitário */}
+                      <div className="pt-2 border-t border-border/30 text-[11px] space-y-1">
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span>Consumo total:</span>
+                          <span className="font-mono font-semibold text-foreground">
+                            {item.quantidadeConsumida.toLocaleString("pt-BR", {
+                              maximumFractionDigits: 2,
+                            })}{" "}
+                            {item.unidade}
+                            {item.unidade === "kg" &&
+                              item.quantidadeConsumida >= 1000 && (
+                                <span className="text-muted-foreground font-normal ml-1">
+                                  (
+                                  {(item.quantidadeConsumida / 1000).toFixed(2)}{" "}
+                                  t)
+                                </span>
+                              )}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span>Preço médio:</span>
+                          <span className="font-mono text-foreground">
+                            {item.custoUnitarioMedio > 0
+                              ? `R$ ${item.custoUnitarioMedio.toLocaleString(
+                                  "pt-BR",
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 4,
+                                  },
+                                )}/${item.unidade}`
+                              : "—"}
+                          </span>
+                        </div>
+
+                        {/* Barra percentual proporcional ao custo total */}
+                        <div className="pt-1">
+                          <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                              style={{
+                                width: `${Math.min(100, Math.max(temConsumo ? 2 : 0, item.percentualDoTotal))}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Tabela Sintética Detalhada com Rodapé de Totais */}
+              <div className="overflow-x-auto rounded-xl border border-border/40 bg-card/40 mt-3">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead className="bg-muted/50 text-muted-foreground uppercase font-semibold border-b border-border/40">
+                    <tr>
+                      <th className="py-2.5 px-3">Insumo</th>
+                      <th className="py-2.5 px-3 text-right">
+                        Consumo ({rotuloCompetencia})
+                      </th>
+                      <th className="py-2.5 px-3 text-right">
+                        Custo Unitário Médio
+                      </th>
+                      <th className="py-2.5 px-3 text-right">
+                        Custo Total (R$)
+                      </th>
+                      <th className="py-2.5 px-3 text-right">% do Custo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/30">
+                    {dados.custosInsumos.itens.map((item) => (
+                      <tr
+                        key={`tab-custo-${item.codigo}`}
+                        className="hover:bg-muted/30 transition-colors"
+                      >
+                        <td className="py-2 px-3 font-semibold text-foreground">
+                          {item.nome}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-muted-foreground">
+                          {item.quantidadeConsumida.toLocaleString("pt-BR", {
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          {item.unidade}
+                          {item.unidade === "kg" &&
+                            item.quantidadeConsumida >= 1000 && (
+                              <span className="text-muted-foreground/80 font-normal ml-1 text-[11px]">
+                                ({(item.quantidadeConsumida / 1000).toFixed(2)}{" "}
+                                t)
+                              </span>
+                            )}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-muted-foreground">
+                          {item.custoUnitarioMedio > 0
+                            ? `R$ ${item.custoUnitarioMedio.toLocaleString(
+                                "pt-BR",
+                                {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 4,
+                                },
+                              )}/${item.unidade}`
+                            : "—"}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-foreground">
+                          {fmtMoeda(item.custoTotal)}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-primary font-semibold">
+                          {item.percentualDoTotal.toFixed(1)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-border/60 bg-muted/40 font-bold text-foreground">
+                      <td className="py-2.5 px-3 uppercase text-[11px] tracking-wider">
+                        Total de Insumos (
+                        {dados.custosInsumos.totalCargasValidas} viagens
+                        válidas)
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-muted-foreground">
+                        Volume:{" "}
+                        {dados.custosInsumos.volumeTotalM3.toLocaleString(
+                          "pt-BR",
+                        )}{" "}
+                        m³
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-primary">
+                        {fmtMoeda(dados.custosInsumos.custoMedioPorM3)}/m³
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-sm text-foreground">
+                        {fmtMoeda(dados.custosInsumos.custoTotalGeral)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono">
+                        100,0%
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-xs text-muted-foreground bg-muted/20 rounded-lg">
+              Nenhum lançamento de insumo encontrado para o período selecionado.
             </div>
           )}
         </CardContent>

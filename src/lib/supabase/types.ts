@@ -1507,11 +1507,15 @@ export type Database = {
         Returns: Json
       }
       confirmar_email_auth_usuario: {
-        Args: { p_user_id: string }
+        Args: {
+          p_user_id: string
+        }
         Returns: Json
       }
       proximo_numero_os: {
-        Args: { p_empresa_id: string }
+        Args: {
+          p_empresa_id: string
+        }
         Returns: number
       }
     }
@@ -1537,21 +1541,32 @@ export type Tables<
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
-    }
-    ? R
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  ? TableName extends keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
         Row: infer R
       }
       ? R
       : never
-    : never
+    : TableName extends keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"]
+      ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"][TableName] extends {
+          Row: infer R
+        }
+        ? R
+        : never
+      : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Views"]
+      ? DefaultSchema["Views"][DefaultSchemaTableNameOrOptions] extends {
+          Row: infer R
+        }
+        ? R
+        : never
+      : never
 
 export type TablesInsert<DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"] | {
   schema: keyof DatabaseWithoutInternals

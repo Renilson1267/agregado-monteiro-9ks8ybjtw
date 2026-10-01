@@ -80,21 +80,45 @@ export interface ItemEstoqueInsumo {
   saldo: number
   saldoMonteiro?: number
   saldoSje?: number
+  saldoCaico?: number
+  saldoPatos?: number
   abaixoMinimo: boolean
   defasagem: number
   empresaId?: string
 }
 
+export interface ItemCustoInsumo {
+  codigo: string
+  nome: string
+  unidade: string
+  quantidadeConsumida: number
+  custoTotal: number
+  custoUnitarioMedio: number
+  percentualDoTotal: number
+  // Discriminação por empresa para visão consolidada
+  quantidadePorEmpresa?: Record<string, number>
+  custoPorEmpresa?: Record<string, number>
+}
+
+export interface ResumoCustosInsumos {
+  itens: ItemCustoInsumo[]
+  custoTotalGeral: number
+  custoMedioPorM3: number
+  volumeTotalM3: number
+  totalCargasValidas: number
+}
+
 export interface DadosPainelGerencial {
   competenciaSelecionada: string
   competenciasDisponiveis: string[]
-  visaoEmpresa: "todas" | "monteiro" | "sje"
+  visaoEmpresa: string // "todas" ou id/slug da empresa (monteiro, sje, caico, patos)
   kpis: KpisPeriodo
   evolucao12Meses: EvolucaoMensalItem[]
   topClientesObras: TopRankingItem[]
   topCidades: TopRankingItem[]
   mixTracos: MixTracoItem[]
   saldosInsumos: ItemEstoqueInsumo[]
+  custosInsumos: ResumoCustosInsumos
   alertas: {
     totalCriticos: number
     totalAlertas: number
@@ -210,18 +234,44 @@ export const PainelService = {
    */
   async getDadosPainel(params: {
     competencia: string
-    empresaFiltro?: "todas" | "monteiro" | "sje"
+    empresaFiltro?: string // "todas" | "monteiro" | "sje" | "caico" | "patos" | UUID
     empresaAtivaId?: string
   }): Promise<DadosPainelGerencial> {
     const { competencia, empresaFiltro = "todas" } = params
 
-    // Definir empresa_id alvo ou carregar para ambas
-    const targetEmpresaId =
-      empresaFiltro === "monteiro"
-        ? ID_EMPRESA_MONTEIRO
-        : empresaFiltro === "sje"
-          ? ID_EMPRESA_SJE
-          : undefined
+    // 0. Obter empresas cadastradas para suporte dinâmico (Monteiro, SJE, Caicó, Patos etc.)
+    const { data: empresasCadastradas } = await (supabase as any)
+      .from("empresas")
+      .select("id, nome, slug")
+      .eq("ativo", true)
+      .order("nome", { ascending: true })
+
+    const listaEmpresas = (empresasCadastradas || []) as Array<{
+      id: string
+      nome: string
+      slug: string
+    }>
+
+    // Mapear filtro para UUID
+    let targetEmpresaId: string | undefined = undefined
+    if (empresaFiltro && empresaFiltro !== "todas") {
+      const encontrada = listaEmpresas.find(
+        (e) =>
+          e.slug?.toLowerCase() === empresaFiltro.toLowerCase() ||
+          e.id === empresaFiltro ||
+          (empresaFiltro === "monteiro" && e.id === ID_EMPRESA_MONTEIRO) ||
+          (empresaFiltro === "sje" && e.id === ID_EMPRESA_SJE),
+      )
+      if (encontrada) {
+        targetEmpresaId = encontrada.id
+      } else if (empresaFiltro === "monteiro") {
+        targetEmpresaId = ID_EMPRESA_MONTEIRO
+      } else if (empresaFiltro === "sje") {
+        targetEmpresaId = ID_EMPRESA_SJE
+      } else {
+        targetEmpresaId = empresaFiltro
+      }
+    }
 
     // Período da competência selecionada (ex: '2026-09')
     const [anoStr, mesStr] = competencia.split("-")
@@ -735,10 +785,16 @@ export const PainelService = {
     // Montagem estruturada do Saldo de Insumos para o Painel
     // Se visão for 'monteiro', exibe materiais de Monteiro
     // Se visão for 'sje', exibe materiais de SJE
+    // Se visão for outra (ex: Caicó, Patos), exibe materiais correspondentes (ou vazios)
     // Se visão for 'todas' (consolidado), consolida materiais por código/nome com saldo somado e discriminação
     const saldosInsumos: ItemEstoqueInsumo[] = []
 
-    if (empresaFiltro === "monteiro") {
+    const isMonteiro =
+      empresaFiltro === "monteiro" || targetEmpresaId === ID_EMPRESA_MONTEIRO
+    const isSje = empresaFiltro === "sje" || targetEmpresaId === ID_EMPRESA_SJE
+    const isConsolidado = !empresaFiltro || empresaFiltro === "todas"
+
+    if (isMonteiro) {
       materiaisMonteiroRes.forEach((m) => {
         const saldo = Number(m.saldo || 0)
         const minimo = Number(m.estoque_minimo || 0)
@@ -760,7 +816,7 @@ export const PainelService = {
           empresaId: m.empresa_id,
         })
       })
-    } else if (empresaFiltro === "sje") {
+    } else if (isSje) {
       materiaisSjeRes.forEach((m) => {
         const saldo = Number(m.saldo || 0)
         const minimo = Number(m.estoque_minimo || 0)
@@ -782,7 +838,7 @@ export const PainelService = {
           empresaId: m.empresa_id,
         })
       })
-    } else {
+    } else if (isConsolidado) {
       // Consolidado: agrupa insumos por código (ou nome)
       const mapaConsolidado = new Map<string, {
         id: string
@@ -868,6 +924,234 @@ export const PainelService = {
           defasagem: Math.round(val.defasagem * 100) / 100,
         })
       })
+    } else {
+      // Outra unidade (ex.: Caicó ou Patos)
+      // Se não houver materiais cadastrados ainda, monta lista padrão zerada para exibição limpa
+      const catalogoPadrao = [
+        {
+          codigo: "cimento",
+          nome: "CP II F-40 / CP V ARI",
+          unidade: "kg",
+          controla: true,
+          min: 1000,
+        },
+        {
+          codigo: "aditivo",
+          nome: "Aditivo Plastificante",
+          unidade: "litros",
+          controla: true,
+          min: 200,
+        },
+        {
+          codigo: "areia",
+          nome: "Areia",
+          unidade: "kg",
+          controla: false,
+          min: 0,
+        },
+        {
+          codigo: "brita12",
+          nome: "Brita 12",
+          unidade: "kg",
+          controla: false,
+          min: 0,
+        },
+        {
+          codigo: "brita19",
+          nome: "Brita 19",
+          unidade: "kg",
+          controla: false,
+          min: 0,
+        },
+        {
+          codigo: "po_pedra",
+          nome: "Pó de Brita",
+          unidade: "kg",
+          controla: false,
+          min: 0,
+        },
+        {
+          codigo: "agua",
+          nome: "Água",
+          unidade: "litros",
+          controla: false,
+          min: 0,
+        },
+      ]
+      catalogoPadrao.forEach((p) => {
+        saldosInsumos.push({
+          id: `zerado-${p.codigo}`,
+          nome: p.nome,
+          codigo: p.codigo,
+          unidade: p.unidade,
+          controlaEstoque: p.controla,
+          estoqueMinimo: p.min,
+          saldo: 0,
+          abaixoMinimo: false,
+          defasagem: 0,
+          empresaId: targetEmpresaId,
+        })
+      })
+    }
+
+    // --- CÁLCULO DETALHADO DO BLOCO: CUSTOS DE INSUMOS ---
+    // Definição dos materiais monitorados
+    const catalogoInsumosDef = [
+      { codigo: "cimento", nome: "Cimento CP II / CP V", unidade: "kg" },
+      { codigo: "aditivo", nome: "Aditivo Plastificante", unidade: "L" },
+      { codigo: "areia", nome: "Areia", unidade: "kg" },
+      { codigo: "brita12", nome: "Brita 12", unidade: "kg" },
+      { codigo: "brita19", nome: "Brita 19", unidade: "kg" },
+      { codigo: "po_pedra", nome: "Pó de Pedra", unidade: "kg" },
+      { codigo: "agua", nome: "Água", unidade: "L" },
+    ]
+
+    const mapaConsumoInsumos: Record<string, {
+      quantidadeTotal: number
+      custoTotal: number
+      porEmpresaQtd: Record<string, number>
+      porEmpresaCusto: Record<string, number>
+    }> = {
+      cimento: {
+        quantidadeTotal: 0,
+        custoTotal: 0,
+        porEmpresaQtd: {},
+        porEmpresaCusto: {},
+      },
+      aditivo: {
+        quantidadeTotal: 0,
+        custoTotal: 0,
+        porEmpresaQtd: {},
+        porEmpresaCusto: {},
+      },
+      areia: {
+        quantidadeTotal: 0,
+        custoTotal: 0,
+        porEmpresaQtd: {},
+        porEmpresaCusto: {},
+      },
+      brita12: {
+        quantidadeTotal: 0,
+        custoTotal: 0,
+        porEmpresaQtd: {},
+        porEmpresaCusto: {},
+      },
+      brita19: {
+        quantidadeTotal: 0,
+        custoTotal: 0,
+        porEmpresaQtd: {},
+        porEmpresaCusto: {},
+      },
+      po_pedra: {
+        quantidadeTotal: 0,
+        custoTotal: 0,
+        porEmpresaQtd: {},
+        porEmpresaCusto: {},
+      },
+      agua: {
+        quantidadeTotal: 0,
+        custoTotal: 0,
+        porEmpresaQtd: {},
+        porEmpresaCusto: {},
+      },
+    }
+
+    cargasValidas.forEach((c: any) => {
+      const empId = c.empresa_id || "desconhecida"
+      const cBreakdown = ConcreteiraService.calcularCustoCarga(c, precosRes)
+
+      const consumoMat: Record<string, {
+        qtd: number
+        custo: number
+      }> = {
+        cimento: {
+          qtd: Number(c.consumo_cimento) || 0,
+          custo: cBreakdown.cimento,
+        },
+        aditivo: {
+          qtd: Number(c.consumo_aditivo) || 0,
+          custo: cBreakdown.aditivo,
+        },
+        areia: { qtd: Number(c.consumo_areia) || 0, custo: cBreakdown.areia },
+        brita12: {
+          qtd: Number(c.consumo_brita12) || 0,
+          custo: cBreakdown.brita12,
+        },
+        brita19: {
+          qtd: Number(c.consumo_brita19) || 0,
+          custo: cBreakdown.brita19,
+        },
+        po_pedra: {
+          qtd: Number(c.consumo_po_pedra) || 0,
+          custo: cBreakdown.po_pedra,
+        },
+        agua: { qtd: Number(c.consumo_agua) || 0, custo: cBreakdown.agua },
+      }
+
+      Object.entries(consumoMat).forEach(([cod, vals]) => {
+        if (!mapaConsumoInsumos[cod]) {
+          mapaConsumoInsumos[cod] = {
+            quantidadeTotal: 0,
+            custoTotal: 0,
+            porEmpresaQtd: {},
+            porEmpresaCusto: {},
+          }
+        }
+        mapaConsumoInsumos[cod].quantidadeTotal += vals.qtd
+        mapaConsumoInsumos[cod].custoTotal += vals.custo
+
+        mapaConsumoInsumos[cod].porEmpresaQtd[empId] =
+          (mapaConsumoInsumos[cod].porEmpresaQtd[empId] || 0) + vals.qtd
+        mapaConsumoInsumos[cod].porEmpresaCusto[empId] =
+          (mapaConsumoInsumos[cod].porEmpresaCusto[empId] || 0) + vals.custo
+      })
+    })
+
+    const custoTotalGeralCalculado = Object.values(mapaConsumoInsumos).reduce(
+      (acc, item) => acc + item.custoTotal,
+      0,
+    )
+
+    const itensCustosInsumos: ItemCustoInsumo[] = catalogoInsumosDef.map(
+      (def) => {
+        const dadosCons = mapaConsumoInsumos[def.codigo] || {
+          quantidadeTotal: 0,
+          custoTotal: 0,
+          porEmpresaQtd: {},
+          porEmpresaCusto: {},
+        }
+        const custoTot = Math.round(dadosCons.custoTotal * 100) / 100
+        const qtdTot = Math.round(dadosCons.quantidadeTotal * 100) / 100
+        const custoUnitMedio =
+          qtdTot > 0 ? Math.round((custoTot / qtdTot) * 10000) / 10000 : 0
+        const perc =
+          custoTotalGeralCalculado > 0
+            ? Math.round((custoTot / custoTotalGeralCalculado) * 1000) / 10
+            : 0
+
+        return {
+          codigo: def.codigo,
+          nome: def.nome,
+          unidade: def.unidade,
+          quantidadeConsumida: qtdTot,
+          custoTotal: custoTot,
+          custoUnitarioMedio: custoUnitMedio,
+          percentualDoTotal: perc,
+          quantidadePorEmpresa: dadosCons.porEmpresaQtd,
+          custoPorEmpresa: dadosCons.porEmpresaCusto,
+        }
+      },
+    )
+
+    const resumoCustosInsumos: ResumoCustosInsumos = {
+      itens: itensCustosInsumos,
+      custoTotalGeral: Math.round(custoTotalGeralCalculado * 100) / 100,
+      custoMedioPorM3:
+        volumeTotalM3 > 0
+          ? Math.round((custoTotalGeralCalculado / volumeTotalM3) * 100) / 100
+          : 0,
+      volumeTotalM3,
+      totalCargasValidas: qtdCargasValidas,
     }
 
     const totalCriticos =
@@ -888,8 +1172,11 @@ export const PainelService = {
         volumeTotalM3,
         mediaPorCargaM3,
         faturamentoEstimado,
-        custoTotalInsumos,
-        custoMedioM3,
+        custoTotalInsumos: Math.round(custoTotalGeralCalculado * 100) / 100,
+        custoMedioM3:
+          volumeTotalM3 > 0
+            ? Math.round((custoTotalGeralCalculado / volumeTotalM3) * 100) / 100
+            : 0,
         numeroObrasAtendidas: obrasSet.size,
         numeroCidadesAtendidas: cidadesSet.size,
         numeroClientesAtendidos: clientesSet.size,
@@ -905,6 +1192,7 @@ export const PainelService = {
       topCidades,
       mixTracos,
       saldosInsumos,
+      custosInsumos: resumoCustosInsumos,
       alertas: {
         totalCriticos,
         totalAlertas,
