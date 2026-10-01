@@ -402,24 +402,77 @@
     break-inside: avoid !important;
   }
 
-  /* Tabelas */
+  /* Tabelas - Forçar preto no branco limpo nas tabelas e abas da folha */
   table {
     width: 100% !important;
     border-collapse: collapse !important;
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
   }
 
   thead {
     display: table-header-group !important;
     position: static !important;
+    background-color: #f3f4f6 !important;
+    color: #000000 !important;
+  }
+
+  tbody {
+    background-color: #ffffff !important;
+    color: #000000 !important;
   }
 
   tr {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  th {
+    border: 1px solid #000000 !important;
+    color: #000000 !important;
+    background-color: #f3f4f6 !important;
+    font-weight: 700 !important;
+  }
+
+  td {
+    border: 1px solid #6b7280 !important;
+    color: #000000 !important;
+    background-color: #ffffff !important;
   }
 
   tfoot {
     display: table-footer-group !important;
+    background-color: #e5e7eb !important;
+  }
+
+  tfoot td,
+  tfoot tr {
+    background-color: #e5e7eb !important;
+    color: #000000 !important;
+    font-weight: 700 !important;
+    border-top: 2px solid #000000 !important;
+  }
+
+  /* Blocos de card, totais e abas da folha com fundo branco e texto preto */
+  .card,
+  [class*="Card"],
+  [class*="TabsContent"] {
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+  }
+
+  /* Preservar Logo GC MIX */
+  img,
+  img[src*="logo"],
+  img[alt*="GC MIX"],
+  .print-preserve-logo {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    background-color: transparent !important;
   }
 }
 
