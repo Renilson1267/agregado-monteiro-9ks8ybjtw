@@ -1006,4 +1006,3 @@ export function AbaTabelasOficiais({
     </div>
   )
 }
-export default AbaTabelasOficiais
