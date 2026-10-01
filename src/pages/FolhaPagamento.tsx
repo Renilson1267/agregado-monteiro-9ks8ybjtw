@@ -141,9 +141,16 @@ function calcularValorRealEmpresa(
       : l.producao !== undefined && Number(l.producao) > 0
         ? Number(l.producao)
         : obras * valorObra
-    const mensal = Number(l.mensal_liquido || 0)
+    // Regra Valdercleiton: mensal puro = bruto - inss - quinzena (sem comissão e sem ajuda)
+    const mensal = isValdercleiton
+      ? Math.round(
+          (Number(l.bruto || 0) -
+            Number(l.inss || 0) -
+            Number(l.quinzena || 0)) *
+            100,
+        ) / 100
+      : Number(l.mensal_liquido || 0)
     totalFuncionarios += mensal + producao
-
     const vObra = Number(l.vendas_obra || 0)
     const comissaoAuto = calcularComissaoVendas(vObra)
     const comissao = Number(l.comissao || comissaoAuto)
@@ -569,7 +576,7 @@ export function FolhaPagamento() {
           ? Number(l.quinzena)
           : quinzenaCalc
 
-      // Regra Valdercleiton: forçar producaoTotal = 0 e usar mensal_liquido puro sem recálculo com obras
+      // Regra Valdercleiton: forçar producaoTotal = 0 e usar mensal puro = bruto - inss - quinzena (sem comissão e sem ajuda)
       const isValdercleiton = (l.nome || "")
         .toUpperCase()
         .includes("VALDERCLEITON")
@@ -592,41 +599,36 @@ export function FolhaPagamento() {
       const adiantamentoTotal = Number(l.adiantamento || 0)
 
       // Cálculo do MENSAL LÍQUIDO (sem produção)
-      const mensalCalculadoSemProd =
-        isValdercleiton &&
-        l.mensal_liquido !== undefined &&
-        l.mensal_liquido !== null
-          ? Number(l.mensal_liquido)
-          : calcularMensalSemProducao(
-              bruto,
-              inssFinal,
-              familiaFinal,
-              irrfFinal,
-              quinzenaFinal,
-              {
-                limpeza: limpezaTotal,
-                sabado: sabadoTotal,
-                ferias: feriasTotal,
-                ajuda_custo: ajudaTotal,
-                gratificacao: gratificacaoTotal,
-                adiantamento: adiantamentoTotal,
-                comissao: comissaoTotal,
-                vendas_ajuda: vendasAjudaTotal,
-              },
-            )
+      // Para Valdercleiton, mensal PURO = bruto - inss - quinzena (sem comissão e sem ajuda de custo)
+      const mensalCalculadoSemProd = isValdercleiton
+        ? Math.round((bruto - inssFinal - quinzenaFinal) * 100) / 100
+        : calcularMensalSemProducao(
+            bruto,
+            inssFinal,
+            familiaFinal,
+            irrfFinal,
+            quinzenaFinal,
+            {
+              limpeza: limpezaTotal,
+              sabado: sabadoTotal,
+              ferias: feriasTotal,
+              ajuda_custo: ajudaTotal,
+              gratificacao: gratificacaoTotal,
+              adiantamento: adiantamentoTotal,
+              comissao: comissaoTotal,
+              vendas_ajuda: vendasAjudaTotal,
+            },
+          )
 
-      // Se a linha tem mensal_liquido gravado e válido, respeita-o;
-      // se não tiver ou estiver zerado, usa o mensal sem produção
-      const mensalFinal =
-        isValdercleiton &&
-        l.mensal_liquido !== undefined &&
-        l.mensal_liquido !== null
+      // Para Valdercleiton: ignorar resquícios do mensal_liquido gravado e usar SEMPRE o mensal puro
+      // Para demais: se a linha tem mensal_liquido gravado e válido, respeita-o; se não tiver ou estiver zerado, usa o mensal sem produção
+      const mensalFinal = isValdercleiton
+        ? mensalCalculadoSemProd
+        : l.mensal_liquido !== undefined &&
+            l.mensal_liquido !== null &&
+            Number(l.mensal_liquido) !== 0
           ? Number(l.mensal_liquido)
-          : l.mensal_liquido !== undefined &&
-              l.mensal_liquido !== null &&
-              Number(l.mensal_liquido) !== 0
-            ? Number(l.mensal_liquido)
-            : mensalCalculadoSemProd
+          : mensalCalculadoSemProd
 
       const mensalCalc = mensalCalculadoSemProd
 
@@ -974,6 +976,28 @@ export function FolhaPagamento() {
       { valorMes: 0, quinzena: 0, mensal: 0 },
     )
   }, [terceirosProcessados])
+
+  // Helper para identificar Márcio Luan (deve ficar fora da aba MENSAL e de seus totais)
+  const isMarcioLuan = (nome: string | undefined | null) =>
+    (nome || "").toUpperCase().includes("MARCIO LUAN")
+
+  // Terceiros exibidos e somados na aba MENSAL (exclui Márcio Luan — ele fica só na aba VENDAS)
+  const terceirosMensal = useMemo(() => {
+    return terceirosProcessados.filter((t) => !isMarcioLuan(t.nome))
+  }, [terceirosProcessados])
+
+  // Totais de terceiros para a aba MENSAL (sem Márcio Luan)
+  const totaisTerceirosMensal = useMemo(() => {
+    return terceirosMensal.reduce(
+      (acc, t) => {
+        acc.valorMes += t.valorMes
+        acc.quinzena += t.quinzena
+        acc.mensal += t.mensal
+        return acc
+      },
+      { valorMes: 0, quinzena: 0, mensal: 0 },
+    )
+  }, [terceirosMensal])
 
   // TOTAIS PRODUÇÃO
   const totaisProducao = useMemo(() => {
@@ -3382,7 +3406,7 @@ export function FolhaPagamento() {
                       </td>
                       <td className="py-2.5 px-3" colSpan={2}></td>
                     </tr>
-                    {terceirosProcessados.length > 0 && (
+                    {terceirosMensal.length > 0 && (
                       <tr className="border-t border-border/60 bg-muted/70 text-xs">
                         <td className="py-2 px-2 text-center">-</td>
                         <td className="py-2 px-3 sticky left-0 bg-muted/95 z-10 border-r font-semibold">
@@ -3390,12 +3414,13 @@ export function FolhaPagamento() {
                         </td>
                         <td className="py-2 px-2 text-muted-foreground">
                           {linhasGeralProcessadas.length +
-                            terceirosProcessados.length}{" "}
+                            terceirosMensal.length}{" "}
                           pessoas
                         </td>
                         <td className="py-2 px-2 text-right font-mono text-blue-600">
                           {fmtMoeda(
-                            totaisGeral.quinzena + totaisTerceiros.quinzena,
+                            totaisGeral.quinzena +
+                              totaisTerceirosMensal.quinzena,
                           )}
                         </td>
                         <td className="py-2 px-2 text-right font-mono">
@@ -3409,7 +3434,7 @@ export function FolhaPagamento() {
                         </td>
                         <td className="py-2 px-2 text-right font-mono font-bold text-primary bg-primary/20">
                           {fmtMoeda(
-                            totaisGeral.mensal + totaisTerceiros.mensal,
+                            totaisGeral.mensal + totaisTerceirosMensal.mensal,
                           )}
                         </td>
                         <td className="py-2 px-3" colSpan={2}></td>
@@ -3419,8 +3444,8 @@ export function FolhaPagamento() {
                 </table>
               </div>
 
-              {/* TABELA DE TERCEIROS NA ABA MENSAL (60% LÍQUIDO, SEM DESCONTO) */}
-              {terceirosProcessados.length > 0 && (
+              {/* TABELA DE TERCEIROS NA ABA MENSAL (60% LÍQUIDO, SEM DESCONTO — SEM MÁRCIO LUAN) */}
+              {terceirosMensal.length > 0 && (
                 <div className="border-t p-4 space-y-3">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-purple-900 dark:text-purple-300 flex items-center gap-2">
                     <Badge className="bg-purple-600 text-white hover:bg-purple-700 text-[10px]">
@@ -3445,7 +3470,7 @@ export function FolhaPagamento() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
-                        {terceirosProcessados.map((t, idx) => (
+                        {terceirosMensal.map((t, idx) => (
                           <tr key={t.id} className="hover:bg-muted/30">
                             <td className="py-2 px-2 text-center font-mono text-muted-foreground">
                               {idx + 1}
@@ -3472,13 +3497,13 @@ export function FolhaPagamento() {
                         <tr>
                           <td className="py-2 px-2 text-center">-</td>
                           <td className="py-2 px-3">
-                            TOTAL TERCEIROS ({terceirosProcessados.length})
+                            TOTAL TERCEIROS ({terceirosMensal.length})
                           </td>
                           <td className="py-2 px-2 text-right font-mono">
-                            {fmtMoeda(totaisTerceiros.valorMes)}
+                            {fmtMoeda(totaisTerceirosMensal.valorMes)}
                           </td>
                           <td className="py-2 px-2 text-right font-mono text-primary">
-                            {fmtMoeda(totaisTerceiros.mensal)}
+                            {fmtMoeda(totaisTerceirosMensal.mensal)}
                           </td>
                           <td className="py-2 px-3" colSpan={2}></td>
                         </tr>
@@ -5597,7 +5622,7 @@ export function FolhaPagamento() {
               </tfoot>
             </table>
 
-            {terceirosProcessados.length > 0 && (
+            {terceirosMensal.length > 0 && (
               <div className="space-y-1 pt-2">
                 <div className="font-bold text-[10px] uppercase">
                   MENSAL TERCEIROS ({Math.round((1 - percentualQuinzena) * 100)}
@@ -5620,7 +5645,7 @@ export function FolhaPagamento() {
                     </tr>
                   </thead>
                   <tbody>
-                    {terceirosProcessados.map((t, idx) => (
+                    {terceirosMensal.map((t, idx) => (
                       <tr key={t.id}>
                         <td className="border p-1 text-center font-mono">
                           {idx + 1}
@@ -5646,13 +5671,13 @@ export function FolhaPagamento() {
                     <tr>
                       <td className="border p-1.5 text-center">-</td>
                       <td className="border p-1.5">
-                        TOTAL TERCEIROS ({terceirosProcessados.length})
+                        TOTAL TERCEIROS ({terceirosMensal.length})
                       </td>
                       <td className="border p-1.5 text-right font-mono">
-                        {fmtMoeda(totaisTerceiros.valorMes)}
+                        {fmtMoeda(totaisTerceirosMensal.valorMes)}
                       </td>
                       <td className="border p-1.5 text-right font-mono">
-                        {fmtMoeda(totaisTerceiros.mensal)}
+                        {fmtMoeda(totaisTerceirosMensal.mensal)}
                       </td>
                       <td className="border p-1.5" colSpan={3}></td>
                     </tr>
