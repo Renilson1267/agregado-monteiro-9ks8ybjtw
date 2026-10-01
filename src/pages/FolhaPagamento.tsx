@@ -607,8 +607,9 @@ export function FolhaPagamento() {
           ) / 100
 
       // Cálculo do MENSAL LÍQUIDO:
-      // Para Valdercleiton: mensal PURO = bruto - inss - quinzena (A PAGAR da produção NÃO é deduzido dele na MENSAL)
-      // Para demais: deduz aPagarProducao do mensalCalculadoSemProd — MENSAL (LÍQUIDO) = bruto − INSS − quinzena − A PAGAR
+      // MENSAL (LÍQUIDO) = bruto − INSS − quinzena (sem desconto de produção)
+      // Para Valdercleiton: mensal PURO = bruto - inss - quinzena
+      // Para demais: calcularMensalSemProducao (sem dedução de produção na aba MENSAL)
       const mensalCalculadoSemProd = isValdercleiton
         ? Math.round((bruto - inssFinal - quinzenaFinal) * 100) / 100
         : calcularMensalSemProducao(
@@ -629,13 +630,9 @@ export function FolhaPagamento() {
             },
           )
 
-      const mensalComDescontoProducao = isValdercleiton
-        ? mensalCalculadoSemProd
-        : Math.round((mensalCalculadoSemProd - aPagarProducao) * 100) / 100
-
       // Para Valdercleiton: ignorar resquícios do mensal_liquido gravado e usar SEMPRE o mensal puro
       // Para demais: se a linha tem mensal_liquido gravado e válido e modo_calculo === 'Digitado', respeita-o;
-      // caso contrário, usa o mensal calculado deduzindo A PAGAR da produção
+      // caso contrário, usa o mensal calculado sem desconto de produção
       const mensalFinal = isValdercleiton
         ? mensalCalculadoSemProd
         : l.modo_calculo === "Digitado" &&
@@ -643,9 +640,9 @@ export function FolhaPagamento() {
             l.mensal_liquido !== null &&
             Number(l.mensal_liquido) !== 0
           ? Number(l.mensal_liquido)
-          : mensalComDescontoProducao
+          : mensalCalculadoSemProd
 
-      const mensalCalc = mensalComDescontoProducao
+      const mensalCalc = mensalCalculadoSemProd
 
       // Líquido completo para a aba GERAL (mensal + produção à parte)
       const liquidoGeral = Math.round((mensalFinal + producaoTotal) * 100) / 100
@@ -3357,18 +3354,6 @@ export function FolhaPagamento() {
                       <th className="py-2.5 px-2 text-right">INSS</th>
                       <th className="py-2.5 px-2 text-right">FAMÍLIA</th>
                       <th className="py-2.5 px-2 text-right">IRRF</th>
-                      <th className="py-2.5 px-2 text-right font-semibold text-foreground">
-                        PRODUÇÃO
-                      </th>
-                      <th className="py-2.5 px-2 text-right text-emerald-600">
-                        GRATIFICAÇÃO
-                      </th>
-                      <th className="py-2.5 px-2 text-right text-red-600">
-                        ADIANTAMENTO
-                      </th>
-                      <th className="py-2.5 px-2 text-right font-semibold text-foreground">
-                        A PAGAR
-                      </th>
                       <th className="py-2.5 px-2 text-right font-bold text-primary bg-primary/5">
                         MENSAL (LÍQUIDO)
                       </th>
@@ -3399,26 +3384,6 @@ export function FolhaPagamento() {
                         </td>
                         <td className="py-2 px-2 text-right font-mono">
                           {l.irrfFinal > 0 ? fmtMoeda(l.irrfFinal) : "-"}
-                        </td>
-                        <td className="py-2 px-2 text-right font-mono">
-                          {l.producaoTotal > 0
-                            ? fmtMoeda(l.producaoTotal)
-                            : "-"}
-                        </td>
-                        <td className="py-2 px-2 text-right font-mono text-emerald-600">
-                          {l.gratificacaoTotal > 0
-                            ? fmtMoeda(l.gratificacaoTotal)
-                            : "-"}
-                        </td>
-                        <td className="py-2 px-2 text-right font-mono text-red-600">
-                          {l.adiantamentoTotal > 0
-                            ? fmtMoeda(l.adiantamentoTotal)
-                            : "-"}
-                        </td>
-                        <td className="py-2 px-2 text-right font-mono font-semibold">
-                          {l.aPagarProducao !== 0
-                            ? fmtMoeda(l.aPagarProducao)
-                            : "-"}
                         </td>
                         <td className="py-2 px-2 text-right font-mono font-bold text-primary bg-primary/5 whitespace-nowrap">
                           {fmtMoeda(l.mensalFinal)}
@@ -3451,18 +3416,6 @@ export function FolhaPagamento() {
                       <td className="py-2.5 px-2 text-right font-mono">
                         {fmtMoeda(totaisGeral.irrf)}
                       </td>
-                      <td className="py-2.5 px-2 text-right font-mono">
-                        {fmtMoeda(totaisGeral.producao)}
-                      </td>
-                      <td className="py-2.5 px-2 text-right font-mono text-emerald-600">
-                        {fmtMoeda(totaisGeral.gratificacao)}
-                      </td>
-                      <td className="py-2.5 px-2 text-right font-mono text-red-600">
-                        {fmtMoeda(totaisGeral.adiantamento)}
-                      </td>
-                      <td className="py-2.5 px-2 text-right font-mono font-semibold">
-                        {fmtMoeda(totaisGeral.aPagarProducao)}
-                      </td>
                       <td className="py-2.5 px-2 text-right font-mono text-primary bg-primary/10">
                         {fmtMoeda(totaisGeral.mensal)}
                       </td>
@@ -3493,18 +3446,6 @@ export function FolhaPagamento() {
                         </td>
                         <td className="py-2 px-2 text-right font-mono">
                           {fmtMoeda(totaisGeral.irrf)}
-                        </td>
-                        <td className="py-2 px-2 text-right font-mono">
-                          {fmtMoeda(totaisGeral.producao)}
-                        </td>
-                        <td className="py-2 px-2 text-right font-mono text-emerald-600">
-                          {fmtMoeda(totaisGeral.gratificacao)}
-                        </td>
-                        <td className="py-2 px-2 text-right font-mono text-red-600">
-                          {fmtMoeda(totaisGeral.adiantamento)}
-                        </td>
-                        <td className="py-2 px-2 text-right font-mono font-semibold">
-                          {fmtMoeda(totaisGeral.aPagarProducao)}
                         </td>
                         <td className="py-2 px-2 text-right font-mono font-bold text-primary bg-primary/20">
                           {fmtMoeda(
@@ -5634,10 +5575,6 @@ export function FolhaPagamento() {
                   <th className="border p-1 text-right">INSS</th>
                   <th className="border p-1 text-right">FAMÍLIA</th>
                   <th className="border p-1 text-right">IRRF</th>
-                  <th className="border p-1 text-right">PRODUÇÃO</th>
-                  <th className="border p-1 text-right">GRATIF.</th>
-                  <th className="border p-1 text-right">ADIANT.</th>
-                  <th className="border p-1 text-right">A PAGAR</th>
                   <th className="border p-1 text-right font-bold">
                     MENSAL (LÍQUIDO)
                   </th>
@@ -5665,24 +5602,6 @@ export function FolhaPagamento() {
                     <td className="border p-1 text-right font-mono">
                       {l.irrfFinal > 0 ? fmtMoeda(l.irrfFinal) : "-"}
                     </td>
-                    <td className="border p-1 text-right font-mono">
-                      {l.producaoTotal > 0 ? fmtMoeda(l.producaoTotal) : "-"}
-                    </td>
-                    <td className="border p-1 text-right font-mono">
-                      {l.gratificacaoTotal > 0
-                        ? fmtMoeda(l.gratificacaoTotal)
-                        : "-"}
-                    </td>
-                    <td className="border p-1 text-right font-mono text-red-600">
-                      {l.adiantamentoTotal > 0
-                        ? fmtMoeda(l.adiantamentoTotal)
-                        : "-"}
-                    </td>
-                    <td className="border p-1 text-right font-mono font-semibold">
-                      {l.aPagarProducao !== 0
-                        ? fmtMoeda(l.aPagarProducao)
-                        : "-"}
-                    </td>
                     <td className="border p-1 text-right font-mono font-bold">
                       {fmtMoeda(l.mensalFinal)}
                     </td>
@@ -5709,18 +5628,6 @@ export function FolhaPagamento() {
                   </td>
                   <td className="border p-1 text-right font-mono">
                     {fmtMoeda(totaisGeral.irrf)}
-                  </td>
-                  <td className="border p-1 text-right font-mono">
-                    {fmtMoeda(totaisGeral.producao)}
-                  </td>
-                  <td className="border p-1 text-right font-mono">
-                    {fmtMoeda(totaisGeral.gratificacao)}
-                  </td>
-                  <td className="border p-1 text-right font-mono text-red-600">
-                    {fmtMoeda(totaisGeral.adiantamento)}
-                  </td>
-                  <td className="border p-1 text-right font-mono font-semibold">
-                    {fmtMoeda(totaisGeral.aPagarProducao)}
                   </td>
                   <td className="border p-1 text-right font-mono">
                     {fmtMoeda(totaisGeral.mensal)}
