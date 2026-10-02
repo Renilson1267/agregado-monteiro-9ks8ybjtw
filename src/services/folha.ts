@@ -332,6 +332,8 @@ export class FolhaService {
     empresaId: string,
     competencia: string,
     campos: {
+      obras?: number
+      valor_obra?: number
       limpeza?: number
       sabado?: number
       feriado?: number
@@ -344,6 +346,10 @@ export class FolhaService {
     const dadosUpdate: Record<string, any> = {
       updated_at: new Date().toISOString(),
     }
+    if (campos.obras !== undefined)
+      dadosUpdate.obras = Number(campos.obras || 0)
+    if (campos.valor_obra !== undefined)
+      dadosUpdate.valor_obra = Number(campos.valor_obra || 0)
     if (campos.limpeza !== undefined)
       dadosUpdate.limpeza = Number(campos.limpeza || 0)
     if (campos.sabado !== undefined)
@@ -358,6 +364,31 @@ export class FolhaService {
       dadosUpdate.gratificacao = Number(campos.gratificacao || 0)
     if (campos.adiantamento !== undefined)
       dadosUpdate.adiantamento = Number(campos.adiantamento || 0)
+
+    // Se obras ou valor_obra foram atualizados, atualiza também a coluna calculada 'producao' = obras * valor_obra
+    if (campos.obras !== undefined || campos.valor_obra !== undefined) {
+      // Busca valores atuais da linha se um dos dois não foi passado
+      if (campos.obras === undefined || campos.valor_obra === undefined) {
+        const { data: linhaAtual } = await (supabase as any)
+          .from("folha_pagamento_linhas")
+          .select("obras, valor_obra")
+          .eq("id", id)
+          .single()
+        const obs =
+          campos.obras !== undefined
+            ? campos.obras
+            : Number(linhaAtual?.obras || 0)
+        const valOb =
+          campos.valor_obra !== undefined
+            ? campos.valor_obra
+            : Number(linhaAtual?.valor_obra ?? 20)
+        dadosUpdate.producao = Math.round(obs * valOb * 100) / 100
+      } else {
+        dadosUpdate.producao =
+          Math.round(Number(campos.obras) * Number(campos.valor_obra) * 100) /
+          100
+      }
+    }
 
     const { data, error } = await (supabase as any)
       .from("folha_pagamento_linhas")

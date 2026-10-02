@@ -734,10 +734,29 @@ export function FolhaPagamento() {
   const isLancadorVendas = (nome: string | undefined | null) =>
     (nome || "").toUpperCase().includes("VALDERCLEITON")
 
-  // Linhas da Aba PRODUÇÃO (filtra fora Valdercleiton — ele fica exclusivamente na aba de Vendas)
+  // Helper: identifica colaboradores que NÃO têm produção e não devem aparecer na aba PRODUÇÃO nem na impressão dela:
+  // - Valdercleiton (vendas exclusivas)
+  // - Patrícia de Lima Gonçalves (SJE - secretária)
+  // - Edilson Pereira de Oliveira (Monteiro - vigia)
+  // - Guilherme Alves Cordeiro do Amaral (Monteiro - encarregado)
+  const naoTemProducao = (nome: string | undefined | null) => {
+    const n = (nome || "")
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+    return (
+      n.includes("VALDERCLEITON") ||
+      n.includes("PATRICIA DE LIMA") ||
+      n.includes("EDILSON PEREIRA") ||
+      n.includes("GUILHERME ALVES CORDEIRO")
+    )
+  }
+
+  // Linhas da Aba PRODUÇÃO (filtra fora quem não tem produção; inclui colaboradores ativos como Victor Emanoel)
   const linhasProducao = useMemo(() => {
-    return funcionariosFiltrados
-      .filter((l) => !isLancadorVendas(l.nome))
+    // 1. Linhas dos funcionários filtrados que têm produção
+    const lista = funcionariosFiltrados
+      .filter((l) => !naoTemProducao(l.nome))
       .map((l) => {
         const producaoTotal = calcularProducaoTotal(l)
         const aPagar = calcularAPagarProducao(l)
@@ -747,7 +766,82 @@ export function FolhaPagamento() {
           aPagar,
         }
       })
-  }, [funcionariosFiltrados])
+
+    // 2. Garantir que VICTOR EMANOEL ROMÃO DA SILVA apareça caso a unidade seja MONTEIRO ou empresa Monteiro ativa
+    const jaTemVictor = lista.some((l) =>
+      (l.nome || "")
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .includes("VICTOR EMANOEL"),
+    )
+
+    if (!jaTemVictor) {
+      const victorCadastrado = funcionariosCadastradosEmpresa.find((f) =>
+        (f.nome || "")
+          .toUpperCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .includes("VICTOR EMANOEL"),
+      )
+      const ehUnidadeMonteiro =
+        empresaAtiva?.id === ID_EMPRESA_MONTEIRO ||
+        empresaAtiva?.nome?.toUpperCase().includes("MONTEIRO") ||
+        victorCadastrado !== undefined
+
+      if (victorCadastrado && ehUnidadeMonteiro) {
+        const linhaVictor: FolhaPagamentoLinha = {
+          id: victorCadastrado.id,
+          empresa_id: victorCadastrado.empresa_id || empresaAtiva?.id || "",
+          competencia,
+          tipo: "Funcionario",
+          nome: victorCadastrado.nome,
+          funcao: victorCadastrado.funcao || "MOTORISTA",
+          cargo: victorCadastrado.cargo || victorCadastrado.funcao || "MOTORISTA",
+          unidade: victorCadastrado.unidade || "MONTEIRO",
+          salario_base: Number(victorCadastrado.bruto || 0),
+          bruto: Number(victorCadastrado.bruto || 0),
+          filhos: Number(victorCadastrado.filhos || 0),
+          inss: 0,
+          familia: 0,
+          ir: 0,
+          quinzena: 0,
+          quinzena_2: 0,
+          adiantamento: 0,
+          gratificacao: 0,
+          obras: 0,
+          valor_obra: 20,
+          producao: 0,
+          limpeza: 0,
+          sabado: 0,
+          feriado: 0,
+          ferias: 0,
+          ajuda_custo: 0,
+          vendas_obra: 0,
+          comissao: 0,
+          vendas_ajuda: 0,
+          mensal_liquido: Number(victorCadastrado.bruto || 0),
+          salario_liquido: Number(victorCadastrado.bruto || 0),
+          conta: victorCadastrado.conta || "",
+          pix: victorCadastrado.pix || "",
+          chave_pix: victorCadastrado.pix || "",
+          modo_calculo: "Calculado",
+          oculto: false,
+          inativo: false,
+          funcionario_id: victorCadastrado.id,
+        }
+        const producaoTotal = calcularProducaoTotal(linhaVictor)
+        const aPagar = calcularAPagarProducao(linhaVictor)
+        lista.push({
+          ...linhaVictor,
+          producaoTotal,
+          aPagar,
+        })
+      }
+    }
+
+    return lista
+  }, [funcionariosFiltrados, funcionariosCadastradosEmpresa, empresaAtiva, competencia])
 
   // Dados exclusivos do lançador de vendas (Valdercleiton) para a aba VENDAS
   const dadosLancadorVendas = useMemo(() => {
@@ -1539,8 +1633,16 @@ export function FolhaPagamento() {
   }
 
   // Estado de edição inline da aba PRODUÇÃO
-  // Colunas editáveis: 'limpeza' | 'sabado' | 'feriado' | 'ajuda_custo' | 'gratificacao' | 'adiantamento'
-  type CampoProducaoEditavel = "limpeza" | "sabado" | "feriado" | "ajuda_custo" | "gratificacao" | "adiantamento"
+  // Colunas editáveis: 'obras' | 'valor_obra' | 'limpeza' | 'sabado' | 'feriado' | 'ajuda_custo' | 'gratificacao' | 'adiantamento'
+  type CampoProducaoEditavel =
+    | "obras"
+    | "valor_obra"
+    | "limpeza"
+    | "sabado"
+    | "feriado"
+    | "ajuda_custo"
+    | "gratificacao"
+    | "adiantamento"
 
   const [celulaAtivaProducao, setCelulaAtivaProducao] = useState<{
     linhaId: string
@@ -1569,7 +1671,7 @@ export function FolhaPagamento() {
     campo: CampoProducaoEditavel,
     valorAtual: number | undefined | null,
   ) => {
-    const v = Number(valorAtual || 0)
+    const v = Number(valorAtual ?? (campo === "valor_obra" ? 20 : 0))
     setCelulaAtivaProducao({ linhaId, campo })
     setValorTempProducao(v > 0 ? String(v).replace(".", ",") : "")
   }
@@ -1605,29 +1707,68 @@ export function FolhaPagamento() {
     setCelulaAtivaProducao(null)
     setSalvandoCelulaProducao(chaveSalvando)
 
-    // Atualização otimista imediata na lista de linhas
-    setLinhas((prev) =>
-      prev.map((l) => {
-        if (l.id !== linhaId) return l
-        return {
-          ...l,
-          [campo]: numNovo,
-          updated_at: new Date().toISOString(),
-        }
-      }),
-    )
+    // Atualização otimista imediata na lista de linhas (recalculando producao se for obras ou valor_obra)
+    setLinhas((prev) => {
+      const index = prev.findIndex((l) => l.id === linhaId)
+      const novaLinha = {
+        ...linhaAtual,
+        [campo]: numNovo,
+        updated_at: new Date().toISOString(),
+      }
+      if (campo === "obras" || campo === "valor_obra") {
+        const obs = campo === "obras" ? numNovo : Number(linhaAtual.obras || 0)
+        const valOb = campo === "valor_obra" ? numNovo : Number(linhaAtual.valor_obra ?? 20)
+        novaLinha.producao = Math.round(obs * valOb * 100) / 100
+      }
+      if (index >= 0) {
+        const copia = [...prev]
+        copia[index] = novaLinha
+        return copia
+      }
+      // Se a linha ainda não existia em 'linhas' (ex: Victor inserido virtualmente), adiciona
+      return [...prev, novaLinha]
+    })
 
     try {
-      const linhaGravada = await FolhaService.atualizarCamposProducaoLinha(
-        linhaId,
-        empresaAtiva.id,
-        competencia,
-        { [campo]: numNovo },
-      )
-      // Mescla com retorno do backend
-      setLinhas((prev) =>
-        prev.map((l) => (l.id === linhaId ? { ...l, ...linhaGravada } : l)),
-      )
+      // Se a linha já existe no banco (tem id real na folha_pagamento_linhas)
+      const existeNoBanco = linhas.some((l) => l.id === linhaId)
+      if (existeNoBanco) {
+        const linhaGravada = await FolhaService.atualizarCamposProducaoLinha(
+          linhaId,
+          empresaAtiva.id,
+          competencia,
+          { [campo]: numNovo },
+        )
+        // Mescla com retorno do backend
+        setLinhas((prev) =>
+          prev.map((l) => (l.id === linhaId ? { ...l, ...linhaGravada } : l)),
+        )
+      } else {
+        // Linha nova (ex: Victor gerado na competência) -> salva linha completa
+        const novaLinhaCompleta = {
+          ...linhaAtual,
+          [campo]: numNovo,
+          producao:
+            campo === "obras" || campo === "valor_obra"
+              ? Math.round(
+                  (campo === "obras" ? numNovo : Number(linhaAtual.obras || 0)) *
+                    (campo === "valor_obra"
+                      ? numNovo
+                      : Number(linhaAtual.valor_obra ?? 20)) *
+                    100,
+                ) / 100
+              : linhaAtual.producao,
+        }
+        const linhaGravada = await FolhaService.salvarLinha(
+          novaLinhaCompleta as any,
+          empresaAtiva.id,
+          competencia,
+        )
+        setLinhas((prev) => {
+          const filtered = prev.filter((l) => l.id !== linhaId)
+          return [...filtered, linhaGravada]
+        })
+      }
       toast({
         title: "Produção salva",
         description: `${linhaAtual.nome} atualizado com sucesso.`,
@@ -1640,6 +1781,7 @@ export function FolhaPagamento() {
           return {
             ...l,
             [campo]: valorAntigo,
+            updated_at: new Date().toISOString(),
           }
         }),
       )
@@ -1651,8 +1793,6 @@ export function FolhaPagamento() {
     } finally {
       setSalvandoCelulaProducao(null)
     }
-  }
-
   // Formatação moeda BRL
   const fmtMoeda = (val: number | undefined | null) => {
     if (val === null || val === undefined) return "-"
@@ -3496,8 +3636,22 @@ export function FolhaPagamento() {
                       <th className="py-2.5 px-3 sticky left-0 bg-muted/95 z-10">
                         NOME
                       </th>
-                      <th className="py-2.5 px-2 text-center">OBRAS</th>
-                      <th className="py-2.5 px-2 text-right">VALOR/OBRA</th>
+                      <th
+                        className="py-2.5 px-2 text-center"
+                        title="Clique na célula para digitar diretamente"
+                      >
+                        <span className="cursor-help border-b border-dotted border-muted-foreground/60">
+                          OBRAS
+                        </span>
+                      </th>
+                      <th
+                        className="py-2.5 px-2 text-right"
+                        title="Clique na célula para digitar diretamente"
+                      >
+                        <span className="cursor-help border-b border-dotted border-muted-foreground/60">
+                          VALOR/OBRA
+                        </span>
+                      </th>
                       <th
                         className="py-2.5 px-2 text-right"
                         title="Clique na célula para digitar diretamente"
@@ -3568,11 +3722,108 @@ export function FolhaPagamento() {
                         <td className="py-2 px-3 font-semibold text-foreground sticky left-0 bg-background z-10 border-r whitespace-nowrap">
                           {l.nome}
                         </td>
-                        <td className="py-2 px-2 text-center font-mono font-bold text-primary">
-                          {l.obras > 0 ? l.obras : "-"}
+                        {/* 0. OBRAS (inline) */}
+                        <td
+                          className="py-1 px-1 text-center font-mono cursor-pointer hover:bg-primary/10 transition-colors"
+                          onClick={() => {
+                            if (
+                              celulaAtivaProducao?.linhaId !== l.id ||
+                              celulaAtivaProducao?.campo !== "obras"
+                            ) {
+                              iniciarEdicaoCelula(l.id, "obras", l.obras)
+                            }
+                          }}
+                          title="Clique para editar Quantidade de Obras"
+                        >
+                          {celulaAtivaProducao?.linhaId === l.id &&
+                          celulaAtivaProducao?.campo === "obras" ? (
+                            <Input
+                              autoFocus
+                              className="h-7 w-16 text-center font-mono text-xs px-1 py-0 mx-auto bg-background border-primary focus-visible:ring-1"
+                              value={valorTempProducao}
+                              onChange={(e) =>
+                                setValorTempProducao(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault()
+                                  salvarEdicaoCelula(l.id, "obras")
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault()
+                                  cancelarEdicaoCelula()
+                                }
+                              }}
+                              onBlur={() => salvarEdicaoCelula(l.id, "obras")}
+                              placeholder="0"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center gap-1 px-1 py-1 rounded">
+                              {salvandoCelulaProducao === `${l.id}-obras` ? (
+                                <RefreshCw className="h-3 w-3 animate-spin text-primary" />
+                              ) : null}
+                              <span
+                                className={
+                                  Number(l.obras || 0) > 0
+                                    ? "font-bold text-primary font-mono"
+                                    : "text-muted-foreground font-mono"
+                                }
+                              >
+                                {Number(l.obras || 0) > 0 ? l.obras : "-"}
+                              </span>
+                            </div>
+                          )}
                         </td>
-                        <td className="py-2 px-2 text-right font-mono text-muted-foreground">
-                          {l.obras > 0 ? fmtMoeda(l.valor_obra) : "-"}
+
+                        {/* 0.1 VALOR/OBRA (inline) */}
+                        <td
+                          className="py-1 px-1 text-right font-mono cursor-pointer hover:bg-primary/10 transition-colors"
+                          onClick={() => {
+                            if (
+                              celulaAtivaProducao?.linhaId !== l.id ||
+                              celulaAtivaProducao?.campo !== "valor_obra"
+                            ) {
+                              iniciarEdicaoCelula(l.id, "valor_obra", l.valor_obra)
+                            }
+                          }}
+                          title="Clique para editar Valor por Obra"
+                        >
+                          {celulaAtivaProducao?.linhaId === l.id &&
+                          celulaAtivaProducao?.campo === "valor_obra" ? (
+                            <Input
+                              autoFocus
+                              className="h-7 w-20 text-right font-mono text-xs px-1 py-0 ml-auto bg-background border-primary focus-visible:ring-1"
+                              value={valorTempProducao}
+                              onChange={(e) =>
+                                setValorTempProducao(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault()
+                                  salvarEdicaoCelula(l.id, "valor_obra")
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault()
+                                  cancelarEdicaoCelula()
+                                }
+                              }}
+                              onBlur={() => salvarEdicaoCelula(l.id, "valor_obra")}
+                              placeholder="20,00"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-end gap-1 px-1 py-1 rounded">
+                              {salvandoCelulaProducao === `${l.id}-valor_obra` ? (
+                                <RefreshCw className="h-3 w-3 animate-spin text-primary" />
+                              ) : null}
+                              <span
+                                className={
+                                  Number(l.obras || 0) > 0 || Number(l.valor_obra || 0) > 0
+                                    ? "text-muted-foreground font-mono"
+                                    : "text-muted-foreground font-mono"
+                                }
+                              >
+                                {fmtMoeda(l.valor_obra ?? 20)}
+                              </span>
+                            </div>
+                          )}
                         </td>
                         {/* 1. LIMP/LUBRIF. (inline) */}
                         <td
