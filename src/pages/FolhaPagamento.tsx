@@ -627,8 +627,9 @@ export function FolhaPagamento() {
       const mensalFinal = mensalCalculadoSemProd
       const mensalCalc = mensalCalculadoSemProd
 
-      // Líquido completo para a aba GERAL (mensal + produção à parte)
-      const liquidoGeral = Math.round((mensalFinal + producaoTotal) * 100) / 100
+      // Líquido completo para a aba GERAL: mensal puro + A PAGAR da produção (0 para Valdercleiton)
+      const liquidoGeral =
+        Math.round((mensalFinal + aPagarProducao) * 100) / 100
       const liquidoComposto = liquidoGeral
 
       const isInssSobrescrito =
@@ -2052,9 +2053,9 @@ export function FolhaPagamento() {
                       </th>
                       <th
                         className="py-2.5 px-2 text-right text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50/50 dark:bg-emerald-950/20"
-                        title="Produção Total (Obras × Valor/Obra)"
+                        title="Produção A Pagar (Produção Crua + Gratificação + Limpeza + Sábado + Feriado + Ajuda − Adiantamento)"
                       >
-                        PRODUÇÃO (+)
+                        PRODUÇÃO (A PAGAR)
                       </th>
                       <th
                         className="py-2.5 px-2 text-right text-muted-foreground font-semibold bg-blue-50/40 dark:bg-blue-950/20"
@@ -2186,12 +2187,12 @@ export function FolhaPagamento() {
                                 {l.filhos > 0 ? l.filhos : 0}
                               </td>
 
-                              {/* PRODUÇÃO VISÍVEL NA ABA GERAL */}
+                              {/* PRODUÇÃO VISÍVEL NA ABA GERAL: A PAGAR DA PRODUÇÃO */}
                               <td className="py-2 px-2 text-right font-mono whitespace-nowrap text-emerald-700 dark:text-emerald-300 bg-emerald-50/30 dark:bg-emerald-950/10">
                                 <div className="flex items-center justify-end gap-1">
                                   <span>
-                                    {l.producaoTotal > 0
-                                      ? `+${fmtMoeda(l.producaoTotal)}`
+                                    {l.aPagarProducao > 0
+                                      ? `+${fmtMoeda(l.aPagarProducao)}`
                                       : fmtMoeda(0)}
                                   </span>
                                   {l.obras > 0 && (
@@ -2360,134 +2361,98 @@ export function FolhaPagamento() {
                                       </div>
                                     </div>
 
-                                    {/* Grid de todos os componentes */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
-                                      {/* Bruto */}
-                                      <div className="bg-muted/50 p-2 rounded border">
-                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                          Salário Bruto (+)
-                                        </div>
-                                        <div className="font-mono font-bold text-foreground text-sm">
-                                          {fmtMoeda(l.bruto)}
-                                        </div>
+                                    {/* Grid de composição: MENSAL PURO e A PAGAR PRODUÇÃO */}
+                                    <div className="space-y-2">
+                                      <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                                        Composição do A PAGAR da Produção
                                       </div>
-
-                                      {/* INSS */}
-                                      <div className="bg-red-50/50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-900/30">
-                                        <div className="text-[10px] text-red-700 dark:text-red-300 uppercase font-semibold">
-                                          INSS (−)
-                                        </div>
-                                        <div className="font-mono font-bold text-red-600 dark:text-red-400 text-sm">
-                                          {l.inssFinal > 0
-                                            ? `−${fmtMoeda(l.inssFinal)}`
-                                            : fmtMoeda(0)}
-                                        </div>
-                                      </div>
-
-                                      {/* IRRF */}
-                                      <div className="bg-red-50/50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-900/30">
-                                        <div className="text-[10px] text-red-700 dark:text-red-300 uppercase font-semibold">
-                                          IRRF (−)
-                                        </div>
-                                        <div className="font-mono font-bold text-red-600 dark:text-red-400 text-sm">
-                                          {l.irrfFinal > 0
-                                            ? `−${fmtMoeda(l.irrfFinal)}`
-                                            : fmtMoeda(0)}
-                                        </div>
-                                      </div>
-
-                                      {/* Família */}
-                                      <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded border border-emerald-200 dark:border-emerald-900/30">
-                                        <div className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-semibold">
-                                          Salário Família (+)
-                                        </div>
-                                        <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                                          {l.familiaFinal > 0
-                                            ? `+${fmtMoeda(l.familiaFinal)}`
-                                            : fmtMoeda(0)}
-                                        </div>
-                                      </div>
-
-                                      {/* Quinzena */}
-                                      <div className="bg-blue-50/50 dark:bg-blue-950/20 p-2 rounded border border-blue-200 dark:border-blue-900/30">
-                                        <div className="text-[10px] text-blue-700 dark:text-blue-300 uppercase font-semibold">
-                                          Quinzena (−)
-                                        </div>
-                                        <div className="font-mono font-bold text-blue-600 dark:text-blue-400 text-sm">
-                                          {l.quinzenaFinal > 0
-                                            ? `−${fmtMoeda(l.quinzenaFinal)}`
-                                            : fmtMoeda(0)}
-                                        </div>
-                                      </div>
-
-                                      {/* Adiantamento */}
-                                      <div className="bg-red-50/50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-900/30">
-                                        <div className="text-[10px] text-red-700 dark:text-red-300 uppercase font-semibold">
-                                          Adiantamento (−)
-                                        </div>
-                                        <div className="font-mono font-bold text-red-600 dark:text-red-400 text-sm">
-                                          {l.adiantamentoTotal > 0
-                                            ? `−${fmtMoeda(l.adiantamentoTotal)}`
-                                            : fmtMoeda(0)}
-                                        </div>
-                                      </div>
-
-                                      {/* Total Produção à Parte (detalhado na aba Produção) */}
-                                      <div
-                                        className={`p-2 rounded border ${
-                                          l.producaoTotal > 0
-                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300"
-                                            : "bg-muted/40"
-                                        }`}
-                                      >
-                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                          Produção à Parte (+)
-                                        </div>
-                                        <div className="font-mono font-bold text-foreground text-sm">
-                                          {l.producaoTotal > 0
-                                            ? `+${fmtMoeda(l.producaoTotal)}`
-                                            : fmtMoeda(0)}
-                                        </div>
-                                        <div className="text-[9px] text-muted-foreground">
-                                          Ver detalhes na aba Produção
-                                        </div>
-                                      </div>
-
-                                      {/* Comissão Vendas */}
-                                      <div
-                                        className={`p-2 rounded border ${
-                                          l.comissaoTotal > 0
-                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300"
-                                            : "bg-muted/40"
-                                        }`}
-                                      >
-                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                          Comissão Vendas (+)
-                                        </div>
-                                        <div className="font-mono font-bold text-foreground text-sm">
-                                          {l.comissaoTotal > 0
-                                            ? `+${fmtMoeda(l.comissaoTotal)}`
-                                            : fmtMoeda(0)}
-                                        </div>
-                                      </div>
-
-                                      {/* Vendas Ajuda */}
-                                      {l.vendasAjudaTotal > 0 && (
-                                        <div className="p-2 rounded border bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300">
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
+                                        <div className="bg-muted/40 p-2 rounded border">
                                           <div className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                            Vendas Ajuda (+)
+                                            Produção Crua (+)
                                           </div>
                                           <div className="font-mono font-bold text-foreground text-sm">
-                                            +{fmtMoeda(l.vendasAjudaTotal)}
+                                            {fmtMoeda(l.producaoTotal)}
+                                          </div>
+                                          {l.obras > 0 && (
+                                            <div className="text-[9px] text-muted-foreground">
+                                              {l.obras} obras
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded border border-emerald-200 dark:border-emerald-900/30">
+                                          <div className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-semibold">
+                                            Gratificação (+)
+                                          </div>
+                                          <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                                            {l.gratificacaoTotal > 0
+                                              ? `+${fmtMoeda(l.gratificacaoTotal)}`
+                                              : fmtMoeda(0)}
                                           </div>
                                         </div>
-                                      )}
+
+                                        <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded border border-emerald-200 dark:border-emerald-900/30">
+                                          <div className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-semibold">
+                                            Limpeza (+)
+                                          </div>
+                                          <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                                            {l.limpezaTotal > 0
+                                              ? `+${fmtMoeda(l.limpezaTotal)}`
+                                              : fmtMoeda(0)}
+                                          </div>
+                                        </div>
+
+                                        <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded border border-emerald-200 dark:border-emerald-900/30">
+                                          <div className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-semibold">
+                                            Sábado (+)
+                                          </div>
+                                          <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                                            {l.sabadoTotal > 0
+                                              ? `+${fmtMoeda(l.sabadoTotal)}`
+                                              : fmtMoeda(0)}
+                                          </div>
+                                        </div>
+
+                                        <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded border border-emerald-200 dark:border-emerald-900/30">
+                                          <div className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-semibold">
+                                            Feriado (+)
+                                          </div>
+                                          <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                                            {Number(l.feriado || 0) > 0
+                                              ? `+${fmtMoeda(Number(l.feriado || 0))}`
+                                              : fmtMoeda(0)}
+                                          </div>
+                                        </div>
+
+                                        <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded border border-emerald-200 dark:border-emerald-900/30">
+                                          <div className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-semibold">
+                                            Ajuda Custo (+)
+                                          </div>
+                                          <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                                            {l.ajudaTotal > 0
+                                              ? `+${fmtMoeda(l.ajudaTotal)}`
+                                              : fmtMoeda(0)}
+                                          </div>
+                                        </div>
+
+                                        <div className="bg-red-50/50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-900/30">
+                                          <div className="text-[10px] text-red-700 dark:text-red-300 uppercase font-semibold">
+                                            Adiantamento (−)
+                                          </div>
+                                          <div className="font-mono font-bold text-red-600 dark:text-red-400 text-sm">
+                                            {l.adiantamentoTotal > 0
+                                              ? `−${fmtMoeda(l.adiantamentoTotal)}`
+                                              : fmtMoeda(0)}
+                                          </div>
+                                        </div>
+                                      </div>
                                     </div>
 
-                                    {/* Resumo da Equação em Linha */}
-                                    <div className="bg-muted/40 p-2 rounded text-[11px] font-mono text-muted-foreground flex flex-wrap items-center gap-1">
+                                    {/* Resumo da Equação em Linha com Produção (A PAGAR) */}
+                                    <div className="bg-muted/40 p-2.5 rounded text-[11px] font-mono text-muted-foreground flex flex-wrap items-center gap-1.5 border">
                                       <span className="font-bold text-foreground">
-                                        Soma discriminada:
+                                        Equação do Líquido:
                                       </span>
                                       <span>{fmtMoeda(l.bruto)} (Bruto)</span>
                                       {l.inssFinal > 0 && (
@@ -2500,42 +2465,21 @@ export function FolhaPagamento() {
                                           − {fmtMoeda(l.irrfFinal)} (IRRF)
                                         </span>
                                       )}
-                                      {l.familiaFinal > 0 && (
-                                        <span>
-                                          + {fmtMoeda(l.familiaFinal)} (Família)
-                                        </span>
-                                      )}
                                       {l.quinzenaFinal > 0 && (
                                         <span>
                                           − {fmtMoeda(l.quinzenaFinal)}{" "}
                                           (Quinzena)
                                         </span>
                                       )}
-                                      {l.adiantamentoTotal > 0 && (
-                                        <span>
-                                          − {fmtMoeda(l.adiantamentoTotal)}{" "}
-                                          (Adiant.)
-                                        </span>
-                                      )}
-                                      {l.producaoTotal > 0 && (
-                                        <span>
-                                          + {fmtMoeda(l.producaoTotal)}{" "}
-                                          (Produção)
-                                        </span>
-                                      )}
-                                      {l.comissaoTotal > 0 && (
-                                        <span>
-                                          + {fmtMoeda(l.comissaoTotal)}{" "}
-                                          (Comissão)
-                                        </span>
-                                      )}
-                                      {l.vendasAjudaTotal > 0 && (
-                                        <span>
-                                          + {fmtMoeda(l.vendasAjudaTotal)}{" "}
-                                          (Vendas Ajuda)
-                                        </span>
-                                      )}
-                                      <span className="font-bold text-primary ml-1">
+                                      <span className="text-muted-foreground font-semibold">
+                                        = {fmtMoeda(l.mensalFinal)} (Mensal
+                                        Puro)
+                                      </span>
+                                      <span className="text-emerald-700 dark:text-emerald-300 font-bold">
+                                        + {fmtMoeda(l.aPagarProducao)} (PRODUÇÃO
+                                        A PAGAR)
+                                      </span>
+                                      <span className="font-bold text-primary ml-1 text-xs">
                                         = {fmtMoeda(l.liquidoGeral)} (LÍQUIDO
                                         TOTAL)
                                       </span>
@@ -2568,8 +2512,8 @@ export function FolhaPagamento() {
                         {totaisGeral.filhos}
                       </td>
                       <td className="py-2.5 px-2 text-right font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50/30 dark:bg-emerald-950/10">
-                        {totaisGeral.producao > 0
-                          ? `+${fmtMoeda(totaisGeral.producao)}`
+                        {totaisGeral.aPagarProducao > 0
+                          ? `+${fmtMoeda(totaisGeral.aPagarProducao)}`
                           : fmtMoeda(0)}
                       </td>
                       <td className="py-2.5 px-2 text-center font-mono text-muted-foreground bg-blue-50/20 dark:bg-blue-950/10">
@@ -2615,7 +2559,7 @@ export function FolhaPagamento() {
                           {totaisGeral.filhos}
                         </td>
                         <td className="py-2.5 px-2 text-right font-mono text-emerald-600">
-                          {fmtMoeda(totaisGeral.producao)}
+                          {fmtMoeda(totaisGeral.aPagarProducao)}
                         </td>
                         <td className="py-2.5 px-2 text-center font-mono text-muted-foreground">
                           —
@@ -2637,7 +2581,7 @@ export function FolhaPagamento() {
                         <td className="py-2.5 px-3" colSpan={4}></td>
                       </tr>
                     )}
-                    {/* Linha adicional no rodapé detalhando totais dos componentes extras */}
+                    {/* Linha adicional no rodapé detalhando totais dos componentes da GERAL */}
                     <tr className="bg-muted/60 text-[11px] border-t border-border font-normal">
                       <td colSpan={17} className="py-2 px-4">
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground font-mono">
@@ -2655,36 +2599,18 @@ export function FolhaPagamento() {
                               IRRF: −{fmtMoeda(totaisGeral.irrf)}
                             </span>
                           )}
-                          {totaisGeral.familia > 0 && (
-                            <span className="text-emerald-600">
-                              Família: +{fmtMoeda(totaisGeral.familia)}
-                            </span>
-                          )}
                           {totaisGeral.quinzena > 0 && (
                             <span className="text-blue-600">
                               Quinzena: −{fmtMoeda(totaisGeral.quinzena)}
                             </span>
                           )}
-                          {totaisGeral.producao > 0 && (
-                            <span className="text-emerald-600">
-                              Produção: +{fmtMoeda(totaisGeral.producao)}
-                            </span>
-                          )}
-                          {totaisGeral.comissao > 0 && (
-                            <span className="text-emerald-600">
-                              Comissão: +{fmtMoeda(totaisGeral.comissao)}
-                            </span>
-                          )}
-                          {totaisGeral.vendas_ajuda > 0 && (
-                            <span className="text-emerald-600">
-                              Vendas Ajuda: +
-                              {fmtMoeda(totaisGeral.vendas_ajuda)}
-                            </span>
-                          )}
-                          {totaisGeral.adiantamento > 0 && (
-                            <span className="text-red-600">
-                              Adiantamento: −
-                              {fmtMoeda(totaisGeral.adiantamento)}
+                          <span className="text-muted-foreground font-semibold">
+                            Mensal Puro: {fmtMoeda(totaisGeral.mensal)}
+                          </span>
+                          {totaisGeral.aPagarProducao > 0 && (
+                            <span className="text-emerald-600 font-semibold">
+                              Produção (A Pagar): +
+                              {fmtMoeda(totaisGeral.aPagarProducao)}
                             </span>
                           )}
                           <span className="font-bold text-primary ml-auto">
@@ -5200,13 +5126,13 @@ export function FolhaPagamento() {
                   <th className="border p-1 text-left">FUNÇÃO</th>
                   <th className="border p-1 text-right">TOTAL BRUTO</th>
                   <th className="border p-1 text-center">FILHOS</th>
-                  <th className="border p-1 text-right">PRODUÇÃO</th>
+                  <th className="border p-1 text-right">PRODUÇÃO (A PAGAR)</th>
                   <th className="border p-1 text-right">QUINZENA</th>
                   <th className="border p-1 text-right">INSS</th>
                   <th className="border p-1 text-right">FAMÍLIA</th>
                   <th className="border p-1 text-right">IRRF</th>
                   <th className="border p-1 text-right font-bold">
-                    MENSAL (LÍQUIDO)
+                    LÍQUIDO TOTAL
                   </th>
                   <th className="border p-1 text-left">PIX / CONTA</th>
                   <th className="border p-1 text-center w-36">ASSINATURA</th>
@@ -5227,7 +5153,7 @@ export function FolhaPagamento() {
                       {l.filhos > 0 ? l.filhos : 0}
                     </td>
                     <td className="border p-1 text-right font-mono">
-                      {l.producaoTotal > 0 ? fmtMoeda(l.producaoTotal) : "-"}
+                      {l.aPagarProducao > 0 ? fmtMoeda(l.aPagarProducao) : "-"}
                     </td>
                     <td className="border p-1 text-center font-mono">—</td>
                     <td className="border p-1 text-right font-mono">
@@ -5240,7 +5166,7 @@ export function FolhaPagamento() {
                       {l.irrfFinal > 0 ? fmtMoeda(l.irrfFinal) : "-"}
                     </td>
                     <td className="border p-1 text-right font-mono font-bold">
-                      {fmtMoeda(l.mensalFinal)}
+                      {fmtMoeda(l.liquidoGeral)}
                     </td>
                     <td className="border p-1 font-mono text-[8px]">
                       {l.pix || l.conta || "-"}
@@ -5263,7 +5189,7 @@ export function FolhaPagamento() {
                     {totaisGeral.filhos}
                   </td>
                   <td className="border p-1 text-right font-mono">
-                    {fmtMoeda(totaisGeral.producao)}
+                    {fmtMoeda(totaisGeral.aPagarProducao)}
                   </td>
                   <td className="border p-1 text-center font-mono">—</td>
                   <td className="border p-1 text-right font-mono">
@@ -5276,7 +5202,7 @@ export function FolhaPagamento() {
                     {fmtMoeda(totaisGeral.irrf)}
                   </td>
                   <td className="border p-1 text-right font-mono">
-                    {fmtMoeda(totaisGeral.mensal)}
+                    {fmtMoeda(totaisGeral.liquidoGeral)}
                   </td>
                   <td className="border p-1" colSpan={2}></td>
                 </tr>
@@ -5298,7 +5224,7 @@ export function FolhaPagamento() {
                       {totaisGeral.filhos}
                     </td>
                     <td className="border p-1 text-right font-mono">
-                      {fmtMoeda(totaisGeral.producao)}
+                      {fmtMoeda(totaisGeral.aPagarProducao)}
                     </td>
                     <td className="border p-1 text-center font-mono">—</td>
                     <td className="border p-1 text-right font-mono">

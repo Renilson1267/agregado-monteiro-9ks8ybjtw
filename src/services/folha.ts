@@ -6,6 +6,7 @@ import {
   FolhaTabelaOficial,
   calcularMensalLiquido,
 } from "@/types/folha"
+import { calcularAPagarProducao } from "@/lib/folha-calculos"
 
 export interface SalvarLinhaFolhaPayload {
   id?: string
@@ -1095,9 +1096,9 @@ export class FolhaService {
         }
 
         acc.totalMensalLiquido += Number(l.mensal_liquido || 0)
+        const aPagarLinha = isTerceiro ? 0 : calcularAPagarProducao(l)
         acc.totalGeralLiquidoAReceber +=
-          Number(l.mensal_liquido || 0) +
-          (isTerceiro ? 0 : Number(l.producao || 0))
+          Number(l.mensal_liquido || 0) + aPagarLinha
         return acc
       },
       {

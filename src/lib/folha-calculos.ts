@@ -183,8 +183,10 @@ export function calcularMensalSemProducao(
 }
 
 /**
- * Calcula o valor Líquido da aba GERAL (inclui produção como pagamento à parte no total a receber):
- * GERAL = MENSAL_SEM_PRODUCAO + PRODUÇÃO
+ * Calcula o valor Líquido da aba GERAL:
+ * GERAL = MENSAL PURO + A PAGAR DA PRODUÇÃO
+ * A PAGAR = Produção Crua (obras × valor_obra + limpeza + sábado + feriado + ajuda) + Gratificação − Adiantamento
+ * Comissão e Vendas ficam fora do líquido da GERAL.
  */
 export function calcularMensalGeral(
   bruto: number,
@@ -208,13 +210,6 @@ export function calcularMensalGeral(
     vendas_ajuda?: number
   },
 ): number {
-  const obras = Number(extras?.obras || 0)
-  const valorObra = Number(extras?.valor_obra ?? 20)
-  const prod =
-    extras?.producao !== undefined
-      ? Number(extras.producao || 0)
-      : obras * valorObra
-
   const semProd = calcularMensalSemProducao(
     bruto,
     inss,
@@ -223,7 +218,19 @@ export function calcularMensalGeral(
     quinzena,
     extras,
   )
-  return Math.round((semProd + prod) * 100) / 100
+
+  const aPagar = calcularAPagarProducao({
+    obras: extras?.obras,
+    valor_obra: extras?.valor_obra,
+    limpeza: extras?.limpeza,
+    sabado: extras?.sabado,
+    feriado: extras?.feriado,
+    ajuda_custo: extras?.ajuda_custo,
+    gratificacao: extras?.gratificacao,
+    adiantamento: extras?.adiantamento,
+  })
+
+  return Math.round((semProd + aPagar) * 100) / 100
 }
 
 /**
