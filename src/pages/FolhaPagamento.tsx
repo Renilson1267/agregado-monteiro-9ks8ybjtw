@@ -1022,7 +1022,6 @@ export function FolhaPagamento() {
         acc.limpeza += Number(l.limpeza || 0)
         acc.sabado += Number(l.sabado || 0)
         acc.feriado += Number(l.feriado || 0)
-        acc.ferias += Number(l.ferias || 0)
         acc.ajuda_custo += Number(l.ajuda_custo || 0)
         acc.adiantamento += Number(l.adiantamento || 0)
         acc.gratificacao += Number(l.gratificacao || 0)
@@ -1035,7 +1034,6 @@ export function FolhaPagamento() {
         limpeza: 0,
         sabado: 0,
         feriado: 0,
-        ferias: 0,
         ajuda_custo: 0,
         adiantamento: 0,
         gratificacao: 0,
@@ -1558,8 +1556,8 @@ export function FolhaPagamento() {
   }
 
   // Estado de edição inline da aba PRODUÇÃO
-  // Colunas editáveis: 'limpeza' | 'sabado' | 'feriado' | 'ferias' | 'ajuda_custo' | 'gratificacao' | 'adiantamento'
-  type CampoProducaoEditavel = "limpeza" | "sabado" | "feriado" | "ferias" | "ajuda_custo" | "gratificacao" | "adiantamento"
+  // Colunas editáveis: 'limpeza' | 'sabado' | 'feriado' | 'ajuda_custo' | 'gratificacao' | 'adiantamento'
+  type CampoProducaoEditavel = "limpeza" | "sabado" | "feriado" | "ajuda_custo" | "gratificacao" | "adiantamento"
 
   const [celulaAtivaProducao, setCelulaAtivaProducao] = useState<{
     linhaId: string
@@ -3600,14 +3598,6 @@ export function FolhaPagamento() {
                         title="Clique na célula para digitar diretamente"
                       >
                         <span className="cursor-help border-b border-dotted border-muted-foreground/60">
-                          FÉRIAS
-                        </span>
-                      </th>
-                      <th
-                        className="py-2.5 px-2 text-right"
-                        title="Clique na célula para digitar diretamente"
-                      >
-                        <span className="cursor-help border-b border-dotted border-muted-foreground/60">
                           AJUDA DE CUSTO
                         </span>
                       </th>
@@ -3817,61 +3807,7 @@ export function FolhaPagamento() {
                           )}
                         </td>
 
-                        {/* 4. FÉRIAS (inline) */}
-                        <td
-                          className="py-1 px-1 text-right font-mono cursor-pointer hover:bg-amber-500/10 transition-colors"
-                          onClick={() => {
-                            if (
-                              celulaAtivaProducao?.linhaId !== l.id ||
-                              celulaAtivaProducao?.campo !== "ferias"
-                            ) {
-                              iniciarEdicaoCelula(l.id, "ferias", l.ferias)
-                            }
-                          }}
-                          title="Clique para editar Férias"
-                        >
-                          {celulaAtivaProducao?.linhaId === l.id &&
-                          celulaAtivaProducao?.campo === "ferias" ? (
-                            <Input
-                              autoFocus
-                              className="h-7 w-24 text-right font-mono text-xs px-1.5 py-0 bg-background border-primary focus-visible:ring-1"
-                              value={valorTempProducao}
-                              onChange={(e) =>
-                                setValorTempProducao(e.target.value)
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault()
-                                  salvarEdicaoCelula(l.id, "ferias")
-                                } else if (e.key === "Escape") {
-                                  e.preventDefault()
-                                  cancelarEdicaoCelula()
-                                }
-                              }}
-                              onBlur={() => salvarEdicaoCelula(l.id, "ferias")}
-                              placeholder="0,00"
-                            />
-                          ) : (
-                            <div className="flex items-center justify-end gap-1 px-1 py-1 rounded">
-                              {salvandoCelulaProducao === `${l.id}-ferias` ? (
-                                <RefreshCw className="h-3 w-3 animate-spin text-primary" />
-                              ) : null}
-                              <span
-                                className={
-                                  Number(l.ferias || 0) > 0
-                                    ? "font-semibold text-foreground"
-                                    : "text-muted-foreground"
-                                }
-                              >
-                                {Number(l.ferias || 0) > 0
-                                  ? fmtMoeda(l.ferias)
-                                  : "-"}
-                              </span>
-                            </div>
-                          )}
-                        </td>
-
-                        {/* 5. AJUDA DE CUSTO (inline) */}
+                        {/* 4. AJUDA DE CUSTO (inline) */}
                         <td
                           className="py-1 px-1 text-right font-mono cursor-pointer hover:bg-amber-500/10 transition-colors"
                           onClick={() => {
@@ -4099,9 +4035,6 @@ export function FolhaPagamento() {
                       </td>
                       <td className="py-2.5 px-2 text-right font-mono">
                         {fmtMoeda(totaisProducao.feriado)}
-                      </td>
-                      <td className="py-2.5 px-2 text-right font-mono">
-                        {fmtMoeda(totaisProducao.ferias)}
                       </td>
                       <td className="py-2.5 px-2 text-right font-mono">
                         {fmtMoeda(totaisProducao.ajuda_custo)}
@@ -5899,7 +5832,6 @@ export function FolhaPagamento() {
                 <th className="border p-1 text-right">LIMP.</th>
                 <th className="border p-1 text-right">SÁB.</th>
                 <th className="border p-1 text-right">FER.</th>
-                <th className="border p-1 text-right">FÉRIAS</th>
                 <th className="border p-1 text-right">AJUDA</th>
                 <th className="border p-1 text-right">PRODUÇÃO</th>
                 <th className="border p-1 text-right">GRATIF.</th>
@@ -5929,9 +5861,6 @@ export function FolhaPagamento() {
                   </td>
                   <td className="border p-1 text-right font-mono">
                     {l.feriado && l.feriado > 0 ? fmtMoeda(l.feriado) : "-"}
-                  </td>
-                  <td className="border p-1 text-right font-mono">
-                    {l.ferias > 0 ? fmtMoeda(l.ferias) : "-"}
                   </td>
                   <td className="border p-1 text-right font-mono">
                     {l.ajuda_custo > 0 ? fmtMoeda(l.ajuda_custo) : "-"}
@@ -5968,9 +5897,6 @@ export function FolhaPagamento() {
                 </td>
                 <td className="border p-1 text-right font-mono">
                   {fmtMoeda(totaisProducao.feriado)}
-                </td>
-                <td className="border p-1 text-right font-mono">
-                  {fmtMoeda(totaisProducao.ferias)}
                 </td>
                 <td className="border p-1 text-right font-mono">
                   {fmtMoeda(totaisProducao.ajuda_custo)}
