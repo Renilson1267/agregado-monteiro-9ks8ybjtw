@@ -323,6 +323,65 @@ export class FolhaService {
   }
 
   /**
+   * Atualiza campos de produção de uma linha diretamente (sem abrir modal)
+   * e recalcula totais da competência no banco.
+   */
+  static async atualizarCamposProducaoLinha(
+    id: string,
+    empresaId: string,
+    competencia: string,
+    campos: {
+      limpeza?: number
+      sabado?: number
+      feriado?: number
+      ferias?: number
+      ajuda_custo?: number
+      gratificacao?: number
+      adiantamento?: number
+    },
+  ): Promise<FolhaPagamentoLinha> {
+    const dadosUpdate: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    }
+    if (campos.limpeza !== undefined)
+      dadosUpdate.limpeza = Number(campos.limpeza || 0)
+    if (campos.sabado !== undefined)
+      dadosUpdate.sabado = Number(campos.sabado || 0)
+    if (campos.feriado !== undefined)
+      dadosUpdate.feriado = Number(campos.feriado || 0)
+    if (campos.ferias !== undefined)
+      dadosUpdate.ferias = Number(campos.ferias || 0)
+    if (campos.ajuda_custo !== undefined)
+      dadosUpdate.ajuda_custo = Number(campos.ajuda_custo || 0)
+    if (campos.gratificacao !== undefined)
+      dadosUpdate.gratificacao = Number(campos.gratificacao || 0)
+    if (campos.adiantamento !== undefined)
+      dadosUpdate.adiantamento = Number(campos.adiantamento || 0)
+
+    const { data, error } = await (supabase as any)
+      .from("folha_pagamento_linhas")
+      .update(dadosUpdate)
+      .eq("id", id)
+      .eq("empresa_id", empresaId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Erro ao atualizar campos de produção da linha:", error)
+      throw error
+    }
+
+    // Atualiza totais na competência em background
+    try {
+      await this.atualizarTotaisCompetencia(empresaId, competencia)
+    } catch (errComp) {
+      console.warn("Aviso ao recalcular totais da competência:", errComp)
+    }
+
+    return data as FolhaPagamentoLinha
+  }
+
+  /**
    * Exclui uma linha da folha
    */
   static async excluirLinha(

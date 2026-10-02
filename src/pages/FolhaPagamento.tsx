@@ -2343,7 +2343,7 @@ export function FolhaPagamento() {
                                         </div>
                                       </div>
 
-                                      {/* Produção (Obras x Valor) */}
+                                      {/* Total Produção à Parte (detalhado na aba Produção) */}
                                       <div
                                         className={`p-2 rounded border ${
                                           l.producaoTotal > 0
@@ -2352,105 +2352,15 @@ export function FolhaPagamento() {
                                         }`}
                                       >
                                         <div className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                          Produção (+){" "}
-                                          {l.obras > 0
-                                            ? `(${l.obras}×${fmtMoeda(l.valor_obra || 20)})`
-                                            : ""}
+                                          Produção à Parte (+)
                                         </div>
                                         <div className="font-mono font-bold text-foreground text-sm">
                                           {l.producaoTotal > 0
                                             ? `+${fmtMoeda(l.producaoTotal)}`
                                             : fmtMoeda(0)}
                                         </div>
-                                      </div>
-
-                                      {/* Limpeza */}
-                                      <div
-                                        className={`p-2 rounded border ${
-                                          l.limpezaTotal > 0
-                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300"
-                                            : "bg-muted/40"
-                                        }`}
-                                      >
-                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                          Limpeza/Lubrif. (+)
-                                        </div>
-                                        <div className="font-mono font-bold text-foreground text-sm">
-                                          {l.limpezaTotal > 0
-                                            ? `+${fmtMoeda(l.limpezaTotal)}`
-                                            : fmtMoeda(0)}
-                                        </div>
-                                      </div>
-
-                                      {/* Sábado */}
-                                      <div
-                                        className={`p-2 rounded border ${
-                                          l.sabadoTotal > 0
-                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300"
-                                            : "bg-muted/40"
-                                        }`}
-                                      >
-                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                          Sábado (+)
-                                        </div>
-                                        <div className="font-mono font-bold text-foreground text-sm">
-                                          {l.sabadoTotal > 0
-                                            ? `+${fmtMoeda(l.sabadoTotal)}`
-                                            : fmtMoeda(0)}
-                                        </div>
-                                      </div>
-
-                                      {/* Férias */}
-                                      <div
-                                        className={`p-2 rounded border ${
-                                          l.feriasTotal > 0
-                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300"
-                                            : "bg-muted/40"
-                                        }`}
-                                      >
-                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                          Férias (+)
-                                        </div>
-                                        <div className="font-mono font-bold text-foreground text-sm">
-                                          {l.feriasTotal > 0
-                                            ? `+${fmtMoeda(l.feriasTotal)}`
-                                            : fmtMoeda(0)}
-                                        </div>
-                                      </div>
-
-                                      {/* Ajuda de Custo */}
-                                      <div
-                                        className={`p-2 rounded border ${
-                                          l.ajudaTotal > 0
-                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300"
-                                            : "bg-muted/40"
-                                        }`}
-                                      >
-                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                          Ajuda de Custo (+)
-                                        </div>
-                                        <div className="font-mono font-bold text-foreground text-sm">
-                                          {l.ajudaTotal > 0
-                                            ? `+${fmtMoeda(l.ajudaTotal)}`
-                                            : fmtMoeda(0)}
-                                        </div>
-                                      </div>
-
-                                      {/* Gratificação */}
-                                      <div
-                                        className={`p-2 rounded border ${
-                                          l.gratificacaoTotal > 0
-                                            ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300"
-                                            : "bg-muted/40"
-                                        }`}
-                                      >
-                                        <div className="text-[10px] text-muted-foreground uppercase font-semibold">
-                                          Gratificação (+)
-                                        </div>
-                                        <div className="font-mono font-bold text-foreground text-sm">
-                                          {l.gratificacaoTotal > 0
-                                            ? `+${fmtMoeda(l.gratificacaoTotal)}`
-                                            : fmtMoeda(0)}
+                                        <div className="text-[9px] text-muted-foreground">
+                                          Ver detalhes na aba Produção
                                         </div>
                                       </div>
 
@@ -2522,32 +2432,6 @@ export function FolhaPagamento() {
                                         <span>
                                           + {fmtMoeda(l.producaoTotal)}{" "}
                                           (Produção)
-                                        </span>
-                                      )}
-                                      {l.limpezaTotal > 0 && (
-                                        <span>
-                                          + {fmtMoeda(l.limpezaTotal)} (Limpeza)
-                                        </span>
-                                      )}
-                                      {l.sabadoTotal > 0 && (
-                                        <span>
-                                          + {fmtMoeda(l.sabadoTotal)} (Sábado)
-                                        </span>
-                                      )}
-                                      {l.feriasTotal > 0 && (
-                                        <span>
-                                          + {fmtMoeda(l.feriasTotal)} (Férias)
-                                        </span>
-                                      )}
-                                      {l.ajudaTotal > 0 && (
-                                        <span>
-                                          + {fmtMoeda(l.ajudaTotal)} (Ajuda)
-                                        </span>
-                                      )}
-                                      {l.gratificacaoTotal > 0 && (
-                                        <span>
-                                          + {fmtMoeda(l.gratificacaoTotal)}{" "}
-                                          (Gratif.)
                                         </span>
                                       )}
                                       {l.comissaoTotal > 0 && (
@@ -2695,31 +2579,6 @@ export function FolhaPagamento() {
                           {totaisGeral.producao > 0 && (
                             <span className="text-emerald-600">
                               Produção: +{fmtMoeda(totaisGeral.producao)}
-                            </span>
-                          )}
-                          {totaisGeral.limpeza > 0 && (
-                            <span className="text-emerald-600">
-                              Limpeza: +{fmtMoeda(totaisGeral.limpeza)}
-                            </span>
-                          )}
-                          {totaisGeral.sabado > 0 && (
-                            <span className="text-emerald-600">
-                              Sábado: +{fmtMoeda(totaisGeral.sabado)}
-                            </span>
-                          )}
-                          {totaisGeral.ferias > 0 && (
-                            <span className="text-emerald-600">
-                              Férias: +{fmtMoeda(totaisGeral.ferias)}
-                            </span>
-                          )}
-                          {totaisGeral.ajuda_custo > 0 && (
-                            <span className="text-emerald-600">
-                              Ajuda: +{fmtMoeda(totaisGeral.ajuda_custo)}
-                            </span>
-                          )}
-                          {totaisGeral.gratificacao > 0 && (
-                            <span className="text-emerald-600">
-                              Gratif.: +{fmtMoeda(totaisGeral.gratificacao)}
                             </span>
                           )}
                           {totaisGeral.comissao > 0 && (
@@ -3598,12 +3457,13 @@ export function FolhaPagamento() {
                       <th className="py-2.5 px-2 text-right">LIMP/LUBRIF.</th>
                       <th className="py-2.5 px-2 text-right">SÁBADO</th>
                       <th className="py-2.5 px-2 text-right">FERIADO</th>
+                      <th className="py-2.5 px-2 text-right">FÉRIAS</th>
                       <th className="py-2.5 px-2 text-right">AJUDA DE CUSTO</th>
-                      <th className="py-2.5 px-2 text-right text-red-600">
-                        ADIANTAMENTO
-                      </th>
                       <th className="py-2.5 px-2 text-right text-emerald-600">
                         GRATIFICAÇÃO
+                      </th>
+                      <th className="py-2.5 px-2 text-right text-red-600">
+                        ADIANTAMENTO
                       </th>
                       <th className="py-2.5 px-2 text-right font-semibold text-foreground">
                         PRODUÇÃO
@@ -3645,13 +3505,16 @@ export function FolhaPagamento() {
                             : "-"}
                         </td>
                         <td className="py-2 px-2 text-right font-mono">
-                          {l.ajuda_custo > 0 ? fmtMoeda(l.ajuda_custo) : "-"}
+                          {l.ferias > 0 ? fmtMoeda(l.ferias) : "-"}
                         </td>
-                        <td className="py-2 px-2 text-right font-mono text-red-600">
-                          {l.adiantamento > 0 ? fmtMoeda(l.adiantamento) : "-"}
+                        <td className="py-2 px-2 text-right font-mono">
+                          {l.ajuda_custo > 0 ? fmtMoeda(l.ajuda_custo) : "-"}
                         </td>
                         <td className="py-2 px-2 text-right font-mono text-emerald-600">
                           {l.gratificacao > 0 ? fmtMoeda(l.gratificacao) : "-"}
+                        </td>
+                        <td className="py-2 px-2 text-right font-mono text-red-600">
+                          {l.adiantamento > 0 ? fmtMoeda(l.adiantamento) : "-"}
                         </td>
                         <td className="py-2 px-2 text-right font-mono font-semibold text-foreground whitespace-nowrap">
                           {l.producaoTotal > 0
@@ -3701,13 +3564,16 @@ export function FolhaPagamento() {
                         {fmtMoeda(totaisProducao.feriado)}
                       </td>
                       <td className="py-2.5 px-2 text-right font-mono">
-                        {fmtMoeda(totaisProducao.ajuda_custo)}
+                        {fmtMoeda(totaisProducao.ferias)}
                       </td>
-                      <td className="py-2.5 px-2 text-right font-mono text-red-600">
-                        {fmtMoeda(totaisProducao.adiantamento)}
+                      <td className="py-2.5 px-2 text-right font-mono">
+                        {fmtMoeda(totaisProducao.ajuda_custo)}
                       </td>
                       <td className="py-2.5 px-2 text-right font-mono text-emerald-600">
                         {fmtMoeda(totaisProducao.gratificacao)}
+                      </td>
+                      <td className="py-2.5 px-2 text-right font-mono text-red-600">
+                        {fmtMoeda(totaisProducao.adiantamento)}
                       </td>
                       <td className="py-2.5 px-2 text-right font-mono">
                         {fmtMoeda(totaisProducao.producao)}
@@ -5496,6 +5362,7 @@ export function FolhaPagamento() {
                 <th className="border p-1 text-right">LIMP.</th>
                 <th className="border p-1 text-right">SÁB.</th>
                 <th className="border p-1 text-right">FER.</th>
+                <th className="border p-1 text-right">FÉRIAS</th>
                 <th className="border p-1 text-right">AJUDA</th>
                 <th className="border p-1 text-right">PRODUÇÃO</th>
                 <th className="border p-1 text-right">GRATIF.</th>
@@ -5525,6 +5392,9 @@ export function FolhaPagamento() {
                   </td>
                   <td className="border p-1 text-right font-mono">
                     {l.feriado && l.feriado > 0 ? fmtMoeda(l.feriado) : "-"}
+                  </td>
+                  <td className="border p-1 text-right font-mono">
+                    {l.ferias > 0 ? fmtMoeda(l.ferias) : "-"}
                   </td>
                   <td className="border p-1 text-right font-mono">
                     {l.ajuda_custo > 0 ? fmtMoeda(l.ajuda_custo) : "-"}
@@ -5561,6 +5431,9 @@ export function FolhaPagamento() {
                 </td>
                 <td className="border p-1 text-right font-mono">
                   {fmtMoeda(totaisProducao.feriado)}
+                </td>
+                <td className="border p-1 text-right font-mono">
+                  {fmtMoeda(totaisProducao.ferias)}
                 </td>
                 <td className="border p-1 text-right font-mono">
                   {fmtMoeda(totaisProducao.ajuda_custo)}
