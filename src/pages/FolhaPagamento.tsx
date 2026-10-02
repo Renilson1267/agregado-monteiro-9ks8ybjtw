@@ -134,13 +134,11 @@ function calcularValorRealEmpresa(
     const isValdercleiton = (l.nome || "")
       .toUpperCase()
       .includes("VALDERCLEITON")
-    const obras = Number(l.obras || 0)
-    const valorObra = Number(l.valor_obra ?? 20)
-    const producao = isValdercleiton
+    const gratificacao = Number(l.gratificacao || 0)
+    const producaoCompleta = isValdercleiton
       ? 0
-      : l.producao !== undefined && Number(l.producao) > 0
-        ? Number(l.producao)
-        : obras * valorObra
+      : calcularProducaoTotal(l) + gratificacao
+    const adiantamento = Number(l.adiantamento || 0)
     // REGRA OFICIAL GC MIX:
     // Mensal puro = bruto - inss - ir - quinzena - quinzena_2 (sem adicionais e sem adiantamento)
     const b = Number(l.bruto || 0)
@@ -149,7 +147,7 @@ function calcularValorRealEmpresa(
     const q = Number(l.quinzena || 0)
     const q2 = Number(l.quinzena_2 || 0)
     const mensal = Math.round((b - i - ir - q - q2) * 100) / 100
-    totalFuncionarios += mensal + producao
+    totalFuncionarios += mensal + producaoCompleta - adiantamento
     const vObra = Number(l.vendas_obra || 0)
     const comissaoAuto = calcularComissaoVendas(vObra)
     const comissao = Number(l.comissao || comissaoAuto)
@@ -545,6 +543,7 @@ export function FolhaPagamento() {
     vendasAjudaTotal: number
     adiantamentoTotal: number
     aPagarProducao: number
+    producaoGeralMais: number
     liquidoComposto: number
   }
 
@@ -598,18 +597,21 @@ export function FolhaPagamento() {
       const vendasAjudaTotal = Number(l.vendas_ajuda || 0)
       const adiantamentoTotal = Number(l.adiantamento || 0)
 
+      // PRODUÇÃO(+) da GERAL = calcularProducaoTotal(linha) + gratificacao
+      // = obras×valor + limpeza + sabado + feriado + ajuda_custo + gratificacao
+      const producaoCompletaCalc = calcularProducaoTotal(l) + gratificacaoTotal
+      const producaoGeralMais = isValdercleiton ? 0 : producaoCompletaCalc
+
       // A PAGAR da tabela de produção: producaoTotal + gratificacaoTotal - adiantamentoTotal
       const aPagarProducao = isValdercleiton
         ? 0
-        : Math.round(
-            (producaoTotal + gratificacaoTotal - adiantamentoTotal) * 100,
-          ) / 100
+        : Math.round((producaoGeralMais - adiantamentoTotal) * 100) / 100
 
       // Cálculo do MENSAL LÍQUIDO:
       // REGRA OFICIAL GC MIX (para TODOS os funcionários):
       // MENSAL (LÍQUIDO) = Salário Bruto − INSS − IRRF − Quinzena − Quinzena 2 (se houver)
       // Sem adicionais (Gratificação, Limpeza, Sábado, Feriado, Férias, Ajuda, Comissão, Vendas/Ajuda).
-      // Adiantamento desconta exclusivamente no "A Pagar" da Produção.
+      // Adiantamento desconta exclusivamente no Líquido Total.
       // Aplica a fórmula pura SEMPRE e PARA TODOS (inclusive linhas em modo Digitado).
       const quinzena2Final = Number(l.quinzena_2 || 0)
       const mensalCalculadoSemProd = calcularMensalSemProducao(
@@ -627,9 +629,12 @@ export function FolhaPagamento() {
       const mensalFinal = mensalCalculadoSemProd
       const mensalCalc = mensalCalculadoSemProd
 
-      // Líquido completo para a aba GERAL: mensal puro + A PAGAR da produção (0 para Valdercleiton)
+      // Líquido completo para a aba GERAL:
+      // LÍQUIDO GERAL = mensalFinal (puro) + PRODUÇÃO(+) − adiantamento
       const liquidoGeral =
-        Math.round((mensalFinal + aPagarProducao) * 100) / 100
+        Math.round(
+          (mensalFinal + producaoGeralMais - adiantamentoTotal) * 100,
+        ) / 100
       const liquidoComposto = liquidoGeral
 
       const isInssSobrescrito =
@@ -675,6 +680,7 @@ export function FolhaPagamento() {
         vendasAjudaTotal,
         adiantamentoTotal,
         aPagarProducao,
+        producaoGeralMais,
         liquidoComposto,
       }
     })
@@ -936,6 +942,7 @@ export function FolhaPagamento() {
         acc.vendas_ajuda += l.vendasAjudaTotal
         acc.adiantamento += l.adiantamentoTotal
         acc.aPagarProducao += l.aPagarProducao
+        acc.producaoGeralMais += l.producaoGeralMais
         acc.mensal += l.mensalFinal
         acc.liquidoGeral += l.liquidoGeral
         return acc
@@ -957,6 +964,7 @@ export function FolhaPagamento() {
         vendas_ajuda: 0,
         adiantamento: 0,
         aPagarProducao: 0,
+        producaoGeralMais: 0,
         mensal: 0,
         liquidoGeral: 0,
       },
@@ -2053,9 +2061,9 @@ export function FolhaPagamento() {
                       </th>
                       <th
                         className="py-2.5 px-2 text-right text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50/50 dark:bg-emerald-950/20"
-                        title="Produção A Pagar (Produção Crua + Gratificação + Limpeza + Sábado + Feriado + Ajuda − Adiantamento)"
+                        title="PRODUÇÃO (+) = Obras×Valor + Limpeza + Sábado + Feriado + Ajuda + Gratificação"
                       >
-                        PRODUÇÃO (A PAGAR)
+                        PRODUÇÃO (+)
                       </th>
                       <th
                         className="py-2.5 px-2 text-right text-muted-foreground font-semibold bg-blue-50/40 dark:bg-blue-950/20"
@@ -2187,12 +2195,12 @@ export function FolhaPagamento() {
                                 {l.filhos > 0 ? l.filhos : 0}
                               </td>
 
-                              {/* PRODUÇÃO VISÍVEL NA ABA GERAL: A PAGAR DA PRODUÇÃO */}
+                              {/* PRODUÇÃO VISÍVEL NA ABA GERAL: PRODUÇÃO (+) */}
                               <td className="py-2 px-2 text-right font-mono whitespace-nowrap text-emerald-700 dark:text-emerald-300 bg-emerald-50/30 dark:bg-emerald-950/10">
                                 <div className="flex items-center justify-end gap-1">
                                   <span>
-                                    {l.aPagarProducao > 0
-                                      ? `+${fmtMoeda(l.aPagarProducao)}`
+                                    {l.producaoGeralMais > 0
+                                      ? `+${fmtMoeda(l.producaoGeralMais)}`
                                       : fmtMoeda(0)}
                                   </span>
                                   {l.obras > 0 && (
@@ -2361,10 +2369,16 @@ export function FolhaPagamento() {
                                       </div>
                                     </div>
 
-                                    {/* Grid de composição: MENSAL PURO e A PAGAR PRODUÇÃO */}
+                                    {/* Grid de composição: PRODUÇÃO(+) e DEDUÇÃO DO ADIANTAMENTO */}
                                     <div className="space-y-2">
-                                      <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                                        Composição do A PAGAR da Produção
+                                      <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground flex items-center justify-between">
+                                        <span>
+                                          Composição da PRODUÇÃO (+) e Deduções
+                                        </span>
+                                        <span className="text-emerald-700 dark:text-emerald-300 font-mono font-bold">
+                                          PRODUÇÃO (+) ={" "}
+                                          {fmtMoeda(l.producaoGeralMais)}
+                                        </span>
                                       </div>
                                       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
                                         <div className="bg-muted/40 p-2 rounded border">
@@ -2379,17 +2393,6 @@ export function FolhaPagamento() {
                                               {l.obras} obras
                                             </div>
                                           )}
-                                        </div>
-
-                                        <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded border border-emerald-200 dark:border-emerald-900/30">
-                                          <div className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-semibold">
-                                            Gratificação (+)
-                                          </div>
-                                          <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                                            {l.gratificacaoTotal > 0
-                                              ? `+${fmtMoeda(l.gratificacaoTotal)}`
-                                              : fmtMoeda(0)}
-                                          </div>
                                         </div>
 
                                         <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded border border-emerald-200 dark:border-emerald-900/30">
@@ -2436,20 +2439,34 @@ export function FolhaPagamento() {
                                           </div>
                                         </div>
 
+                                        <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded border border-emerald-200 dark:border-emerald-900/30">
+                                          <div className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-semibold">
+                                            Gratificação (+)
+                                          </div>
+                                          <div className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                                            {l.gratificacaoTotal > 0
+                                              ? `+${fmtMoeda(l.gratificacaoTotal)}`
+                                              : fmtMoeda(0)}
+                                          </div>
+                                        </div>
+
                                         <div className="bg-red-50/50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-900/30">
                                           <div className="text-[10px] text-red-700 dark:text-red-300 uppercase font-semibold">
-                                            Adiantamento (−)
+                                            − Adiantamento
                                           </div>
                                           <div className="font-mono font-bold text-red-600 dark:text-red-400 text-sm">
                                             {l.adiantamentoTotal > 0
                                               ? `−${fmtMoeda(l.adiantamentoTotal)}`
                                               : fmtMoeda(0)}
                                           </div>
+                                          <div className="text-[9px] text-muted-foreground">
+                                            dedução do líquido
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
 
-                                    {/* Resumo da Equação em Linha com Produção (A PAGAR) */}
+                                    {/* Resumo da Equação em Linha com Produção (+) e Dedução do Adiantamento */}
                                     <div className="bg-muted/40 p-2.5 rounded text-[11px] font-mono text-muted-foreground flex flex-wrap items-center gap-1.5 border">
                                       <span className="font-bold text-foreground">
                                         Equação do Líquido:
@@ -2476,9 +2493,15 @@ export function FolhaPagamento() {
                                         Puro)
                                       </span>
                                       <span className="text-emerald-700 dark:text-emerald-300 font-bold">
-                                        + {fmtMoeda(l.aPagarProducao)} (PRODUÇÃO
-                                        A PAGAR)
+                                        + {fmtMoeda(l.producaoGeralMais)}{" "}
+                                        (PRODUÇÃO +)
                                       </span>
+                                      {l.adiantamentoTotal > 0 && (
+                                        <span className="text-red-600 dark:text-red-400 font-semibold">
+                                          − {fmtMoeda(l.adiantamentoTotal)}{" "}
+                                          (Adiantamento)
+                                        </span>
+                                      )}
                                       <span className="font-bold text-primary ml-1 text-xs">
                                         = {fmtMoeda(l.liquidoGeral)} (LÍQUIDO
                                         TOTAL)
@@ -2512,8 +2535,8 @@ export function FolhaPagamento() {
                         {totaisGeral.filhos}
                       </td>
                       <td className="py-2.5 px-2 text-right font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50/30 dark:bg-emerald-950/10">
-                        {totaisGeral.aPagarProducao > 0
-                          ? `+${fmtMoeda(totaisGeral.aPagarProducao)}`
+                        {totaisGeral.producaoGeralMais > 0
+                          ? `+${fmtMoeda(totaisGeral.producaoGeralMais)}`
                           : fmtMoeda(0)}
                       </td>
                       <td className="py-2.5 px-2 text-center font-mono text-muted-foreground bg-blue-50/20 dark:bg-blue-950/10">
@@ -2559,7 +2582,7 @@ export function FolhaPagamento() {
                           {totaisGeral.filhos}
                         </td>
                         <td className="py-2.5 px-2 text-right font-mono text-emerald-600">
-                          {fmtMoeda(totaisGeral.aPagarProducao)}
+                          {fmtMoeda(totaisGeral.producaoGeralMais)}
                         </td>
                         <td className="py-2.5 px-2 text-center font-mono text-muted-foreground">
                           —
@@ -2607,10 +2630,16 @@ export function FolhaPagamento() {
                           <span className="text-muted-foreground font-semibold">
                             Mensal Puro: {fmtMoeda(totaisGeral.mensal)}
                           </span>
-                          {totaisGeral.aPagarProducao > 0 && (
+                          {totaisGeral.producaoGeralMais > 0 && (
                             <span className="text-emerald-600 font-semibold">
-                              Produção (A Pagar): +
-                              {fmtMoeda(totaisGeral.aPagarProducao)}
+                              PRODUÇÃO (+): +
+                              {fmtMoeda(totaisGeral.producaoGeralMais)}
+                            </span>
+                          )}
+                          {totaisGeral.adiantamento > 0 && (
+                            <span className="text-red-600 font-semibold">
+                              Adiantamento: −
+                              {fmtMoeda(totaisGeral.adiantamento)}
                             </span>
                           )}
                           <span className="font-bold text-primary ml-auto">
@@ -3514,14 +3543,14 @@ export function FolhaPagamento() {
                         title="Clique na célula para digitar diretamente"
                       >
                         <span className="cursor-help border-b border-dotted border-red-600/60">
-                          ADIANTAMENTO
+                          ADIANT. (−)
                         </span>
                       </th>
                       <th className="py-2.5 px-2 text-right font-semibold text-foreground">
                         PRODUÇÃO
                       </th>
                       <th className="py-2.5 px-2 text-right font-bold text-primary bg-primary/5">
-                        A PAGAR
+                        A PAGAR (=)
                       </th>
                       <th className="py-2.5 px-3">AGÊNCIA / C/C</th>
                       <th className="py-2.5 px-3">PIX</th>
@@ -5126,7 +5155,7 @@ export function FolhaPagamento() {
                   <th className="border p-1 text-left">FUNÇÃO</th>
                   <th className="border p-1 text-right">TOTAL BRUTO</th>
                   <th className="border p-1 text-center">FILHOS</th>
-                  <th className="border p-1 text-right">PRODUÇÃO (A PAGAR)</th>
+                  <th className="border p-1 text-right">PRODUÇÃO (+)</th>
                   <th className="border p-1 text-right">QUINZENA</th>
                   <th className="border p-1 text-right">INSS</th>
                   <th className="border p-1 text-right">FAMÍLIA</th>
@@ -5153,7 +5182,9 @@ export function FolhaPagamento() {
                       {l.filhos > 0 ? l.filhos : 0}
                     </td>
                     <td className="border p-1 text-right font-mono">
-                      {l.aPagarProducao > 0 ? fmtMoeda(l.aPagarProducao) : "-"}
+                      {l.producaoGeralMais > 0
+                        ? fmtMoeda(l.producaoGeralMais)
+                        : "-"}
                     </td>
                     <td className="border p-1 text-center font-mono">—</td>
                     <td className="border p-1 text-right font-mono">
@@ -5189,7 +5220,7 @@ export function FolhaPagamento() {
                     {totaisGeral.filhos}
                   </td>
                   <td className="border p-1 text-right font-mono">
-                    {fmtMoeda(totaisGeral.aPagarProducao)}
+                    {fmtMoeda(totaisGeral.producaoGeralMais)}
                   </td>
                   <td className="border p-1 text-center font-mono">—</td>
                   <td className="border p-1 text-right font-mono">
@@ -5224,7 +5255,7 @@ export function FolhaPagamento() {
                       {totaisGeral.filhos}
                     </td>
                     <td className="border p-1 text-right font-mono">
-                      {fmtMoeda(totaisGeral.aPagarProducao)}
+                      {fmtMoeda(totaisGeral.producaoGeralMais)}
                     </td>
                     <td className="border p-1 text-center font-mono">—</td>
                     <td className="border p-1 text-right font-mono">
@@ -5735,8 +5766,8 @@ export function FolhaPagamento() {
                 <th className="border p-1 text-right">AJUDA</th>
                 <th className="border p-1 text-right">PRODUÇÃO</th>
                 <th className="border p-1 text-right">GRATIF.</th>
-                <th className="border p-1 text-right">ADIANT.</th>
-                <th className="border p-1 text-right font-bold">A PAGAR</th>
+                <th className="border p-1 text-right">ADIANT. (−)</th>
+                <th className="border p-1 text-right font-bold">A PAGAR (=)</th>
                 <th className="border p-1 text-center w-36">ASSINATURA</th>
               </tr>
             </thead>

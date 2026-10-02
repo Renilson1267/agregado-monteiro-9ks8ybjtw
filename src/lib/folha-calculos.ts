@@ -184,8 +184,10 @@ export function calcularMensalSemProducao(
 
 /**
  * Calcula o valor Líquido da aba GERAL:
- * GERAL = MENSAL PURO + A PAGAR DA PRODUÇÃO
- * A PAGAR = Produção Crua (obras × valor_obra + limpeza + sábado + feriado + ajuda) + Gratificação − Adiantamento
+ * PRODUÇÃO(+) = calcularProducaoTotal(linha) + gratificacao
+ *             = obras × valor_obra + limpeza + sábado + feriado + ajuda_custo + gratificacao
+ * LÍQUIDO GERAL = mensalPuro (bruto − inss − irrf − quinzena − quinzena2) + PRODUÇÃO(+) − adiantamento
+ * O adiantamento desconta UMA única vez no líquido, NÃO dentro da coluna PRODUÇÃO(+).
  * Comissão e Vendas ficam fora do líquido da GERAL.
  */
 export function calcularMensalGeral(
@@ -210,7 +212,7 @@ export function calcularMensalGeral(
     vendas_ajuda?: number
   },
 ): number {
-  const semProd = calcularMensalSemProducao(
+  const mensalPuro = calcularMensalSemProducao(
     bruto,
     inss,
     familia,
@@ -219,18 +221,23 @@ export function calcularMensalGeral(
     extras,
   )
 
-  const aPagar = calcularAPagarProducao({
+  const producaoTotal = calcularProducaoTotal({
     obras: extras?.obras,
     valor_obra: extras?.valor_obra,
     limpeza: extras?.limpeza,
     sabado: extras?.sabado,
     feriado: extras?.feriado,
     ajuda_custo: extras?.ajuda_custo,
-    gratificacao: extras?.gratificacao,
-    adiantamento: extras?.adiantamento,
   })
+  const gratificacao = Number(extras?.gratificacao || 0)
+  const producaoComGratificacao =
+    Math.round((producaoTotal + gratificacao) * 100) / 100
+  const adiantamento = Number(extras?.adiantamento || 0)
 
-  return Math.round((semProd + aPagar) * 100) / 100
+  return (
+    Math.round((mensalPuro + producaoComGratificacao - adiantamento) * 100) /
+    100
+  )
 }
 
 /**

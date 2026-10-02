@@ -4,7 +4,7 @@ import { ConcreteiraService } from "@/services/concreteira"
 import { FeriasService } from "@/services/ferias"
 import { ExamesService } from "@/services/exames"
 import type { FolhaPagamentoLinha, FolhaTerceiro } from "@/types/folha"
-import { calcularAPagarProducao } from "@/lib/folha-calculos"
+import { calcularProducaoTotal } from "@/lib/folha-calculos"
 import type { ItemControleFerias } from "@/types/ferias"
 import type { FuncionarioComExames } from "@/types/exames"
 import type { Material } from "@/types/concreteira"
@@ -175,7 +175,11 @@ export function calcularValorRealEmpresa(
     const isValdercleiton = (l.nome || "")
       .toUpperCase()
       .includes("VALDERCLEITON")
-    const aPagar = isValdercleiton ? 0 : calcularAPagarProducao(l)
+    const gratificacao = Number(l.gratificacao || 0)
+    const producaoCompleta = isValdercleiton
+      ? 0
+      : calcularProducaoTotal(l) + gratificacao
+    const adiantamento = Number(l.adiantamento || 0)
     // REGRA OFICIAL GC MIX:
     // Mensal puro = bruto - inss - ir - quinzena - quinzena_2 (sem adicionais e sem adiantamento)
     const b = Number(l.bruto || 0)
@@ -184,7 +188,7 @@ export function calcularValorRealEmpresa(
     const q = Number(l.quinzena || 0)
     const q2 = Number(l.quinzena_2 || 0)
     const mensal = Math.round((b - i - ir - q - q2) * 100) / 100
-    totalFuncionarios += mensal + aPagar
+    totalFuncionarios += mensal + producaoCompleta - adiantamento
   })
   totalFuncionarios = Math.round(totalFuncionarios * 100) / 100
 

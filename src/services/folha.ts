@@ -6,7 +6,7 @@ import {
   FolhaTabelaOficial,
   calcularMensalLiquido,
 } from "@/types/folha"
-import { calcularAPagarProducao } from "@/lib/folha-calculos"
+import { calcularProducaoTotal } from "@/lib/folha-calculos"
 
 export interface SalvarLinhaFolhaPayload {
   id?: string
@@ -1096,9 +1096,17 @@ export class FolhaService {
         }
 
         acc.totalMensalLiquido += Number(l.mensal_liquido || 0)
-        const aPagarLinha = isTerceiro ? 0 : calcularAPagarProducao(l)
+        const isValdercleiton = (l.nome || "")
+          .toUpperCase()
+          .includes("VALDERCLEITON")
+        const gratificacaoLinha = Number(l.gratificacao || 0)
+        const producaoLinha =
+          isTerceiro || isValdercleiton
+            ? 0
+            : calcularProducaoTotal(l) + gratificacaoLinha
+        const adiantamentoLinha = isTerceiro ? 0 : Number(l.adiantamento || 0)
         acc.totalGeralLiquidoAReceber +=
-          Number(l.mensal_liquido || 0) + aPagarLinha
+          Number(l.mensal_liquido || 0) + producaoLinha - adiantamentoLinha
         return acc
       },
       {
