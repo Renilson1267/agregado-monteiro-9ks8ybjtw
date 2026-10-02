@@ -194,9 +194,11 @@ export interface FolhaTotaisCalculados {
 }
 
 /**
- * FÓRMULA DO LÍQUIDO MENSAL (sem produção):
- * Produção é um pagamento à parte e fica apenas na aba GERAL.
- * MENSAL = bruto − INSS − IR + família + gratificação + limpeza + sábado + férias + ajuda + vendAjuda + comissão − adiantamento − quinzena
+ * FÓRMULA DO LÍQUIDO MENSAL:
+ * REGRA OFICIAL GC MIX:
+ * MENSAL (LÍQUIDO) = Salário Bruto − INSS − IRRF − Quinzena − Quinzena 2 (se houver)
+ * Sem adicionais (Gratificação, Limpeza, Sábado, Feriado, Férias, Ajuda, Comissão, Vendas/Ajuda).
+ * Se incluirProducao = true (aba GERAL), soma producao.
  */
 export function calcularMensalLiquido(linha: {
   tipo?: TipoColaboradorFolha | string
@@ -223,8 +225,6 @@ export function calcularMensalLiquido(linha: {
   const bruto = Number(linha.bruto || 0)
   const inss = Number(linha.inss || 0)
   const ir = Number(linha.ir || 0)
-  const familia = Number(linha.familia || 0)
-  const gratificacao = Number(linha.gratificacao || 0)
   const obras = Number(linha.obras || 0)
   const valorObra = Number(linha.valor_obra ?? 20)
   const producao = linha.incluirProducao
@@ -232,32 +232,10 @@ export function calcularMensalLiquido(linha: {
       ? Number(linha.producao)
       : obras * valorObra
     : 0
-  const limpeza = Number(linha.limpeza || 0)
-  const sabado = Number(linha.sabado || 0)
-  const ferias = Number(linha.ferias || 0)
-  const ajuda = Number(linha.ajuda_custo || 0)
-  const vendAjuda = Number(linha.vendas_ajuda || 0)
-  const comissao = Number(linha.comissao || 0)
-  const adiantamento = Number(linha.adiantamento || 0)
   const quinzena = Number(linha.quinzena || 0)
   const quinzena2 = Number(linha.quinzena_2 || 0)
 
-  const liq =
-    bruto -
-    inss -
-    ir +
-    familia +
-    gratificacao +
-    producao +
-    limpeza +
-    sabado +
-    ferias +
-    ajuda +
-    vendAjuda +
-    comissao -
-    adiantamento -
-    quinzena -
-    quinzena2
+  const liq = bruto - inss - ir - quinzena - quinzena2 + producao
 
   return Math.round(liq * 100) / 100
 }

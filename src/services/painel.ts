@@ -181,15 +181,14 @@ export function calcularValorRealEmpresa(
       : l.producao !== undefined && Number(l.producao) > 0
         ? Number(l.producao)
         : obras * valorObra
-    // Regra Valdercleiton: mensal puro = bruto - inss - quinzena (sem comissão e sem ajuda)
-    const mensal = isValdercleiton
-      ? Math.round(
-          (Number(l.bruto || 0) -
-            Number(l.inss || 0) -
-            Number(l.quinzena || 0)) *
-            100,
-        ) / 100
-      : Number(l.mensal_liquido || 0)
+    // REGRA OFICIAL GC MIX:
+    // Mensal puro = bruto - inss - ir - quinzena - quinzena_2 (sem adicionais e sem adiantamento)
+    const b = Number(l.bruto || 0)
+    const i = Number(l.inss || 0)
+    const ir = Number(l.ir || 0)
+    const q = Number(l.quinzena || 0)
+    const q2 = Number(l.quinzena_2 || 0)
+    const mensal = Math.round((b - i - ir - q - q2) * 100) / 100
     totalFuncionarios += mensal + producao
   })
   totalFuncionarios = Math.round(totalFuncionarios * 100) / 100

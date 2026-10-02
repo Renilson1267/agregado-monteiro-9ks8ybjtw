@@ -141,15 +141,14 @@ function calcularValorRealEmpresa(
       : l.producao !== undefined && Number(l.producao) > 0
         ? Number(l.producao)
         : obras * valorObra
-    // Regra Valdercleiton: mensal puro = bruto - inss - quinzena (sem comissão e sem ajuda)
-    const mensal = isValdercleiton
-      ? Math.round(
-          (Number(l.bruto || 0) -
-            Number(l.inss || 0) -
-            Number(l.quinzena || 0)) *
-            100,
-        ) / 100
-      : Number(l.mensal_liquido || 0)
+    // REGRA OFICIAL GC MIX:
+    // Mensal puro = bruto - inss - ir - quinzena - quinzena_2 (sem adicionais e sem adiantamento)
+    const b = Number(l.bruto || 0)
+    const i = Number(l.inss || 0)
+    const ir = Number(l.ir || 0)
+    const q = Number(l.quinzena || 0)
+    const q2 = Number(l.quinzena_2 || 0)
+    const mensal = Math.round((b - i - ir - q - q2) * 100) / 100
     totalFuncionarios += mensal + producao
     const vObra = Number(l.vendas_obra || 0)
     const comissaoAuto = calcularComissaoVendas(vObra)
@@ -607,41 +606,25 @@ export function FolhaPagamento() {
           ) / 100
 
       // Cálculo do MENSAL LÍQUIDO:
-      // MENSAL (LÍQUIDO) = bruto − INSS − quinzena (sem desconto de produção)
-      // Para Valdercleiton: mensal PURO = bruto - inss - quinzena
-      // Para demais: calcularMensalSemProducao (sem dedução de produção na aba MENSAL)
-      const mensalCalculadoSemProd = isValdercleiton
-        ? Math.round((bruto - inssFinal - quinzenaFinal) * 100) / 100
-        : calcularMensalSemProducao(
-            bruto,
-            inssFinal,
-            familiaFinal,
-            irrfFinal,
-            quinzenaFinal,
-            {
-              limpeza: limpezaTotal,
-              sabado: sabadoTotal,
-              ferias: feriasTotal,
-              ajuda_custo: ajudaTotal,
-              gratificacao: gratificacaoTotal,
-              adiantamento: adiantamentoTotal,
-              comissao: comissaoTotal,
-              vendas_ajuda: vendasAjudaTotal,
-            },
-          )
+      // REGRA OFICIAL GC MIX (para TODOS os funcionários):
+      // MENSAL (LÍQUIDO) = Salário Bruto − INSS − IRRF − Quinzena − Quinzena 2 (se houver)
+      // Sem adicionais (Gratificação, Limpeza, Sábado, Feriado, Férias, Ajuda, Comissão, Vendas/Ajuda).
+      // Adiantamento desconta exclusivamente no "A Pagar" da Produção.
+      // Aplica a fórmula pura SEMPRE e PARA TODOS (inclusive linhas em modo Digitado).
+      const quinzena2Final = Number(l.quinzena_2 || 0)
+      const mensalCalculadoSemProd = calcularMensalSemProducao(
+        bruto,
+        inssFinal,
+        familiaFinal,
+        irrfFinal,
+        quinzenaFinal,
+        {
+          quinzena_2: quinzena2Final,
+        },
+      )
 
-      // Para Valdercleiton: ignorar resquícios do mensal_liquido gravado e usar SEMPRE o mensal puro
-      // Para demais: se a linha tem mensal_liquido gravado e válido e modo_calculo === 'Digitado', respeita-o;
-      // caso contrário, usa o mensal calculado sem desconto de produção
-      const mensalFinal = isValdercleiton
-        ? mensalCalculadoSemProd
-        : l.modo_calculo === "Digitado" &&
-            l.mensal_liquido !== undefined &&
-            l.mensal_liquido !== null &&
-            Number(l.mensal_liquido) !== 0
-          ? Number(l.mensal_liquido)
-          : mensalCalculadoSemProd
-
+      // Exibição do mensal deve usar SEMPRE a fórmula pura recalculada para todos
+      const mensalFinal = mensalCalculadoSemProd
       const mensalCalc = mensalCalculadoSemProd
 
       // Líquido completo para a aba GERAL (mensal + produção à parte)
@@ -1379,7 +1362,7 @@ export function FolhaPagamento() {
       }
 
       if (!mensalManual) {
-        // Mensal Líquido não inclui produção (produção é pagamento à parte, visível só na Geral e Produção)
+        // Mensal Líquido pela fórmula pura: Bruto − INSS − IRRF − Quinzena − Quinzena 2
         updated.mensal_liquido = calcularMensalSemProducao(
           bruto,
           inss,
@@ -1387,16 +1370,7 @@ export function FolhaPagamento() {
           irrf,
           quinzena,
           {
-            limpeza: updated.limpeza,
-            sabado: updated.sabado,
-            feriado: updated.feriado,
-            ferias: updated.ferias,
-            ajuda_custo: updated.ajuda_custo,
-            gratificacao: updated.gratificacao,
-            adiantamento: updated.adiantamento,
             quinzena_2: updated.quinzena_2,
-            comissao: updated.comissao,
-            vendas_ajuda: updated.vendas_ajuda,
           },
         )
       }

@@ -148,9 +148,10 @@ export function calcularQuinzena(
  */
 /**
  * Calcula o valor Líquido Mensal da aba MENSAL (sem produção):
- * Produção é um pagamento à parte e NÃO entra no mensal.
- * MENSAL = BRUTO − INSS − IRRF + FAMÍLIA + GRATIFICAÇÃO − QUINZENA − ADIANTAMENTO
- *          + LIMPEZA + SÁBADO + FERIADO + FÉRIAS + AJUDA + COMISSÃO + VENDAS_AJUDA
+ * REGRA OFICIAL GC MIX:
+ * MENSAL (LÍQUIDO) = Salário Bruto − INSS − IRRF − Quinzena − Quinzena 2 (se houver)
+ * Sem adicionais (Gratificação, Limpeza, Sábado, Feriado, Férias, Ajuda, Comissão, Vendas/Ajuda).
+ * O Adiantamento desconta exclusivamente no "A Pagar" da Produção.
  */
 export function calcularMensalSemProducao(
   bruto: number,
@@ -173,37 +174,11 @@ export function calcularMensalSemProducao(
 ): number {
   const b = Number(bruto || 0)
   const i = Number(inss || 0)
-  const f = Number(familia || 0)
   const ir = Number(irrf || 0)
   const q = Number(quinzena || 0)
-
-  const limp = Number(extras?.limpeza || 0)
-  const sab = Number(extras?.sabado || 0)
-  const feriado = Number(extras?.feriado || 0)
-  const fer = Number(extras?.ferias || 0)
-  const ajuda = Number(extras?.ajuda_custo || 0)
-  const grat = Number(extras?.gratificacao || 0)
-  const adiant = Number(extras?.adiantamento || 0)
   const q2 = Number(extras?.quinzena_2 || 0)
-  const com = Number(extras?.comissao || 0)
-  const vendAj = Number(extras?.vendas_ajuda || 0)
 
-  const total =
-    b -
-    i -
-    ir +
-    f +
-    grat -
-    q -
-    q2 -
-    adiant +
-    limp +
-    sab +
-    feriado +
-    fer +
-    ajuda +
-    vendAj +
-    com
+  const total = b - i - ir - q - q2
   return Math.round(total * 100) / 100
 }
 

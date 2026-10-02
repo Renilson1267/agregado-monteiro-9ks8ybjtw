@@ -414,18 +414,18 @@ export function parseFolhaPagamentoCSV(
     const pix = getCol(colunas, mapa.pix)
 
     // Cálculo automático oficial:
-    // Líquido Mensal = Bruto − INSS − IR + Família + Gratificação − Quinzena − Adiantamento + Limpeza + Sábado + Férias + Ajuda + Comissão (SEM PRODUÇÃO, que é pagamento à parte)
+    // Líquido Mensal = Salário Bruto − INSS − IRRF − Quinzena − Quinzena 2 (sem adicionais e sem adiantamento)
     const mensalLiquidoCalculado = calcularMensalLiquido({
       tipo,
       bruto,
       inss,
       ir,
-      familia,
-      gratificacao,
+      familia: 0,
+      gratificacao: 0,
       quinzena,
-      adiantamento,
+      adiantamento: 0,
       producao: 0,
-      comissao,
+      comissao: 0,
     })
 
     // Se no CSV veio um valor declarado de MensalLiquido diferente de 0, verifica se confere
