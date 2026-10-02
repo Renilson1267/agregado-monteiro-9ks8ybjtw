@@ -414,6 +414,64 @@ export class FolhaService {
   }
 
   /**
+   * Atualiza campos de vendas de uma linha diretamente (sem abrir modal)
+   * e recalcula totais da competência no banco.
+   */
+  static async atualizarCamposVendasLinha(
+    id: string,
+    empresaId: string,
+    competencia: string,
+    campos: {
+      vendas_obra?: number
+      comissao?: number
+      vendas_ajuda?: number
+      ajuda_custo?: number
+      modo_calculo?: string
+    },
+  ): Promise<FolhaPagamentoLinha> {
+    const dadosUpdate: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    }
+    if (campos.vendas_obra !== undefined) {
+      dadosUpdate.vendas_obra = Number(campos.vendas_obra || 0)
+    }
+    if (campos.comissao !== undefined) {
+      dadosUpdate.comissao = Number(campos.comissao || 0)
+    }
+    if (campos.vendas_ajuda !== undefined) {
+      dadosUpdate.vendas_ajuda = Number(campos.vendas_ajuda || 0)
+    }
+    if (campos.ajuda_custo !== undefined) {
+      dadosUpdate.ajuda_custo = Number(campos.ajuda_custo || 0)
+    }
+    if (campos.modo_calculo !== undefined) {
+      dadosUpdate.modo_calculo = campos.modo_calculo
+    }
+
+    const { data, error } = await (supabase as any)
+      .from("folha_pagamento_linhas")
+      .update(dadosUpdate)
+      .eq("id", id)
+      .eq("empresa_id", empresaId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Erro ao atualizar campos de vendas da linha:", error)
+      throw error
+    }
+
+    // Atualiza totais na competência em background
+    try {
+      await this.atualizarTotaisCompetencia(empresaId, competencia)
+    } catch (errComp) {
+      console.warn("Aviso ao recalcular totais da competência:", errComp)
+    }
+
+    return data as FolhaPagamentoLinha
+  }
+
+  /**
    * Exclui uma linha da folha
    */
   static async excluirLinha(
