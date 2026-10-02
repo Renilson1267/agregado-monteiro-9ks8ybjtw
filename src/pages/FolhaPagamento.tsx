@@ -797,7 +797,8 @@ export function FolhaPagamento() {
           tipo: "Funcionario",
           nome: victorCadastrado.nome,
           funcao: victorCadastrado.funcao || "MOTORISTA",
-          cargo: victorCadastrado.cargo || victorCadastrado.funcao || "MOTORISTA",
+          cargo:
+            victorCadastrado.cargo || victorCadastrado.funcao || "MOTORISTA",
           unidade: victorCadastrado.unidade || "MONTEIRO",
           salario_base: Number(victorCadastrado.bruto || 0),
           bruto: Number(victorCadastrado.bruto || 0),
@@ -841,7 +842,12 @@ export function FolhaPagamento() {
     }
 
     return lista
-  }, [funcionariosFiltrados, funcionariosCadastradosEmpresa, empresaAtiva, competencia])
+  }, [
+    funcionariosFiltrados,
+    funcionariosCadastradosEmpresa,
+    empresaAtiva,
+    competencia,
+  ])
 
   // Dados exclusivos do lançador de vendas (Valdercleiton) para a aba VENDAS
   const dadosLancadorVendas = useMemo(() => {
@@ -1634,15 +1640,7 @@ export function FolhaPagamento() {
 
   // Estado de edição inline da aba PRODUÇÃO
   // Colunas editáveis: 'obras' | 'valor_obra' | 'limpeza' | 'sabado' | 'feriado' | 'ajuda_custo' | 'gratificacao' | 'adiantamento'
-  type CampoProducaoEditavel =
-    | "obras"
-    | "valor_obra"
-    | "limpeza"
-    | "sabado"
-    | "feriado"
-    | "ajuda_custo"
-    | "gratificacao"
-    | "adiantamento"
+  type CampoProducaoEditavel = "obras" | "valor_obra" | "limpeza" | "sabado" | "feriado" | "ajuda_custo" | "gratificacao" | "adiantamento"
 
   const [celulaAtivaProducao, setCelulaAtivaProducao] = useState<{
     linhaId: string
@@ -1717,7 +1715,8 @@ export function FolhaPagamento() {
       }
       if (campo === "obras" || campo === "valor_obra") {
         const obs = campo === "obras" ? numNovo : Number(linhaAtual.obras || 0)
-        const valOb = campo === "valor_obra" ? numNovo : Number(linhaAtual.valor_obra ?? 20)
+        const valOb =
+          campo === "valor_obra" ? numNovo : Number(linhaAtual.valor_obra ?? 20)
         novaLinha.producao = Math.round(obs * valOb * 100) / 100
       }
       if (index >= 0) {
@@ -1751,7 +1750,9 @@ export function FolhaPagamento() {
           producao:
             campo === "obras" || campo === "valor_obra"
               ? Math.round(
-                  (campo === "obras" ? numNovo : Number(linhaAtual.obras || 0)) *
+                  (campo === "obras"
+                    ? numNovo
+                    : Number(linhaAtual.obras || 0)) *
                     (campo === "valor_obra"
                       ? numNovo
                       : Number(linhaAtual.valor_obra ?? 20)) *
@@ -1793,6 +1794,8 @@ export function FolhaPagamento() {
     } finally {
       setSalvandoCelulaProducao(null)
     }
+  }
+
   // Formatação moeda BRL
   const fmtMoeda = (val: number | undefined | null) => {
     if (val === null || val === undefined) return "-"
@@ -3782,7 +3785,11 @@ export function FolhaPagamento() {
                               celulaAtivaProducao?.linhaId !== l.id ||
                               celulaAtivaProducao?.campo !== "valor_obra"
                             ) {
-                              iniciarEdicaoCelula(l.id, "valor_obra", l.valor_obra)
+                              iniciarEdicaoCelula(
+                                l.id,
+                                "valor_obra",
+                                l.valor_obra,
+                              )
                             }
                           }}
                           title="Clique para editar Valor por Obra"
@@ -3805,17 +3812,21 @@ export function FolhaPagamento() {
                                   cancelarEdicaoCelula()
                                 }
                               }}
-                              onBlur={() => salvarEdicaoCelula(l.id, "valor_obra")}
+                              onBlur={() =>
+                                salvarEdicaoCelula(l.id, "valor_obra")
+                              }
                               placeholder="20,00"
                             />
                           ) : (
                             <div className="flex items-center justify-end gap-1 px-1 py-1 rounded">
-                              {salvandoCelulaProducao === `${l.id}-valor_obra` ? (
+                              {salvandoCelulaProducao ===
+                              `${l.id}-valor_obra` ? (
                                 <RefreshCw className="h-3 w-3 animate-spin text-primary" />
                               ) : null}
                               <span
                                 className={
-                                  Number(l.obras || 0) > 0 || Number(l.valor_obra || 0) > 0
+                                  Number(l.obras || 0) > 0 ||
+                                  Number(l.valor_obra || 0) > 0
                                     ? "text-muted-foreground font-mono"
                                     : "text-muted-foreground font-mono"
                                 }
