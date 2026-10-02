@@ -1650,6 +1650,15 @@ export function FolhaPagamento() {
   const [salvandoCelulaProducao, setSalvandoCelulaProducao] =
     useState<string | null>(null)
 
+  // Estado de edição inline da aba VENDAS (vendas_obra de terceiros vendedores, ex: Márcio Luan)
+  const [celulaAtivaVendas, setCelulaAtivaVendas] = useState<{
+    linhaId: string
+    campo: "vendas_obra"
+  } | null>(null)
+  const [valorTempVendas, setValorTempVendas] = useState<string>("")
+  const [salvandoCelulaVendas, setSalvandoCelulaVendas] =
+    useState<string | null>(null)
+
   const parseValorInline = (valStr: string): number => {
     const raw = valStr.trim()
     if (!raw || raw === "-" || raw === "—") return 0
@@ -1793,6 +1802,178 @@ export function FolhaPagamento() {
       })
     } finally {
       setSalvandoCelulaProducao(null)
+    }
+  }
+
+  const iniciarEdicaoCelulaVendas = (
+    linhaId: string,
+    valorAtual: number | undefined | null,
+  ) => {
+    const v = Number(valorAtual || 0)
+    setCelulaAtivaVendas({ linhaId, campo: "vendas_obra" })
+    setValorTempVendas(v > 0 ? String(v).replace(".", ",") : "")
+  }
+
+  const cancelarEdicaoCelulaVendas = () => {
+    setCelulaAtivaVendas(null)
+    setValorTempVendas("")
+  }
+
+  const salvarEdicaoCelulaVendas = async (
+    linhaId: string,
+    novoValorTexto?: string,
+  ) => {
+    if (!empresaAtiva?.id) return
+    const textoParaSalvar =
+      novoValorTexto !== undefined ? novoValorTexto : valorTempVendas
+    const numNovo = parseValorInline(textoParaSalvar)
+    const chaveSalvando = `${linhaId}-vendas_obra`
+
+    // Localiza a linha existente em 'linhas' ou na lista de representação de vendedores terceiros
+    const linhaExistente = linhas.find((l) => l.id === linhaId)
+    const linhaTerceiroView = linhasVendasTerceiros.find(
+      (l) => l.id === linhaId,
+    )
+    const linhaBase = linhaExistente || linhaTerceiroView
+
+    if (!linhaBase) {
+      cancelarEdicaoCelulaVendas()
+      return
+    }
+
+    const valorAntigo = Number(linhaBase.vendas_obra || 0)
+    const comissaoAntiga = Number(linhaBase.comissao || 0)
+
+    if (numNovo === valorAntigo && linhaExistente) {
+      cancelarEdicaoCelulaVendas()
+      return
+    }
+
+    setCelulaAtivaVendas(null)
+    setSalvandoCelulaVendas(chaveSalvando)
+
+    // Se for Monteiro ("11111111-1111-1111-1111-111111111111"), calcula a comissão pela tabela progressiva marginal
+    let novaComissao = comissaoAntiga
+    if (empresaAtiva.id === "11111111-1111-1111-1111-111111111111") {
+      novaComissao =
+        calcularComissaoProgressivaMarginal(numNovo, faixasComissao) ?? 0
+    }
+
+    // Atualização otimista imediata no estado `linhas`
+    setLinhas((prev) => {
+      const index = prev.findIndex((l) => l.id === linhaId)
+      const linhaAtualizada: FolhaPagamentoLinha = {
+        ...(linhaExistente || linhaBase as FolhaPagamentoLinha),
+        vendas_obra: numNovo,
+        comissao: novaComissao,
+        updated_at: new Date().toISOString(),
+      }
+      if (index >= 0) {
+        const copia = [...prev]
+        copia[index] = linhaAtualizada
+        return copia
+      }
+      return [...prev, linhaAtualizada]
+    })
+
+    try {
+      const existeNoBanco = linhas.some((l) => l.id === linhaId)
+      if (existeNoBanco) {
+        const linhaGravada = await FolhaService.atualizarCamposVendasLinha(
+          linhaId,
+          empresaAtiva.id,
+          competencia,
+          {
+            vendas_obra: numNovo,
+            comissao: novaComissao,
+          },
+        )
+        setLinhas((prev) =>
+          prev.map((l) => (l.id === linhaId ? { ...l, ...linhaGravada } : l)),
+        )
+      } else {
+        // Terceiro do cadastro que ainda não tinha linha criada na competência
+        const cadastrado = terceirosCadastrados.find(
+          (c) =>
+            c.id === linhaId ||
+            c.nome.toUpperCase() === linhaBase.nome.toUpperCase(),
+        )
+        const payloadCompleto = {
+          ...linhaBase,
+          empresa_id: empresaAtiva.id,
+          competencia,
+          tipo: "Terceiro" as const,
+          vendas_obra: numNovo,
+          comissao: novaComissao,
+          salario_base: 0,
+          bruto: Number(linhaBase.bruto || cadastrado?.bruto || 0),
+          filhos: 0,
+          inss: 0,
+          familia: 0,
+          ir: 0,
+          quinzena: 0,
+          quinzena_2: 0,
+          adiantamento: 0,
+          gratificacao: 0,
+          obras: 0,
+          valor_obra: 20,
+          producao: 0,
+          limpeza: 0,
+          sabado: 0,
+          feriado: 0,
+          ferias: 0,
+          ajuda_custo: Number(linhaBase.ajuda_custo || 0),
+          vendas_ajuda: 0,
+          mensal_liquido: Number(linhaBase.bruto || cadastrado?.bruto || 0),
+          salario_liquido: Number(linhaBase.bruto || cadastrado?.bruto || 0),
+          conta: linhaBase.conta || cadastrado?.conta || "",
+          pix: linhaBase.pix || cadastrado?.pix || "",
+          chave_pix: linhaBase.chave_pix || cadastrado?.pix || "",
+          modo_calculo: "Calculado" as const,
+          oculto: false,
+          inativo: false,
+        }
+        const linhaGravada = await FolhaService.salvarLinha(
+          payloadCompleto as any,
+          empresaAtiva.id,
+          competencia,
+        )
+        setLinhas((prev) => {
+          const filtered = prev.filter((l) => l.id !== linhaId)
+          return [...filtered, linhaGravada]
+        })
+      }
+
+      // Atualiza totais salvos no cabeçalho da competência
+      await FolhaService.atualizarTotaisCompetencia(
+        empresaAtiva.id,
+        competencia,
+      )
+
+      toast({
+        title: "Vendas salvas",
+        description: `Vendas de ${linhaBase.nome} atualizadas com sucesso.`,
+      })
+    } catch (err: any) {
+      // Reverte em caso de erro
+      setLinhas((prev) =>
+        prev.map((l) => {
+          if (l.id !== linhaId) return l
+          return {
+            ...l,
+            vendas_obra: valorAntigo,
+            comissao: comissaoAntiga,
+            updated_at: new Date().toISOString(),
+          }
+        }),
+      )
+      toast({
+        title: "Erro ao salvar vendas",
+        description: err.message || "Falha ao gravar vendas do terceiro.",
+        variant: "destructive",
+      })
+    } finally {
+      setSalvandoCelulaVendas(null)
     }
   }
 
@@ -4505,16 +4686,71 @@ export function FolhaPagamento() {
                               </Badge>
                             </div>
                           </td>
-                          <td className="py-2 px-3 text-right font-mono text-blue-600 font-semibold whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <span>{fmtMoeda(l.vendas_obra)}</span>
-                              <Badge
-                                variant="outline"
-                                className="text-[8px] px-1 py-0 h-3.5 border-blue-300 text-blue-700 bg-blue-50"
-                              >
-                                Digitado
-                              </Badge>
-                            </div>
+                          <td
+                            className={`py-2 px-3 text-right font-mono text-blue-600 font-semibold whitespace-nowrap ${
+                              empresaAtiva?.id ===
+                                "11111111-1111-1111-1111-111111111111" &&
+                              l.nome.toUpperCase().includes("MARCIO LUAN")
+                                ? "cursor-pointer hover:bg-blue-500/10 transition-colors"
+                                : ""
+                            }`}
+                            onClick={() => {
+                              const ehMarcioMonteiro =
+                                empresaAtiva?.id ===
+                                  "11111111-1111-1111-1111-111111111111" &&
+                                l.nome.toUpperCase().includes("MARCIO LUAN")
+                              if (
+                                ehMarcioMonteiro &&
+                                (celulaAtivaVendas?.linhaId !== l.id ||
+                                  celulaAtivaVendas?.campo !== "vendas_obra")
+                              ) {
+                                iniciarEdicaoCelulaVendas(l.id, l.vendas_obra)
+                              }
+                            }}
+                            title={
+                              empresaAtiva?.id ===
+                                "11111111-1111-1111-1111-111111111111" &&
+                              l.nome.toUpperCase().includes("MARCIO LUAN")
+                                ? "Clique para editar Valor das Obras"
+                                : undefined
+                            }
+                          >
+                            {celulaAtivaVendas?.linhaId === l.id &&
+                            celulaAtivaVendas?.campo === "vendas_obra" ? (
+                              <Input
+                                autoFocus
+                                className="h-7 w-28 text-right font-mono text-xs px-1.5 py-0 ml-auto bg-background border-primary focus-visible:ring-1"
+                                value={valorTempVendas}
+                                onChange={(e) =>
+                                  setValorTempVendas(e.target.value)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault()
+                                    salvarEdicaoCelulaVendas(l.id)
+                                  } else if (e.key === "Escape") {
+                                    e.preventDefault()
+                                    cancelarEdicaoCelulaVendas()
+                                  }
+                                }}
+                                onBlur={() => salvarEdicaoCelulaVendas(l.id)}
+                                placeholder="0,00"
+                              />
+                            ) : (
+                              <div className="flex items-center justify-end gap-1.5">
+                                {salvandoCelulaVendas ===
+                                  `${l.id}-vendas_obra` && (
+                                  <RefreshCw className="h-3 w-3 animate-spin text-blue-600" />
+                                )}
+                                <span>{fmtMoeda(l.vendas_obra)}</span>
+                                <Badge
+                                  variant="outline"
+                                  className="text-[8px] px-1 py-0 h-3.5 border-blue-300 text-blue-700 bg-blue-50"
+                                >
+                                  Digitado
+                                </Badge>
+                              </div>
+                            )}
                           </td>
                           <td className="py-2 px-3 text-right font-mono font-bold text-amber-600 whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1">
