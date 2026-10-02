@@ -1022,6 +1022,7 @@ export function FolhaPagamento() {
         acc.limpeza += Number(l.limpeza || 0)
         acc.sabado += Number(l.sabado || 0)
         acc.feriado += Number(l.feriado || 0)
+        acc.ferias += Number(l.ferias || 0)
         acc.ajuda_custo += Number(l.ajuda_custo || 0)
         acc.adiantamento += Number(l.adiantamento || 0)
         acc.gratificacao += Number(l.gratificacao || 0)
@@ -1034,6 +1035,7 @@ export function FolhaPagamento() {
         limpeza: 0,
         sabado: 0,
         feriado: 0,
+        ferias: 0,
         ajuda_custo: 0,
         adiantamento: 0,
         gratificacao: 0,
@@ -1553,6 +1555,121 @@ export function FolhaPagamento() {
     setTimeout(() => {
       window.print()
     }, 150)
+  }
+
+  // Estado de edição inline da aba PRODUÇÃO
+  // Colunas editáveis: 'limpeza' | 'sabado' | 'feriado' | 'ferias' | 'ajuda_custo' | 'gratificacao' | 'adiantamento'
+  type CampoProducaoEditavel = "limpeza" | "sabado" | "feriado" | "ferias" | "ajuda_custo" | "gratificacao" | "adiantamento"
+
+  const [celulaAtivaProducao, setCelulaAtivaProducao] = useState<{
+    linhaId: string
+    campo: CampoProducaoEditavel
+  } | null>(null)
+  const [valorTempProducao, setValorTempProducao] = useState<string>("")
+  const [salvandoCelulaProducao, setSalvandoCelulaProducao] =
+    useState<string | null>(null)
+
+  const parseValorInline = (valStr: string): number => {
+    const raw = valStr.trim()
+    if (!raw || raw === "-" || raw === "—") return 0
+    // Remove "R$" e espaços
+    let limpo = raw.replace(/[R$\s]/gi, "")
+    if (limpo.includes(".") && limpo.includes(",")) {
+      limpo = limpo.replace(/\./g, "").replace(",", ".")
+    } else if (limpo.includes(",")) {
+      limpo = limpo.replace(",", ".")
+    }
+    const num = parseFloat(limpo)
+    return isNaN(num) ? 0 : Math.round(num * 100) / 100
+  }
+
+  const iniciarEdicaoCelula = (
+    linhaId: string,
+    campo: CampoProducaoEditavel,
+    valorAtual: number | undefined | null,
+  ) => {
+    const v = Number(valorAtual || 0)
+    setCelulaAtivaProducao({ linhaId, campo })
+    setValorTempProducao(v > 0 ? String(v).replace(".", ",") : "")
+  }
+
+  const cancelarEdicaoCelula = () => {
+    setCelulaAtivaProducao(null)
+    setValorTempProducao("")
+  }
+
+  const salvarEdicaoCelula = async (
+    linhaId: string,
+    campo: CampoProducaoEditavel,
+    novoValorTexto?: string,
+  ) => {
+    if (!empresaAtiva?.id) return
+    const textoParaSalvar =
+      novoValorTexto !== undefined ? novoValorTexto : valorTempProducao
+    const numNovo = parseValorInline(textoParaSalvar)
+    const chaveSalvando = `${linhaId}-${campo}`
+
+    const linhaAtual = linhas.find((l) => l.id === linhaId)
+    if (!linhaAtual) {
+      cancelarEdicaoCelula()
+      return
+    }
+
+    const valorAntigo = Number((linhaAtual as any)[campo] || 0)
+    if (numNovo === valorAntigo) {
+      cancelarEdicaoCelula()
+      return
+    }
+
+    setCelulaAtivaProducao(null)
+    setSalvandoCelulaProducao(chaveSalvando)
+
+    // Atualização otimista imediata na lista de linhas
+    setLinhas((prev) =>
+      prev.map((l) => {
+        if (l.id !== linhaId) return l
+        return {
+          ...l,
+          [campo]: numNovo,
+          updated_at: new Date().toISOString(),
+        }
+      }),
+    )
+
+    try {
+      const linhaGravada = await FolhaService.atualizarCamposProducaoLinha(
+        linhaId,
+        empresaAtiva.id,
+        competencia,
+        { [campo]: numNovo },
+      )
+      // Mescla com retorno do backend
+      setLinhas((prev) =>
+        prev.map((l) => (l.id === linhaId ? { ...l, ...linhaGravada } : l)),
+      )
+      toast({
+        title: "Produção salva",
+        description: `${linhaAtual.nome} atualizado com sucesso.`,
+      })
+    } catch (err: any) {
+      // Reverte em caso de erro
+      setLinhas((prev) =>
+        prev.map((l) => {
+          if (l.id !== linhaId) return l
+          return {
+            ...l,
+            [campo]: valorAntigo,
+          }
+        }),
+      )
+      toast({
+        title: "Erro ao salvar",
+        description: err.message || "Falha ao gravar campo da produção.",
+        variant: "destructive",
+      })
+    } finally {
+      setSalvandoCelulaProducao(null)
+    }
   }
 
   // Formatação moeda BRL
@@ -3454,16 +3571,61 @@ export function FolhaPagamento() {
                       </th>
                       <th className="py-2.5 px-2 text-center">OBRAS</th>
                       <th className="py-2.5 px-2 text-right">VALOR/OBRA</th>
-                      <th className="py-2.5 px-2 text-right">LIMP/LUBRIF.</th>
-                      <th className="py-2.5 px-2 text-right">SÁBADO</th>
-                      <th className="py-2.5 px-2 text-right">FERIADO</th>
-                      <th className="py-2.5 px-2 text-right">FÉRIAS</th>
-                      <th className="py-2.5 px-2 text-right">AJUDA DE CUSTO</th>
-                      <th className="py-2.5 px-2 text-right text-emerald-600">
-                        GRATIFICAÇÃO
+                      <th
+                        className="py-2.5 px-2 text-right"
+                        title="Clique na célula para digitar diretamente"
+                      >
+                        <span className="cursor-help border-b border-dotted border-muted-foreground/60">
+                          LIMP/LUBRIF.
+                        </span>
                       </th>
-                      <th className="py-2.5 px-2 text-right text-red-600">
-                        ADIANTAMENTO
+                      <th
+                        className="py-2.5 px-2 text-right"
+                        title="Clique na célula para digitar diretamente"
+                      >
+                        <span className="cursor-help border-b border-dotted border-muted-foreground/60">
+                          SÁBADO
+                        </span>
+                      </th>
+                      <th
+                        className="py-2.5 px-2 text-right"
+                        title="Clique na célula para digitar diretamente"
+                      >
+                        <span className="cursor-help border-b border-dotted border-muted-foreground/60">
+                          FERIADO
+                        </span>
+                      </th>
+                      <th
+                        className="py-2.5 px-2 text-right"
+                        title="Clique na célula para digitar diretamente"
+                      >
+                        <span className="cursor-help border-b border-dotted border-muted-foreground/60">
+                          FÉRIAS
+                        </span>
+                      </th>
+                      <th
+                        className="py-2.5 px-2 text-right"
+                        title="Clique na célula para digitar diretamente"
+                      >
+                        <span className="cursor-help border-b border-dotted border-muted-foreground/60">
+                          AJUDA DE CUSTO
+                        </span>
+                      </th>
+                      <th
+                        className="py-2.5 px-2 text-right text-emerald-600"
+                        title="Clique na célula para digitar diretamente"
+                      >
+                        <span className="cursor-help border-b border-dotted border-emerald-600/60">
+                          GRATIFICAÇÃO
+                        </span>
+                      </th>
+                      <th
+                        className="py-2.5 px-2 text-right text-red-600"
+                        title="Clique na célula para digitar diretamente"
+                      >
+                        <span className="cursor-help border-b border-dotted border-red-600/60">
+                          ADIANTAMENTO
+                        </span>
                       </th>
                       <th className="py-2.5 px-2 text-right font-semibold text-foreground">
                         PRODUÇÃO
@@ -3493,28 +3655,403 @@ export function FolhaPagamento() {
                         <td className="py-2 px-2 text-right font-mono text-muted-foreground">
                           {l.obras > 0 ? fmtMoeda(l.valor_obra) : "-"}
                         </td>
-                        <td className="py-2 px-2 text-right font-mono">
-                          {l.limpeza > 0 ? fmtMoeda(l.limpeza) : "-"}
+                        {/* 1. LIMP/LUBRIF. (inline) */}
+                        <td
+                          className="py-1 px-1 text-right font-mono cursor-pointer hover:bg-amber-500/10 transition-colors"
+                          onClick={() => {
+                            if (
+                              celulaAtivaProducao?.linhaId !== l.id ||
+                              celulaAtivaProducao?.campo !== "limpeza"
+                            ) {
+                              iniciarEdicaoCelula(l.id, "limpeza", l.limpeza)
+                            }
+                          }}
+                          title="Clique para editar Limpeza/Lubrificação"
+                        >
+                          {celulaAtivaProducao?.linhaId === l.id &&
+                          celulaAtivaProducao?.campo === "limpeza" ? (
+                            <Input
+                              autoFocus
+                              className="h-7 w-24 text-right font-mono text-xs px-1.5 py-0 bg-background border-primary focus-visible:ring-1"
+                              value={valorTempProducao}
+                              onChange={(e) =>
+                                setValorTempProducao(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault()
+                                  salvarEdicaoCelula(l.id, "limpeza")
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault()
+                                  cancelarEdicaoCelula()
+                                }
+                              }}
+                              onBlur={() => salvarEdicaoCelula(l.id, "limpeza")}
+                              placeholder="0,00"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-end gap-1 px-1 py-1 rounded">
+                              {salvandoCelulaProducao === `${l.id}-limpeza` ? (
+                                <RefreshCw className="h-3 w-3 animate-spin text-primary" />
+                              ) : null}
+                              <span
+                                className={
+                                  Number(l.limpeza || 0) > 0
+                                    ? "font-semibold text-foreground"
+                                    : "text-muted-foreground"
+                                }
+                              >
+                                {Number(l.limpeza || 0) > 0
+                                  ? fmtMoeda(l.limpeza)
+                                  : "-"}
+                              </span>
+                            </div>
+                          )}
                         </td>
-                        <td className="py-2 px-2 text-right font-mono">
-                          {l.sabado > 0 ? fmtMoeda(l.sabado) : "-"}
+
+                        {/* 2. SÁBADO (inline) */}
+                        <td
+                          className="py-1 px-1 text-right font-mono cursor-pointer hover:bg-amber-500/10 transition-colors"
+                          onClick={() => {
+                            if (
+                              celulaAtivaProducao?.linhaId !== l.id ||
+                              celulaAtivaProducao?.campo !== "sabado"
+                            ) {
+                              iniciarEdicaoCelula(l.id, "sabado", l.sabado)
+                            }
+                          }}
+                          title="Clique para editar Sábado"
+                        >
+                          {celulaAtivaProducao?.linhaId === l.id &&
+                          celulaAtivaProducao?.campo === "sabado" ? (
+                            <Input
+                              autoFocus
+                              className="h-7 w-24 text-right font-mono text-xs px-1.5 py-0 bg-background border-primary focus-visible:ring-1"
+                              value={valorTempProducao}
+                              onChange={(e) =>
+                                setValorTempProducao(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault()
+                                  salvarEdicaoCelula(l.id, "sabado")
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault()
+                                  cancelarEdicaoCelula()
+                                }
+                              }}
+                              onBlur={() => salvarEdicaoCelula(l.id, "sabado")}
+                              placeholder="0,00"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-end gap-1 px-1 py-1 rounded">
+                              {salvandoCelulaProducao === `${l.id}-sabado` ? (
+                                <RefreshCw className="h-3 w-3 animate-spin text-primary" />
+                              ) : null}
+                              <span
+                                className={
+                                  Number(l.sabado || 0) > 0
+                                    ? "font-semibold text-foreground"
+                                    : "text-muted-foreground"
+                                }
+                              >
+                                {Number(l.sabado || 0) > 0
+                                  ? fmtMoeda(l.sabado)
+                                  : "-"}
+                              </span>
+                            </div>
+                          )}
                         </td>
-                        <td className="py-2 px-2 text-right font-mono">
-                          {l.feriado && l.feriado > 0
-                            ? fmtMoeda(l.feriado)
-                            : "-"}
+
+                        {/* 3. FERIADO (inline) */}
+                        <td
+                          className="py-1 px-1 text-right font-mono cursor-pointer hover:bg-amber-500/10 transition-colors"
+                          onClick={() => {
+                            if (
+                              celulaAtivaProducao?.linhaId !== l.id ||
+                              celulaAtivaProducao?.campo !== "feriado"
+                            ) {
+                              iniciarEdicaoCelula(l.id, "feriado", l.feriado)
+                            }
+                          }}
+                          title="Clique para editar Feriado"
+                        >
+                          {celulaAtivaProducao?.linhaId === l.id &&
+                          celulaAtivaProducao?.campo === "feriado" ? (
+                            <Input
+                              autoFocus
+                              className="h-7 w-24 text-right font-mono text-xs px-1.5 py-0 bg-background border-primary focus-visible:ring-1"
+                              value={valorTempProducao}
+                              onChange={(e) =>
+                                setValorTempProducao(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault()
+                                  salvarEdicaoCelula(l.id, "feriado")
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault()
+                                  cancelarEdicaoCelula()
+                                }
+                              }}
+                              onBlur={() => salvarEdicaoCelula(l.id, "feriado")}
+                              placeholder="0,00"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-end gap-1 px-1 py-1 rounded">
+                              {salvandoCelulaProducao === `${l.id}-feriado` ? (
+                                <RefreshCw className="h-3 w-3 animate-spin text-primary" />
+                              ) : null}
+                              <span
+                                className={
+                                  Number(l.feriado || 0) > 0
+                                    ? "font-semibold text-foreground"
+                                    : "text-muted-foreground"
+                                }
+                              >
+                                {Number(l.feriado || 0) > 0
+                                  ? fmtMoeda(l.feriado)
+                                  : "-"}
+                              </span>
+                            </div>
+                          )}
                         </td>
-                        <td className="py-2 px-2 text-right font-mono">
-                          {l.ferias > 0 ? fmtMoeda(l.ferias) : "-"}
+
+                        {/* 4. FÉRIAS (inline) */}
+                        <td
+                          className="py-1 px-1 text-right font-mono cursor-pointer hover:bg-amber-500/10 transition-colors"
+                          onClick={() => {
+                            if (
+                              celulaAtivaProducao?.linhaId !== l.id ||
+                              celulaAtivaProducao?.campo !== "ferias"
+                            ) {
+                              iniciarEdicaoCelula(l.id, "ferias", l.ferias)
+                            }
+                          }}
+                          title="Clique para editar Férias"
+                        >
+                          {celulaAtivaProducao?.linhaId === l.id &&
+                          celulaAtivaProducao?.campo === "ferias" ? (
+                            <Input
+                              autoFocus
+                              className="h-7 w-24 text-right font-mono text-xs px-1.5 py-0 bg-background border-primary focus-visible:ring-1"
+                              value={valorTempProducao}
+                              onChange={(e) =>
+                                setValorTempProducao(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault()
+                                  salvarEdicaoCelula(l.id, "ferias")
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault()
+                                  cancelarEdicaoCelula()
+                                }
+                              }}
+                              onBlur={() => salvarEdicaoCelula(l.id, "ferias")}
+                              placeholder="0,00"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-end gap-1 px-1 py-1 rounded">
+                              {salvandoCelulaProducao === `${l.id}-ferias` ? (
+                                <RefreshCw className="h-3 w-3 animate-spin text-primary" />
+                              ) : null}
+                              <span
+                                className={
+                                  Number(l.ferias || 0) > 0
+                                    ? "font-semibold text-foreground"
+                                    : "text-muted-foreground"
+                                }
+                              >
+                                {Number(l.ferias || 0) > 0
+                                  ? fmtMoeda(l.ferias)
+                                  : "-"}
+                              </span>
+                            </div>
+                          )}
                         </td>
-                        <td className="py-2 px-2 text-right font-mono">
-                          {l.ajuda_custo > 0 ? fmtMoeda(l.ajuda_custo) : "-"}
+
+                        {/* 5. AJUDA DE CUSTO (inline) */}
+                        <td
+                          className="py-1 px-1 text-right font-mono cursor-pointer hover:bg-amber-500/10 transition-colors"
+                          onClick={() => {
+                            if (
+                              celulaAtivaProducao?.linhaId !== l.id ||
+                              celulaAtivaProducao?.campo !== "ajuda_custo"
+                            ) {
+                              iniciarEdicaoCelula(
+                                l.id,
+                                "ajuda_custo",
+                                l.ajuda_custo,
+                              )
+                            }
+                          }}
+                          title="Clique para editar Ajuda de Custo"
+                        >
+                          {celulaAtivaProducao?.linhaId === l.id &&
+                          celulaAtivaProducao?.campo === "ajuda_custo" ? (
+                            <Input
+                              autoFocus
+                              className="h-7 w-24 text-right font-mono text-xs px-1.5 py-0 bg-background border-primary focus-visible:ring-1"
+                              value={valorTempProducao}
+                              onChange={(e) =>
+                                setValorTempProducao(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault()
+                                  salvarEdicaoCelula(l.id, "ajuda_custo")
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault()
+                                  cancelarEdicaoCelula()
+                                }
+                              }}
+                              onBlur={() =>
+                                salvarEdicaoCelula(l.id, "ajuda_custo")
+                              }
+                              placeholder="0,00"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-end gap-1 px-1 py-1 rounded">
+                              {salvandoCelulaProducao ===
+                              `${l.id}-ajuda_custo` ? (
+                                <RefreshCw className="h-3 w-3 animate-spin text-primary" />
+                              ) : null}
+                              <span
+                                className={
+                                  Number(l.ajuda_custo || 0) > 0
+                                    ? "font-semibold text-foreground"
+                                    : "text-muted-foreground"
+                                }
+                              >
+                                {Number(l.ajuda_custo || 0) > 0
+                                  ? fmtMoeda(l.ajuda_custo)
+                                  : "-"}
+                              </span>
+                            </div>
+                          )}
                         </td>
-                        <td className="py-2 px-2 text-right font-mono text-emerald-600">
-                          {l.gratificacao > 0 ? fmtMoeda(l.gratificacao) : "-"}
+
+                        {/* 6. GRATIFICAÇÃO (inline) */}
+                        <td
+                          className="py-1 px-1 text-right font-mono text-emerald-600 cursor-pointer hover:bg-emerald-500/10 transition-colors"
+                          onClick={() => {
+                            if (
+                              celulaAtivaProducao?.linhaId !== l.id ||
+                              celulaAtivaProducao?.campo !== "gratificacao"
+                            ) {
+                              iniciarEdicaoCelula(
+                                l.id,
+                                "gratificacao",
+                                l.gratificacao,
+                              )
+                            }
+                          }}
+                          title="Clique para editar Gratificação"
+                        >
+                          {celulaAtivaProducao?.linhaId === l.id &&
+                          celulaAtivaProducao?.campo === "gratificacao" ? (
+                            <Input
+                              autoFocus
+                              className="h-7 w-24 text-right font-mono text-xs px-1.5 py-0 bg-background border-emerald-500 text-emerald-600 focus-visible:ring-1"
+                              value={valorTempProducao}
+                              onChange={(e) =>
+                                setValorTempProducao(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault()
+                                  salvarEdicaoCelula(l.id, "gratificacao")
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault()
+                                  cancelarEdicaoCelula()
+                                }
+                              }}
+                              onBlur={() =>
+                                salvarEdicaoCelula(l.id, "gratificacao")
+                              }
+                              placeholder="0,00"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-end gap-1 px-1 py-1 rounded">
+                              {salvandoCelulaProducao ===
+                              `${l.id}-gratificacao` ? (
+                                <RefreshCw className="h-3 w-3 animate-spin text-emerald-600" />
+                              ) : null}
+                              <span
+                                className={
+                                  Number(l.gratificacao || 0) > 0
+                                    ? "font-semibold text-emerald-600"
+                                    : "text-muted-foreground"
+                                }
+                              >
+                                {Number(l.gratificacao || 0) > 0
+                                  ? fmtMoeda(l.gratificacao)
+                                  : "-"}
+                              </span>
+                            </div>
+                          )}
                         </td>
-                        <td className="py-2 px-2 text-right font-mono text-red-600">
-                          {l.adiantamento > 0 ? fmtMoeda(l.adiantamento) : "-"}
+
+                        {/* 7. ADIANTAMENTO (inline) */}
+                        <td
+                          className="py-1 px-1 text-right font-mono text-red-600 cursor-pointer hover:bg-red-500/10 transition-colors"
+                          onClick={() => {
+                            if (
+                              celulaAtivaProducao?.linhaId !== l.id ||
+                              celulaAtivaProducao?.campo !== "adiantamento"
+                            ) {
+                              iniciarEdicaoCelula(
+                                l.id,
+                                "adiantamento",
+                                l.adiantamento,
+                              )
+                            }
+                          }}
+                          title="Clique para editar Adiantamento"
+                        >
+                          {celulaAtivaProducao?.linhaId === l.id &&
+                          celulaAtivaProducao?.campo === "adiantamento" ? (
+                            <Input
+                              autoFocus
+                              className="h-7 w-24 text-right font-mono text-xs px-1.5 py-0 bg-background border-red-500 text-red-600 focus-visible:ring-1"
+                              value={valorTempProducao}
+                              onChange={(e) =>
+                                setValorTempProducao(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault()
+                                  salvarEdicaoCelula(l.id, "adiantamento")
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault()
+                                  cancelarEdicaoCelula()
+                                }
+                              }}
+                              onBlur={() =>
+                                salvarEdicaoCelula(l.id, "adiantamento")
+                              }
+                              placeholder="0,00"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-end gap-1 px-1 py-1 rounded">
+                              {salvandoCelulaProducao ===
+                              `${l.id}-adiantamento` ? (
+                                <RefreshCw className="h-3 w-3 animate-spin text-red-600" />
+                              ) : null}
+                              <span
+                                className={
+                                  Number(l.adiantamento || 0) > 0
+                                    ? "font-semibold text-red-600"
+                                    : "text-muted-foreground"
+                                }
+                              >
+                                {Number(l.adiantamento || 0) > 0
+                                  ? fmtMoeda(l.adiantamento)
+                                  : "-"}
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td className="py-2 px-2 text-right font-mono font-semibold text-foreground whitespace-nowrap">
                           {l.producaoTotal > 0
