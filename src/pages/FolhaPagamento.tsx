@@ -103,6 +103,10 @@ interface CalculoUnidadeConsolidada {
   valorReal: number
   totalVendas: number
   totalComissoes: number
+  salariosQuinzena: number
+  salariosMensal: number
+  producaoAPagar: number
+  comissoesVendas: number
   qtdFuncionarios: number
   qtdTerceiros: number
   linhasCount: number
@@ -119,6 +123,10 @@ function calcularValorRealEmpresa(
       valorReal: 0,
       totalVendas: 0,
       totalComissoes: 0,
+      salariosQuinzena: 0,
+      salariosMensal: 0,
+      producaoAPagar: 0,
+      comissoesVendas: 0,
       qtdFuncionarios: 0,
       qtdTerceiros: 0,
       linhasCount: 0,
@@ -130,6 +138,11 @@ function calcularValorRealEmpresa(
   let totalFuncionarios = 0
   let totalVendasFuncs = 0
   let totalComissoesFuncs = 0
+  let salariosQuinzena = 0
+  let salariosMensal = 0
+  let producaoAPagar = 0
+  let comissoesVendas = 0
+
   funcs.forEach((l) => {
     const isValdercleiton = (l.nome || "")
       .toUpperCase()
@@ -147,14 +160,26 @@ function calcularValorRealEmpresa(
     const q = Number(l.quinzena || 0)
     const q2 = Number(l.quinzena_2 || 0)
     const mensal = Math.round((b - i - ir - q - q2) * 100) / 100
+    const aPagarProd = isValdercleiton
+      ? 0
+      : Math.max(0, producaoCompleta - adiantamento)
+
+    salariosQuinzena += q
+    salariosMensal += mensal
+    producaoAPagar += aPagarProd
+
     totalFuncionarios += mensal + producaoCompleta - adiantamento
     const vObra = Number(l.vendas_obra || 0)
     const comissaoAuto = calcularComissaoVendas(vObra)
     const comissao = Number(l.comissao || comissaoAuto)
     totalVendasFuncs += vObra
     totalComissoesFuncs += comissao
+    comissoesVendas += comissao
   })
   totalFuncionarios = Math.round(totalFuncionarios * 100) / 100
+  salariosQuinzena = Math.round(salariosQuinzena * 100) / 100
+  salariosMensal = Math.round(salariosMensal * 100) / 100
+  producaoAPagar = Math.round(producaoAPagar * 100) / 100
 
   // 2. Terceiros
   const tercs = linhasEmpresa.filter((l) => l.tipo === "Terceiro")
@@ -179,11 +204,14 @@ function calcularValorRealEmpresa(
     totalTerceiros += valorMes
 
     if (ehVendedor && !t.nome.toUpperCase().includes("RAIMUNDO")) {
+      const vComissao = Number(t.comissao || 0)
       totalVendasTercs += Number(t.vendas_obra || 0)
-      totalComissoesTercs += Number(t.comissao || 0)
+      totalComissoesTercs += vComissao
+      comissoesVendas += vComissao
     }
   })
   totalTerceiros = Math.round(totalTerceiros * 100) / 100
+  comissoesVendas = Math.round(comissoesVendas * 100) / 100
 
   const valorReal = Math.round((totalFuncionarios + totalTerceiros) * 100) / 100
   const totalVendas =
@@ -197,6 +225,10 @@ function calcularValorRealEmpresa(
     valorReal,
     totalVendas,
     totalComissoes,
+    salariosQuinzena,
+    salariosMensal,
+    producaoAPagar,
+    comissoesVendas,
     qtdFuncionarios: funcs.length,
     qtdTerceiros: tercs.length,
     linhasCount: linhasEmpresa.length,
@@ -231,6 +263,13 @@ export function FolhaPagamento() {
   const [dataCompetencia, setDataCompetencia] = useState<string>("15/09/2026")
   const [percentualQuinzena, setPercentualQuinzena] = useState<number>(0.4)
   const [salvandoConfigComp, setSalvandoConfigComp] = useState(false)
+
+  // Identificação se a unidade ativa é Monteiro
+  const isMonteiro = Boolean(
+    empresaAtiva?.id === ID_EMPRESA_MONTEIRO ||
+      (empresaAtiva?.nome || "").toUpperCase().includes("MONTEIRO"),
+  )
+  const isUnidadeMonteiro = isMonteiro
 
   // Filtros & Visualização
   const [busca, setBusca] = useState("")
@@ -878,9 +917,15 @@ export function FolhaPagamento() {
   }, [funcionariosFiltrados])
 
   // Linhas de Funcionários da Aba VENDAS (comissão 0,5% ou digitada)
+  // Na SJE ou para colaboradores da unidade, todos os funcionários da empresa ficam acessíveis para digitação de vendas, ou os com obras/comissão/vendedor
   const linhasVendasFuncionarios = useMemo(() => {
+    const ehSje =
+      empresaAtiva?.id === ID_EMPRESA_SJE ||
+      (empresaAtiva?.nome || "").toUpperCase().includes("SJE")
+
     const candidatos = funcionariosFiltrados.filter(
       (l) =>
+        ehSje ||
         Number(l.vendas_obra || 0) > 0 ||
         Number(l.comissao || 0) > 0 ||
         (l.nome && l.nome.toUpperCase().includes("VALDERCLEITON")) ||
@@ -901,7 +946,7 @@ export function FolhaPagamento() {
         isComissaoSobrescrita,
       }
     })
-  }, [funcionariosFiltrados])
+  }, [funcionariosFiltrados, empresaAtiva])
 
   // Linhas de Vendedores Terceiros da Aba VENDAS (fora da folha, ex: Márcio Luan — Raimundo segue fora)
   // Utiliza tabela progressiva marginal de comissões por faixa
@@ -1188,6 +1233,10 @@ export function FolhaPagamento() {
           ) / 100,
         totalVendas: Math.round(totaisVendas.vendas_obra * 100) / 100,
         totalComissoes: Math.round(totaisVendas.comissao * 100) / 100,
+        salariosQuinzena: Math.round(totaisGeral.quinzena * 100) / 100,
+        salariosMensal: Math.round(totaisGeral.mensal * 100) / 100,
+        producaoAPagar: Math.round(totaisProducao.aPagar * 100) / 100,
+        comissoesVendas: Math.round(totaisVendas.comissao * 100) / 100,
         qtdFuncionarios: linhasGeralProcessadas.length,
         qtdTerceiros: terceirosProcessados.length,
         linhasCount: linhas.length,
@@ -1211,6 +1260,10 @@ export function FolhaPagamento() {
           ) / 100,
         totalVendas: Math.round(totaisVendas.vendas_obra * 100) / 100,
         totalComissoes: Math.round(totaisVendas.comissao * 100) / 100,
+        salariosQuinzena: Math.round(totaisGeral.quinzena * 100) / 100,
+        salariosMensal: Math.round(totaisGeral.mensal * 100) / 100,
+        producaoAPagar: Math.round(totaisProducao.aPagar * 100) / 100,
+        comissoesVendas: Math.round(totaisVendas.comissao * 100) / 100,
         qtdFuncionarios: linhasGeralProcessadas.length,
         qtdTerceiros: terceirosProcessados.length,
         linhasCount: linhas.length,
@@ -1240,6 +1293,9 @@ export function FolhaPagamento() {
   }, [
     empresaAtiva?.id,
     totaisGeral.liquidoGeral,
+    totaisGeral.quinzena,
+    totaisGeral.mensal,
+    totaisProducao.aPagar,
     totaisTerceiros.valorMes,
     totaisVendas.vendas_obra,
     totaisVendas.comissao,
@@ -1255,25 +1311,33 @@ export function FolhaPagamento() {
   // RESUMO GERAL CONSOLIDADO (Aba 6)
   const resumo = useMemo(() => {
     const pessoasNaFolha = linhasGeralProcessadas.length
-    const salariosQuinzena = totaisGeral.quinzena
+    const salariosQuinzena = Math.round(totaisGeral.quinzena * 100) / 100
     // Salários Mensal Líquido não inclui produção (produção fica separada como pagamento à parte)
-    const salariosMensalLiquido = totaisGeral.mensal
-    const subtotalFolha = salariosQuinzena + salariosMensalLiquido
-    // Produção a pagar é item separado (pagamento à parte) sem duplicar no mensal
-    const producaoAPagar = totaisProducao.aPagar
+    const salariosMensalLiquido = Math.round(totaisGeral.mensal * 100) / 100
+    // Produção a pagar é item que agora compõe o Subtotal Folha
+    const producaoAPagar = Math.round(totaisProducao.aPagar * 100) / 100
     // Vendas (comissões): inclui comissões dos funcionários + comissões dos vendedores terceiros (ex: Márcio Luan)
-    const vendasComissoes = totaisVendas.comissao
-    const terceirosFolha = totaisTerceiros.valorMes
-    const inssRetido = totaisGeral.inss
-    const irrfRetido = totaisGeral.irrf
-    const salarioFamiliaPago = totaisGeral.familia
+    const vendasComissoes = Math.round(totaisVendas.comissao * 100) / 100
+    // SUBTOTAL FOLHA = Salários Quinzena + Salários Mensal (líquido) + Produção (a pagar) + Comissões
+    const subtotalFolha =
+      Math.round(
+        (salariosQuinzena +
+          salariosMensalLiquido +
+          producaoAPagar +
+          vendasComissoes) *
+          100,
+      ) / 100
+    const terceirosFolha = Math.round(totaisTerceiros.valorMes * 100) / 100
+    const inssRetido = Math.round(totaisGeral.inss * 100) / 100
+    const irrfRetido = Math.round(totaisGeral.irrf * 100) / 100
+    const salarioFamiliaPago = Math.round(totaisGeral.familia * 100) / 100
 
-    // Total Geral do Mês = Subtotal Folha (Quinzena + Mensal Líquido sem produção) + Produção a pagar + Terceiros (folha à parte)
-    // OBS: Como terceirosFolha (totaisTerceiros.valorMes) agora já soma a remuneração integral de terceiros
-    // (incluindo terceiros vendedores: comissão + ajuda de custo), NÃO devemos somar comissaoTerceirosVendedores novamente,
-    // garantindo que Total Geral do Mês no Resumo seja estritamente igual ao Total Geral da GERAL (totaisGeral.liquidoGeral + totaisTerceiros.valorMes).
-    const comissaoTerceirosVendedores = totaisVendasTerceiros.comissao
-    const totalGeralDoMes = subtotalFolha + producaoAPagar + terceirosFolha
+    // Total Geral do Mês = Subtotal Folha (Quinzena + Mensal Líquido + Produção a pagar + Comissões) + Terceiros (folha à parte)
+    // Como a Produção e Comissões já foram incorporadas no subtotalFolha, NÃO são somadas em duplicidade no total.
+    const comissaoTerceirosVendedores =
+      Math.round(totaisVendasTerceiros.comissao * 100) / 100
+    const totalGeralDoMes =
+      Math.round((subtotalFolha + terceirosFolha) * 100) / 100
 
     return {
       pessoasNaFolha,
@@ -1829,12 +1893,16 @@ export function FolhaPagamento() {
     const numNovo = parseValorInline(textoParaSalvar)
     const chaveSalvando = `${linhaId}-vendas_obra`
 
-    // Localiza a linha existente em 'linhas' ou na lista de representação de vendedores terceiros
+    // Localiza a linha existente em 'linhas', na lista de representação de vendedores terceiros ou dadosLancadorVendas
     const linhaExistente = linhas.find((l) => l.id === linhaId)
     const linhaTerceiroView = linhasVendasTerceiros.find(
       (l) => l.id === linhaId,
     )
-    const linhaBase = linhaExistente || linhaTerceiroView
+    const linhaFuncionarioView = linhasVendasFuncionarios.find(
+      (l) => l.id === linhaId,
+    )
+    const linhaBase =
+      linhaExistente || linhaTerceiroView || linhaFuncionarioView
 
     if (!linhaBase) {
       cancelarEdicaoCelulaVendas()
@@ -1852,11 +1920,21 @@ export function FolhaPagamento() {
     setCelulaAtivaVendas(null)
     setSalvandoCelulaVendas(chaveSalvando)
 
-    // Se for Monteiro ("11111111-1111-1111-1111-111111111111"), calcula a comissão pela tabela progressiva marginal
+    // Se for Monteiro e terceiro vendedor (Márcio Luan), calcula pela tabela progressiva marginal.
+    // Para funcionários normais (ex: SJE, Valdercleiton ou vendedores da folha), calcula a comissão automática de 0,5%.
+    const ehTerceiroVendedor =
+      linhaBase.tipo === "Terceiro" ||
+      (linhaBase.nome && linhaBase.nome.toUpperCase().includes("MARCIO LUAN"))
+
     let novaComissao = comissaoAntiga
-    if (empresaAtiva.id === "11111111-1111-1111-1111-111111111111") {
+    if (
+      empresaAtiva.id === "11111111-1111-1111-1111-111111111111" &&
+      ehTerceiroVendedor
+    ) {
       novaComissao =
         calcularComissaoProgressivaMarginal(numNovo, faixasComissao) ?? 0
+    } else {
+      novaComissao = calcularComissaoVendas(numNovo)
     }
 
     // Atualização otimista imediata no estado `linhas`
@@ -3189,8 +3267,49 @@ export function FolhaPagamento() {
                       </div>
                       <div className="mt-2 pt-2 border-t border-border/50 text-[11px] text-muted-foreground">
                         {consolidacaoDuasFolhas.temMonteiro ? (
-                          <div className="space-y-0.5 text-[10.5px]">
-                            <div className="flex justify-between">
+                          <div className="space-y-1 text-[10.5px]">
+                            <div className="rounded bg-muted/40 p-2 space-y-1 border border-border/40">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block border-b border-border/30 pb-0.5">
+                                Composição Monteiro:
+                              </span>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Salários quinzena:</span>
+                                <span className="font-mono font-medium text-blue-600 dark:text-blue-400">
+                                  {fmtMoeda(
+                                    consolidacaoDuasFolhas.monteiro
+                                      .salariosQuinzena,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Salários mensal:</span>
+                                <span className="font-mono font-medium text-foreground">
+                                  {fmtMoeda(
+                                    consolidacaoDuasFolhas.monteiro
+                                      .salariosMensal,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Produção (a pagar):</span>
+                                <span className="font-mono font-medium text-emerald-600 dark:text-emerald-400">
+                                  {fmtMoeda(
+                                    consolidacaoDuasFolhas.monteiro
+                                      .producaoAPagar,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Comissões de vendas:</span>
+                                <span className="font-mono font-medium text-amber-600 dark:text-amber-400">
+                                  {fmtMoeda(
+                                    consolidacaoDuasFolhas.monteiro
+                                      .comissoesVendas,
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex justify-between pt-1">
                               <span>Líquido func.:</span>
                               <span className="font-mono font-medium">
                                 {fmtMoeda(
@@ -3208,7 +3327,7 @@ export function FolhaPagamento() {
                                 )}
                               </span>
                             </div>
-                            <div className="flex justify-between text-blue-600 dark:text-blue-400 pt-0.5 border-t border-border/30">
+                            <div className="flex justify-between text-blue-600 dark:text-blue-400 pt-1 border-t border-border/30">
                               <span>Vendas / Obras:</span>
                               <span className="font-mono font-medium">
                                 {fmtMoeda(
@@ -3253,8 +3372,45 @@ export function FolhaPagamento() {
                       </div>
                       <div className="mt-2 pt-2 border-t border-border/50 text-[11px] text-muted-foreground">
                         {consolidacaoDuasFolhas.temSje ? (
-                          <div className="space-y-0.5 text-[10.5px]">
-                            <div className="flex justify-between">
+                          <div className="space-y-1 text-[10.5px]">
+                            <div className="rounded bg-muted/40 p-2 space-y-1 border border-border/40">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block border-b border-border/30 pb-0.5">
+                                Composição SJE:
+                              </span>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Salários quinzena:</span>
+                                <span className="font-mono font-medium text-blue-600 dark:text-blue-400">
+                                  {fmtMoeda(
+                                    consolidacaoDuasFolhas.sje.salariosQuinzena,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Salários mensal:</span>
+                                <span className="font-mono font-medium text-foreground">
+                                  {fmtMoeda(
+                                    consolidacaoDuasFolhas.sje.salariosMensal,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Produção (a pagar):</span>
+                                <span className="font-mono font-medium text-emerald-600 dark:text-emerald-400">
+                                  {fmtMoeda(
+                                    consolidacaoDuasFolhas.sje.producaoAPagar,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Comissões de vendas:</span>
+                                <span className="font-mono font-medium text-amber-600 dark:text-amber-400">
+                                  {fmtMoeda(
+                                    consolidacaoDuasFolhas.sje.comissoesVendas,
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex justify-between pt-1">
                               <span>Líquido func.:</span>
                               <span className="font-mono font-medium">
                                 {fmtMoeda(
@@ -3270,7 +3426,7 @@ export function FolhaPagamento() {
                                 )}
                               </span>
                             </div>
-                            <div className="flex justify-between text-blue-600 dark:text-blue-400 pt-0.5 border-t border-border/30">
+                            <div className="flex justify-between text-blue-600 dark:text-blue-400 pt-1 border-t border-border/30">
                               <span>Vendas / Obras:</span>
                               <span className="font-mono font-medium">
                                 {fmtMoeda(
@@ -3430,7 +3586,7 @@ export function FolhaPagamento() {
                       </td>
                       <td className="py-2.5 px-3" colSpan={2}></td>
                     </tr>
-                    {terceirosProcessados.length > 0 && (
+                    {!isMonteiro && terceirosProcessados.length > 0 && (
                       <tr className="border-t border-border/60 bg-muted/70 text-xs">
                         <td className="py-2 px-2 text-center">-</td>
                         <td className="py-2 px-3 sticky left-0 bg-muted/95 z-10 border-r font-semibold">
@@ -3453,8 +3609,8 @@ export function FolhaPagamento() {
                 </table>
               </div>
 
-              {/* TABELA DE TERCEIROS NA ABA QUINZENA (SEM BRUTO, 40% AUTOMÁTICO) */}
-              {terceirosProcessados.length > 0 && (
+              {/* TABELA DE TERCEIROS NA ABA QUINZENA (SEM BRUTO, 40% AUTOMÁTICO) — EXCETO UNIDADE MONTEIRO */}
+              {!isMonteiro && terceirosProcessados.length > 0 && (
                 <div className="border-t p-4 space-y-3">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-purple-900 dark:text-purple-300 flex items-center gap-2">
                     <Badge className="bg-purple-600 text-white hover:bg-purple-700 text-[10px]">
@@ -4500,15 +4656,70 @@ export function FolhaPagamento() {
               <CardContent className="p-4 space-y-4">
                 {/* CARDS DE DESTAQUE DOS VALORES */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="p-3 rounded-lg border bg-card/80">
-                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block">
-                      Total Obras / Vendido
+                  <div
+                    className="p-3 rounded-lg border bg-card/80 cursor-pointer hover:border-blue-400 hover:bg-blue-500/5 transition-colors relative"
+                    onClick={() => {
+                      if (
+                        celulaAtivaVendas?.linhaId !==
+                          dadosLancadorVendas.linha.id ||
+                        celulaAtivaVendas?.campo !== "vendas_obra"
+                      ) {
+                        iniciarEdicaoCelulaVendas(
+                          dadosLancadorVendas.linha.id,
+                          dadosLancadorVendas.vendasObra,
+                        )
+                      }
+                    }}
+                    title="Clique para editar Total Obras / Vendido"
+                  >
+                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium flex items-center justify-between">
+                      <span>Total Obras / Vendido</span>
+                      <Edit2 className="h-3 w-3 text-muted-foreground/60" />
                     </span>
-                    <span className="text-lg font-bold font-mono text-blue-600 block mt-1">
-                      {fmtMoeda(dadosLancadorVendas.vendasObra)}
-                    </span>
+                    {celulaAtivaVendas?.linhaId ===
+                      dadosLancadorVendas.linha.id &&
+                    celulaAtivaVendas?.campo === "vendas_obra" ? (
+                      <div
+                        className="mt-1 flex items-center gap-1.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Input
+                          autoFocus
+                          className="h-8 font-mono text-base font-bold text-blue-600 px-2 py-1 bg-background border-primary focus-visible:ring-1"
+                          value={valorTempVendas}
+                          onChange={(e) => setValorTempVendas(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault()
+                              salvarEdicaoCelulaVendas(
+                                dadosLancadorVendas.linha.id,
+                              )
+                            } else if (e.key === "Escape") {
+                              e.preventDefault()
+                              cancelarEdicaoCelulaVendas()
+                            }
+                          }}
+                          onBlur={() =>
+                            salvarEdicaoCelulaVendas(
+                              dadosLancadorVendas.linha.id,
+                            )
+                          }
+                          placeholder="0,00"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        {salvandoCelulaVendas ===
+                          `${dadosLancadorVendas.linha.id}-vendas_obra` && (
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                        )}
+                        <span className="text-lg font-bold font-mono text-blue-600 block">
+                          {fmtMoeda(dadosLancadorVendas.vendasObra)}
+                        </span>
+                      </div>
+                    )}
                     <span className="text-[10px] text-muted-foreground mt-0.5 block">
-                      Base das comissões do mês
+                      Clique para digitar • 0,5% automático
                     </span>
                   </div>
 
@@ -4695,25 +4906,14 @@ export function FolhaPagamento() {
                                 : ""
                             }`}
                             onClick={() => {
-                              const ehMarcioMonteiro =
-                                empresaAtiva?.id ===
-                                  "11111111-1111-1111-1111-111111111111" &&
-                                l.nome.toUpperCase().includes("MARCIO LUAN")
                               if (
-                                ehMarcioMonteiro &&
-                                (celulaAtivaVendas?.linhaId !== l.id ||
-                                  celulaAtivaVendas?.campo !== "vendas_obra")
+                                celulaAtivaVendas?.linhaId !== l.id ||
+                                celulaAtivaVendas?.campo !== "vendas_obra"
                               ) {
                                 iniciarEdicaoCelulaVendas(l.id, l.vendas_obra)
                               }
                             }}
-                            title={
-                              empresaAtiva?.id ===
-                                "11111111-1111-1111-1111-111111111111" &&
-                              l.nome.toUpperCase().includes("MARCIO LUAN")
-                                ? "Clique para editar Valor das Obras"
-                                : undefined
-                            }
+                            title="Clique para editar Valor das Obras"
                           >
                             {celulaAtivaVendas?.linhaId === l.id &&
                             celulaAtivaVendas?.campo === "vendas_obra" ? (
@@ -4837,7 +5037,7 @@ export function FolhaPagamento() {
                         NOME
                       </th>
                       <th className="py-2.5 px-2 text-right font-semibold text-blue-600">
-                        VALOR DAS OBRAS
+                        TOTAL OBRAS / VENDIDO
                       </th>
                       <th className="py-2.5 px-2 text-right font-bold text-amber-600">
                         COMISSÃO (0,5%)
@@ -4879,8 +5079,56 @@ export function FolhaPagamento() {
                               )}
                             </div>
                           </td>
-                          <td className="py-2 px-2 text-right font-mono text-blue-600 font-semibold whitespace-nowrap">
-                            {fmtMoeda(l.vendas_obra)}
+                          <td
+                            className={`py-2 px-2 text-right font-mono text-blue-600 font-semibold whitespace-nowrap cursor-pointer hover:bg-blue-500/10 transition-colors`}
+                            onClick={() => {
+                              if (
+                                celulaAtivaVendas?.linhaId !== l.id ||
+                                celulaAtivaVendas?.campo !== "vendas_obra"
+                              ) {
+                                iniciarEdicaoCelulaVendas(l.id, l.vendas_obra)
+                              }
+                            }}
+                            title="Clique para editar Total Obras / Vendido"
+                          >
+                            {celulaAtivaVendas?.linhaId === l.id &&
+                            celulaAtivaVendas?.campo === "vendas_obra" ? (
+                              <Input
+                                autoFocus
+                                className="h-7 w-28 text-right font-mono text-xs px-1.5 py-0 ml-auto bg-background border-primary focus-visible:ring-1"
+                                value={valorTempVendas}
+                                onChange={(e) =>
+                                  setValorTempVendas(e.target.value)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault()
+                                    salvarEdicaoCelulaVendas(l.id)
+                                  } else if (e.key === "Escape") {
+                                    e.preventDefault()
+                                    cancelarEdicaoCelulaVendas()
+                                  }
+                                }}
+                                onBlur={() => salvarEdicaoCelulaVendas(l.id)}
+                                placeholder="0,00"
+                              />
+                            ) : (
+                              <div className="flex items-center justify-end gap-1.5">
+                                {salvandoCelulaVendas ===
+                                  `${l.id}-vendas_obra` && (
+                                  <RefreshCw className="h-3 w-3 animate-spin text-blue-600" />
+                                )}
+                                <span>{fmtMoeda(l.vendas_obra)}</span>
+                                {Number(l.vendas_obra || 0) > 0 && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[8px] px-1 py-0 h-3.5 border-blue-300 text-blue-700 bg-blue-50"
+                                  >
+                                    Digitado
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
                           </td>
                           <td className="py-2 px-2 text-right font-mono font-bold text-amber-600 whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1">
@@ -5625,7 +5873,12 @@ export function FolhaPagamento() {
                   : tipoImpressaoA4 === "geral"
                     ? "FOLHA GERAL DE PAGAMENTO"
                     : tipoImpressaoA4 === "vendas"
-                      ? "FOLHA DE VENDAS / COMISSÕES"
+                      ? empresaAtiva?.id === ID_EMPRESA_MONTEIRO ||
+                        (empresaAtiva?.nome || "")
+                          .toUpperCase()
+                          .includes("MONTEIRO")
+                        ? "FOLHA DE COMISSÃO PARA PAGAMENTO"
+                        : "FOLHA DE VENDAS / COMISSÕES"
                       : tipoImpressaoA4 === "resumo"
                         ? "RESUMO GERAL DA FOLHA"
                         : tipoImpressaoA4 === "decimo"
@@ -5869,19 +6122,28 @@ export function FolhaPagamento() {
                       COLABORADORES
                     </th>
                     <th className="border border-gray-400 p-1 text-right">
-                      LÍQUIDO FUNCIONÁRIOS
+                      QUINZENA
                     </th>
                     <th className="border border-gray-400 p-1 text-right">
-                      TOTAL TERCEIROS
+                      MENSAL
                     </th>
                     <th className="border border-gray-400 p-1 text-right">
-                      TOTAL DE VENDAS
+                      PRODUÇÃO
                     </th>
                     <th className="border border-gray-400 p-1 text-right">
                       COMISSÕES
                     </th>
+                    <th className="border border-gray-400 p-1 text-right">
+                      LÍQUIDO FUNC.
+                    </th>
+                    <th className="border border-gray-400 p-1 text-right">
+                      TERCEIROS
+                    </th>
+                    <th className="border border-gray-400 p-1 text-right text-blue-800">
+                      TOTAL VENDAS
+                    </th>
                     <th className="border border-gray-400 p-1 text-right font-bold">
-                      VALOR REAL DA FOLHA
+                      VALOR REAL
                     </th>
                     <th className="border border-gray-400 p-1 text-left">
                       SITUAÇÃO
@@ -5900,6 +6162,22 @@ export function FolhaPagamento() {
                     </td>
                     <td className="border border-gray-400 p-1 text-right font-mono">
                       {fmtMoeda(
+                        consolidacaoDuasFolhas.monteiro.salariosQuinzena,
+                      )}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono">
+                      {fmtMoeda(consolidacaoDuasFolhas.monteiro.salariosMensal)}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono">
+                      {fmtMoeda(consolidacaoDuasFolhas.monteiro.producaoAPagar)}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono text-amber-800">
+                      {fmtMoeda(
+                        consolidacaoDuasFolhas.monteiro.comissoesVendas,
+                      )}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono">
+                      {fmtMoeda(
                         consolidacaoDuasFolhas.monteiro.totalFuncionarios,
                       )}
                     </td>
@@ -5908,9 +6186,6 @@ export function FolhaPagamento() {
                     </td>
                     <td className="border border-gray-400 p-1 text-right font-mono text-blue-800">
                       {fmtMoeda(consolidacaoDuasFolhas.monteiro.totalVendas)}
-                    </td>
-                    <td className="border border-gray-400 p-1 text-right font-mono text-amber-800">
-                      {fmtMoeda(consolidacaoDuasFolhas.monteiro.totalComissoes)}
                     </td>
                     <td className="border border-gray-400 p-1 text-right font-mono font-bold">
                       {fmtMoeda(consolidacaoDuasFolhas.monteiro.valorReal)}
@@ -5931,6 +6206,18 @@ export function FolhaPagamento() {
                         : "0"}
                     </td>
                     <td className="border border-gray-400 p-1 text-right font-mono">
+                      {fmtMoeda(consolidacaoDuasFolhas.sje.salariosQuinzena)}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono">
+                      {fmtMoeda(consolidacaoDuasFolhas.sje.salariosMensal)}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono">
+                      {fmtMoeda(consolidacaoDuasFolhas.sje.producaoAPagar)}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono text-amber-800">
+                      {fmtMoeda(consolidacaoDuasFolhas.sje.comissoesVendas)}
+                    </td>
+                    <td className="border border-gray-400 p-1 text-right font-mono">
                       {fmtMoeda(consolidacaoDuasFolhas.sje.totalFuncionarios)}
                     </td>
                     <td className="border border-gray-400 p-1 text-right font-mono">
@@ -5938,9 +6225,6 @@ export function FolhaPagamento() {
                     </td>
                     <td className="border border-gray-400 p-1 text-right font-mono text-blue-800">
                       {fmtMoeda(consolidacaoDuasFolhas.sje.totalVendas)}
-                    </td>
-                    <td className="border border-gray-400 p-1 text-right font-mono text-amber-800">
-                      {fmtMoeda(consolidacaoDuasFolhas.sje.totalComissoes)}
                     </td>
                     <td className="border border-gray-400 p-1 text-right font-mono font-bold">
                       {fmtMoeda(consolidacaoDuasFolhas.sje.valorReal)}
@@ -5966,6 +6250,30 @@ export function FolhaPagamento() {
                     </td>
                     <td className="border border-gray-400 p-1.5 text-right font-mono">
                       {fmtMoeda(
+                        consolidacaoDuasFolhas.monteiro.salariosQuinzena +
+                          consolidacaoDuasFolhas.sje.salariosQuinzena,
+                      )}
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-right font-mono">
+                      {fmtMoeda(
+                        consolidacaoDuasFolhas.monteiro.salariosMensal +
+                          consolidacaoDuasFolhas.sje.salariosMensal,
+                      )}
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-right font-mono">
+                      {fmtMoeda(
+                        consolidacaoDuasFolhas.monteiro.producaoAPagar +
+                          consolidacaoDuasFolhas.sje.producaoAPagar,
+                      )}
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-right font-mono font-bold text-amber-900">
+                      {fmtMoeda(
+                        consolidacaoDuasFolhas.monteiro.comissoesVendas +
+                          consolidacaoDuasFolhas.sje.comissoesVendas,
+                      )}
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-right font-mono">
+                      {fmtMoeda(
                         consolidacaoDuasFolhas.monteiro.totalFuncionarios +
                           consolidacaoDuasFolhas.sje.totalFuncionarios,
                       )}
@@ -5978,11 +6286,6 @@ export function FolhaPagamento() {
                     </td>
                     <td className="border border-gray-400 p-1.5 text-right font-mono font-bold text-blue-900">
                       {fmtMoeda(consolidacaoDuasFolhas.totalVendasConsolidado)}
-                    </td>
-                    <td className="border border-gray-400 p-1.5 text-right font-mono font-bold text-amber-900">
-                      {fmtMoeda(
-                        consolidacaoDuasFolhas.totalComissoesConsolidado,
-                      )}
                     </td>
                     <td className="border border-gray-400 p-1.5 text-right font-mono text-[10px] font-black text-black">
                       {fmtMoeda(consolidacaoDuasFolhas.totalConsolidado)}
@@ -6052,7 +6355,7 @@ export function FolhaPagamento() {
               </tfoot>
             </table>
 
-            {terceirosProcessados.length > 0 && (
+            {!isMonteiro && terceirosProcessados.length > 0 && (
               <div className="space-y-1.5 pt-2">
                 <h4 className="text-[11px] font-bold uppercase text-gray-800">
                   QUINZENA TERCEIROS ({Math.round(percentualQuinzena * 100)}%)
@@ -6350,210 +6653,437 @@ export function FolhaPagamento() {
 
         {tipoImpressaoA4 === "vendas" && (
           <div className="space-y-4">
-            {/* Seção Terceiros Vendedores na Impressão A4 */}
-            {linhasVendasTerceiros.length > 0 && (
-              <div className="space-y-2">
-                <div className="font-bold text-[11px] uppercase bg-gray-100 p-1 border">
-                  VENDEDORES TERCEIROS (fora da folha) — COMISSÃO TABELA
-                  PROGRESSIVA
-                </div>
-                <table className="w-full border-collapse border text-[10px]">
-                  <thead className="bg-gray-50 font-bold uppercase">
-                    <tr>
-                      <th className="border p-1.5 text-left">NOME</th>
-                      <th className="border p-1.5 text-right">
-                        VALOR DAS OBRAS
-                      </th>
-                      <th className="border p-1.5 text-right">
-                        COMISSÃO (PROGRESSIVA)
-                      </th>
-                      <th className="border p-1.5 text-left">AGÊNCIA / C/C</th>
-                      <th className="border p-1.5 text-left">PIX</th>
-                      <th className="border p-1.5 text-center w-36">
-                        ASSINATURA
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {linhasVendasTerceiros.map((l) => (
-                      <tr key={l.id}>
-                        <td className="border p-1 font-semibold">{l.nome}</td>
-                        <td className="border p-1 text-right font-mono">
-                          {fmtMoeda(l.vendas_obra)}
-                        </td>
-                        <td className="border p-1 text-right font-mono font-bold">
-                          {fmtMoeda(l.comissaoFinal)}
-                        </td>
-                        <td className="border p-1 font-mono text-[9px]">
-                          {l.conta || "-"}
-                        </td>
-                        <td className="border p-1 font-mono text-[9px]">
-                          {l.pix || l.chave_pix || "-"}
-                        </td>
-                        <td className="border p-1"></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-gray-100 font-bold">
-                    <tr>
-                      <td className="border p-1.5">
-                        TOTAL TERCEIROS VENDEDORES
-                      </td>
-                      <td className="border p-1.5 text-right font-mono">
-                        {fmtMoeda(totaisVendasTerceiros.vendas_obra)}
-                      </td>
-                      <td className="border p-1.5 text-right font-mono">
-                        {fmtMoeda(totaisVendasTerceiros.comissao)}
-                      </td>
-                      <td className="border p-1.5" colSpan={3}></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )}
+            {/* Se for Monteiro (ou empresa Monteiro ativa), a impressão sai SOMENTE como folha de comissão para pagamento do Márcio Luan */}
+            {empresaAtiva?.id === ID_EMPRESA_MONTEIRO ||
+            (empresaAtiva?.nome || "").toUpperCase().includes("MONTEIRO") ? (
+              (() => {
+                const marcio =
+                  linhasVendasTerceiros.find((t) =>
+                    (t.nome || "").toUpperCase().includes("MARCIO LUAN"),
+                  ) ||
+                  linhasVendas.find((l) =>
+                    (l.nome || "").toUpperCase().includes("MARCIO LUAN"),
+                  )
 
-            {/* Seção Funcionários Vendedores na Impressão A4 */}
-            <div className="space-y-2">
-              <div className="font-bold text-[11px] uppercase bg-gray-100 p-1 border">
-                VENDEDORES DA FOLHA (FUNCIONÁRIOS) — COMISSÃO 0,5%
-              </div>
-              <table className="w-full border-collapse border text-[10px]">
-                <thead className="bg-gray-50 text-gray-800 font-bold uppercase">
-                  <tr>
-                    <th className="border p-1.5 text-center w-6">Nº</th>
-                    <th className="border p-1.5 text-left">NOME</th>
-                    <th className="border p-1.5 text-right font-semibold">
-                      VALOR DAS OBRAS
-                    </th>
-                    <th className="border p-1.5 text-right font-bold">
-                      COMISSÃO (0,5%)
-                    </th>
-                    <th className="border p-1.5 text-left">AGÊNCIA / C/C</th>
-                    <th className="border p-1.5 text-left">PIX</th>
-                    <th className="border p-1.5 text-center w-36">
-                      ASSINATURA
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {linhasVendasFuncionarios.map((l, idx) => (
-                    <tr key={l.id}>
-                      <td className="border p-1 text-center font-mono">
-                        {idx + 1}
-                      </td>
-                      <td className="border p-1 font-semibold">{l.nome}</td>
-                      <td className="border p-1 text-right font-mono">
-                        {fmtMoeda(l.vendas_obra)}
-                      </td>
-                      <td className="border p-1 text-right font-mono font-bold">
-                        {fmtMoeda(l.comissaoFinal)}
-                      </td>
-                      <td className="border p-1 font-mono text-[9px]">
-                        {l.conta || "-"}
-                      </td>
-                      <td className="border p-1 font-mono text-[9px]">
-                        {l.pix || l.chave_pix || "-"}
-                      </td>
-                      <td className="border p-1"></td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="bg-gray-100 font-bold">
-                  <tr>
-                    <td className="border p-1.5 text-center">-</td>
-                    <td className="border p-1.5">
-                      TOTAL VENDAS FUNCIONÁRIOS (
-                      {linhasVendasFuncionarios.length})
-                    </td>
-                    <td className="border p-1.5 text-right font-mono">
-                      {fmtMoeda(totaisVendasFuncionarios.vendas_obra)}
-                    </td>
-                    <td className="border p-1.5 text-right font-mono">
-                      {fmtMoeda(totaisVendasFuncionarios.comissao)}
-                    </td>
-                    <td className="border p-1.5" colSpan={3}></td>
-                  </tr>
-                  <tr className="bg-gray-200 font-extrabold border-t-2">
-                    <td className="border p-1.5 text-center">-</td>
-                    <td className="border p-1.5">
-                      TOTAL GERAL VENDAS (FUNCIONÁRIOS + TERCEIROS)
-                    </td>
-                    <td className="border p-1.5 text-right font-mono">
-                      {fmtMoeda(totaisVendas.vendas_obra)}
-                    </td>
-                    <td className="border p-1.5 text-right font-mono">
-                      {fmtMoeda(totaisVendas.comissao)}
-                    </td>
-                    <td className="border p-1.5" colSpan={3}></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                const nomeVendedor = marcio?.nome || "MÁRCIO LUAN"
+                const valorObrasVendidas = Number(marcio?.vendas_obra || 0)
+                const comissaoCalculada = Number(
+                  marcio?.comissaoFinal || marcio?.comissao || 0,
+                )
+                const valorAPagar = comissaoCalculada
+                const dadosPix = marcio?.pix || marcio?.chave_pix || "-"
+                const dadosConta = marcio?.conta || "-"
 
-            {/* Tabela Progressiva na Impressão A4 */}
-            {faixasComissao.length > 0 && (
-              <div className="pt-2">
-                <div className="text-[10px] font-bold uppercase mb-1">
-                  TABELA PROGRESSIVA DE COMISSÕES (usada pelas fórmulas acima)
-                </div>
-                <table className="w-1/2 border-collapse border text-[9px] font-mono">
-                  <thead className="bg-gray-50 uppercase">
-                    <tr>
-                      <th className="border p-1 text-left">De (R$)</th>
-                      <th className="border p-1 text-left">Até (R$)</th>
-                      <th className="border p-1 text-right">%</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {faixasComissao.map((f, idx) => {
-                      const percFormatado =
-                        Number(f.percentual || 0) > 1
-                          ? Number(f.percentual || 0)
-                          : Number(f.percentual || 0) * 100
-                      return (
-                        <tr key={idx}>
-                          <td className="border p-1">{fmtMoeda(f.de_valor)}</td>
-                          <td className="border p-1">
-                            {Number(f.ate_valor) >= 900000000
-                              ? "Sem limite"
-                              : fmtMoeda(f.ate_valor)}
-                          </td>
-                          <td className="border p-1 text-right font-bold">
-                            {percFormatado.toLocaleString("pt-BR", {
-                              minimumFractionDigits: 1,
-                              maximumFractionDigits: 3,
-                            })}
-                            %
-                          </td>
+                return (
+                  <div className="space-y-6 p-4">
+                    <div className="border-b pb-3 text-center space-y-1">
+                      <div className="text-base font-black tracking-wider uppercase text-gray-900">
+                        FOLHA DE COMISSÃO DE VENDAS
+                      </div>
+                      <div className="text-xs text-gray-700 font-semibold uppercase">
+                        {empresaAtiva?.nome || "CONCRETEIRA MONTEIRO"} —
+                        COMPETÊNCIA: {rotuloCompetenciaMesAno}
+                      </div>
+                    </div>
+
+                    {/* Dados do Vendedor e Valores */}
+                    <div className="border border-gray-300 rounded overflow-hidden">
+                      <table className="w-full border-collapse text-xs">
+                        <tbody>
+                          <tr className="border-b bg-gray-50/70">
+                            <td className="p-3 font-semibold text-gray-600 w-1/3 uppercase text-[11px]">
+                              Vendedor
+                            </td>
+                            <td className="p-3 font-bold text-sm text-gray-900">
+                              {nomeVendedor}
+                            </td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-3 font-semibold text-gray-600 uppercase text-[11px]">
+                              Valor das Obras Vendidas
+                            </td>
+                            <td className="p-3 font-mono font-bold text-sm text-blue-700">
+                              {fmtMoeda(valorObrasVendidas)}
+                            </td>
+                          </tr>
+                          <tr className="border-b bg-gray-50/70">
+                            <td className="p-3 font-semibold text-gray-600 uppercase text-[11px]">
+                              Comissão Calculada (Tabela Progressiva)
+                            </td>
+                            <td className="p-3 font-mono font-bold text-sm text-amber-700">
+                              {fmtMoeda(comissaoCalculada)}
+                            </td>
+                          </tr>
+                          <tr className="border-b-2 border-gray-800 bg-emerald-50/50">
+                            <td className="p-3 font-extrabold text-gray-900 uppercase text-[12px]">
+                              VALOR A PAGAR
+                            </td>
+                            <td className="p-3 font-mono font-black text-base text-emerald-700">
+                              {fmtMoeda(valorAPagar)}
+                            </td>
+                          </tr>
+                          <tr className="border-b text-[11px]">
+                            <td className="p-2.5 text-gray-500 uppercase">
+                              Dados Bancários (Agência / Conta)
+                            </td>
+                            <td className="p-2.5 font-mono text-gray-700">
+                              {dadosConta}
+                            </td>
+                          </tr>
+                          <tr className="text-[11px]">
+                            <td className="p-2.5 text-gray-500 uppercase">
+                              Chave PIX
+                            </td>
+                            <td className="p-2.5 font-mono text-gray-700">
+                              {dadosPix}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Tabela Progressiva de Faixas de Monteiro (Demonstrativo Marginal) */}
+                    {faixasComissao.length > 0 && (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
+                          Demonstrativo de Cálculo — Tabela Progressiva
+                          (Marginal)
+                        </div>
+                        <table className="w-full border-collapse border text-[9px] font-mono">
+                          <thead className="bg-gray-100 uppercase text-gray-700 font-bold">
+                            <tr>
+                              <th className="border p-1.5 text-left">Faixa</th>
+                              <th className="border p-1.5 text-left">
+                                De (R$)
+                              </th>
+                              <th className="border p-1.5 text-left">
+                                Até (R$)
+                              </th>
+                              <th className="border p-1.5 text-right">
+                                Alíquota (%)
+                              </th>
+                              <th className="border p-1.5 text-right">
+                                Base na Faixa
+                              </th>
+                              <th className="border p-1.5 text-right">
+                                Comissão da Faixa
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(() => {
+                              const faixasOrdenadas = [...faixasComissao].sort(
+                                (a, b) =>
+                                  Number(a.de_valor || 0) -
+                                  Number(b.de_valor || 0),
+                              )
+                              let baseRestante = valorObrasVendidas
+
+                              return faixasOrdenadas.map((f, idx) => {
+                                const de = Number(f.de_valor || 0)
+                                const ate = Number(f.ate_valor || 0)
+                                const percRaw = Number(f.percentual || 0)
+                                const perc =
+                                  percRaw > 1 ? percRaw / 100 : percRaw
+                                const percFormatado =
+                                  percRaw > 1 ? percRaw : percRaw * 100
+
+                                let baseNaFaixa = 0
+                                if (valorObrasVendidas > de) {
+                                  const tetoFaixa =
+                                    ate >= 900000000 ? Infinity : ate
+                                  const larguraFaixa = tetoFaixa - de
+                                  baseNaFaixa = Math.min(
+                                    valorObrasVendidas - de,
+                                    larguraFaixa,
+                                  )
+                                  if (baseNaFaixa < 0) baseNaFaixa = 0
+                                }
+                                const comissaoFaixa =
+                                  Math.round(baseNaFaixa * perc * 100) / 100
+
+                                return (
+                                  <tr
+                                    key={idx}
+                                    className={
+                                      baseNaFaixa > 0 ? "bg-amber-50/40" : ""
+                                    }
+                                  >
+                                    <td className="border p-1 font-semibold">
+                                      {idx + 1}ª Faixa
+                                    </td>
+                                    <td className="border p-1">
+                                      {fmtMoeda(f.de_valor)}
+                                    </td>
+                                    <td className="border p-1">
+                                      {ate >= 900000000
+                                        ? "Sem limite"
+                                        : fmtMoeda(f.ate_valor)}
+                                    </td>
+                                    <td className="border p-1 text-right font-bold">
+                                      {percFormatado.toLocaleString("pt-BR", {
+                                        minimumFractionDigits: 1,
+                                        maximumFractionDigits: 3,
+                                      })}
+                                      %
+                                    </td>
+                                    <td className="border p-1 text-right">
+                                      {fmtMoeda(baseNaFaixa)}
+                                    </td>
+                                    <td className="border p-1 text-right font-bold text-amber-800">
+                                      {fmtMoeda(comissaoFaixa)}
+                                    </td>
+                                  </tr>
+                                )
+                              })
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Espaço para Assinatura */}
+                    <div className="pt-12 grid grid-cols-2 gap-12 text-center text-xs">
+                      <div>
+                        <div className="border-b border-gray-400 pb-1 mb-1 mx-4"></div>
+                        <span className="font-bold uppercase text-gray-800">
+                          {nomeVendedor}
+                        </span>
+                        <p className="text-[10px] text-gray-500">Vendedor</p>
+                      </div>
+                      <div>
+                        <div className="border-b border-gray-400 pb-1 mb-1 mx-4"></div>
+                        <span className="font-bold uppercase text-gray-800">
+                          Diretoria / Financeiro
+                        </span>
+                        <p className="text-[10px] text-gray-500">
+                          {empresaAtiva?.nome || "Concreteira"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()
+            ) : (
+              /* SE NÃO FOR MONTEIRO (ex: SJE), mantém o relatório de vendas completo da unidade */
+              <>
+                {/* Seção Terceiros Vendedores na Impressão A4 */}
+                {linhasVendasTerceiros.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="font-bold text-[11px] uppercase bg-gray-100 p-1 border">
+                      VENDEDORES TERCEIROS (fora da folha) — COMISSÃO TABELA
+                      PROGRESSIVA
+                    </div>
+                    <table className="w-full border-collapse border text-[10px]">
+                      <thead className="bg-gray-50 font-bold uppercase">
+                        <tr>
+                          <th className="border p-1.5 text-left">NOME</th>
+                          <th className="border p-1.5 text-right">
+                            VALOR DAS OBRAS
+                          </th>
+                          <th className="border p-1.5 text-right">
+                            COMISSÃO (PROGRESSIVA)
+                          </th>
+                          <th className="border p-1.5 text-left">
+                            AGÊNCIA / C/C
+                          </th>
+                          <th className="border p-1.5 text-left">PIX</th>
+                          <th className="border p-1.5 text-center w-36">
+                            ASSINATURA
+                          </th>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                      </thead>
+                      <tbody>
+                        {linhasVendasTerceiros.map((l) => (
+                          <tr key={l.id}>
+                            <td className="border p-1 font-semibold">
+                              {l.nome}
+                            </td>
+                            <td className="border p-1 text-right font-mono">
+                              {fmtMoeda(l.vendas_obra)}
+                            </td>
+                            <td className="border p-1 text-right font-mono font-bold">
+                              {fmtMoeda(l.comissaoFinal)}
+                            </td>
+                            <td className="border p-1 font-mono text-[9px]">
+                              {l.conta || "-"}
+                            </td>
+                            <td className="border p-1 font-mono text-[9px]">
+                              {l.pix || l.chave_pix || "-"}
+                            </td>
+                            <td className="border p-1"></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-100 font-bold">
+                        <tr>
+                          <td className="border p-1.5">
+                            TOTAL TERCEIROS VENDEDORES
+                          </td>
+                          <td className="border p-1.5 text-right font-mono">
+                            {fmtMoeda(totaisVendasTerceiros.vendas_obra)}
+                          </td>
+                          <td className="border p-1.5 text-right font-mono">
+                            {fmtMoeda(totaisVendasTerceiros.comissao)}
+                          </td>
+                          <td className="border p-1.5" colSpan={3}></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
 
-            {dadosLancadorVendas && (
-              <div className="p-3 border rounded bg-gray-50 text-[10px] space-y-1">
-                <div className="font-bold uppercase">
-                  Destaque Lançador de Vendas: {dadosLancadorVendas.linha.nome}
+                {/* Seção Funcionários Vendedores na Impressão A4 */}
+                <div className="space-y-2">
+                  <div className="font-bold text-[11px] uppercase bg-gray-100 p-1 border">
+                    VENDEDORES DA FOLHA (FUNCIONÁRIOS) — COMISSÃO 0,5%
+                  </div>
+                  <table className="w-full border-collapse border text-[10px]">
+                    <thead className="bg-gray-50 text-gray-800 font-bold uppercase">
+                      <tr>
+                        <th className="border p-1.5 text-center w-6">Nº</th>
+                        <th className="border p-1.5 text-left">NOME</th>
+                        <th className="border p-1.5 text-right font-semibold">
+                          TOTAL OBRAS / VENDIDO
+                        </th>
+                        <th className="border p-1.5 text-right font-bold">
+                          COMISSÃO (0,5%)
+                        </th>
+                        <th className="border p-1.5 text-left">
+                          AGÊNCIA / C/C
+                        </th>
+                        <th className="border p-1.5 text-left">PIX</th>
+                        <th className="border p-1.5 text-center w-36">
+                          ASSINATURA
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {linhasVendasFuncionarios.map((l, idx) => (
+                        <tr key={l.id}>
+                          <td className="border p-1 text-center font-mono">
+                            {idx + 1}
+                          </td>
+                          <td className="border p-1 font-semibold">{l.nome}</td>
+                          <td className="border p-1 text-right font-mono">
+                            {fmtMoeda(l.vendas_obra)}
+                          </td>
+                          <td className="border p-1 text-right font-mono font-bold">
+                            {fmtMoeda(l.comissaoFinal)}
+                          </td>
+                          <td className="border p-1 font-mono text-[9px]">
+                            {l.conta || "-"}
+                          </td>
+                          <td className="border p-1 font-mono text-[9px]">
+                            {l.pix || l.chave_pix || "-"}
+                          </td>
+                          <td className="border p-1"></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-100 font-bold">
+                      <tr>
+                        <td className="border p-1.5 text-center">-</td>
+                        <td className="border p-1.5">
+                          TOTAL VENDAS FUNCIONÁRIOS (
+                          {linhasVendasFuncionarios.length})
+                        </td>
+                        <td className="border p-1.5 text-right font-mono">
+                          {fmtMoeda(totaisVendasFuncionarios.vendas_obra)}
+                        </td>
+                        <td className="border p-1.5 text-right font-mono">
+                          {fmtMoeda(totaisVendasFuncionarios.comissao)}
+                        </td>
+                        <td className="border p-1.5" colSpan={3}></td>
+                      </tr>
+                      <tr className="bg-gray-200 font-extrabold border-t-2">
+                        <td className="border p-1.5 text-center">-</td>
+                        <td className="border p-1.5">
+                          TOTAL GERAL VENDAS (FUNCIONÁRIOS + TERCEIROS)
+                        </td>
+                        <td className="border p-1.5 text-right font-mono">
+                          {fmtMoeda(totaisVendas.vendas_obra)}
+                        </td>
+                        <td className="border p-1.5 text-right font-mono">
+                          {fmtMoeda(totaisVendas.comissao)}
+                        </td>
+                        <td className="border p-1.5" colSpan={3}></td>
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
-                <div className="flex gap-4">
-                  <span>
-                    Vendido: {fmtMoeda(dadosLancadorVendas.vendasObra)}
-                  </span>
-                  <span>
-                    Comissão: {fmtMoeda(dadosLancadorVendas.comissaoFinal)}
-                  </span>
-                  <span>
-                    Ajuda de Custo: {fmtMoeda(dadosLancadorVendas.ajudaCusto)}
-                  </span>
-                  <span className="font-bold">
-                    Total Vendas:{" "}
-                    {fmtMoeda(dadosLancadorVendas.totalReceberVendas)}
-                  </span>
-                </div>
-              </div>
+
+                {/* Tabela Progressiva na Impressão A4 */}
+                {faixasComissao.length > 0 && (
+                  <div className="pt-2">
+                    <div className="text-[10px] font-bold uppercase mb-1">
+                      TABELA PROGRESSIVA DE COMISSÕES (usada pelas fórmulas
+                      acima)
+                    </div>
+                    <table className="w-1/2 border-collapse border text-[9px] font-mono">
+                      <thead className="bg-gray-50 uppercase">
+                        <tr>
+                          <th className="border p-1 text-left">De (R$)</th>
+                          <th className="border p-1 text-left">Até (R$)</th>
+                          <th className="border p-1 text-right">%</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {faixasComissao.map((f, idx) => {
+                          const percFormatado =
+                            Number(f.percentual || 0) > 1
+                              ? Number(f.percentual || 0)
+                              : Number(f.percentual || 0) * 100
+                          return (
+                            <tr key={idx}>
+                              <td className="border p-1">
+                                {fmtMoeda(f.de_valor)}
+                              </td>
+                              <td className="border p-1">
+                                {Number(f.ate_valor) >= 900000000
+                                  ? "Sem limite"
+                                  : fmtMoeda(f.ate_valor)}
+                              </td>
+                              <td className="border p-1 text-right font-bold">
+                                {percFormatado.toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 1,
+                                  maximumFractionDigits: 3,
+                                })}
+                                %
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {dadosLancadorVendas && (
+                  <div className="p-3 border rounded bg-gray-50 text-[10px] space-y-1">
+                    <div className="font-bold uppercase">
+                      Destaque Lançador de Vendas:{" "}
+                      {dadosLancadorVendas.linha.nome}
+                    </div>
+                    <div className="flex gap-4">
+                      <span>
+                        Vendido: {fmtMoeda(dadosLancadorVendas.vendasObra)}
+                      </span>
+                      <span>
+                        Comissão: {fmtMoeda(dadosLancadorVendas.comissaoFinal)}
+                      </span>
+                      <span>
+                        Ajuda de Custo:{" "}
+                        {fmtMoeda(dadosLancadorVendas.ajudaCusto)}
+                      </span>
+                      <span className="font-bold">
+                        Total Vendas:{" "}
+                        {fmtMoeda(dadosLancadorVendas.totalReceberVendas)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

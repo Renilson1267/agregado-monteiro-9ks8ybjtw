@@ -1507,7 +1507,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: Json
       }
-      proximo_numero_os: { Args: { p_empresa_id: string } Returns: number }
+      proximo_numero_os: {
+        Args: { p_empresa_id: string }
+        Returns: number
+      }
     }
     Enums: { [_ in never]: never }
     CompositeTypes: { [_ in never]: never }
