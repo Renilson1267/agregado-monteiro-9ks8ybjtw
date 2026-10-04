@@ -1288,12 +1288,56 @@ export default function Cadastros() {
                             variant={
                               mat.controla_estoque ? "default" : "secondary"
                             }
-                            className="text-[10px]"
+                            className={`text-[10px] font-semibold ${
+                              mat.controla_estoque
+                                ? "bg-primary/20 text-primary border-primary/30"
+                                : "bg-muted text-muted-foreground border-border/40"
+                            }`}
                           >
                             {mat.controla_estoque
-                              ? "Estoque Controlado"
-                              : "Apenas Consumo"}
+                              ? "Estoque Controlado (Saldo Ativo)"
+                              : "Consumo Direto (Sem Saldo)"}
                           </Badge>
+                        </div>
+
+                        {/* Bloco de Status do Controle de Estoque / Saldo Atual */}
+                        <div
+                          className={`mt-2 p-2 rounded-md border text-xs flex items-center justify-between ${
+                            mat.controla_estoque
+                              ? "bg-primary/5 border-primary/20 text-foreground"
+                              : "bg-muted/30 border-dashed border-border/50 text-muted-foreground"
+                          }`}
+                        >
+                          <span className="font-medium flex items-center gap-1.5">
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                mat.controla_estoque
+                                  ? (mat.saldo || 0) <= mat.estoque_minimo
+                                    ? "bg-amber-500 animate-pulse"
+                                    : "bg-emerald-500"
+                                  : "bg-muted-foreground/40"
+                              }`}
+                            />
+                            {mat.controla_estoque
+                              ? "Saldo em Estoque:"
+                              : "Controle de Saldo:"}
+                          </span>
+                          {mat.controla_estoque ? (
+                            <span className="font-mono font-bold text-foreground">
+                              {(mat.saldo || 0).toLocaleString("pt-BR")}{" "}
+                              {mat.unidade}
+                              {mat.unidade === "kg" && (mat.saldo || 0) >= 1000
+                                ? ` (${((mat.saldo || 0) / 1000).toFixed(2)} t)`
+                                : ""}
+                            </span>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-normal border-border/50 text-muted-foreground bg-background/50"
+                            >
+                              Fora do Estoque
+                            </Badge>
+                          )}
                         </div>
 
                         {/* Detalhes de Densidade e Compra */}
