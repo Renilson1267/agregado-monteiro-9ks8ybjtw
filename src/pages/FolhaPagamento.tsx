@@ -1835,8 +1835,6 @@ export function FolhaPagamento() {
         }
         const linhaGravada = await FolhaService.salvarLinha(
           novaLinhaCompleta as any,
-          empresaAtiva.id,
-          competencia,
         )
         setLinhas((prev) => {
           const filtered = prev.filter((l) => l.id !== linhaId)
@@ -2013,8 +2011,6 @@ export function FolhaPagamento() {
         }
         const linhaGravada = await FolhaService.salvarLinha(
           payloadCompleto as any,
-          empresaAtiva.id,
-          competencia,
         )
         setLinhas((prev) => {
           const filtered = prev.filter((l) => l.id !== linhaId)
@@ -3467,7 +3463,70 @@ export function FolhaPagamento() {
                         </span>
                       </div>
                       <div className="mt-2 pt-2 border-t border-blue-300 dark:border-blue-700 text-[11px] text-muted-foreground flex flex-col gap-1">
-                        <div className="flex items-center justify-between text-xs font-semibold text-blue-900 dark:text-blue-200">
+                        <div className="rounded bg-white/70 dark:bg-background/60 p-2 space-y-1 border border-blue-200 dark:border-blue-800 text-[10.5px]">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-blue-950 dark:text-blue-200 block border-b border-blue-200/50 dark:border-blue-800/50 pb-0.5">
+                            Composição Consolidada:
+                          </span>
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>Salários quinzena (Monteiro + SJE):</span>
+                            <span className="font-mono font-medium text-blue-600 dark:text-blue-400">
+                              {fmtMoeda(
+                                (consolidacaoDuasFolhas.temMonteiro
+                                  ? consolidacaoDuasFolhas.monteiro
+                                      .salariosQuinzena
+                                  : 0) +
+                                  (consolidacaoDuasFolhas.temSje
+                                    ? consolidacaoDuasFolhas.sje
+                                        .salariosQuinzena
+                                    : 0),
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>Salários mensal (Monteiro + SJE):</span>
+                            <span className="font-mono font-medium text-foreground">
+                              {fmtMoeda(
+                                (consolidacaoDuasFolhas.temMonteiro
+                                  ? consolidacaoDuasFolhas.monteiro
+                                      .salariosMensal
+                                  : 0) +
+                                  (consolidacaoDuasFolhas.temSje
+                                    ? consolidacaoDuasFolhas.sje.salariosMensal
+                                    : 0),
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>Produção (a pagar) (Monteiro + SJE):</span>
+                            <span className="font-mono font-medium text-emerald-600 dark:text-emerald-400">
+                              {fmtMoeda(
+                                (consolidacaoDuasFolhas.temMonteiro
+                                  ? consolidacaoDuasFolhas.monteiro
+                                      .producaoAPagar
+                                  : 0) +
+                                  (consolidacaoDuasFolhas.temSje
+                                    ? consolidacaoDuasFolhas.sje.producaoAPagar
+                                    : 0),
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>Comissões de vendas (Monteiro + SJE):</span>
+                            <span className="font-mono font-medium text-amber-600 dark:text-amber-400">
+                              {fmtMoeda(
+                                (consolidacaoDuasFolhas.temMonteiro
+                                  ? consolidacaoDuasFolhas.monteiro
+                                      .comissoesVendas
+                                  : 0) +
+                                  (consolidacaoDuasFolhas.temSje
+                                    ? consolidacaoDuasFolhas.sje.comissoesVendas
+                                    : 0),
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs font-semibold text-blue-900 dark:text-blue-200 pt-1">
                           <span>Total de Vendas (Monteiro + SJE):</span>
                           <span className="font-mono font-bold text-blue-700 dark:text-blue-300">
                             {fmtMoeda(
