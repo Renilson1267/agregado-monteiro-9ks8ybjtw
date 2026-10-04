@@ -96,9 +96,20 @@ export interface ItemCustoInsumo {
   custoTotal: number
   custoUnitarioMedio: number
   percentualDoTotal: number
+  // Conversão para volume em m³ quando aplicável (areia, brita12, brita19, po_pedra)
+  densidade?: number
+  quantidadeM3?: number
   // Discriminação por empresa para visão consolidada
   quantidadePorEmpresa?: Record<string, number>
   custoPorEmpresa?: Record<string, number>
+}
+
+export interface SomatorioBritasInfo {
+  quantidadeKg: number
+  quantidadeM3: number
+  custoTotal: number
+  percentualDoTotal: number
+  custoUnitarioMedioM3: number
 }
 
 export interface ResumoCustosInsumos {
@@ -107,6 +118,7 @@ export interface ResumoCustosInsumos {
   custoMedioPorM3: number
   volumeTotalM3: number
   totalCargasValidas: number
+  somatorioBritas: SomatorioBritasInfo
 }
 
 export interface DadosPainelGerencial {
@@ -302,6 +314,7 @@ export const PainelService = {
       examesSjeRes,
       materiaisMonteiroRes,
       materiaisSjeRes,
+      materiaisAlvoRes,
     ] = await Promise.all([
       // Cargas do mês
       (async () => {
@@ -401,6 +414,13 @@ export const PainelService = {
       targetEmpresaId === ID_EMPRESA_MONTEIRO
         ? Promise.resolve([])
         : ConcreteiraService.getMateriais(ID_EMPRESA_SJE).catch(() => []),
+
+      // Materiais da unidade específica selecionada (se não for "todas", nem monteiro nem sje fixos)
+      targetEmpresaId &&
+      targetEmpresaId !== ID_EMPRESA_MONTEIRO &&
+      targetEmpresaId !== ID_EMPRESA_SJE
+        ? ConcreteiraService.getMateriais(targetEmpresaId).catch(() => [])
+        : Promise.resolve([]),
     ])
 
     // --- CÁLCULO DE KPIS DO PERÍODO ---
@@ -1110,6 +1130,53 @@ export const PainelService = {
       0,
     )
 
+    // Mapa de densidades dos materiais por empresa (lendo da tabela materiais)
+    // Se visão for de uma empresa individual, busca da própria unidade.
+    // Se visão for "todas", calcula o volume em m³ por empresa ponderado pelas cargas/consumo de cada unidade.
+    const densidadePadrao: Record<string, number> = {
+      areia: 1.5,
+      brita12: 1.38,
+      brita19: 1.44,
+      po_pedra: 1.4,
+    }
+
+    // Indexar materiais por empresa_id -> codigo -> densidade
+    const densidadesPorEmpresaEMaterial = new Map<string, Map<string, number>>()
+    const todosMateriaisCadastrados: Material[] = [
+      ...materiaisMonteiroRes,
+      ...materiaisSjeRes,
+      ...materiaisAlvoRes,
+    ]
+
+    todosMateriaisCadastrados.forEach((m) => {
+      const empId = m.empresa_id || "sem_empresa"
+      if (!densidadesPorEmpresaEMaterial.has(empId)) {
+        densidadesPorEmpresaEMaterial.set(empId, new Map<string, number>())
+      }
+      const cod = m.codigo?.toLowerCase()
+      if (cod && m.densidade != null && Number(m.densidade) > 0) {
+        densidadesPorEmpresaEMaterial.get(empId)!.set(cod, Number(m.densidade))
+      }
+    })
+
+    const obterDensidadeMaterial = (
+      empId: string | undefined,
+      codigo: string,
+    ): number => {
+      if (empId && densidadesPorEmpresaEMaterial.has(empId)) {
+        const dens = densidadesPorEmpresaEMaterial.get(empId)!.get(codigo)
+        if (dens && dens > 0) return dens
+      }
+      return densidadePadrao[codigo] || 1.0
+    }
+
+    const materiaisConversiveisM3 = new Set([
+      "areia",
+      "brita12",
+      "brita19",
+      "po_pedra",
+    ])
+
     const itensCustosInsumos: ItemCustoInsumo[] = catalogoInsumosDef.map(
       (def) => {
         const dadosCons = mapaConsumoInsumos[def.codigo] || {
@@ -1127,6 +1194,39 @@ export const PainelService = {
             ? Math.round((custoTot / custoTotalGeralCalculado) * 1000) / 10
             : 0
 
+        // Conversão kg -> m³ para areia, brita12, brita19 e po_pedra (Cimento não converte; aditivo/água em L)
+        let densidadeItem: number | undefined = undefined
+        let volumeM3Item: number | undefined = undefined
+
+        if (materiaisConversiveisM3.has(def.codigo)) {
+          if (targetEmpresaId) {
+            // Unidade individual selecionada
+            densidadeItem = obterDensidadeMaterial(targetEmpresaId, def.codigo)
+            if (densidadeItem > 0) {
+              // m³ = kg / (densidade * 1000)
+              volumeM3Item =
+                Math.round((qtdTot / (densidadeItem * 1000)) * 100) / 100
+            }
+          } else {
+            // Visão consolidada: calcula volume m³ somando empresa a empresa com suas densidades próprias
+            let volSoma = 0
+            Object.entries(dadosCons.porEmpresaQtd).forEach(([eId, qtdEmp]) => {
+              const d = obterDensidadeMaterial(eId, def.codigo)
+              if (d > 0) {
+                volSoma += qtdEmp / (d * 1000)
+              }
+            })
+            volumeM3Item = Math.round(volSoma * 100) / 100
+            // Densidade média ponderada aparente para exibição se houver consumo
+            if (volumeM3Item > 0 && qtdTot > 0) {
+              densidadeItem =
+                Math.round((qtdTot / (volumeM3Item * 1000)) * 100) / 100
+            } else {
+              densidadeItem = obterDensidadeMaterial(undefined, def.codigo)
+            }
+          }
+        }
+
         return {
           codigo: def.codigo,
           nome: def.nome,
@@ -1135,11 +1235,48 @@ export const PainelService = {
           custoTotal: custoTot,
           custoUnitarioMedio: custoUnitMedio,
           percentualDoTotal: perc,
+          densidade: densidadeItem,
+          quantidadeM3: volumeM3Item,
           quantidadePorEmpresa: dadosCons.porEmpresaQtd,
           custoPorEmpresa: dadosCons.porEmpresaCusto,
         }
       },
     )
+
+    // (1) SOMATÓRIO BRITAS = B12 + B19 (somando quantidade em kg, volume em m³ e custo total)
+    const itemB12 = itensCustosInsumos.find((it) => it.codigo === "brita12")
+    const itemB19 = itensCustosInsumos.find((it) => it.codigo === "brita19")
+    const somatorioBritasKg =
+      Math.round(
+        ((itemB12?.quantidadeConsumida || 0) +
+          (itemB19?.quantidadeConsumida || 0)) *
+          100,
+      ) / 100
+    const somatorioBritasM3 =
+      Math.round(
+        ((itemB12?.quantidadeM3 || 0) + (itemB19?.quantidadeM3 || 0)) * 100,
+      ) / 100
+    const somatorioBritasCusto =
+      Math.round(
+        ((itemB12?.custoTotal || 0) + (itemB19?.custoTotal || 0)) * 100,
+      ) / 100
+    const somatorioBritasPerc =
+      custoTotalGeralCalculado > 0
+        ? Math.round((somatorioBritasCusto / custoTotalGeralCalculado) * 1000) /
+          10
+        : 0
+    const somatorioBritasCustoM3 =
+      somatorioBritasM3 > 0
+        ? Math.round((somatorioBritasCusto / somatorioBritasM3) * 100) / 100
+        : 0
+
+    const somatorioBritasInfo: SomatorioBritasInfo = {
+      quantidadeKg: somatorioBritasKg,
+      quantidadeM3: somatorioBritasM3,
+      custoTotal: somatorioBritasCusto,
+      percentualDoTotal: somatorioBritasPerc,
+      custoUnitarioMedioM3: somatorioBritasCustoM3,
+    }
 
     const resumoCustosInsumos: ResumoCustosInsumos = {
       itens: itensCustosInsumos,
@@ -1150,6 +1287,7 @@ export const PainelService = {
           : 0,
       volumeTotalM3,
       totalCargasValidas: qtdCargasValidas,
+      somatorioBritas: somatorioBritasInfo,
     }
 
     const totalCriticos =

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, Fragment } from "react"
 import {
   TrendingUp,
   Truck,
@@ -375,52 +375,125 @@ export function PainelGerencial() {
           <thead>
             <tr className="border-b border-slate-300 bg-slate-100 text-slate-700 font-bold uppercase">
               <th className="py-1 px-2">Insumo</th>
-              <th className="py-1 px-2 text-right">Consumo no Período</th>
+              <th className="py-1 px-2 text-right">Consumo (kg / L)</th>
+              <th className="py-1 px-2 text-right">Volume (m³)</th>
               <th className="py-1 px-2 text-right">Custo Médio Unitário</th>
               <th className="py-1 px-2 text-right">Custo Total (R$)</th>
               <th className="py-1 px-2 text-right">% do Custo</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {(dados?.custosInsumos?.itens || []).map((item) => (
-              <tr key={`print-custo-${item.codigo}`}>
-                <td className="py-1 px-2 font-bold text-slate-900">
-                  {item.nome}
-                </td>
-                <td className="py-1 px-2 text-right font-mono text-slate-800">
-                  {item.quantidadeConsumida.toLocaleString("pt-BR", {
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  {item.unidade}
-                  {item.unidade === "kg" &&
-                    item.quantidadeConsumida >= 1000 && (
-                      <span className="text-slate-500 font-normal ml-1">
-                        ({(item.quantidadeConsumida / 1000).toFixed(2)} t)
-                      </span>
-                    )}
-                </td>
-                <td className="py-1 px-2 text-right font-mono text-slate-600">
-                  {item.custoUnitarioMedio > 0
-                    ? `R$ ${item.custoUnitarioMedio.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 4,
-                      })}/${item.unidade}`
-                    : "—"}
-                </td>
-                <td className="py-1 px-2 text-right font-mono font-bold text-slate-900">
-                  {fmtMoeda(item.custoTotal)}
-                </td>
-                <td className="py-1 px-2 text-right font-mono text-slate-700">
-                  {item.percentualDoTotal.toFixed(1)}%
-                </td>
-              </tr>
-            ))}
+            {(dados?.custosInsumos?.itens || []).map((item) => {
+              const ehB19 = item.codigo === "brita19"
+              const somatorio = dados?.custosInsumos?.somatorioBritas
+
+              return (
+                <Fragment key={`print-custo-${item.codigo}`}>
+                  <tr>
+                    <td className="py-1 px-2 font-bold text-slate-900">
+                      {item.nome}
+                    </td>
+                    <td className="py-1 px-2 text-right font-mono text-slate-800">
+                      {item.quantidadeConsumida.toLocaleString("pt-BR", {
+                        maximumFractionDigits: 2,
+                      })}{" "}
+                      {item.unidade}
+                      {item.unidade === "kg" &&
+                        item.quantidadeConsumida >= 1000 && (
+                          <span className="text-slate-500 font-normal ml-1">
+                            ({(item.quantidadeConsumida / 1000).toFixed(2)} t)
+                          </span>
+                        )}
+                    </td>
+                    <td className="py-1 px-2 text-right font-mono font-semibold text-slate-900">
+                      {item.quantidadeM3 !== undefined ? (
+                        <span>
+                          {item.quantidadeM3.toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          m³
+                          {item.densidade && (
+                            <span className="text-slate-500 font-normal ml-1 text-[9px]">
+                              (d={item.densidade.toFixed(2)})
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 font-normal">—</span>
+                      )}
+                    </td>
+                    <td className="py-1 px-2 text-right font-mono text-slate-600">
+                      {item.custoUnitarioMedio > 0
+                        ? `R$ ${item.custoUnitarioMedio.toLocaleString(
+                            "pt-BR",
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 4,
+                            },
+                          )}/${item.unidade}`
+                        : "—"}
+                    </td>
+                    <td className="py-1 px-2 text-right font-mono font-bold text-slate-900">
+                      {fmtMoeda(item.custoTotal)}
+                    </td>
+                    <td className="py-1 px-2 text-right font-mono text-slate-700">
+                      {item.percentualDoTotal.toFixed(1)}%
+                    </td>
+                  </tr>
+
+                  {/* Linha de SOMATÓRIO BRITAS = B12 + B19 logo após a Brita 19 */}
+                  {ehB19 && somatorio && (
+                    <tr className="bg-amber-50/80 font-bold border-y border-amber-300 text-slate-900">
+                      <td className="py-1 px-2 uppercase text-amber-950 font-black">
+                        SOMATÓRIO BRITAS (B12 + B19)
+                      </td>
+                      <td className="py-1 px-2 text-right font-mono text-amber-950">
+                        {somatorio.quantidadeKg.toLocaleString("pt-BR", {
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        kg
+                        {somatorio.quantidadeKg >= 1000 && (
+                          <span className="text-slate-600 font-normal ml-1">
+                            ({(somatorio.quantidadeKg / 1000).toFixed(2)} t)
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1 px-2 text-right font-mono font-black text-amber-950">
+                        {somatorio.quantidadeM3.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        m³
+                      </td>
+                      <td className="py-1 px-2 text-right font-mono text-slate-700 font-semibold">
+                        {somatorio.custoUnitarioMedioM3 > 0
+                          ? `${fmtMoeda(somatorio.custoUnitarioMedioM3)}/m³`
+                          : "—"}
+                      </td>
+                      <td className="py-1 px-2 text-right font-mono font-black text-amber-950">
+                        {fmtMoeda(somatorio.custoTotal)}
+                      </td>
+                      <td className="py-1 px-2 text-right font-mono text-amber-950 font-bold">
+                        {somatorio.percentualDoTotal.toFixed(1)}%
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-slate-400 bg-slate-100 font-bold text-slate-900">
               <td className="py-1.5 px-2 uppercase">Total de Insumos</td>
               <td className="py-1.5 px-2 text-right font-mono text-slate-600">
                 {dados?.custosInsumos?.totalCargasValidas || 0} viagens
+              </td>
+              <td className="py-1.5 px-2 text-right font-mono text-slate-700">
+                {dados?.custosInsumos?.volumeTotalM3.toLocaleString("pt-BR", {
+                  maximumFractionDigits: 2,
+                })}{" "}
+                m³ concreto
               </td>
               <td className="py-1.5 px-2 text-right font-mono text-slate-700">
                 {fmtMoeda(dados?.custosInsumos?.custoMedioPorM3 || 0)}/m³
@@ -1007,7 +1080,7 @@ export function PainelGerencial() {
                         </div>
                       </div>
 
-                      {/* Quantidade Consumida e Custo Médio Unitário */}
+                      {/* Quantidade Consumida, Volume m³ (se aplicável) e Custo Médio Unitário */}
                       <div className="pt-2 border-t border-border/30 text-[11px] space-y-1">
                         <div className="flex items-center justify-between text-muted-foreground">
                           <span>Consumo total:</span>
@@ -1026,6 +1099,24 @@ export function PainelGerencial() {
                               )}
                           </span>
                         </div>
+
+                        {item.quantidadeM3 !== undefined && (
+                          <div className="flex items-center justify-between text-muted-foreground">
+                            <span>Volume em m³:</span>
+                            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                              {item.quantidadeM3.toLocaleString("pt-BR", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                              m³
+                              {item.densidade && (
+                                <span className="text-muted-foreground font-normal text-[10px] ml-1">
+                                  (d={item.densidade.toFixed(2)})
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        )}
 
                         <div className="flex items-center justify-between text-muted-foreground">
                           <span>Preço médio:</span>
@@ -1057,9 +1148,96 @@ export function PainelGerencial() {
                     </div>
                   )
                 })}
+
+                {/* Card Especial de Destaque: SOMATÓRIO BRITAS (B12 + B19) */}
+                {dados.custosInsumos.somatorioBritas && (
+                  <div className="rounded-xl border-2 border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/10 p-3.5 flex flex-col justify-between transition-all shadow-xs relative overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-1.5 pt-0.5">
+                        <div className="min-w-0">
+                          <span className="font-black text-sm text-foreground truncate block">
+                            SOMATÓRIO BRITAS (B12 + B19)
+                          </span>
+                          <span className="text-[11px] text-amber-700 dark:text-amber-400 uppercase tracking-wider font-mono font-bold">
+                            Total Agregados Britados
+                          </span>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-mono shrink-0 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 font-bold"
+                        >
+                          {dados.custosInsumos.somatorioBritas.percentualDoTotal.toFixed(
+                            1,
+                          )}
+                          % do total
+                        </Badge>
+                      </div>
+
+                      <div className="my-2">
+                        <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-amber-900 dark:text-amber-200 block">
+                          {fmtMoeda(
+                            dados.custosInsumos.somatorioBritas.custoTotal,
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-amber-500/20 text-[11px] space-y-1">
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span>Peso total:</span>
+                        <span className="font-mono font-semibold text-foreground">
+                          {dados.custosInsumos.somatorioBritas.quantidadeKg.toLocaleString(
+                            "pt-BR",
+                            { maximumFractionDigits: 2 },
+                          )}{" "}
+                          kg
+                          {dados.custosInsumos.somatorioBritas.quantidadeKg >=
+                            1000 && (
+                            <span className="text-muted-foreground font-normal ml-1">
+                              (
+                              {(
+                                dados.custosInsumos.somatorioBritas
+                                  .quantidadeKg / 1000
+                              ).toFixed(2)}{" "}
+                              t)
+                            </span>
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span>Volume combinado:</span>
+                        <span className="font-mono font-black text-amber-600 dark:text-amber-400 text-xs">
+                          {dados.custosInsumos.somatorioBritas.quantidadeM3.toLocaleString(
+                            "pt-BR",
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            },
+                          )}{" "}
+                          m³
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span>Custo médio por m³:</span>
+                        <span className="font-mono font-bold text-foreground">
+                          {dados.custosInsumos.somatorioBritas
+                            .custoUnitarioMedioM3 > 0
+                            ? `${fmtMoeda(
+                                dados.custosInsumos.somatorioBritas
+                                  .custoUnitarioMedioM3,
+                              )}/m³`
+                            : "—"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Tabela Sintética Detalhada com Rodapé de Totais */}
+              {/* Tabela Sintética Detalhada com Coluna de Volume m³, Linha SOMATÓRIO BRITAS e Rodapé de Totais */}
               <div className="overflow-x-auto rounded-xl border border-border/40 bg-card/40 mt-3">
                 <table className="w-full text-xs text-left border-collapse">
                   <thead className="bg-muted/50 text-muted-foreground uppercase font-semibold border-b border-border/40">
@@ -1068,6 +1246,7 @@ export function PainelGerencial() {
                       <th className="py-2.5 px-3 text-right">
                         Consumo ({rotuloCompetencia})
                       </th>
+                      <th className="py-2.5 px-3 text-right">Volume em m³</th>
                       <th className="py-2.5 px-3 text-right">
                         Custo Unitário Médio
                       </th>
@@ -1078,46 +1257,120 @@ export function PainelGerencial() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/30">
-                    {dados.custosInsumos.itens.map((item) => (
-                      <tr
-                        key={`tab-custo-${item.codigo}`}
-                        className="hover:bg-muted/30 transition-colors"
-                      >
-                        <td className="py-2 px-3 font-semibold text-foreground">
-                          {item.nome}
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono text-muted-foreground">
-                          {item.quantidadeConsumida.toLocaleString("pt-BR", {
-                            maximumFractionDigits: 2,
-                          })}{" "}
-                          {item.unidade}
-                          {item.unidade === "kg" &&
-                            item.quantidadeConsumida >= 1000 && (
-                              <span className="text-muted-foreground/80 font-normal ml-1 text-[11px]">
-                                ({(item.quantidadeConsumida / 1000).toFixed(2)}{" "}
-                                t)
-                              </span>
-                            )}
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono text-muted-foreground">
-                          {item.custoUnitarioMedio > 0
-                            ? `R$ ${item.custoUnitarioMedio.toLocaleString(
+                    {dados.custosInsumos.itens.map((item) => {
+                      const ehB19 = item.codigo === "brita19"
+                      const somatorio = dados.custosInsumos.somatorioBritas
+
+                      return (
+                        <Fragment key={`tab-custo-${item.codigo}`}>
+                          <tr className="hover:bg-muted/30 transition-colors">
+                            <td className="py-2 px-3 font-semibold text-foreground">
+                              {item.nome}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono text-muted-foreground">
+                              {item.quantidadeConsumida.toLocaleString(
                                 "pt-BR",
                                 {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 4,
+                                  maximumFractionDigits: 2,
                                 },
-                              )}/${item.unidade}`
-                            : "—"}
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono font-bold text-foreground">
-                          {fmtMoeda(item.custoTotal)}
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono text-primary font-semibold">
-                          {item.percentualDoTotal.toFixed(1)}%
-                        </td>
-                      </tr>
-                    ))}
+                              )}{" "}
+                              {item.unidade}
+                              {item.unidade === "kg" &&
+                                item.quantidadeConsumida >= 1000 && (
+                                  <span className="text-muted-foreground/80 font-normal ml-1 text-[11px]">
+                                    (
+                                    {(item.quantidadeConsumida / 1000).toFixed(
+                                      2,
+                                    )}{" "}
+                                    t)
+                                  </span>
+                                )}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-medium text-foreground">
+                              {item.quantidadeM3 !== undefined ? (
+                                <span className="text-foreground">
+                                  {item.quantidadeM3.toLocaleString("pt-BR", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}{" "}
+                                  m³
+                                  {item.densidade && (
+                                    <span className="text-muted-foreground font-normal ml-1 text-[10px]">
+                                      (d={item.densidade.toFixed(2)})
+                                    </span>
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/50 font-normal">
+                                  —
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono text-muted-foreground">
+                              {item.custoUnitarioMedio > 0
+                                ? `R$ ${item.custoUnitarioMedio.toLocaleString(
+                                    "pt-BR",
+                                    {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 4,
+                                    },
+                                  )}/${item.unidade}`
+                                : "—"}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-foreground">
+                              {fmtMoeda(item.custoTotal)}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono text-primary font-semibold">
+                              {item.percentualDoTotal.toFixed(1)}%
+                            </td>
+                          </tr>
+
+                          {/* Linha SOMATÓRIO BRITAS inserida logo após Brita 19 */}
+                          {ehB19 && somatorio && (
+                            <tr className="bg-amber-500/10 dark:bg-amber-500/15 font-bold border-y border-amber-500/30">
+                              <td className="py-2 px-3 uppercase text-amber-900 dark:text-amber-200 font-black">
+                                SOMATÓRIO BRITAS (B12 + B19)
+                              </td>
+                              <td className="py-2 px-3 text-right font-mono text-amber-900 dark:text-amber-200">
+                                {somatorio.quantidadeKg.toLocaleString(
+                                  "pt-BR",
+                                  { maximumFractionDigits: 2 },
+                                )}{" "}
+                                kg
+                                {somatorio.quantidadeKg >= 1000 && (
+                                  <span className="text-muted-foreground font-normal ml-1 text-[11px]">
+                                    (
+                                    {(somatorio.quantidadeKg / 1000).toFixed(2)}{" "}
+                                    t)
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2 px-3 text-right font-mono font-black text-amber-800 dark:text-amber-300">
+                                {somatorio.quantidadeM3.toLocaleString(
+                                  "pt-BR",
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  },
+                                )}{" "}
+                                m³
+                              </td>
+                              <td className="py-2 px-3 text-right font-mono text-muted-foreground">
+                                {somatorio.custoUnitarioMedioM3 > 0
+                                  ? `${fmtMoeda(somatorio.custoUnitarioMedioM3)}/m³`
+                                  : "—"}
+                              </td>
+                              <td className="py-2 px-3 text-right font-mono font-black text-amber-900 dark:text-amber-200">
+                                {fmtMoeda(somatorio.custoTotal)}
+                              </td>
+                              <td className="py-2 px-3 text-right font-mono text-amber-800 dark:text-amber-300 font-bold">
+                                {somatorio.percentualDoTotal.toFixed(1)}%
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      )
+                    })}
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-border/60 bg-muted/40 font-bold text-foreground">
@@ -1127,9 +1380,18 @@ export function PainelGerencial() {
                         válidas)
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono text-muted-foreground">
-                        Volume:{" "}
+                        {dados.custosInsumos.itens
+                          .reduce((acc, it) => acc + it.quantidadeConsumida, 0)
+                          .toLocaleString("pt-BR", {
+                            maximumFractionDigits: 0,
+                          })}{" "}
+                        kg/L
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-foreground">
+                        Volume Concreto:{" "}
                         {dados.custosInsumos.volumeTotalM3.toLocaleString(
                           "pt-BR",
+                          { maximumFractionDigits: 2 },
                         )}{" "}
                         m³
                       </td>
