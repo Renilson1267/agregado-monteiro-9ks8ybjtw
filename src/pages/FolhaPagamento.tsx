@@ -1281,6 +1281,42 @@ export function FolhaPagamento() {
     const totalComissoesConsolidado =
       Math.round((monteiro.totalComissoes + sje.totalComissoes) * 100) / 100
 
+    // Componentes somados (Monteiro + SJE) das 4 linhas discriminadas
+    const salariosQuinzenaConsolidado =
+      Math.round(
+        ((temMonteiro ? monteiro.salariosQuinzena : 0) +
+          (temSje ? sje.salariosQuinzena : 0)) *
+          100,
+      ) / 100
+    const salariosMensalConsolidado =
+      Math.round(
+        ((temMonteiro ? monteiro.salariosMensal : 0) +
+          (temSje ? sje.salariosMensal : 0)) *
+          100,
+      ) / 100
+    const producaoAPagarConsolidado =
+      Math.round(
+        ((temMonteiro ? monteiro.producaoAPagar : 0) +
+          (temSje ? sje.producaoAPagar : 0)) *
+          100,
+      ) / 100
+    const comissoesVendasConsolidado =
+      Math.round(
+        ((temMonteiro ? monteiro.comissoesVendas : 0) +
+          (temSje ? sje.comissoesVendas : 0)) *
+          100,
+      ) / 100
+
+    // SOMATÓRIO GERAL = soma das 4 linhas discriminadas
+    const somatorioGeral =
+      Math.round(
+        (salariosQuinzenaConsolidado +
+          salariosMensalConsolidado +
+          producaoAPagarConsolidado +
+          comissoesVendasConsolidado) *
+          100,
+      ) / 100
+
     return {
       monteiro,
       sje,
@@ -1289,6 +1325,11 @@ export function FolhaPagamento() {
       totalConsolidado,
       totalVendasConsolidado,
       totalComissoesConsolidado,
+      salariosQuinzenaConsolidado,
+      salariosMensalConsolidado,
+      producaoAPagarConsolidado,
+      comissoesVendasConsolidado,
+      somatorioGeral,
     }
   }, [
     empresaAtiva?.id,
@@ -3522,6 +3563,14 @@ export function FolhaPagamento() {
                                     ? consolidacaoDuasFolhas.sje.comissoesVendas
                                     : 0),
                               )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center pt-1.5 mt-1 border-t-2 border-blue-300 dark:border-blue-700 font-bold text-foreground bg-blue-50/50 dark:bg-blue-950/30 px-1.5 py-1 rounded">
+                            <span className="text-[11px] font-black uppercase text-blue-950 dark:text-blue-100">
+                              SOMATÓRIO GERAL:
+                            </span>
+                            <span className="font-mono font-black text-xs text-blue-800 dark:text-blue-300">
+                              {fmtMoeda(consolidacaoDuasFolhas.somatorioGeral)}
                             </span>
                           </div>
                         </div>
@@ -6354,6 +6403,49 @@ export function FolhaPagamento() {
                       !consolidacaoDuasFolhas.temSje
                         ? "Total parcial (unidade pendente)"
                         : "Consolidação completa das 2 unidades"}
+                    </td>
+                  </tr>
+                  <tr className="bg-blue-100/70 border-t border-gray-400 font-black">
+                    <td className="border border-gray-400 p-1.5 uppercase text-blue-950 font-black">
+                      SOMATÓRIO GERAL
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-center text-[8px] text-gray-600 font-normal">
+                      4 linhas somadas
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-right font-mono text-blue-950 font-bold">
+                      {fmtMoeda(
+                        consolidacaoDuasFolhas.salariosQuinzenaConsolidado,
+                      )}
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-right font-mono text-blue-950 font-bold">
+                      {fmtMoeda(
+                        consolidacaoDuasFolhas.salariosMensalConsolidado,
+                      )}
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-right font-mono text-blue-950 font-bold">
+                      {fmtMoeda(
+                        consolidacaoDuasFolhas.producaoAPagarConsolidado,
+                      )}
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-right font-mono text-amber-950 font-bold">
+                      {fmtMoeda(
+                        consolidacaoDuasFolhas.comissoesVendasConsolidado,
+                      )}
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-center font-mono text-[8px] text-gray-400">
+                      —
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-center font-mono text-[8px] text-gray-400">
+                      —
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-center font-mono text-[8px] text-gray-400">
+                      —
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-right font-mono text-[10px] font-black text-blue-950 bg-blue-200/60">
+                      {fmtMoeda(consolidacaoDuasFolhas.somatorioGeral)}
+                    </td>
+                    <td className="border border-gray-400 p-1.5 text-[8px] font-bold text-blue-950">
+                      Soma 4 linhas
                     </td>
                   </tr>
                 </tfoot>
