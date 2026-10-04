@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   Card,
   CardContent,
@@ -23,6 +23,11 @@ import { Link, useSearchParams } from "react-router-dom"
 import { ConcreteiraService } from "@/services/concreteira"
 import { useEmpresa } from "@/hooks/use-empresa"
 import { useUsuario } from "@/hooks/use-usuario"
+import {
+  RelatorioGerencialService,
+  DadosRelatorioGerencialMes,
+} from "@/services/relatorio-gerencial"
+import { RelatorioGerencialMes } from "@/components/RelatorioGerencialMes"
 import type {
   Carga,
   Cidade,
@@ -48,6 +53,10 @@ import {
   Pencil,
   Trash2,
   Boxes,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Globe2,
 } from "lucide-react"
 import {
   AlertDialog,
@@ -78,25 +87,32 @@ export default function Relatorios() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const tabParam = searchParams.get("tab")
-  const [abaAtiva, setAbaAtiva] = useState<"operacional" | "comparativo">(
-    isAdministrador && tabParam === "comparativo"
-      ? "comparativo"
-      : "operacional",
-  )
+  const [abaAtiva, setAbaAtiva] =
+    useState<"gerencial" | "operacional" | "comparativo">(
+      tabParam === "gerencial"
+        ? "gerencial"
+        : isAdministrador && tabParam === "comparativo"
+          ? "comparativo"
+          : "gerencial",
+    )
 
   useEffect(() => {
-    if (!isAdministrador) {
-      if (abaAtiva !== "operacional") setAbaAtiva("operacional")
-      return
-    }
-    if (tabParam === "comparativo" && abaAtiva !== "comparativo") {
+    if (tabParam === "gerencial" && abaAtiva !== "gerencial") {
+      setAbaAtiva("gerencial")
+    } else if (
+      tabParam === "comparativo" &&
+      isAdministrador &&
+      abaAtiva !== "comparativo"
+    ) {
       setAbaAtiva("comparativo")
-    } else if (tabParam !== "comparativo" && abaAtiva !== "operacional") {
+    } else if (tabParam === "operacional" && abaAtiva !== "operacional") {
       setAbaAtiva("operacional")
     }
   }, [tabParam, abaAtiva, isAdministrador])
 
-  const handleMudarAba = (novaAba: "operacional" | "comparativo") => {
+  const handleMudarAba = (
+    novaAba: "gerencial" | "operacional" | "comparativo",
+  ) => {
     setAbaAtiva(novaAba)
     const newParams = new URLSearchParams(searchParams)
     newParams.set("tab", novaAba)
@@ -155,6 +171,65 @@ export default function Relatorios() {
       custoPorM3: 0,
     },
   })
+
+  // =========================================================
+  // Estado e Carregamento do Relatório Gerencial (Mês)
+  // =========================================================
+  const [competenciaGerencial, setCompetenciaGerencial] =
+    useState<string>("2026-09")
+  const [visaoGerencialEmpresa, setVisaoGerencialEmpresa] = useState<string>(
+    () => {
+      if (empresaAtiva?.slug) return empresaAtiva.slug.toLowerCase()
+      if (empresaAtiva?.id) return empresaAtiva.id
+      return "todas"
+    },
+  )
+  const [dadosGerencial, setDadosGerencial] =
+    useState<DadosRelatorioGerencialMes | null>(null)
+  const [loadingGerencial, setLoadingGerencial] = useState(false)
+
+  // Sincroniza visão gerencial quando o seletor do topo altera a empresa ativa
+  useEffect(() => {
+    if (empresaAtiva?.slug) {
+      setVisaoGerencialEmpresa(empresaAtiva.slug.toLowerCase())
+    } else if (empresaAtiva?.id) {
+      setVisaoGerencialEmpresa(empresaAtiva.id)
+    }
+  }, [empresaAtiva?.id, empresaAtiva?.slug])
+
+  const carregarRelatorioGerencial = useCallback(async () => {
+    setLoadingGerencial(true)
+    try {
+      const res = await RelatorioGerencialService.obterRelatorioMes({
+        competencia: competenciaGerencial,
+        empresaFiltro: visaoGerencialEmpresa,
+      })
+      setDadosGerencial(res)
+    } catch (err) {
+      console.error("Erro ao carregar relatório gerencial mensal:", err)
+      toast({
+        title: "Erro ao carregar relatório gerencial",
+        description: "Não foi possível carregar os dados da competência.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingGerencial(false)
+    }
+  }, [competenciaGerencial, visaoGerencialEmpresa, toast])
+
+  useEffect(() => {
+    if (abaAtiva === "gerencial") {
+      carregarRelatorioGerencial()
+    }
+  }, [abaAtiva, carregarRelatorioGerencial])
+
+  const navegarCompetenciaGerencial = (delta: number) => {
+    const [ano, mes] = competenciaGerencial.split("-").map(Number)
+    const dt = new Date(ano, mes - 1 + delta, 1)
+    const a = dt.getFullYear()
+    const m = String(dt.getMonth() + 1).padStart(2, "0")
+    setCompetenciaGerencial(`${a}-${m}`)
+  }
 
   const carregarFiltrosIniciais = async () => {
     if (!empresaAtiva) return
@@ -716,18 +791,145 @@ export default function Relatorios() {
         onValueChange={(v) => handleMudarAba(v as any)}
         className="w-full"
       >
-        {isAdministrador ? (
-          <TabsList className="no-print grid grid-cols-2 w-full max-w-md">
-            <TabsTrigger value="operacional" className="gap-2">
-              <Truck className="w-4 h-4" />
-              Relatório da Unidade ({empresaAtiva?.nome || "Ativa"})
-            </TabsTrigger>
+        <TabsList
+          className={`no-print grid w-full max-w-2xl ${
+            isAdministrador ? "grid-cols-3" : "grid-cols-2"
+          }`}
+        >
+          <TabsTrigger value="gerencial" className="gap-2">
+            <FileText className="w-4 h-4" />
+            Gerencial (Mês)
+          </TabsTrigger>
+          <TabsTrigger value="operacional" className="gap-2">
+            <Truck className="w-4 h-4" />
+            Relatório Operacional ({empresaAtiva?.nome || "Ativa"})
+          </TabsTrigger>
+          {isAdministrador && (
             <TabsTrigger value="comparativo" className="gap-2">
               <Scale className="w-4 h-4" />
               Comparativo Monteiro × SJE
             </TabsTrigger>
-          </TabsList>
-        ) : null}
+          )}
+        </TabsList>
+
+        {/* ========================================================= */}
+        {/* TAB 0: GERENCIAL (MÊS) — 1 PÁGINA A4 COM NÚMEROS GRANDES */}
+        {/* ========================================================= */}
+        <TabsContent value="gerencial" className="space-y-4 mt-4">
+          {/* Barra de Filtros da Competência e Visão de Unidade */}
+          <Card className="no-print border-border/40 bg-card/70">
+            <CardContent className="py-3 px-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              {/* Seletor de Competência */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  Competência:
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => navegarCompetenciaGerencial(-1)}
+                    title="Mês anterior"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Select
+                    value={competenciaGerencial}
+                    onValueChange={setCompetenciaGerencial}
+                  >
+                    <SelectTrigger className="h-8 text-xs font-mono w-[145px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2026-10">10/2026 (Outubro)</SelectItem>
+                      <SelectItem value="2026-09">
+                        09/2026 (Setembro)
+                      </SelectItem>
+                      <SelectItem value="2026-08">08/2026 (Agosto)</SelectItem>
+                      <SelectItem value="2026-07">07/2026 (Julho)</SelectItem>
+                      <SelectItem value="2026-06">06/2026 (Junho)</SelectItem>
+                      <SelectItem value="2026-05">05/2026 (Maio)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => navegarCompetenciaGerencial(1)}
+                    title="Próximo mês"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Seletor de Visão da Empresa (Unidade Selecionada ou Consolidado 'Todas') */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <Globe2 className="w-4 h-4 text-primary" />
+                  Visão:
+                </span>
+                <Select
+                  value={visaoGerencialEmpresa}
+                  onValueChange={setVisaoGerencialEmpresa}
+                >
+                  <SelectTrigger className="h-8 text-xs min-w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">
+                      Consolidado (Todas as Unidades)
+                    </SelectItem>
+                    <SelectItem value="monteiro">Unidade Monteiro</SelectItem>
+                    <SelectItem value="sje">
+                      Unidade São José do Egito
+                    </SelectItem>
+                    <SelectItem value="caico">Unidade Caicó</SelectItem>
+                    <SelectItem value="patos">Unidade Patos</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={carregarRelatorioGerencial}
+                  disabled={loadingGerencial}
+                  className="h-8 text-xs gap-1.5"
+                >
+                  <RefreshCw
+                    className={`w-3.5 h-3.5 ${
+                      loadingGerencial ? "animate-spin" : ""
+                    }`}
+                  />
+                  Atualizar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Renderização do Componente A4 */}
+          {loadingGerencial && !dadosGerencial ? (
+            <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center gap-3">
+              <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+              <p className="text-sm font-medium">
+                Carregando relatório gerencial do mês...
+              </p>
+            </div>
+          ) : dadosGerencial ? (
+            <RelatorioGerencialMes
+              dados={dadosGerencial}
+              carregando={loadingGerencial}
+            />
+          ) : (
+            <div className="p-8 text-center text-muted-foreground">
+              Nenhum dado encontrado para a competência selecionada.
+            </div>
+          )}
+        </TabsContent>
 
         {/* ========================================================= */}
         {/* TAB 1: OPERACIONAL E CUSTOS DA UNIDADE ATIVA */}
