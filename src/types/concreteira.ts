@@ -224,6 +224,8 @@ export interface MovimentacaoEstoque {
   material_id: string
   tipo: "ENTRADA" | "SAIDA" | "ABERTURA" | "AJUSTE"
   quantidade: number
+  preco_unitario?: number | null
+  valor_total?: number | null
   data: string
   carga_id: string | null
   documento: string | null

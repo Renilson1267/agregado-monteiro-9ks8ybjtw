@@ -65,6 +65,7 @@ export default function Estoque() {
   const [salvandoEntrada, setSalvandoEntrada] = useState(false)
   const [materialEntradaId, setMaterialEntradaId] = useState("")
   const [quantidadeEntrada, setQuantidadeEntrada] = useState<number>(0)
+  const [precoUnitarioEntrada, setPrecoUnitarioEntrada] = useState<string>("")
   const [dataEntrada, setDataEntrada] = useState(
     new Date().toISOString().split("T")[0],
   )
@@ -127,6 +128,18 @@ export default function Estoque() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtroMaterial, empresaAtiva?.id])
 
+  // Parse preco unitario numérico
+  const precoUnitarioNum = Number(precoUnitarioEntrada.replace(",", ".")) || 0
+  const valorTotalCalculado =
+    quantidadeEntrada > 0 && precoUnitarioNum > 0
+      ? Number((quantidadeEntrada * precoUnitarioNum).toFixed(2))
+      : 0
+  const isFormEntradaValido =
+    Boolean(materialEntradaId) &&
+    quantidadeEntrada > 0 &&
+    precoUnitarioEntrada.trim() !== "" &&
+    precoUnitarioNum > 0
+
   const executarSalvarEntrada = async () => {
     setSalvandoEntrada(true)
     try {
@@ -134,6 +147,8 @@ export default function Estoque() {
         empresa_id: empresaAtiva?.id,
         material_id: materialEntradaId,
         quantidade: quantidadeEntrada,
+        preco_unitario: precoUnitarioNum,
+        valor_total: valorTotalCalculado,
         data: dataEntrada,
         documento: documentoEntrada || undefined,
         observacao: obsEntrada || undefined,
@@ -145,6 +160,7 @@ export default function Estoque() {
       setModalConfirmarEntradaAberta(false)
       setOpenEntrada(false)
       setQuantidadeEntrada(0)
+      setPrecoUnitarioEntrada("")
       setDocumentoEntrada("")
       setObsEntrada("")
       carregarDados()
@@ -165,6 +181,15 @@ export default function Estoque() {
       toast({
         title: "Atenção",
         description: "Informe material e quantidade positiva.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!precoUnitarioEntrada.trim() || precoUnitarioNum <= 0) {
+      toast({
+        title: "Atenção",
+        description: "Informe um preço unitário válido maior que zero.",
         variant: "destructive",
       })
       return
@@ -302,7 +327,7 @@ export default function Estoque() {
                       id="quantidade"
                       type="number"
                       step="any"
-                      min="1"
+                      min="0.01"
                       value={quantidadeEntrada || ""}
                       onChange={(e) =>
                         setQuantidadeEntrada(Number(e.target.value))
@@ -311,6 +336,58 @@ export default function Estoque() {
                       required
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="precoUnitario">Preço unitário (R$) *</Label>
+                    <Input
+                      id="precoUnitario"
+                      type="text"
+                      inputMode="decimal"
+                      value={precoUnitarioEntrada}
+                      onChange={(e) => setPrecoUnitarioEntrada(e.target.value)}
+                      placeholder="Ex: 0.72 ou 18.50"
+                      required
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Por{" "}
+                      {materiais.find((m) => m.id === materialEntradaId)
+                        ?.unidade || "unidade"}{" "}
+                      (varia por entrega)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Cálculo em tempo real do Valor Total */}
+                <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-medium text-muted-foreground block">
+                      VALOR TOTAL ESTIMADO
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {quantidadeEntrada > 0
+                        ? Number(quantidadeEntrada).toLocaleString("pt-BR")
+                        : "0"}{" "}
+                      {materiais.find((m) => m.id === materialEntradaId)
+                        ?.unidade || "kg"}{" "}
+                      × R${" "}
+                      {precoUnitarioNum > 0
+                        ? precoUnitarioNum.toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 4,
+                          })
+                        : "0,00"}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-lg font-bold font-mono text-primary block">
+                      {valorTotalCalculado.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="dataEnt">Data *</Label>
                     <Input
@@ -321,16 +398,15 @@ export default function Estoque() {
                       required
                     />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="doc">Nº Nota Fiscal / Romaneio</Label>
-                  <Input
-                    id="doc"
-                    placeholder="Ex: NF-e 45210"
-                    value={documentoEntrada}
-                    onChange={(e) => setDocumentoEntrada(e.target.value)}
-                  />
+                  <div className="space-y-2">
+                    <Label htmlFor="doc">Nº Nota Fiscal / Romaneio</Label>
+                    <Input
+                      id="doc"
+                      placeholder="Ex: NF-e 45210"
+                      value={documentoEntrada}
+                      onChange={(e) => setDocumentoEntrada(e.target.value)}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -353,8 +429,8 @@ export default function Estoque() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={salvandoEntrada}
-                    className="bg-primary text-primary-foreground"
+                    disabled={salvandoEntrada || !isFormEntradaValido}
+                    className="bg-primary text-primary-foreground disabled:opacity-50"
                   >
                     {salvandoEntrada ? "Salvando..." : "Salvar Entrada"}
                   </Button>
@@ -639,6 +715,8 @@ export default function Estoque() {
                   <th className="py-2.5 px-3">Tipo</th>
                   <th className="py-2.5 px-3">Material</th>
                   <th className="py-2.5 px-3">Quantidade</th>
+                  <th className="py-2.5 px-3 text-right">Preço Unit.</th>
+                  <th className="py-2.5 px-3 text-right">Valor Total</th>
                   <th className="py-2.5 px-3">Documento / Ref</th>
                   <th className="py-2.5 px-3">Observação</th>
                 </tr>
@@ -691,6 +769,22 @@ export default function Estoque() {
                           {Number(mov.quantidade).toLocaleString("pt-BR")}{" "}
                           {mat?.unidade || ""}
                         </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-muted-foreground">
+                        {isEntrada && mov.preco_unitario != null
+                          ? Number(mov.preco_unitario).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })
+                          : "—"}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-medium text-foreground">
+                        {isEntrada && mov.valor_total != null
+                          ? Number(mov.valor_total).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })
+                          : "—"}
                       </td>
                       <td className="py-2.5 px-3 text-muted-foreground font-mono text-[11px]">
                         {mov.documento || "—"}
@@ -750,6 +844,28 @@ export default function Estoque() {
                   {Number(quantidadeEntrada).toLocaleString("pt-BR")}{" "}
                   {materiais.find((m) => m.id === materialEntradaId)?.unidade ||
                     ""}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">
+                  Preço Unitário:
+                </span>
+                <span className="font-semibold">
+                  {precoUnitarioNum.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </span>
+              </div>
+              <div className="flex justify-between border-t border-border/40 pt-1">
+                <span className="text-muted-foreground font-sans">
+                  Valor Total:
+                </span>
+                <span className="font-bold text-emerald-600">
+                  {valorTotalCalculado.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
                 </span>
               </div>
               <div className="flex justify-between">

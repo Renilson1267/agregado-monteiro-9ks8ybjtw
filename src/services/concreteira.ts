@@ -227,17 +227,28 @@ export const ConcreteiraService = {
     empresa_id?: string
     material_id: string
     quantidade: number
+    preco_unitario: number
+    valor_total?: number
     data: string
     documento?: string
     observacao?: string
   }) {
+    const precoUnit = Number(payload.preco_unitario) || 0
+    const qtd = Number(payload.quantidade) || 0
+    const valorTot =
+      payload.valor_total !== undefined && payload.valor_total !== null
+        ? Number(payload.valor_total)
+        : Number((qtd * precoUnit).toFixed(2))
+
     const { data, error } = await (supabase as any)
       .from("movimentacoes_estoque")
       .insert({
         empresa_id: payload.empresa_id || null,
         material_id: payload.material_id,
         tipo: "ENTRADA",
-        quantidade: payload.quantidade,
+        quantidade: qtd,
+        preco_unitario: precoUnit,
+        valor_total: valorTot,
         data: payload.data,
         documento: payload.documento || "NOTA-REPOSICAO",
         observacao: payload.observacao || "Reposição de estoque",
