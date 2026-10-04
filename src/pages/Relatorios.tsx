@@ -2449,9 +2449,10 @@ export default function Relatorios() {
               </p>
               <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-800 dark:text-amber-300">
                 <strong>Atenção:</strong> As movimentações de saída de estoque
-                geradas por esta carga (cimento e aditivo) serão estornadas
-                automaticamente. Cargas com Recibo / Ordem de Serviço vinculada
-                NÃO podem ser excluídas por integridade fiscal e operacional.
+                geradas por esta carga (cimento e aditivo controlados) serão
+                estornadas automaticamente (agregados não possuem controle de
+                estoque). Cargas com Recibo / Ordem de Serviço vinculada NÃO
+                podem ser excluídas por integridade fiscal e operacional.
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
