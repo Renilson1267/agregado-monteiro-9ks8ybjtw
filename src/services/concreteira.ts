@@ -53,18 +53,23 @@ export const ConcreteiraService = {
       }
     })
 
-    return (materiais || []).map((mat: any) => ({
-      ...mat,
-      controla_estoque:
-        mat.controla_estoque ??
-        (mat.codigo === "cimento" || mat.codigo === "aditivo"),
-      estoque_minimo: Number(mat.estoque_minimo) || 0,
-      densidade: mat.densidade != null ? Number(mat.densidade) : undefined,
-      unidade_compra: mat.unidade_compra ?? "kg",
-      preco_compra:
-        mat.preco_compra != null ? Number(mat.preco_compra) : undefined,
-      saldo: Number((saldos[mat.id] || 0).toFixed(2)),
-    }))
+    return (materiais || []).map((mat: any) => {
+      const isControlado = mat.codigo === "cimento" || mat.codigo === "aditivo"
+      const saldoCalculado = isControlado
+        ? Number((saldos[mat.id] || 0).toFixed(2))
+        : undefined
+
+      return {
+        ...mat,
+        controla_estoque: isControlado,
+        estoque_minimo: isControlado ? Number(mat.estoque_minimo) || 0 : 0,
+        densidade: mat.densidade != null ? Number(mat.densidade) : undefined,
+        unidade_compra: mat.unidade_compra ?? "kg",
+        preco_compra:
+          mat.preco_compra != null ? Number(mat.preco_compra) : undefined,
+        saldo: saldoCalculado,
+      }
+    })
   },
 
   async updateMaterialEstoqueMinimo(id: string, estoque_minimo: number) {
@@ -210,8 +215,7 @@ export const ConcreteiraService = {
     if (apenasControlados && (!materialId || materialId === "ALL")) {
       result = result.filter((m) => {
         const mat = m.material
-        if (!mat) return true
-        if (mat.controla_estoque !== undefined) return mat.controla_estoque
+        if (!mat) return false
         return mat.codigo === "cimento" || mat.codigo === "aditivo"
       })
     }
@@ -830,12 +834,8 @@ export const ConcreteiraService = {
       const docName = `CARGA-${String(cargaAtualizada.numero_carga).padStart(5, "0")}`
       const saídas: any[] = []
 
-      const matCimento = materiais.find(
-        (m) => m.codigo === "cimento" && m.controla_estoque !== false,
-      )
-      const matAditivo = materiais.find(
-        (m) => m.codigo === "aditivo" && m.controla_estoque !== false,
-      )
+      const matCimento = materiais.find((m) => m.codigo === "cimento")
+      const matAditivo = materiais.find((m) => m.codigo === "aditivo")
 
       if (payload.consumo_cimento > 0 && matCimento) {
         saídas.push({
@@ -997,13 +997,9 @@ export const ConcreteiraService = {
       const docName = `CARGA-${String(carga.numero_carga).padStart(5, "0")}`
       const saídas: any[] = []
 
-      // Materiais controlados: cimento e aditivo
-      const matCimento = materiais.find(
-        (m) => m.codigo === "cimento" && m.controla_estoque !== false,
-      )
-      const matAditivo = materiais.find(
-        (m) => m.codigo === "aditivo" && m.controla_estoque !== false,
-      )
+      // Materiais controlados: APENAS cimento e aditivo (agregados areia, brita12, brita19, pó de pedra NÃO geram movimentação)
+      const matCimento = materiais.find((m) => m.codigo === "cimento")
+      const matAditivo = materiais.find((m) => m.codigo === "aditivo")
 
       if (payload.consumo_cimento > 0 && matCimento) {
         saídas.push({
@@ -2434,13 +2430,9 @@ export const ConcreteiraService = {
       cargasDedupSet.add(sig)
     })
 
-    // Materiais controlados para estoque (cimento e aditivo)
-    const matCimento = materiaisExistentes.find(
-      (m) => m.codigo === "cimento" && m.controla_estoque !== false,
-    )
-    const matAditivo = materiaisExistentes.find(
-      (m) => m.codigo === "aditivo" && m.controla_estoque !== false,
-    )
+    // Materiais controlados para estoque (APENAS cimento e aditivo)
+    const matCimento = materiaisExistentes.find((m) => m.codigo === "cimento")
+    const matAditivo = materiaisExistentes.find((m) => m.codigo === "aditivo")
 
     let importadas = 0
     let duplicadasIgnoradas = 0

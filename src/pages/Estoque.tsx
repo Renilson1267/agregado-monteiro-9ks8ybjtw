@@ -97,8 +97,10 @@ export default function Estoque() {
       ])
       setMateriais(mats)
       setMovimentacoes(movs)
-      // Seleciona material inicial apenas dentre os controlados
-      const matsControlados = mats.filter((m) => m.controla_estoque !== false)
+      // Seleciona material inicial apenas dentre os controlados (cimento e aditivo)
+      const matsControlados = mats.filter(
+        (m) => m.codigo === "cimento" || m.codigo === "aditivo",
+      )
       if (
         matsControlados.length > 0 &&
         (!materialEntradaId ||
@@ -275,7 +277,10 @@ export default function Estoque() {
                     </SelectTrigger>
                     <SelectContent>
                       {materiais
-                        .filter((m) => m.controla_estoque !== false)
+                        .filter(
+                          (m) =>
+                            m.codigo === "cimento" || m.codigo === "aditivo",
+                        )
                         .map((m) => (
                           <SelectItem key={m.id} value={m.id}>
                             {m.nome} ({m.unidade})
@@ -379,7 +384,7 @@ export default function Estoque() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {materiais
-            .filter((m) => m.controla_estoque !== false)
+            .filter((m) => m.codigo === "cimento" || m.codigo === "aditivo")
             .map((mat) => {
               const saldo = mat.saldo || 0
               const critico = saldo <= mat.estoque_minimo
@@ -515,7 +520,7 @@ export default function Estoque() {
             </div>
             <div className="flex gap-1.5 flex-wrap">
               {materiais
-                .filter((m) => m.controla_estoque === false)
+                .filter((m) => m.codigo !== "cimento" && m.codigo !== "aditivo")
                 .map((m) => (
                   <Badge
                     key={m.id}
@@ -613,7 +618,9 @@ export default function Estoque() {
               <SelectContent>
                 <SelectItem value="ALL">Cimento e Aditivo</SelectItem>
                 {materiais
-                  .filter((m) => m.controla_estoque !== false)
+                  .filter(
+                    (m) => m.codigo === "cimento" || m.codigo === "aditivo",
+                  )
                   .map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.nome}

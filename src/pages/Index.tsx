@@ -330,10 +330,13 @@ export default function Index() {
     }
   }, [cargasValidasPeriodo])
 
-  // Alertas de estoque: materiais com controle de estoque ativo abaixo do mínimo
+  // Alertas de estoque: SOMENTE cimento e aditivo abaixo do mínimo
   const alertasEstoque = useMemo(() => {
     return materiais.filter(
-      (m) => m.controla_estoque !== false && (m.saldo || 0) <= m.estoque_minimo,
+      (m) =>
+        (m.codigo === "cimento" || m.codigo === "aditivo") &&
+        m.estoque_minimo > 0 &&
+        (m.saldo || 0) <= m.estoque_minimo,
     )
   }, [materiais])
 
@@ -1729,7 +1732,7 @@ export default function Index() {
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {materiais
-              .filter((m) => m.controla_estoque !== false)
+              .filter((m) => m.codigo === "cimento" || m.codigo === "aditivo")
               .map((mat) => {
                 const saldo = mat.saldo || 0
                 const estaCritico = saldo <= mat.estoque_minimo
