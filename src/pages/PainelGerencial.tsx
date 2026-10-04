@@ -244,7 +244,12 @@ export function PainelGerencial() {
             </strong>
           </div>
           <span className="text-[10px] text-slate-600 font-mono">
-            {dados?.saldosInsumos?.length || 0} materiais cadastrados
+            {
+              (dados?.saldosInsumos || []).filter(
+                (i) => i.codigo === "cimento" || i.codigo === "aditivo",
+              ).length
+            }{" "}
+            materiais monitorados
           </span>
         </div>
 
@@ -265,75 +270,80 @@ export function PainelGerencial() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {(dados?.saldosInsumos || []).map((insumo) => {
-              const critico = insumo.abaixoMinimo
-              return (
-                <tr
-                  key={`print-insumo-${insumo.id}`}
-                  className={critico ? "bg-rose-50 font-semibold" : ""}
-                >
-                  <td className="py-1 px-2 font-bold text-slate-900">
-                    {insumo.nome}
-                  </td>
-                  <td className="py-1 px-2 text-slate-600">
-                    {insumo.codigo === "cimento"
-                      ? "Silo de Cimento"
-                      : insumo.codigo === "aditivo"
-                        ? "Tanque de Aditivo"
-                        : insumo.controlaEstoque
-                          ? "Controlado"
-                          : "Consumo"}
-                  </td>
-                  <td
-                    className={`py-1 px-2 text-right font-mono font-bold ${
-                      critico ? "text-rose-700" : "text-slate-900"
-                    }`}
-                  >
-                    {insumo.saldo.toLocaleString("pt-BR", {
-                      maximumFractionDigits: 2,
-                    })}{" "}
-                    {insumo.unidade}
-                    {insumo.unidade === "kg" && insumo.saldo >= 1000 && (
-                      <span className="text-slate-500 font-normal ml-1">
-                        ({(insumo.saldo / 1000).toFixed(2)} t)
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-1 px-2 text-right font-mono text-slate-700">
-                    {insumo.controlaEstoque && insumo.estoqueMinimo > 0
-                      ? `${insumo.estoqueMinimo.toLocaleString("pt-BR")} ${insumo.unidade}`
-                      : "—"}
-                  </td>
-                  {modoVisao === "todas" && (
-                    <>
-                      <td className="py-1 px-2 text-right font-mono text-slate-700">
-                        {(insumo.saldoMonteiro || 0).toLocaleString("pt-BR")}{" "}
-                        {insumo.unidade}
-                      </td>
-                      <td className="py-1 px-2 text-right font-mono text-slate-700">
-                        {(insumo.saldoSje || 0).toLocaleString("pt-BR")}{" "}
-                        {insumo.unidade}
-                      </td>
-                    </>
-                  )}
-                  <td className="py-1 px-2 text-center">
-                    {critico ? (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-rose-200 text-rose-900 font-bold uppercase">
-                        Abaixo do Mínimo
-                      </span>
-                    ) : insumo.controlaEstoque ? (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-100 text-emerald-900 font-medium">
-                        Regular
-                      </span>
-                    ) : (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-slate-100 text-slate-700 font-medium">
-                        Consumo
-                      </span>
-                    )}
-                  </td>
-                </tr>
+            {(dados?.saldosInsumos || [])
+              .filter(
+                (insumo) =>
+                  insumo.codigo === "cimento" || insumo.codigo === "aditivo",
               )
-            })}
+              .map((insumo) => {
+                const critico = insumo.abaixoMinimo
+                return (
+                  <tr
+                    key={`print-insumo-${insumo.id}`}
+                    className={critico ? "bg-rose-50 font-semibold" : ""}
+                  >
+                    <td className="py-1 px-2 font-bold text-slate-900">
+                      {insumo.nome}
+                    </td>
+                    <td className="py-1 px-2 text-slate-600">
+                      {insumo.codigo === "cimento"
+                        ? "Silo de Cimento"
+                        : insumo.codigo === "aditivo"
+                          ? "Tanque de Aditivo"
+                          : insumo.controlaEstoque
+                            ? "Controlado"
+                            : "Consumo"}
+                    </td>
+                    <td
+                      className={`py-1 px-2 text-right font-mono font-bold ${
+                        critico ? "text-rose-700" : "text-slate-900"
+                      }`}
+                    >
+                      {insumo.saldo.toLocaleString("pt-BR", {
+                        maximumFractionDigits: 2,
+                      })}{" "}
+                      {insumo.unidade}
+                      {insumo.unidade === "kg" && insumo.saldo >= 1000 && (
+                        <span className="text-slate-500 font-normal ml-1">
+                          ({(insumo.saldo / 1000).toFixed(2)} t)
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-1 px-2 text-right font-mono text-slate-700">
+                      {insumo.controlaEstoque && insumo.estoqueMinimo > 0
+                        ? `${insumo.estoqueMinimo.toLocaleString("pt-BR")} ${insumo.unidade}`
+                        : "—"}
+                    </td>
+                    {modoVisao === "todas" && (
+                      <>
+                        <td className="py-1 px-2 text-right font-mono text-slate-700">
+                          {(insumo.saldoMonteiro || 0).toLocaleString("pt-BR")}{" "}
+                          {insumo.unidade}
+                        </td>
+                        <td className="py-1 px-2 text-right font-mono text-slate-700">
+                          {(insumo.saldoSje || 0).toLocaleString("pt-BR")}{" "}
+                          {insumo.unidade}
+                        </td>
+                      </>
+                    )}
+                    <td className="py-1 px-2 text-center">
+                      {critico ? (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] bg-rose-200 text-rose-900 font-bold uppercase">
+                          Abaixo do Mínimo
+                        </span>
+                      ) : insumo.controlaEstoque ? (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-100 text-emerald-900 font-medium">
+                          Regular
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] bg-slate-100 text-slate-700 font-medium">
+                          Consumo
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
           </tbody>
         </table>
       </div>
@@ -807,7 +817,11 @@ export function PainelGerencial() {
               >
                 {nomeUnidadeVisao}
               </Badge>
-              {dados?.saldosInsumos?.some((s) => s.abaixoMinimo) && (
+              {dados?.saldosInsumos
+                ?.filter(
+                  (s) => s.codigo === "cimento" || s.codigo === "aditivo",
+                )
+                .some((s) => s.abaixoMinimo) && (
                 <Badge
                   variant="destructive"
                   className="text-[10px] font-bold px-1.5 py-0.5"
@@ -817,8 +831,8 @@ export function PainelGerencial() {
               )}
             </div>
             <CardDescription className="text-xs">
-              Posição atual dos insumos no sistema (cimento, aditivo, britas,
-              areia e pó de pedra) conforme movimentações cadastradas.
+              Posição atual dos insumos no sistema (silos de cimento e tanques
+              de aditivo) conforme movimentações cadastradas.
             </CardDescription>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -832,152 +846,161 @@ export function PainelGerencial() {
         <CardContent className="p-4 sm:p-5">
           {dados?.saldosInsumos && dados.saldosInsumos.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {dados.saldosInsumos.map((item) => {
-                const critico = item.abaixoMinimo
-                const ehCimento = item.codigo === "cimento"
-                const ehAditivo = item.codigo === "aditivo"
-                const saldoTon =
-                  item.unidade === "kg" && item.saldo >= 1000
-                    ? (item.saldo / 1000).toFixed(2)
-                    : null
+              {dados.saldosInsumos
+                .filter(
+                  (item) =>
+                    item.codigo === "cimento" || item.codigo === "aditivo",
+                )
+                .map((item) => {
+                  const critico = item.abaixoMinimo
+                  const ehCimento = item.codigo === "cimento"
+                  const ehAditivo = item.codigo === "aditivo"
+                  const saldoTon =
+                    item.unidade === "kg" && item.saldo >= 1000
+                      ? (item.saldo / 1000).toFixed(2)
+                      : null
 
-                return (
-                  <div
-                    key={item.id}
-                    className={cn(
-                      "rounded-xl border p-3.5 flex flex-col justify-between transition-all bg-card/60 shadow-xs relative overflow-hidden",
-                      critico
-                        ? "border-destructive/50 bg-destructive/5 dark:bg-destructive/10"
-                        : "border-border/50 hover:border-border",
-                    )}
-                  >
+                  return (
                     <div
+                      key={item.id}
                       className={cn(
-                        "absolute top-0 left-0 right-0 h-1",
+                        "rounded-xl border p-3.5 flex flex-col justify-between transition-all bg-card/60 shadow-xs relative overflow-hidden",
                         critico
-                          ? "bg-destructive"
-                          : item.controlaEstoque
-                            ? "bg-primary"
-                            : "bg-muted-foreground/30",
+                          ? "border-destructive/50 bg-destructive/5 dark:bg-destructive/10"
+                          : "border-border/50 hover:border-border",
                       )}
-                    />
-
-                    <div>
-                      <div className="flex items-start justify-between gap-2 mb-1.5 pt-0.5">
-                        <div className="min-w-0">
-                          <span
-                            className="font-bold text-sm text-foreground truncate block"
-                            title={item.nome}
-                          >
-                            {item.nome}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground uppercase tracking-wider font-mono">
-                            {ehCimento
-                              ? "Silo de Cimento"
-                              : ehAditivo
-                                ? "Tanque de Aditivo"
-                                : item.controlaEstoque
-                                  ? "Insumo Controlado"
-                                  : "Agregado / Consumo"}
-                          </span>
-                        </div>
-                        <Badge
-                          variant={critico ? "destructive" : "outline"}
-                          className="text-[10px] shrink-0 font-medium"
-                        >
-                          {critico
-                            ? "Abaixo do Mínimo"
+                    >
+                      <div
+                        className={cn(
+                          "absolute top-0 left-0 right-0 h-1",
+                          critico
+                            ? "bg-destructive"
                             : item.controlaEstoque
-                              ? "Estoque Regular"
-                              : "Consumo"}
-                        </Badge>
-                      </div>
+                              ? "bg-primary"
+                              : "bg-muted-foreground/30",
+                        )}
+                      />
 
-                      {/* Saldo Principal */}
-                      <div className="my-2">
-                        <div className="flex items-baseline gap-1.5 flex-wrap">
-                          <span
-                            className={cn(
-                              "text-2xl font-black font-mono tracking-tight",
-                              critico ? "text-destructive" : "text-foreground",
-                            )}
+                      <div>
+                        <div className="flex items-start justify-between gap-2 mb-1.5 pt-0.5">
+                          <div className="min-w-0">
+                            <span
+                              className="font-bold text-sm text-foreground truncate block"
+                              title={item.nome}
+                            >
+                              {item.nome}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground uppercase tracking-wider font-mono">
+                              {ehCimento
+                                ? "Silo de Cimento"
+                                : ehAditivo
+                                  ? "Tanque de Aditivo"
+                                  : item.controlaEstoque
+                                    ? "Insumo Controlado"
+                                    : "Agregado / Consumo"}
+                            </span>
+                          </div>
+                          <Badge
+                            variant={critico ? "destructive" : "outline"}
+                            className="text-[10px] shrink-0 font-medium"
                           >
-                            {item.saldo.toLocaleString("pt-BR", {
-                              minimumFractionDigits:
-                                item.unidade === "litros" ? 0 : 0,
-                              maximumFractionDigits: 2,
-                            })}
-                          </span>
-                          <span className="text-xs font-semibold text-muted-foreground uppercase">
-                            {item.unidade}
-                          </span>
-                          {saldoTon && (
-                            <span className="text-[11px] font-bold px-1.5 py-0.2 bg-muted text-muted-foreground rounded ml-auto">
-                              {saldoTon} t
+                            {critico
+                              ? "Abaixo do Mínimo"
+                              : item.controlaEstoque
+                                ? "Estoque Regular"
+                                : "Consumo"}
+                          </Badge>
+                        </div>
+
+                        {/* Saldo Principal */}
+                        <div className="my-2">
+                          <div className="flex items-baseline gap-1.5 flex-wrap">
+                            <span
+                              className={cn(
+                                "text-2xl font-black font-mono tracking-tight",
+                                critico
+                                  ? "text-destructive"
+                                  : "text-foreground",
+                              )}
+                            >
+                              {item.saldo.toLocaleString("pt-BR", {
+                                minimumFractionDigits:
+                                  item.unidade === "litros" ? 0 : 0,
+                                maximumFractionDigits: 2,
+                              })}
                             </span>
-                          )}
+                            <span className="text-xs font-semibold text-muted-foreground uppercase">
+                              {item.unidade}
+                            </span>
+                            {saldoTon && (
+                              <span className="text-[11px] font-bold px-1.5 py-0.2 bg-muted text-muted-foreground rounded ml-auto">
+                                {saldoTon} t
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Detalhes de Estoque Mínimo e Visão por Empresa */}
-                    <div className="pt-2 border-t border-border/30 text-[11px] space-y-1">
-                      {item.controlaEstoque && item.estoqueMinimo > 0 && (
-                        <div className="flex items-center justify-between text-muted-foreground">
-                          <span>Estoque Mínimo:</span>
-                          <span className="font-mono font-semibold text-foreground">
-                            {item.estoqueMinimo.toLocaleString("pt-BR")}{" "}
-                            {item.unidade}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Discriminação por unidade se for consolidado */}
-                      {modoVisao === "todas" &&
-                        (item.saldoMonteiro !== undefined ||
-                          item.saldoSje !== undefined) && (
-                          <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
-                            <span>
-                              Monteiro:{" "}
-                              <strong className="text-foreground font-mono">
-                                {(item.saldoMonteiro || 0).toLocaleString(
-                                  "pt-BR",
-                                )}
-                              </strong>
-                            </span>
-                            <span>
-                              SJE:{" "}
-                              <strong className="text-foreground font-mono">
-                                {(item.saldoSje || 0).toLocaleString("pt-BR")}
-                              </strong>
+                      {/* Detalhes de Estoque Mínimo e Visão por Empresa */}
+                      <div className="pt-2 border-t border-border/30 text-[11px] space-y-1">
+                        {item.controlaEstoque && item.estoqueMinimo > 0 && (
+                          <div className="flex items-center justify-between text-muted-foreground">
+                            <span>Estoque Mínimo:</span>
+                            <span className="font-mono font-semibold text-foreground">
+                              {item.estoqueMinimo.toLocaleString("pt-BR")}{" "}
+                              {item.unidade}
                             </span>
                           </div>
                         )}
 
-                      {/* Margem operacional */}
-                      {item.controlaEstoque && item.estoqueMinimo > 0 && (
-                        <div className="flex items-center justify-between pt-0.5">
-                          <span className="text-muted-foreground">Margem:</span>
-                          <span
-                            className={cn(
-                              "font-mono font-bold",
-                              item.saldo - item.estoqueMinimo < 0
-                                ? "text-destructive"
-                                : "text-emerald-600 dark:text-emerald-400",
-                            )}
-                          >
-                            {item.saldo - item.estoqueMinimo > 0 ? "+" : ""}
-                            {(item.saldo - item.estoqueMinimo).toLocaleString(
-                              "pt-BR",
-                            )}{" "}
-                            {item.unidade}
-                          </span>
-                        </div>
-                      )}
+                        {/* Discriminação por unidade se for consolidado */}
+                        {modoVisao === "todas" &&
+                          (item.saldoMonteiro !== undefined ||
+                            item.saldoSje !== undefined) && (
+                            <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
+                              <span>
+                                Monteiro:{" "}
+                                <strong className="text-foreground font-mono">
+                                  {(item.saldoMonteiro || 0).toLocaleString(
+                                    "pt-BR",
+                                  )}
+                                </strong>
+                              </span>
+                              <span>
+                                SJE:{" "}
+                                <strong className="text-foreground font-mono">
+                                  {(item.saldoSje || 0).toLocaleString("pt-BR")}
+                                </strong>
+                              </span>
+                            </div>
+                          )}
+
+                        {/* Margem operacional */}
+                        {item.controlaEstoque && item.estoqueMinimo > 0 && (
+                          <div className="flex items-center justify-between pt-0.5">
+                            <span className="text-muted-foreground">
+                              Margem:
+                            </span>
+                            <span
+                              className={cn(
+                                "font-mono font-bold",
+                                item.saldo - item.estoqueMinimo < 0
+                                  ? "text-destructive"
+                                  : "text-emerald-600 dark:text-emerald-400",
+                              )}
+                            >
+                              {item.saldo - item.estoqueMinimo > 0 ? "+" : ""}
+                              {(item.saldo - item.estoqueMinimo).toLocaleString(
+                                "pt-BR",
+                              )}{" "}
+                              {item.unidade}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
             </div>
           ) : (
             <div className="py-8 text-center text-xs text-muted-foreground bg-muted/20 rounded-lg">

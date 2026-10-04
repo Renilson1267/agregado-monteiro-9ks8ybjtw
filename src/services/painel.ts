@@ -782,7 +782,13 @@ export const PainelService = {
     }> = []
 
     todosMateriais
-      .filter((m) => m.controla_estoque !== false && m.estoque_minimo > 0)
+      .filter(
+        (m) =>
+          m.controla_estoque !== false &&
+          m.estoque_minimo > 0 &&
+          (m.codigo?.toLowerCase() === "cimento" ||
+            m.codigo?.toLowerCase() === "aditivo"),
+      )
       .forEach((m) => {
         const saldo = Number(m.saldo || 0)
         const minimo = Number(m.estoque_minimo || 0)
@@ -812,52 +818,62 @@ export const PainelService = {
     const isSje = empresaFiltro === "sje" || targetEmpresaId === ID_EMPRESA_SJE
     const isConsolidado = !empresaFiltro || empresaFiltro === "todas"
 
+    // Função auxiliar para garantir que a seção Saldo de Insumos exiba SOMENTE cimento e aditivo
+    const ehInsumoSaldoMonitorado = (cod?: string | null) => {
+      const c = cod?.toLowerCase()
+      return c === "cimento" || c === "aditivo"
+    }
+
     if (isMonteiro) {
-      materiaisMonteiroRes.forEach((m) => {
-        const saldo = Number(m.saldo || 0)
-        const minimo = Number(m.estoque_minimo || 0)
-        const controla = m.controla_estoque !== false
-        const abaixoMinimo = controla && minimo > 0 && saldo <= minimo
-        saldosInsumos.push({
-          id: m.id,
-          nome: m.nome,
-          codigo: m.codigo,
-          unidade: m.unidade || "kg",
-          controlaEstoque: controla,
-          estoqueMinimo: minimo,
-          saldo,
-          saldoMonteiro: saldo,
-          abaixoMinimo,
-          defasagem: abaixoMinimo
-            ? Math.round((minimo - saldo) * 100) / 100
-            : 0,
-          empresaId: m.empresa_id,
+      materiaisMonteiroRes
+        .filter((m) => ehInsumoSaldoMonitorado(m.codigo))
+        .forEach((m) => {
+          const saldo = Number(m.saldo || 0)
+          const minimo = Number(m.estoque_minimo || 0)
+          const controla = m.controla_estoque !== false
+          const abaixoMinimo = controla && minimo > 0 && saldo <= minimo
+          saldosInsumos.push({
+            id: m.id,
+            nome: m.nome,
+            codigo: m.codigo,
+            unidade: m.unidade || "kg",
+            controlaEstoque: controla,
+            estoqueMinimo: minimo,
+            saldo,
+            saldoMonteiro: saldo,
+            abaixoMinimo,
+            defasagem: abaixoMinimo
+              ? Math.round((minimo - saldo) * 100) / 100
+              : 0,
+            empresaId: m.empresa_id,
+          })
         })
-      })
     } else if (isSje) {
-      materiaisSjeRes.forEach((m) => {
-        const saldo = Number(m.saldo || 0)
-        const minimo = Number(m.estoque_minimo || 0)
-        const controla = m.controla_estoque !== false
-        const abaixoMinimo = controla && minimo > 0 && saldo <= minimo
-        saldosInsumos.push({
-          id: m.id,
-          nome: m.nome,
-          codigo: m.codigo,
-          unidade: m.unidade || "kg",
-          controlaEstoque: controla,
-          estoqueMinimo: minimo,
-          saldo,
-          saldoSje: saldo,
-          abaixoMinimo,
-          defasagem: abaixoMinimo
-            ? Math.round((minimo - saldo) * 100) / 100
-            : 0,
-          empresaId: m.empresa_id,
+      materiaisSjeRes
+        .filter((m) => ehInsumoSaldoMonitorado(m.codigo))
+        .forEach((m) => {
+          const saldo = Number(m.saldo || 0)
+          const minimo = Number(m.estoque_minimo || 0)
+          const controla = m.controla_estoque !== false
+          const abaixoMinimo = controla && minimo > 0 && saldo <= minimo
+          saldosInsumos.push({
+            id: m.id,
+            nome: m.nome,
+            codigo: m.codigo,
+            unidade: m.unidade || "kg",
+            controlaEstoque: controla,
+            estoqueMinimo: minimo,
+            saldo,
+            saldoSje: saldo,
+            abaixoMinimo,
+            defasagem: abaixoMinimo
+              ? Math.round((minimo - saldo) * 100) / 100
+              : 0,
+            empresaId: m.empresa_id,
+          })
         })
-      })
     } else if (isConsolidado) {
-      // Consolidado: agrupa insumos por código (ou nome)
+      // Consolidado: agrupa insumos por código (ou nome) — SOMENTE cimento e aditivo
       const mapaConsolidado = new Map<string, {
         id: string
         nome: string
@@ -873,43 +889,13 @@ export const PainelService = {
       }>()
 
       // Primeiro Monteiro
-      materiaisMonteiroRes.forEach((m) => {
-        const key = m.codigo || m.nome.toLowerCase()
-        const saldo = Number(m.saldo || 0)
-        const minimo = Number(m.estoque_minimo || 0)
-        const controla = m.controla_estoque !== false
-        const abaixo = controla && minimo > 0 && saldo <= minimo
-        mapaConsolidado.set(key, {
-          id: m.id,
-          nome: m.nome,
-          codigo: m.codigo,
-          unidade: m.unidade || "kg",
-          controlaEstoque: controla,
-          estoqueMinimo: minimo,
-          saldoTotal: saldo,
-          saldoMonteiro: saldo,
-          saldoSje: 0,
-          abaixoMinimo: abaixo,
-          defasagem: abaixo ? minimo - saldo : 0,
-        })
-      })
-
-      // Depois SJE somando / complementando
-      materiaisSjeRes.forEach((m) => {
-        const key = m.codigo || m.nome.toLowerCase()
-        const saldo = Number(m.saldo || 0)
-        const minimo = Number(m.estoque_minimo || 0)
-        const controla = m.controla_estoque !== false
-
-        if (mapaConsolidado.has(key)) {
-          const item = mapaConsolidado.get(key)!
-          item.saldoSje = saldo
-          item.saldoTotal = Math.round((item.saldoTotal + saldo) * 100) / 100
-          item.estoqueMinimo = Math.max(item.estoqueMinimo, minimo)
-          // Se qualquer das unidades ou o total estiver crítico
-          const abaixoSje = controla && minimo > 0 && saldo <= minimo
-          if (abaixoSje) item.abaixoMinimo = true
-        } else {
+      materiaisMonteiroRes
+        .filter((m) => ehInsumoSaldoMonitorado(m.codigo))
+        .forEach((m) => {
+          const key = m.codigo || m.nome.toLowerCase()
+          const saldo = Number(m.saldo || 0)
+          const minimo = Number(m.estoque_minimo || 0)
+          const controla = m.controla_estoque !== false
           const abaixo = controla && minimo > 0 && saldo <= minimo
           mapaConsolidado.set(key, {
             id: m.id,
@@ -919,13 +905,47 @@ export const PainelService = {
             controlaEstoque: controla,
             estoqueMinimo: minimo,
             saldoTotal: saldo,
-            saldoMonteiro: 0,
-            saldoSje: saldo,
+            saldoMonteiro: saldo,
+            saldoSje: 0,
             abaixoMinimo: abaixo,
             defasagem: abaixo ? minimo - saldo : 0,
           })
-        }
-      })
+        })
+
+      // Depois SJE somando / complementando
+      materiaisSjeRes
+        .filter((m) => ehInsumoSaldoMonitorado(m.codigo))
+        .forEach((m) => {
+          const key = m.codigo || m.nome.toLowerCase()
+          const saldo = Number(m.saldo || 0)
+          const minimo = Number(m.estoque_minimo || 0)
+          const controla = m.controla_estoque !== false
+
+          if (mapaConsolidado.has(key)) {
+            const item = mapaConsolidado.get(key)!
+            item.saldoSje = saldo
+            item.saldoTotal = Math.round((item.saldoTotal + saldo) * 100) / 100
+            item.estoqueMinimo = Math.max(item.estoqueMinimo, minimo)
+            // Se qualquer das unidades ou o total estiver crítico
+            const abaixoSje = controla && minimo > 0 && saldo <= minimo
+            if (abaixoSje) item.abaixoMinimo = true
+          } else {
+            const abaixo = controla && minimo > 0 && saldo <= minimo
+            mapaConsolidado.set(key, {
+              id: m.id,
+              nome: m.nome,
+              codigo: m.codigo,
+              unidade: m.unidade || "kg",
+              controlaEstoque: controla,
+              estoqueMinimo: minimo,
+              saldoTotal: saldo,
+              saldoMonteiro: 0,
+              saldoSje: saldo,
+              abaixoMinimo: abaixo,
+              defasagem: abaixo ? minimo - saldo : 0,
+            })
+          }
+        })
 
       mapaConsolidado.forEach((val) => {
         saldosInsumos.push({
@@ -944,7 +964,7 @@ export const PainelService = {
       })
     } else {
       // Outra unidade (ex.: Caicó ou Patos)
-      // Se não houver materiais cadastrados ainda, monta lista padrão zerada para exibição limpa
+      // Se não houver materiais cadastrados ainda, monta lista padrão zerada para exibição limpa (SOMENTE cimento e aditivo)
       const catalogoPadrao = [
         {
           codigo: "cimento",
@@ -959,41 +979,6 @@ export const PainelService = {
           unidade: "litros",
           controla: true,
           min: 200,
-        },
-        {
-          codigo: "areia",
-          nome: "Areia",
-          unidade: "kg",
-          controla: false,
-          min: 0,
-        },
-        {
-          codigo: "brita12",
-          nome: "Brita 12",
-          unidade: "kg",
-          controla: false,
-          min: 0,
-        },
-        {
-          codigo: "brita19",
-          nome: "Brita 19",
-          unidade: "kg",
-          controla: false,
-          min: 0,
-        },
-        {
-          codigo: "po_pedra",
-          nome: "Pó de Brita",
-          unidade: "kg",
-          controla: false,
-          min: 0,
-        },
-        {
-          codigo: "agua",
-          nome: "Água",
-          unidade: "litros",
-          controla: false,
-          min: 0,
         },
       ]
       catalogoPadrao.forEach((p) => {
