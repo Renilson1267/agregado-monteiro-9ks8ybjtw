@@ -179,9 +179,22 @@ export const AbaDecimoTerceiro: React.FC<AbaDecimoTerceiroProps> = ({
     })
   }, [linhasProcessadas, mostrarOcultos, busca])
 
-  // Totais do rodapé
+  // Totais do rodapé (calculados sobre todas as linhas para incluir colaboradores ocultos)
   const totais = useMemo(() => {
-    return linhasFiltradas.reduce(
+    // Se houver busca digitada, filtra pela busca, mas mantém colaboradores ocultos nos totais
+    const linhasParaTotais =
+      busca && busca.trim()
+        ? linhasProcessadas.filter((l) => {
+            const termo = busca.toLowerCase()
+            return (
+              l.nome.toLowerCase().includes(termo) ||
+              l.pix.toLowerCase().includes(termo) ||
+              l.funcao.toLowerCase().includes(termo)
+            )
+          })
+        : linhasProcessadas
+
+    return linhasParaTotais.reduce(
       (acc, l) => ({
         salarioBase: acc.salarioBase + l.salarioBase,
         bruto13: acc.bruto13 + l.bruto13,
@@ -204,7 +217,7 @@ export const AbaDecimoTerceiro: React.FC<AbaDecimoTerceiroProps> = ({
         totalLiquido13: 0,
       },
     )
-  }, [linhasFiltradas])
+  }, [linhasProcessadas, busca])
 
   // Funções para editar meses / bruto
   const handleAtualizarMeses = (id: string, mesesVal: number) => {
