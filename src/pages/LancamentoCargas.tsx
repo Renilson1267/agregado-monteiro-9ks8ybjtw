@@ -77,9 +77,111 @@ import {
 function extrairNomeTracoReferencia(nome?: string | null): string {
   if (!nome) return "—"
   let limpo = nome.replace(/\s*\(Manual\)/gi, "").trim()
-  if (limpo.includes("(") && /B12|B19|kg Cim/i.test(limpo)) {
+  // Limpar sufixos manuais tipo "(Manual)" ou "(B12:480 / ...)" ou "(320kg Cim - ...)"
+  if (limpo.includes("(") && /B12|B19|kg|Areia|Apenas/i.test(limpo)) {
     limpo = limpo.split("(")[0].trim()
   }
+  return limpo || "—"
+}
+
+/**
+ * Retorna a descrição completa formatada do traço conforme o cadastro do traço.
+ * Exemplo do formato desejado: "F10B01S12 CP II F 40 (10 MPa)"
+ */
+function formatarDescricaoCompletaTraco(traco: {
+  nome: string
+  fck_mpa?: number | null
+}): string {
+  if (!traco || !traco.nome) return "—"
+  const nome = traco.nome.trim()
+  const fck = traco.fck_mpa
+
+  // Se o próprio nome já traz o sufixo "(X MPa)" no final, preserva
+  if (/\(\s*\d+\s*MPa\s*\)$/i.test(nome)) {
+    return nome
+  }
+
+  if (fck !== null && fck !== undefined && Number(fck) > 0) {
+    return `${nome} (${fck} MPa)`
+  }
+
+  return nome
+}
+
+/**
+ * Resolve o objeto do traço de referência de uma carga.
+ * 1º passo: join pelo ID da carga (traco_id com tracos)
+ * 2º passo: para cargas antigas sem vínculo de ID, resolve pelo nome gravado na carga,
+ *           limpando sufixos manuais tipo "(Manual)" ou "(B12:480 / ...)".
+ */
+function resolverTracoReferenciaCarga(
+  carga: { traco_id?: string | null traco_nome?: string | null },
+  catalogoTracos: Traco[],
+): Traco | undefined {
+  if (carga.traco_id) {
+    const porId = catalogoTracos.find((t) => t.id === carga.traco_id)
+    if (porId) return porId
+  }
+
+  if (!carga.traco_nome) return undefined
+
+  const nomeLimpo = extrairNomeTracoReferencia(carga.traco_nome).trim()
+  if (!nomeLimpo || nomeLimpo === "—") return undefined
+
+  const nomeLimpoLower = nomeLimpo.toLowerCase()
+
+  // 1. Match exato pelo nome limpo ou nome do traço
+  const matchExato = catalogoTracos.find((t) => {
+    const tNome = (t.nome || "").trim().toLowerCase()
+    const tLimpo = extrairNomeTracoReferencia(t.nome).trim().toLowerCase()
+    return tNome === nomeLimpoLower || tLimpo === nomeLimpoLower
+  })
+  if (matchExato) return matchExato
+
+  // 2. Match por prefixo ou inclusão do código (ex: "F25B=01S12 CP II F 40")
+  const matchPrefixo = catalogoTracos.find((t) => {
+    const tNome = (t.nome || "").trim().toLowerCase()
+    const tLimpo = extrairNomeTracoReferencia(t.nome).trim().toLowerCase()
+    return (
+      (tNome.length > 0 &&
+        (nomeLimpoLower.startsWith(tNome) ||
+          tNome.startsWith(nomeLimpoLower))) ||
+      (tLimpo !== "—" &&
+        (nomeLimpoLower.startsWith(tLimpo) ||
+          tLimpo.startsWith(nomeLimpoLower)))
+    )
+  })
+  if (matchPrefixo) return matchPrefixo
+
+  // 3. Fallback especial para códigos tipo "Traço SJE 290kg" ou "Traço SJE 320kg":
+  // Se contiver consumo de cimento (ex: 290kg), tentar casar com traço de consumo aproximado/idêntico
+  const matchKg = nomeLimpoLower.match(/(\d{3})\s*kg/)
+  if (matchKg) {
+    const kg = Number(matchKg[1])
+    const matchPorConsumo = catalogoTracos.find(
+      (t) => Number(t.consumo_cimento) === kg,
+    )
+    if (matchPorConsumo) return matchPorConsumo
+  }
+
+  return undefined
+}
+
+/**
+ * Retorna a descrição completa do traço de referência da carga para exibição na tabela.
+ * Formato desejado: "F10B01S12 CP II F 40 (10 MPa)"
+ */
+function obterDescricaoCompletaCarga(
+  carga: { traco_id?: string | null traco_nome?: string | null },
+  catalogoTracos: Traco[],
+): string {
+  const traco = resolverTracoReferenciaCarga(carga, catalogoTracos)
+  if (traco) {
+    return formatarDescricaoCompletaTraco(traco)
+  }
+
+  // Fallback quando não encontrar vínculo: limpa sufixos manuais do nome gravado
+  const limpo = extrairNomeTracoReferencia(carga.traco_nome)
   return limpo || "—"
 }
 
@@ -201,7 +303,19 @@ export default function LancamentoCargas() {
           }
         })
 
-        setTracos(listaTracos)
+        // Monta a lista completa unificada de traços garantindo a inclusão de todos os traços do catálogo
+        // e os novos F15 e F45
+        const tracosMap = new Map<string, Traco>()
+        todosTracos.forEach((t) => tracosMap.set(t.id, t))
+        listaTracos.forEach((t) => tracosMap.set(t.id, t))
+        const catalogoCompleto = Array.from(tracosMap.values()).sort((a, b) => {
+          const fckA = a.fck_mpa ?? 0
+          const fckB = b.fck_mpa ?? 0
+          if (fckA !== fckB) return fckA - fckB
+          return (a.nome || "").localeCompare(b.nome || "")
+        })
+
+        setTracos(catalogoCompleto)
         setMotoristas(mot)
         setVeiculos(veic)
         setCidades(cid)
@@ -497,6 +611,11 @@ export default function LancamentoCargas() {
     // Filtro de Traço (ao escolher um traço de referência, a listagem apresenta SOMENTE as cargas daquele traço)
     if (filtroTracoId && filtroTracoId !== "ALL") {
       const tracoRef = tracos.find((t) => t.id === filtroTracoId)
+      // Resolver traço de referência efetivo da carga pelo ID ou nome
+      const tracoResolvidoCarga = resolverTracoReferenciaCarga(c, tracos)
+
+      const bateTracoResolvido = tracoResolvidoCarga?.id === filtroTracoId
+
       const nomeRefRaw = (tracoRef?.nome || "").toLowerCase().trim()
       const nomeRefLimpo = extrairNomeTracoReferencia(tracoRef?.nome)
         .toLowerCase()
@@ -521,7 +640,8 @@ export default function LancamentoCargas() {
           tracoNomeCargaRaw.startsWith(`${nomeRefRaw}(`) ||
           tracoNomeCargaRaw.includes(nomeRefRaw))
 
-      if (!bateId && !bateNomeLimpo && !bateNomeRaw) return false
+      if (!bateTracoResolvido && !bateId && !bateNomeLimpo && !bateNomeRaw)
+        return false
     }
     // Filtro de Dosagem (kg/m³)
     if (filtroDosagem && filtroDosagem !== "ALL") {
@@ -1157,7 +1277,7 @@ export default function LancamentoCargas() {
                         value={t.id}
                         className="text-xs sm:text-sm py-2.5"
                       >
-                        {t.nome} {t.fck_mpa ? `(${t.fck_mpa} MPa)` : ""}
+                        {formatarDescricaoCompletaTraco(t)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -2916,8 +3036,7 @@ export default function LancamentoCargas() {
                   </SelectItem>
                   {tracos.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
-                      {t.nome} ({t.fck_mpa || 0} MPa - {t.consumo_cimento || 0}{" "}
-                      kg/m³)
+                      {formatarDescricaoCompletaTraco(t)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -3047,7 +3166,7 @@ export default function LancamentoCargas() {
                         {/* Traço */}
                         <td className="py-2.5 px-3">
                           <span className="font-semibold text-foreground">
-                            {extrairNomeTracoReferencia(carga.traco_nome)}
+                            {obterDescricaoCompletaCarga(carga, tracos)}
                           </span>
                         </td>
 
