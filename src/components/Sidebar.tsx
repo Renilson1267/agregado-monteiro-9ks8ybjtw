@@ -137,7 +137,6 @@ export function Sidebar({
           label: "Dashboard de Produção",
           path: "/dashboard",
           group: "operacao",
-          adminOnly: true,
         },
         {
           icon: FileText,
@@ -404,7 +403,7 @@ export function Sidebar({
           )}
         >
           <Link
-            to={isBalanceiro ? "/lancamentos" : "/painel"}
+            to={isBalanceiro ? "/dashboard" : "/painel"}
             className={cn(
               "flex items-center gap-2.5 overflow-hidden group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg",
               collapsed && "justify-center",
@@ -731,7 +730,7 @@ export function Sidebar({
           {!collapsed && (
             <div className="pt-0.5 text-center">
               <span className="text-[10px] text-muted-foreground/50 font-mono">
-                GC MIX v0.0.159
+                GC MIX v0.0.164
               </span>{" "}
             </div>
           )}
@@ -866,7 +865,7 @@ export function Sidebar({
 
             <div className="pt-0.5 text-center">
               <span className="text-[10px] text-muted-foreground/60 font-mono">
-                GC MIX v0.0.159
+                GC MIX v0.0.164
               </span>
             </div>
           </div>

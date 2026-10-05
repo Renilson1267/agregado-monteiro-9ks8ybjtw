@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Select,
   SelectContent,
@@ -35,13 +34,15 @@ import {
   CheckCircle2,
   ArrowLeft,
   Edit3,
-  Sparkles,
   RotateCcw,
   FileSpreadsheet,
   MapPin,
   User,
   Layers,
   AlertCircle,
+  AlertTriangle,
+  Flame,
+  XCircle,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
@@ -84,12 +85,13 @@ export default function LancamentoCargas() {
     useState(false)
   const [modalConfirmarGravacaoAberta, setModalConfirmarGravacaoAberta] =
     useState(false)
+  const [modalConfirmarZeradaAberta, setModalConfirmarZeradaAberta] =
+    useState(false)
 
-  // Modo de dosagem: 'automatico' (por traço) ou 'manual' (digitação dos insumos).
-  // Se o operador for Balanceiro, inicia diretamente em 'manual' com campos liberados para digitação.
-  const [modoDosagem, setModoDosagem] = useState<"automatico" | "manual">(() =>
-    isBalanceiro ? "manual" : "automatico",
-  )
+  // Lançamento 100% MANUAL (especificação Trabalho B):
+  // A aba "Traço automático" foi removida — operador escolhe o traço no select e
+  // digita/ajusta os consumos por m³ com cálculo em tempo real de aditivo e água.
+  const modoDosagem = "manual" as const
 
   // Formulário
   const [dataCarga, setDataCarga] = useState(
@@ -154,9 +156,8 @@ export default function LancamentoCargas() {
 
         if (tr.length > 0) {
           setTracoSelecionadoId(tr[0].id)
-          // Se for balanceiro, garante modo manual e zera insumos
+          // Ao iniciar carga nova, zera os insumos para digitação manual ou restaura do traço
           if (isBalanceiro && !editarCargaId) {
-            setModoDosagem("manual")
             setCimento(0)
             setBrita12(0)
             setBrita19(0)
@@ -234,8 +235,6 @@ export default function LancamentoCargas() {
         }
 
         // Modo sempre manual na edição para refletir com exatidão as dosagens gravadas na carga
-        setModoDosagem("manual")
-
         // Calcular dosagens por m³ a partir do consumo total e volume
         const dosCimento =
           vol > 0
@@ -329,74 +328,30 @@ export default function LancamentoCargas() {
     }
   }
 
-  // Quando o perfil for Balanceiro, inicia por padrão no modo manual
-  // O operador pode alternar livremente para "traço automático" se desejar dosagem pré-preenchida
-  useEffect(() => {
-    if (isBalanceiro) {
-      // Inicia em modo manual se os campos estiverem todos zerados
-      // mas não aprisiona o usuário: ele pode clicar em "Traço automático"
-    }
-  }, [isBalanceiro])
-
-  // Sincronizar dosagens do traço quando no modo automático ou recalcular aditivo no modo manual
+  // Lançamento 100% manual: cálculo em tempo real de aditivo e água baseado no cimento por m³ e volume
   useEffect(() => {
     if (cargaZerada) {
       return
     }
 
-    if (modoDosagem === "automatico") {
-      // No modo automático, preenche dosagens com o traço
-      const traco = tracos.find((t) => t.id === tracoSelecionadoId)
-      if (traco) {
-        const cimentoDosagem = Number(traco.consumo_cimento) || 0
-        setBrita12(Number(traco.consumo_brita12) || 0)
-        setBrita19(Number(traco.consumo_brita19) || 0)
-        setAreia(Number(traco.consumo_areia) || 0)
-        setPoPedra(Number(traco.consumo_po_pedra) || 0)
-        setCimento(cimentoDosagem)
+    // O cimento digitado (kg/m³) × volume alimenta as fórmulas de aditivo e água em tempo real.
+    const cimentoTotal = cimento * volume
+    const adtBruto = cimentoTotal * (fatorAditivoManual || 0)
+    setAditivoBruto(adtBruto)
+    // Arredondamento INTEIRO clássico: Math.round
+    if (!aditivoEditadoManualmente) {
+      setAditivo(Math.round(adtBruto))
+    }
 
-        const cimentoTotal = cimentoDosagem * volume
-        // No modo automático, o aditivo também é liderado pela fórmula do fator sobre o cimento total da carga:
-        // aditivo = cimento total × fator (ou valor digitado se o usuário sobrescrever)
-        const adtBruto = cimentoTotal * (fatorAditivoManual || 0)
-        setAditivoBruto(adtBruto)
-        if (!aditivoEditadoManualmente) {
-          setAditivo(Math.round(adtBruto))
-        }
-
-        // Água do traço automático (calculada via fator água ou digitada)
-        const agBruta = cimentoTotal * (fatorAguaManual || 0.55)
-        setAguaBruta(agBruta)
-        if (!aguaEditadaManualmente) {
-          setAgua(Math.round(agBruta))
-        }
-      }
-    } else {
-      // Modo manual:
-      // Para o Balanceiro (ou modo manual em geral): o cimento digitado alimenta as fórmulas de aditivo e água.
-      // Se cimento > 0 e não editado manualmente, calcula aditivo e água.
-      // Se cimento === 0, aditivo e água calculados ficam 0.
-      const cimentoTotal = cimento * volume
-      const adtBruto = cimentoTotal * (fatorAditivoManual || 0)
-      setAditivoBruto(adtBruto)
-      // Arredondamento INTEIRO clássico: Math.round (>= 0.5 sobe, < 0.5 desce)
-      if (!aditivoEditadoManualmente) {
-        setAditivo(Math.round(adtBruto))
-      }
-
-      // Água (L) = cimento_total_kg × fatorAguaManual
-      const agBruta = cimentoTotal * (fatorAguaManual || 0)
-      setAguaBruta(agBruta)
-      if (!aguaEditadaManualmente) {
-        setAgua(Math.round(agBruta))
-      }
+    // Água (L) = cimento_total_kg × fatorAguaManual
+    const agBruta = cimentoTotal * (fatorAguaManual || 0)
+    setAguaBruta(agBruta)
+    if (!aguaEditadaManualmente) {
+      setAgua(Math.round(agBruta))
     }
   }, [
-    tracoSelecionadoId,
     volume,
     cargaZerada,
-    tracos,
-    modoDosagem,
     cimento,
     fatorAditivoManual,
     fatorAguaManual,
@@ -428,30 +383,6 @@ export default function LancamentoCargas() {
       title: "Água recalculada",
       description: `Valor recalculado pela fórmula: ${Math.round(agBruta)} L`,
     })
-  }
-
-  // Tratar alternância de modo
-  const handleTrocaModo = (novoModo: "automatico" | "manual") => {
-    setModoDosagem(novoModo)
-    setAditivoEditadoManualmente(false)
-    setAguaEditadaManualmente(false)
-    if (!cargaZerada) {
-      // Determinar um fator sugerido coerente com o traço atual se existir:
-      // aditivo_por_m3 = consumo_cimento * fator  =>  fator = aditivo_por_m3 / consumo_cimento
-      const traco = tracos.find((t) => t.id === tracoSelecionadoId)
-      if (
-        traco &&
-        Number(traco.consumo_cimento) > 0 &&
-        Number(traco.consumo_aditivo) > 0
-      ) {
-        const fatorSugerido =
-          Number(traco.consumo_aditivo) / Number(traco.consumo_cimento)
-        if (fatorSugerido >= 0.001 && fatorSugerido <= 0.05) {
-          setFatorAditivoManual(Number(fatorSugerido.toFixed(4)))
-        }
-      }
-      aplicarDosagemTraco(tracoSelecionadoId, volume)
-    }
   }
 
   const handleResetarParaTraco = () => {
@@ -586,13 +517,10 @@ export default function LancamentoCargas() {
     return true
   }
 
-  const executarSalvarEdicao = async () => {
+  const executarSalvarEdicao = async (motivoZerada?: "PERDA" | "CANCELAR") => {
     if (!editarCargaId) return
     const traco = tracos.find((t) => t.id === tracoSelecionadoId)
-    let nomeTracoGravado = traco?.nome || "Traço manual"
-    if (modoDosagem === "manual") {
-      nomeTracoGravado = traco ? `${traco.nome} (Manual)` : "Dosagem Manual"
-    }
+    const nomeTracoGravado = traco ? `${traco.nome} (Manual)` : "Dosagem Manual"
 
     setSalvando(true)
     try {
@@ -613,9 +541,11 @@ export default function LancamentoCargas() {
         consumo_agua: consumoReal.agua,
         observacao: observacao || null,
         carga_zerada: cargaZerada,
+        motivo_zerada: motivoZerada,
       })
 
       setModalConfirmarEdicaoAberta(false)
+      setModalConfirmarZeradaAberta(false)
 
       toast({
         title: "Carga alterada com sucesso!",
@@ -636,14 +566,9 @@ export default function LancamentoCargas() {
     }
   }
 
-  const executarCriarCarga = async () => {
+  const executarCriarCarga = async (motivoZerada?: "PERDA" | "CANCELAR") => {
     const traco = tracos.find((t) => t.id === tracoSelecionadoId)
-
-    // Nome descritivo do traço gravado na carga
-    let nomeTracoGravado = traco?.nome || "Traço manual"
-    if (modoDosagem === "manual") {
-      nomeTracoGravado = traco ? `${traco.nome} (Manual)` : "Dosagem Manual"
-    }
+    const nomeTracoGravado = traco ? `${traco.nome} (Manual)` : "Dosagem Manual"
 
     setSalvando(true)
     try {
@@ -664,53 +589,37 @@ export default function LancamentoCargas() {
         consumo_aditivo: consumoReal.aditivo,
         consumo_agua: consumoReal.agua,
         observacao: observacao
-          ? modoDosagem === "manual"
-            ? `[Modo Manual | Aditivo: ${consumoReal.aditivo}L${
-                aditivoEditadoManualmente
-                  ? " (manual)"
-                  : ` (fator ${fatorAditivoManual})`
-              } | Água: ${consumoReal.agua}L${
-                aguaEditadaManualmente
-                  ? " (manual)"
-                  : ` (fator ${fatorAguaManual})`
-              }] ${observacao}`
-            : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${
-                aditivoEditadoManualmente
-                  ? " (manual)"
-                  : ` (fator ${fatorAditivoManual})`
-              } | Água: ${consumoReal.agua}L${
-                aguaEditadaManualmente
-                  ? " (manual)"
-                  : ` (fator ${fatorAguaManual})`
-              }] ${observacao}`
-          : modoDosagem === "manual"
-            ? `[Lançamento manual | Aditivo: ${consumoReal.aditivo}L${
-                aditivoEditadoManualmente
-                  ? " (manual)"
-                  : ` (fator ${fatorAditivoManual})`
-              } | Água: ${consumoReal.agua}L${
-                aguaEditadaManualmente
-                  ? " (manual)"
-                  : ` (fator ${fatorAguaManual})`
-              }]`
-            : `[Traço automático | Aditivo: ${consumoReal.aditivo}L${
-                aditivoEditadoManualmente
-                  ? " (manual)"
-                  : ` (fator ${fatorAditivoManual})`
-              } | Água: ${consumoReal.agua}L${
-                aguaEditadaManualmente
-                  ? " (manual)"
-                  : ` (fator ${fatorAguaManual})`
-              }]`,
+          ? `[Lançamento manual | Aditivo: ${consumoReal.aditivo}L${
+              aditivoEditadoManualmente
+                ? " (manual)"
+                : ` (fator ${fatorAditivoManual})`
+            } | Água: ${consumoReal.agua}L${
+              aguaEditadaManualmente
+                ? " (manual)"
+                : ` (fator ${fatorAguaManual})`
+            }] ${observacao}`
+          : `[Lançamento manual | Aditivo: ${consumoReal.aditivo}L${
+              aditivoEditadoManualmente
+                ? " (manual)"
+                : ` (fator ${fatorAditivoManual})`
+            } | Água: ${consumoReal.agua}L${
+              aguaEditadaManualmente
+                ? " (manual)"
+                : ` (fator ${fatorAguaManual})`
+            }]`,
         carga_zerada: cargaZerada,
+        motivo_zerada: motivoZerada,
       })
 
       setModalConfirmarGravacaoAberta(false)
+      setModalConfirmarZeradaAberta(false)
 
       toast({
         title: "Carga lançada com sucesso!",
         description: cargaZerada
-          ? "Carga cancelada registrada sem baixa de materiais."
+          ? motivoZerada === "PERDA"
+            ? "Carga registrada como PERDA OPERACIONAL. Baixa de cimento e aditivo efetuada no estoque."
+            : "Carga cancelada registrada SEM nenhuma movimentação de estoque."
           : "Baixa de estoque nos materiais controlados (Cimento e Aditivo) realizada com sucesso.",
       })
 
@@ -732,13 +641,21 @@ export default function LancamentoCargas() {
 
     if (!validarFormulario()) return
 
-    // Se estiver em modo de edição, abre o modal de confirmação com resumo das alterações
+    // Requisito 2 (Trabalho B): Se for carga zerada/cancelada, abrir modal com DUAS opções:
+    // "PERDA" (registra observação [PERDA OPERACIONAL] e DEBITA estoque) vs
+    // "CANCELAR" (registra como cancelada SEM nenhuma movimentação de estoque)
+    if (cargaZerada) {
+      setModalConfirmarZeradaAberta(true)
+      return
+    }
+
+    // Se estiver em modo de edição de carga regular, abre o modal de confirmação com resumo das alterações
     if (editarCargaId) {
       setModalConfirmarEdicaoAberta(true)
       return
     }
 
-    // Gravação nova: abre o modal de confirmação com resumo
+    // Gravação nova regular: abre o modal de confirmação com resumo
     setModalConfirmarGravacaoAberta(true)
   }
 
@@ -1213,47 +1130,22 @@ export default function LancamentoCargas() {
                   Insumos e Agregados da Carga
                 </CardTitle>
                 <CardDescription className="text-xs mt-1">
-                  {modoDosagem === "automatico"
-                    ? `Dosagem base do traço multiplicada pelo volume (${volume} m³). Aditivo liderado por fator sobre cimento total (com seletor e edição manual). Baixa de estoque apenas para ${materiais.find((m) => m.codigo === "cimento")?.nome || "CP II F-40 / CP V ARI"} e Aditivo.`
-                    : `Modo manual ativo: informe a dosagem de cada insumo em kg/m³. O consumo gravado é multiplicado automaticamente pelo volume (${volume} m³).`}
+                  Informe a dosagem de cada insumo em kg/m³. O cimento alimenta
+                  em tempo real o cálculo do aditivo e da água. O consumo total
+                  gravado é multiplicado automaticamente pelo volume ({volume}{" "}
+                  m³).
                 </CardDescription>
               </div>
 
-              {/* Seletor de Modo: Traço automático vs Insumos manuais */}
+              {/* Indicador de Lançamento 100% Manual */}
               <div className="flex items-center gap-2">
-                <Tabs
-                  value={modoDosagem}
-                  onValueChange={(val) =>
-                    handleTrocaModo(val as "automatico" | "manual")
-                  }
-                  className="w-auto"
+                <Badge
+                  variant="outline"
+                  className="h-8 px-3 text-xs font-semibold bg-primary/10 text-primary border-primary/30 gap-1.5"
                 >
-                  <TabsList className="h-9 p-1 bg-muted/60">
-                    <TabsTrigger
-                      value="automatico"
-                      className="text-xs px-3 py-1 gap-1.5 data-[state=active]:bg-background data-[state=active]:text-primary font-medium"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Traço automático
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="manual"
-                      className="text-xs px-3 py-1 gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-medium"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      Insumos manuais
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                {isBalanceiro && (
-                  <Badge
-                    variant="outline"
-                    className="hidden sm:inline-flex h-8 px-2 text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 gap-1"
-                    title="No perfil Balanceiro, o modo manual mantém os campos em branco para digitação"
-                  >
-                    Balanceiro
-                  </Badge>
-                )}
+                  <Edit3 className="w-3.5 h-3.5" />
+                  Lançamento 100% Manual
+                </Badge>
               </div>
             </div>
           </CardHeader>
@@ -1360,19 +1252,12 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground flex items-center gap-1">
-                    {modoDosagem === "manual"
-                      ? `${materiais.find((m) => m.codigo === "cimento")?.nome || "CP II F-40 / CP V ARI"} (kg/m³)`
-                      : `${materiais.find((m) => m.codigo === "cimento")?.nome || "CP II F-40 / CP V ARI"} (kg)`}
+                    {`${materiais.find((m) => m.codigo === "cimento")?.nome || "CP II F-40 / CP V ARI"} (kg/m³)`}
                     <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal shrink-0">
                       Estoque
                     </span>
                   </span>
-                  {tracoAtual && modoDosagem === "automatico" && (
-                    <span className="text-[10px]">
-                      ({tracoAtual.consumo_cimento} kg/m³)
-                    </span>
-                  )}
-                  {tracoAtual && modoDosagem === "manual" && (
+                  {tracoAtual && (
                     <span className="text-[10px] text-muted-foreground">
                       Traço: {tracoAtual.consumo_cimento} kg/m³
                     </span>
@@ -1824,14 +1709,9 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground">
-                    {modoDosagem === "manual" ? "Areia (kg/m³)" : "Areia (kg)"}
+                    Areia (kg/m³)
                   </span>
-                  {tracoAtual && modoDosagem === "automatico" && (
-                    <span className="text-[10px]">
-                      ({tracoAtual.consumo_areia} kg/m³)
-                    </span>
-                  )}
-                  {tracoAtual && modoDosagem === "manual" && (
+                  {tracoAtual && (
                     <span className="text-[10px] text-muted-foreground">
                       Traço: {tracoAtual.consumo_areia} kg/m³
                     </span>
@@ -1885,16 +1765,9 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground">
-                    {modoDosagem === "manual"
-                      ? "Brita 12 (kg/m³)"
-                      : "Brita 12 (kg)"}
+                    Brita 12 (kg/m³)
                   </span>
-                  {tracoAtual && modoDosagem === "automatico" && (
-                    <span className="text-[10px]">
-                      ({tracoAtual.consumo_brita12} kg/m³)
-                    </span>
-                  )}
-                  {tracoAtual && modoDosagem === "manual" && (
+                  {tracoAtual && (
                     <span className="text-[10px] text-muted-foreground">
                       Traço: {tracoAtual.consumo_brita12} kg/m³
                     </span>
@@ -1950,16 +1823,9 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground">
-                    {modoDosagem === "manual"
-                      ? "Brita 19 (kg/m³)"
-                      : "Brita 19 (kg)"}
+                    Brita 19 (kg/m³)
                   </span>
-                  {tracoAtual && modoDosagem === "automatico" && (
-                    <span className="text-[10px]">
-                      ({tracoAtual.consumo_brita19} kg/m³)
-                    </span>
-                  )}
-                  {tracoAtual && modoDosagem === "manual" && (
+                  {tracoAtual && (
                     <span className="text-[10px] text-muted-foreground">
                       Traço: {tracoAtual.consumo_brita19} kg/m³
                     </span>
@@ -2015,16 +1881,9 @@ export default function LancamentoCargas() {
                   className="text-xs text-muted-foreground flex justify-between items-center"
                 >
                   <span className="font-semibold text-foreground">
-                    {modoDosagem === "manual"
-                      ? "Pó de Pedra (kg/m³)"
-                      : "Pó de Pedra (kg)"}
+                    Pó de Pedra (kg/m³)
                   </span>
-                  {tracoAtual && modoDosagem === "automatico" && (
-                    <span className="text-[10px]">
-                      ({tracoAtual.consumo_po_pedra} kg/m³)
-                    </span>
-                  )}
-                  {tracoAtual && modoDosagem === "manual" && (
+                  {tracoAtual && (
                     <span className="text-[10px] text-muted-foreground">
                       Traço: {tracoAtual.consumo_po_pedra} kg/m³
                     </span>
@@ -2739,10 +2598,129 @@ export default function LancamentoCargas() {
               type="button"
               size="sm"
               disabled={salvando}
-              onClick={executarSalvarEdicao}
+              onClick={() => executarSalvarEdicao()}
               className="w-full sm:w-auto min-h-[44px] h-11 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs sm:text-sm rounded-xl"
             >
               {salvando ? "Salvando Alteração..." : "Sim, Confirmar e Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Específico para Carga Zerada/Cancelada (Trabalho B): Escolha entre PERDA vs CANCELAR */}
+      <Dialog
+        open={modalConfirmarZeradaAberta}
+        onOpenChange={setModalConfirmarZeradaAberta}
+      >
+        <DialogContent className="w-[95vw] max-w-lg p-5 sm:p-6 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base text-destructive font-bold">
+              <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
+              <span>Carga Zerada / Cancelada: Escolha a Ação</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Esta carga está marcada como zerada/cancelada. Defina como o
+              sistema deve registrar a operação e tratar o estoque de insumos:
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3.5 py-2 text-xs">
+            {/* Opção PERDA OPERACIONAL */}
+            <div className="p-3.5 rounded-xl border border-destructive/40 bg-destructive/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-destructive text-sm flex items-center gap-1.5">
+                  <Flame className="w-4 h-4" />
+                  1. Registrar como PERDA OPERACIONAL
+                </span>
+                <Badge
+                  variant="destructive"
+                  className="text-[10px] uppercase font-bold"
+                >
+                  Debita Estoque
+                </Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                A batelada foi produzida mas perdida (problema na betoneira,
+                traço reprovado na obra, etc.). Grava a observação{" "}
+                <strong className="text-foreground font-mono">
+                  [PERDA OPERACIONAL]
+                </strong>{" "}
+                e{" "}
+                <strong className="text-destructive font-semibold">
+                  DEBITA do estoque
+                </strong>{" "}
+                o cimento ({consumoReal.cimento.toLocaleString("pt-BR")} kg) e
+                aditivo ({consumoReal.aditivo.toLocaleString("pt-BR")} L)
+                consumidos.
+              </p>
+              <Button
+                type="button"
+                disabled={salvando}
+                onClick={() =>
+                  editarCargaId
+                    ? executarSalvarEdicao("PERDA")
+                    : executarCriarCarga("PERDA")
+                }
+                className="w-full min-h-[42px] h-10 gap-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold text-xs rounded-xl shadow-xs"
+              >
+                <Flame className="w-4 h-4" />
+                {salvando
+                  ? "Registrando Perda..."
+                  : "Confirmar como PERDA (Baixar Estoque)"}
+              </Button>
+            </div>
+
+            {/* Opção CANCELAR SEM MOVIMENTAÇÃO */}
+            <div className="p-3.5 rounded-xl border border-border/60 bg-muted/30 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                  <XCircle className="w-4 h-4 text-muted-foreground" />
+                  2. Registrar como CANCELADA
+                </span>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] uppercase font-mono"
+                >
+                  Sem Estoque
+                </Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                A carga foi cancelada antes de rodar a batelada ou digitada por
+                engano. Registra a carga como cancelada{" "}
+                <strong className="text-foreground">
+                  SEM nenhuma movimentação de estoque
+                </strong>{" "}
+                (cimento e aditivo NÃO são debitados).
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={salvando}
+                onClick={() =>
+                  editarCargaId
+                    ? executarSalvarEdicao("CANCELAR")
+                    : executarCriarCarga("CANCELAR")
+                }
+                className="w-full min-h-[42px] h-10 gap-2 border-border/80 font-bold text-xs rounded-xl hover:bg-muted/50"
+              >
+                <XCircle className="w-4 h-4" />
+                {salvando
+                  ? "Cancelando..."
+                  : "Confirmar como CANCELADA (Sem Baixa)"}
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={salvando}
+              onClick={() => setModalConfirmarZeradaAberta(false)}
+              className="w-full text-xs text-muted-foreground"
+            >
+              Voltar e Revisar Carga
             </Button>
           </DialogFooter>
         </DialogContent>

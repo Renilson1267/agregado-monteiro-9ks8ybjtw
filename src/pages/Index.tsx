@@ -75,7 +75,7 @@ import { printElementInIsolatedIframe } from "@/lib/imprimir-recibo"
 import type { OrdemServico } from "@/types/concreteira"
 import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from "@/assets/logos"
 
-type PeriodoTipo = "hoje" | "7dias" | "mes_atual" | "mes_anterior" | "personalizado"
+type PeriodoTipo = "hoje" | "7dias" | "mes_atual" | "mes_anterior" | "anual" | "personalizado"
 
 import { useNavigate } from "react-router-dom"
 import { useUsuario } from "@/hooks/use-usuario"
@@ -187,6 +187,17 @@ export default function Index() {
         dataInicioEfetiva: primeiroDia,
         dataFimEfetiva: ultimoDia,
         labelPeriodo: `Mês Anterior (${nomeMes})`,
+      }
+    }
+
+    if (tipoPeriodo === "anual") {
+      const ano = dataRefObj.getFullYear()
+      const primeiroDia = `${ano}-01-01`
+      const ultimoDia = `${ano}-12-31`
+      return {
+        dataInicioEfetiva: primeiroDia,
+        dataFimEfetiva: ultimoDia,
+        labelPeriodo: `Ano ${ano} (01/01 a 31/12)`,
       }
     }
 
@@ -487,6 +498,408 @@ export default function Index() {
     } else {
       window.print()
     }
+  }
+
+  // Visão Enxuta Mobile-First para o Balanceiro (SOMENTE dois blocos: Saldo dos Insumos e Cargas do Período)
+  if (isBalanceiro) {
+    return (
+      <div className="space-y-4 pb-12">
+        {/* Topo Enxuto para Balanceiro */}
+        <div className="p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-card via-card/95 to-primary/10 border border-border/60 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 rounded-xl bg-white dark:bg-slate-900 border border-border/70 shadow-xs shrink-0">
+              <img
+                src={LOGO_GC_MIX_HORIZONTAL}
+                alt={LOGO_ALT_TEXT}
+                className="h-8 w-auto max-w-[140px] object-contain rounded-md"
+              />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                  Visão do Balanceiro
+                </span>
+                <Badge
+                  variant="outline"
+                  className="text-[11px] bg-card/80 border-border/60 font-semibold"
+                >
+                  {empresaAtiva?.nome || "Unidade"}
+                </Badge>
+              </div>
+              <h1 className="text-base sm:text-lg font-black tracking-tight text-foreground mt-0.5">
+                Dashboard Operacional
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={carregarDados}
+              disabled={loading}
+              className="gap-1.5 text-xs h-9 flex-1 sm:flex-none border-border/60"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
+              />
+              Atualizar
+            </Button>
+            <Button
+              asChild
+              size="sm"
+              className="gap-1.5 bg-primary text-primary-foreground font-semibold shadow-xs text-xs h-9 flex-1 sm:flex-none"
+            >
+              <Link to="/lancamentos">
+                <Truck className="w-3.5 h-3.5" />
+                Lançar Carga
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* BLOCO (A): "Saldo dos Insumos" com Estoque Controlado — SOMENTE Cimento e Aditivo */}
+        <Card className="border-border/40 bg-card/60 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-3 pt-4 px-4 sm:px-6">
+            <div>
+              <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2">
+                <span>Saldo dos Insumos</span>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] uppercase font-mono"
+                >
+                  Estoque Controlado
+                </Badge>
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Apenas cimento e aditivo possuem controle contínuo de saldo e
+                alerta de reposição.
+              </CardDescription>
+            </div>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="gap-1 text-xs h-8"
+            >
+              <Link to="/estoque">
+                Estoque
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="px-4 sm:px-6 pb-4 pt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {materiais
+                .filter((m) => m.codigo === "cimento" || m.codigo === "aditivo")
+                .map((mat) => {
+                  const saldo = mat.saldo || 0
+                  const estaCritico = saldo <= mat.estoque_minimo
+                  const margem = saldo - mat.estoque_minimo
+
+                  return (
+                    <div
+                      key={mat.id}
+                      className={`p-3.5 sm:p-4 rounded-xl border transition-all ${
+                        estaCritico
+                          ? "border-destructive/50 bg-destructive/10 ring-1 ring-destructive/30"
+                          : "border-border/40 bg-background/50"
+                      }`}
+                    >
+                      <div className="flex justify-between items-start gap-2">
+                        <div>
+                          <p className="text-sm font-bold text-foreground">
+                            {mat.nome}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {mat.codigo === "cimento"
+                              ? "Silo de Cimento"
+                              : "Tanque de Aditivo"}
+                          </p>
+                        </div>
+                        {estaCritico ? (
+                          <Badge
+                            variant="destructive"
+                            className="text-[10px] gap-1 font-bold"
+                          >
+                            <AlertTriangle className="w-3 h-3" />
+                            Abaixo do Mínimo
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] text-emerald-500 border-emerald-500/30 font-medium"
+                          >
+                            Regular
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="mt-2.5 flex items-baseline gap-2">
+                        <span className="text-2xl sm:text-3xl font-black text-foreground font-mono">
+                          {mat.unidade === "kg" && saldo >= 1000
+                            ? (saldo / 1000).toLocaleString("pt-BR", {
+                                maximumFractionDigits: 2,
+                              })
+                            : saldo.toLocaleString("pt-BR")}
+                        </span>
+                        <span className="text-xs text-muted-foreground font-medium">
+                          {mat.unidade === "kg" && saldo >= 1000
+                            ? "toneladas (t)"
+                            : mat.unidade}
+                        </span>
+                        {mat.unidade === "kg" && saldo >= 1000 && (
+                          <span className="text-[11px] text-muted-foreground font-mono ml-auto">
+                            ({saldo.toLocaleString("pt-BR")} kg)
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-2.5 flex items-center justify-between text-[11px] text-muted-foreground border-t border-border/30 pt-2">
+                        <span>
+                          Mínimo:{" "}
+                          <strong className="text-foreground">
+                            {mat.estoque_minimo.toLocaleString("pt-BR")}{" "}
+                            {mat.unidade}
+                          </strong>
+                        </span>
+                        <span
+                          className={
+                            estaCritico
+                              ? "text-destructive font-bold"
+                              : "text-emerald-500 font-semibold"
+                          }
+                        >
+                          Margem: {margem.toLocaleString("pt-BR")} {mat.unidade}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* BLOCO (B): "Cargas do Período" — Tabela das cargas com filtro (MÊS ANTERIOR, MÊS CORRENTE, ANUAL) */}
+        <Card className="border-border/40 bg-card/60 shadow-sm">
+          <CardHeader className="pb-3 pt-4 px-4 sm:px-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div>
+                <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2">
+                  <span>Cargas do Período</span>
+                  <Badge variant="outline" className="text-xs font-mono">
+                    {cargasFiltradas.length} cargas ({volumePeriodo.toFixed(1)}{" "}
+                    m³)
+                  </Badge>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Expedições registradas na unidade ativa ({labelPeriodo})
+                </CardDescription>
+              </div>
+
+              {/* Filtro de 3 botões rápidos pedido para o Balanceiro: MÊS ANTERIOR, MÊS CORRENTE e ANUAL */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Button
+                  type="button"
+                  variant={
+                    tipoPeriodo === "mes_anterior" ? "default" : "outline"
+                  }
+                  size="sm"
+                  onClick={() => setTipoPeriodo("mes_anterior")}
+                  className="h-8 text-[11px] font-bold px-2.5 rounded-lg"
+                >
+                  MÊS ANTERIOR
+                </Button>
+                <Button
+                  type="button"
+                  variant={tipoPeriodo === "mes_atual" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTipoPeriodo("mes_atual")}
+                  className="h-8 text-[11px] font-bold px-2.5 rounded-lg"
+                >
+                  MÊS CORRENTE
+                </Button>
+                <Button
+                  type="button"
+                  variant={tipoPeriodo === "anual" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTipoPeriodo("anual")}
+                  className="h-8 text-[11px] font-bold px-2.5 rounded-lg"
+                >
+                  ANUAL
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="px-4 sm:px-6 pb-4 pt-0">
+            <div className="overflow-x-auto rounded-xl border border-border/30">
+              <table className="w-full text-xs text-left">
+                <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border/40">
+                  <tr>
+                    <th className="py-2.5 px-3">Carga #</th>
+                    <th className="py-2.5 px-3">OS</th>
+                    <th className="py-2.5 px-3">Data</th>
+                    <th className="py-2.5 px-3">Volume</th>
+                    <th className="py-2.5 px-3">Traço / Dosagem</th>
+                    <th className="py-2.5 px-3">Motorista / Placa</th>
+                    <th className="py-2.5 px-3">Cidade / Obra</th>
+                    <th className="py-2.5 px-3 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/20">
+                  {cargasFiltradas.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={8}
+                        className="py-8 text-center text-muted-foreground italic text-xs"
+                      >
+                        Nenhuma carga encontrada para o período selecionado.
+                      </td>
+                    </tr>
+                  ) : (
+                    cargasFiltradas.map((c) => (
+                      <tr
+                        key={c.id}
+                        className="hover:bg-muted/20 transition-colors"
+                      >
+                        <td className="py-2.5 px-3 font-mono font-bold text-foreground">
+                          #{String(c.numero_carga).padStart(4, "0")}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          {c.ordem_servico ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setOsParaReimpressao(c.ordem_servico!)
+                                setModalReimpressaoAberta(true)
+                              }}
+                              className="h-6 px-1.5 text-[10px] font-mono font-bold text-primary border-primary/30 hover:bg-primary/10 gap-1"
+                              title="Clique para imprimir o recibo da OS"
+                            >
+                              <Printer className="w-3 h-3" />
+                              OS {c.ordem_servico.numero_os}
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground/40 text-[11px]">
+                              —
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-muted-foreground font-mono">
+                          {c.data.split("-").reverse().join("/")}
+                        </td>
+                        <td className="py-2.5 px-3 font-bold text-foreground font-mono">
+                          {Number(c.volume_m3).toFixed(1)} m³
+                        </td>
+                        <td
+                          className="py-2.5 px-3 max-w-[180px] truncate font-medium text-foreground"
+                          title={c.traco_nome || "—"}
+                        >
+                          {c.traco_nome || "—"}
+                        </td>
+                        <td className="py-2.5 px-3 text-muted-foreground">
+                          {c.motorista_nome ? (
+                            `${c.motorista_nome} (${c.veiculo_placa || "—"})`
+                          ) : (
+                            <span className="text-muted-foreground/50">
+                              Não informado
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-muted-foreground">
+                          {c.cidade_nome || (
+                            <span className="text-muted-foreground/50">—</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          {c.carga_zerada ? (
+                            <Badge
+                              variant="destructive"
+                              className="text-[10px] uppercase font-bold"
+                            >
+                              Zerada / Cancelada
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] text-emerald-500 border-emerald-500/30 bg-emerald-500/10 font-semibold"
+                            >
+                              Entregue
+                            </Badge>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Modal de Reimpressão de OS a partir da listagem */}
+        <Dialog
+          open={modalReimpressaoAberta}
+          onOpenChange={setModalReimpressaoAberta}
+        >
+          <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center justify-between pr-6 text-base">
+                <span className="flex items-center gap-2">
+                  <Printer className="w-5 h-5 text-primary" />
+                  Imprimir Ordem de Serviço Nº {osParaReimpressao?.numero_os}
+                </span>
+                <Button
+                  type="button"
+                  onClick={handleImprimirReciboOS}
+                  className="gap-2 bg-primary text-primary-foreground text-xs h-8"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Imprimir Recibo (A4)
+                </Button>
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Recibo formatado com dados da carga, transporte, verificação de
+                slump, termo de responsabilidade e canhoto.
+              </DialogDescription>
+            </DialogHeader>
+
+            {osParaReimpressao && (
+              <div
+                id="recibo-impressao-modal-index"
+                className="mt-2 border rounded-lg p-2 bg-white text-black shadow-inner print:border-none print:p-0 print:m-0 print:shadow-none"
+              >
+                <ReciboImpressao
+                  ordem={osParaReimpressao}
+                  empresa={empresaAtiva || null}
+                />
+              </div>
+            )}
+
+            <DialogFooter className="gap-2 sm:gap-0 mt-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setModalReimpressaoAberta(false)}
+              >
+                Fechar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleImprimirReciboOS}
+                className="gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                Imprimir Recibo
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    )
   }
 
   return (

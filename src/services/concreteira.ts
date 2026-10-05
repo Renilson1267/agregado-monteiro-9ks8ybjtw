@@ -785,8 +785,8 @@ export const ConcreteiraService = {
     payload: {
       data: string
       volume_m3: number
-      traco_id?: string | null
-      traco_nome?: string | null
+      traco_id?: string
+      traco_nome?: string
       motorista_nome?: string | null
       veiculo_placa?: string | null
       cidade_nome?: string | null
@@ -799,10 +799,20 @@ export const ConcreteiraService = {
       consumo_agua?: number
       observacao?: string | null
       carga_zerada?: boolean
+      motivo_zerada?: "PERDA" | "CANCELAR"
     },
   ): Promise<Carga> {
-    // 1. Atualiza registro na tabela cargas
-    const { data: cargaAtualizada, error: cargaErr } = await (supabase as any)
+    // Se for zerada por PERDA, prefixa [PERDA OPERACIONAL] na observação se ainda não tiver
+    let obsFinal = payload.observacao || null
+    if (payload.carga_zerada && payload.motivo_zerada === "PERDA") {
+      const prefixo = "[PERDA OPERACIONAL]"
+      if (!obsFinal || !obsFinal.includes(prefixo)) {
+        obsFinal = obsFinal ? `${prefixo} ${obsFinal}` : prefixo
+      }
+    }
+
+    // 1. Atualiza registro da carga
+    const { data: cargaAtualizada, error: updErr } = await (supabase as any)
       .from("cargas")
       .update({
         data: payload.data,
@@ -819,14 +829,14 @@ export const ConcreteiraService = {
         consumo_cimento: payload.consumo_cimento,
         consumo_aditivo: payload.consumo_aditivo,
         consumo_agua: payload.consumo_agua || 0,
-        observacao: payload.observacao || null,
+        observacao: obsFinal,
         carga_zerada: payload.carga_zerada || false,
       })
       .eq("id", id)
       .select()
       .single()
 
-    if (cargaErr) throw cargaErr
+    if (updErr) throw updErr
 
     // 2. Estorna TODAS as movimentações de estoque antigas vinculadas a esta carga
     const { error: delErr } = await (supabase as any)
@@ -838,8 +848,15 @@ export const ConcreteiraService = {
       console.error("Erro ao estornar movimentações antigas da carga:", delErr)
     }
 
-    // 3. Se a carga atualizada NÃO for zerada, grava as novas movimentações recalculadas (apenas cimento e aditivo)
-    if (!payload.carga_zerada) {
+    // 3. Se a carga atualizada NÃO for zerada ou for zerada com motivo "PERDA", grava as novas movimentações recalculadas (apenas cimento e aditivo)
+    const deveDebitarEstoque =
+      !payload.carga_zerada ||
+      payload.motivo_zerada === "PERDA" ||
+      (payload.carga_zerada &&
+        typeof obsFinal === "string" &&
+        obsFinal.includes("[PERDA OPERACIONAL]"))
+
+    if (deveDebitarEstoque) {
       const empresaId = cargaAtualizada.empresa_id
       const materiais = await this.getMateriais(empresaId)
       const docName = `CARGA-${String(cargaAtualizada.numero_carga).padStart(5, "0")}`
@@ -847,6 +864,10 @@ export const ConcreteiraService = {
 
       const matCimento = materiais.find((m) => m.codigo === "cimento")
       const matAditivo = materiais.find((m) => m.codigo === "aditivo")
+
+      const obsMov = payload.carga_zerada
+        ? `Perda operacional na batelada (${payload.volume_m3}m³) (recalculado após edição)`
+        : `Consumo na carga de ${payload.volume_m3}m³ (recalculado após edição)`
 
       if (payload.consumo_cimento > 0 && matCimento) {
         saídas.push({
@@ -857,7 +878,7 @@ export const ConcreteiraService = {
           data: payload.data,
           carga_id: id,
           documento: docName,
-          observacao: `Consumo na carga de ${payload.volume_m3}m³ (recalculado após edição)`,
+          observacao: obsMov,
         })
       }
       if (payload.consumo_aditivo > 0 && matAditivo) {
@@ -869,7 +890,7 @@ export const ConcreteiraService = {
           data: payload.data,
           carga_id: id,
           documento: docName,
-          observacao: `Consumo na carga de ${payload.volume_m3}m³ (recalculado após edição)`,
+          observacao: obsMov,
         })
       }
 
@@ -877,7 +898,6 @@ export const ConcreteiraService = {
         await (supabase as any).from("movimentacoes_estoque").insert(saídas)
       }
     }
-
     // 4. Se houver Ordem de Serviço vinculada a essa carga, sincroniza seus itens e insumos detalhados
     const { data: osVinculada } = await (supabase as any)
       .from("ordens_servico")
@@ -970,9 +990,19 @@ export const ConcreteiraService = {
     consumo_agua?: number
     observacao?: string
     carga_zerada?: boolean
+    motivo_zerada?: "PERDA" | "CANCELAR"
   }) {
     // 0. Calcular próximo número de carga para a empresa
     const proximoNum = await this.getProximoNumeroCarga(payload.empresa_id)
+
+    // Se for zerada por PERDA, prefixa [PERDA OPERACIONAL] na observação
+    let obsFinal = payload.observacao || null
+    if (payload.carga_zerada && payload.motivo_zerada === "PERDA") {
+      const prefixo = "[PERDA OPERACIONAL]"
+      if (!obsFinal || !obsFinal.includes(prefixo)) {
+        obsFinal = obsFinal ? `${prefixo} ${obsFinal}` : prefixo
+      }
+    }
 
     // 1. Inserir carga
     const { data: carga, error: cargaErr } = await (supabase as any)
@@ -994,7 +1024,7 @@ export const ConcreteiraService = {
         consumo_cimento: payload.consumo_cimento,
         consumo_aditivo: payload.consumo_aditivo,
         consumo_agua: payload.consumo_agua || 0,
-        observacao: payload.observacao || null,
+        observacao: obsFinal,
         carga_zerada: payload.carga_zerada || false,
       })
       .select()
@@ -1002,8 +1032,14 @@ export const ConcreteiraService = {
 
     if (cargaErr) throw cargaErr
 
-    // 2. Se não for zerada, gerar saídas de estoque SOMENTE para materiais com controla_estoque === true (cimento e aditivo)
-    if (!payload.carga_zerada) {
+    // 2. Movimentação de estoque:
+    // - Carga regular (!carga_zerada): debita cimento e aditivo normalmente
+    // - Carga zerada com motivo "PERDA": DEBITA estoque de cimento/aditivo consumidos na batelada (perda operacional)
+    // - Carga zerada com motivo "CANCELAR" (ou padrão): SEM NENHUMA movimentação de estoque
+    const deveDebitarEstoque =
+      !payload.carga_zerada || payload.motivo_zerada === "PERDA"
+
+    if (deveDebitarEstoque) {
       const materiais = await this.getMateriais(payload.empresa_id)
       const docName = `CARGA-${String(carga.numero_carga).padStart(5, "0")}`
       const saídas: any[] = []
@@ -1011,6 +1047,11 @@ export const ConcreteiraService = {
       // Materiais controlados: APENAS cimento e aditivo (agregados areia, brita12, brita19, pó de pedra NÃO geram movimentação)
       const matCimento = materiais.find((m) => m.codigo === "cimento")
       const matAditivo = materiais.find((m) => m.codigo === "aditivo")
+
+      const obsMov =
+        payload.carga_zerada && payload.motivo_zerada === "PERDA"
+          ? `Perda operacional na batelada (${payload.volume_m3}m³)`
+          : `Consumo na carga de ${payload.volume_m3}m³`
 
       if (payload.consumo_cimento > 0 && matCimento) {
         saídas.push({
@@ -1021,7 +1062,7 @@ export const ConcreteiraService = {
           data: payload.data,
           carga_id: carga.id,
           documento: docName,
-          observacao: `Consumo na carga de ${payload.volume_m3}m³`,
+          observacao: obsMov,
         })
       }
       if (payload.consumo_aditivo > 0 && matAditivo) {
@@ -1033,7 +1074,7 @@ export const ConcreteiraService = {
           data: payload.data,
           carga_id: carga.id,
           documento: docName,
-          observacao: `Consumo na carga de ${payload.volume_m3}m³`,
+          observacao: obsMov,
         })
       }
 

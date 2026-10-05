@@ -23,7 +23,7 @@ import NotFound from "./pages/NotFound"
 
 function RotaRaizRedirect() {
   const { isBalanceiro } = useUsuario()
-  return <Navigate to={isBalanceiro ? "/lancamentos" : "/painel"} replace />
+  return <Navigate to={isBalanceiro ? "/dashboard" : "/painel"} replace />
 }
 
 const App = () => (
@@ -46,7 +46,8 @@ const App = () => (
                   <Route element={<Layout />}>
                     {/* Rota Raiz: redireciona conforme o perfil (Balanceiro -> /lancamentos, Admin -> /painel) */}
                     <Route path="/" element={<RotaRaizRedirect />} />
-                    {/* Módulos Permitidos para Balanceiro & Admin (Lançamentos, Estoque, Ordens e Relatório de Produção) */}
+                    {/* Módulos Permitidos para Balanceiro & Admin (Lançamentos, Estoque, Ordens, Dashboard e Relatório de Produção) */}
+                    <Route path="/dashboard" element={<Index />} />
                     <Route path="/lancamentos" element={<LancamentoCargas />} />
                     <Route path="/estoque" element={<Estoque />} />
                     <Route path="/ordens" element={<Ordens />} />
@@ -56,7 +57,6 @@ const App = () => (
                       element={<ProtectedRoute permitirApenasAdmin={true} />}
                     >
                       <Route path="/painel" element={<PainelGerencial />} />
-                      <Route path="/dashboard" element={<Index />} />
                       <Route path="/tracos" element={<Tracos />} />
                       <Route
                         path="/comparativo"
