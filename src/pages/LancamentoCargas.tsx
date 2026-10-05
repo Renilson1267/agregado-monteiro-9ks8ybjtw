@@ -117,7 +117,10 @@ export function formatarDescricaoCompletaTraco(traco: {
  *           limpando sufixos manuais tipo "(Manual)" ou "(B12:480 / ...)".
  */
 export function resolverTracoReferenciaCarga(
-  carga: { traco_id?: string | null traco_nome?: string | null },
+  carga: {
+    traco_id?: string | null
+    traco_nome?: string | null
+  },
   catalogoTracos: Traco[],
 ): Traco | undefined {
   if (carga.traco_id) {
@@ -182,7 +185,10 @@ export function resolverTracoReferenciaCarga(
  * Formato desejado: "F10B01S12 CP II F 40 (10 MPa)"
  */
 export function obterDescricaoCompletaCarga(
-  carga: { traco_id?: string | null traco_nome?: string | null },
+  carga: {
+    traco_id?: string | null
+    traco_nome?: string | null
+  },
   catalogoTracos: Traco[],
 ): string {
   const traco = resolverTracoReferenciaCarga(carga, catalogoTracos)
@@ -331,7 +337,12 @@ export default function LancamentoCargas() {
         setCidades(cid)
         setMateriais(mats)
 
-        if (tr.length > 0) {
+        const trPadrao = tr.filter((t) =>
+          /^F\d{1,2}B01S12/i.test(t.nome?.trim() || ""),
+        )
+        if (trPadrao.length > 0) {
+          setTracoSelecionadoId(trPadrao[0].id)
+        } else if (tr.length > 0) {
           setTracoSelecionadoId(tr[0].id)
           // Ao iniciar carga nova, zera os insumos para digitação manual ou restaura do traço
           if (isBalanceiro && !editarCargaId) {
@@ -1281,15 +1292,19 @@ export default function LancamentoCargas() {
                     <SelectValue placeholder="Selecione o traço" />
                   </SelectTrigger>
                   <SelectContent>
-                    {tracos.map((t) => (
-                      <SelectItem
-                        key={t.id}
-                        value={t.id}
-                        className="text-xs sm:text-sm py-2.5"
-                      >
-                        {formatarDescricaoCompletaTraco(t)}
-                      </SelectItem>
-                    ))}
+                    {tracos
+                      .filter((t) =>
+                        /^F\d{1,2}B01S12/i.test(t.nome?.trim() || ""),
+                      )
+                      .map((t) => (
+                        <SelectItem
+                          key={t.id}
+                          value={t.id}
+                          className="text-xs sm:text-sm py-2.5"
+                        >
+                          {formatarDescricaoCompletaTraco(t)}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
