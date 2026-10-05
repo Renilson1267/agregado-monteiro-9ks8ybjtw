@@ -1974,6 +1974,16 @@ export const ConcreteiraService = {
     return data || []
   },
 
+  async getOrdemServicoPorId(id: string): Promise<OrdemServico | null> {
+    const { data, error } = await (supabase as any)
+      .from("ordens_servico")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle()
+    if (error) throw error
+    return data || null
+  },
+
   async getProximoNumeroOS(empresaId: string): Promise<number> {
     const { data, error } = await (supabase as any).rpc("proximo_numero_os", {
       p_empresa_id: empresaId,

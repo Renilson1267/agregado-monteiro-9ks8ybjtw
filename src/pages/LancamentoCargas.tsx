@@ -2475,7 +2475,7 @@ export default function LancamentoCargas() {
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={salvando}
-              onClick={executarCriarCarga}
+              onClick={() => executarCriarCarga()}
               className="w-full sm:w-auto min-h-[44px] h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs sm:text-sm rounded-xl"
             >
               {salvando ? "Gravando Carga..." : "Sim, Gravar Lançamento"}
@@ -3155,7 +3155,10 @@ export default function LancamentoCargas() {
                 id="recibo-impressao-modal-lancamentos"
                 className="bg-white text-slate-900 p-4 rounded-xl border border-border shadow-xs"
               >
-                <ReciboImpressao os={osParaReimpressao} />
+                <ReciboImpressao
+                  ordem={osParaReimpressao}
+                  empresa={empresaAtiva || null}
+                />
               </div>
             </div>
           )}
