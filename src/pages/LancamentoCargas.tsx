@@ -745,6 +745,7 @@ export default function LancamentoCargas() {
   const tracoAtual = tracos.find((t) => t.id === tracoSelecionadoId)
 
   // Lista dos botões de atalho rápido de traço: F10 a F45
+  // (Sequência de atalhos rápidos de volume: 3, 4, 5, 6, 7, 8, 9, 10 m³ no template)
   const ATALHOS_TRACO = [
     { label: "F10", fck: 10 },
     { label: "F15", fck: 15 },
