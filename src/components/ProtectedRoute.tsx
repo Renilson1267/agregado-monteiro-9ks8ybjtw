@@ -32,9 +32,8 @@ export function ProtectedRoute({
 
   // Se a rota for restrita a Administrador e o usuário logado for Balanceiro
   if (permitirApenasAdmin && isBalanceiro) {
-    // Redireciona para /lancamentos (expedição)
-    return <Navigate to="/lancamentos" replace />
+    // Redireciona para a rota raiz (que para balanceiro já cai no dashboard enxuto /dashboard)
+    return <Navigate to="/" replace />
   }
-
   return <Outlet />
 }

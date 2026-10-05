@@ -83,7 +83,7 @@ import {
 
 export default function Relatorios() {
   const { empresaAtiva } = useEmpresa()
-  const { isAdministrador } = useUsuario()
+  const { isAdministrador, isBalanceiro } = useUsuario()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const tabParam = searchParams.get("tab")
@@ -666,6 +666,28 @@ export default function Relatorios() {
       : "Hoje"
     return `${ini} até ${fim}`
   })()
+
+  if (isBalanceiro) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4 text-center max-w-md mx-auto space-y-4">
+        <div className="p-3 rounded-full bg-destructive/10 text-destructive border border-destructive/20">
+          <FileSpreadsheet className="w-8 h-8" />
+        </div>
+        <div className="space-y-1.5">
+          <h2 className="text-lg font-bold text-foreground">
+            Acesso restrito ao Administrador
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            O perfil Balanceiro não possui permissão para visualizar relatórios
+            de produção, dados consolidados ou comparativos gerenciais.
+          </p>
+        </div>
+        <Button asChild size="sm" className="gap-2">
+          <Link to="/dashboard">Ir para meu Dashboard</Link>
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

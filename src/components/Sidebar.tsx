@@ -156,6 +156,7 @@ export function Sidebar({
           label: "Relatórios de Produção",
           path: "/relatorios",
           group: "operacao",
+          adminOnly: true,
         },
       ],
     },

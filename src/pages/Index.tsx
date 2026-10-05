@@ -2242,17 +2242,19 @@ export default function Index() {
               {labelPeriodo})
             </CardDescription>
           </div>
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="no-print gap-1 text-xs"
-          >
-            <Link to="/relatorios">
-              Ver Relatório Detalhado
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </Link>
-          </Button>
+          {!isBalanceiro && (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="no-print gap-1 text-xs"
+            >
+              <Link to="/relatorios">
+                Ver Relatório Detalhado
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -2407,7 +2409,8 @@ export default function Index() {
           {cargasFiltradas.length > 15 && (
             <p className="text-xs text-muted-foreground mt-3 text-center">
               Mostrando as 15 primeiras de {cargasFiltradas.length} cargas do
-              período. Acesse Relatórios para exportação completa.
+              período.{" "}
+              {!isBalanceiro && "Acesse Relatórios para exportação completa."}
             </p>
           )}
         </CardContent>
