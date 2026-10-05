@@ -7,7 +7,7 @@
   "scripts": {
     "gerar:seed": "node scripts/gerar-seed-lancamentos.js",
     "generate-icons": "node scripts/generate-icons.js",
-    "test:pdf": "node scripts/test-pdf.cjs",
+    "test:pdf": "node scripts/dump-pdf.cjs",
     "build:seed": "node scripts/gerar-seed-lancamentos.js",
     "start": "vite dev",
     "dev": "vite",

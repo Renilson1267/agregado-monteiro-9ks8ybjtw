@@ -4,13 +4,8 @@ const zlib = require("zlib")
 const buf = fs.readFileSync(
   "src/assets/agregadosn-monteiro-google-planilhas-2157c.pdf",
 )
-console.log("PDF size:", buf.length)
-
-// Search for FlateDecode streams or plain text
 const str = buf.toString("latin1")
-console.log("PDF matches stream:", (str.match(/stream/g) || []).length)
 
-// Let's extract uncompressed or compressed streams
 let pos = 0
 let streamCount = 0
 let textChunks = []
@@ -31,7 +26,6 @@ while (true) {
   try {
     const decompressed = zlib.inflateSync(raw)
     const decStr = decompressed.toString("latin1")
-    // look for text operations (BT ... ET or TJ / Tj)
     if (
       decStr.includes("BT") ||
       decStr.includes("Tj") ||
@@ -40,7 +34,6 @@ while (true) {
       textChunks.push(decStr)
     }
   } catch (e) {
-    // maybe not flate or raw
     const rawStr = raw.toString("latin1")
     if (rawStr.includes("BT") || rawStr.includes("Tj")) {
       textChunks.push(rawStr)
