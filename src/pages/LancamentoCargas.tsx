@@ -533,7 +533,7 @@ export default function LancamentoCargas() {
 
   // Validação mínima solicitada:
   // - Data
-  // - Volume m³ > 0
+  // - Volume m³ entre 3,0 e 10,0
   // - Insumos (cimento e agregados > 0 a menos que seja carga cancelada/zerada)
   // O traço NÃO é obrigatório (pode salvar manual/sem vínculo)
   // Motorista, placa e cidade não são mais digitados
@@ -553,11 +553,12 @@ export default function LancamentoCargas() {
       })
     }
 
-    if (!volume || Number(volume) <= 0) {
+    const volNum = Number(volume)
+    if (!volume || isNaN(volNum) || volNum < 3.0 || volNum > 10.0) {
       faltantes.push({
         campo: "volume",
         rotulo: "Volume (m³)",
-        mensagem: "Volume deve ser maior que 0 m³",
+        mensagem: "Volume deve ser entre 3,0 e 10,0 m³",
       })
     }
 
@@ -976,7 +977,8 @@ export default function LancamentoCargas() {
                   <Label
                     htmlFor="volume"
                     className={`text-sm sm:text-base font-bold flex items-center gap-2 ${
-                      tentouGravar && (!volume || Number(volume) <= 0)
+                      tentouGravar &&
+                      (!volume || Number(volume) < 3.0 || Number(volume) > 10.0)
                         ? "text-destructive font-bold"
                         : "text-foreground"
                     }`}
@@ -984,12 +986,15 @@ export default function LancamentoCargas() {
                     <Layers className="w-4 h-4 text-primary" />
                     <span>2. Volume da Carga (m³) *</span>
                   </Label>
-                  {tentouGravar && (!volume || Number(volume) <= 0) && (
-                    <span className="text-xs text-destructive flex items-center gap-1 font-medium">
-                      <AlertCircle className="w-3.5 h-3.5" /> Informe volume
-                      maior que 0
-                    </span>
-                  )}
+                  {tentouGravar &&
+                    (!volume ||
+                      Number(volume) < 3.0 ||
+                      Number(volume) > 10.0) && (
+                      <span className="text-xs text-destructive flex items-center gap-1 font-medium">
+                        <AlertCircle className="w-3.5 h-3.5" /> Informe volume
+                        entre 3,0 e 10,0 m³
+                      </span>
+                    )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -998,9 +1003,9 @@ export default function LancamentoCargas() {
                       id="volume"
                       type="number"
                       inputMode="decimal"
-                      step="0.5"
-                      min="0.5"
-                      max="20"
+                      step="0.1"
+                      min="3"
+                      max="10"
                       value={volume || ""}
                       onChange={(e) => {
                         const val =
@@ -1010,7 +1015,10 @@ export default function LancamentoCargas() {
                       required
                       placeholder="8.0"
                       className={`min-h-[52px] h-14 text-2xl sm:text-3xl font-black font-mono text-primary bg-background text-left pr-14 rounded-xl border-2 transition-colors ${
-                        tentouGravar && (!volume || Number(volume) <= 0)
+                        tentouGravar &&
+                        (!volume ||
+                          Number(volume) < 3.0 ||
+                          Number(volume) > 10.0)
                           ? "border-destructive ring-2 ring-destructive/40 bg-destructive/5"
                           : "border-primary/50 focus-visible:ring-primary"
                       }`}
@@ -1022,7 +1030,7 @@ export default function LancamentoCargas() {
 
                   {/* Botões rápidos de volume com 1 toque */}
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {[4, 6, 7, 8, 9, 10].map((vRapido) => (
+                    {[3, 4, 5, 6, 7, 8, 9, 10].map((vRapido) => (
                       <button
                         key={vRapido}
                         type="button"
