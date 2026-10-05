@@ -49,8 +49,10 @@ import {
   TrendingUp,
   Settings2,
   RefreshCw,
+  FileSpreadsheet,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { Link } from "react-router-dom"
 
 export default function Estoque() {
   const { empresaAtiva } = useEmpresa()
@@ -265,6 +267,21 @@ export default function Estoque() {
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
+
+          {!isBalanceiro && (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
+              title="Importar cargas e controle diário a partir de planilha CSV"
+            >
+              <Link to="/importar">
+                <FileSpreadsheet className="w-4 h-4" />
+                Importar CSV
+              </Link>
+            </Button>
+          )}
 
           {/* Dialog Registrar Entrada - apenas para cimento e aditivo */}
           <Dialog open={openEntrada} onOpenChange={setOpenEntrada}>

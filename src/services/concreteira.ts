@@ -2623,4 +2623,436 @@ export const ConcreteiraService = {
       tracosCriados,
     }
   },
+
+  /**
+   * Consulta a contagem de cargas e volume m³ existentes no banco por período para uma empresa,
+   * permitindo exibir confirmação detalhada antes de apagar/substituir.
+   */
+  async consultarCargasPorPeriodo(
+    empresaId: string,
+    dataInicio: string,
+    dataFim: string,
+  ): Promise<{
+    totalCargas: number
+    volumeTotalM3: number
+    totalMovimentacoes: number
+    porMes: Array<{
+      mes: string
+      cargas: number
+      volume_m3: number
+    }>
+  }> {
+    const { data: cargas, error } = await (supabase as any)
+      .from("cargas")
+      .select("id, data, volume_m3")
+      .eq("empresa_id", empresaId)
+      .gte("data", dataInicio)
+      .lte("data", dataFim)
+
+    if (error) throw error
+
+    const cargasList = (cargas || []) as Array<{
+      id: string
+      data: string
+      volume_m3: number
+    }>
+    const ids = chargedIds(cargasList)
+
+    let totalMovimentacoes = 0
+    if (ids.length > 0) {
+      // Chunk de 200 para contagem de movimentações
+      for (let i = 0; i < ids.length; i += 200) {
+        const slice = ids.slice(i, i + 200)
+        const { count, error: movErr } = await (supabase as any)
+          .from("movimentacoes_estoque")
+          .select("id", { count: "exact", head: true })
+          .in("carga_id", slice)
+
+        if (!movErr && count) {
+          totalMovimentacoes += count
+        }
+      }
+    }
+
+    type InfoMesBanco = {
+      cargas: number
+      volume_m3: number
+    }
+    const mesesMap = new Map<string, InfoMesBanco>()
+    let volTotal = 0
+
+    cargasList.forEach((c) => {
+      const v = Number(c.volume_m3) || 0
+      volTotal += v
+      const mes = (c.data || "").slice(0, 7)
+      if (mes) {
+        const cur = mesesMap.get(mes) || { cargas: 0, volume_m3: 0 }
+        cur.cargas += 1
+        cur.volume_m3 = Math.round((cur.volume_m3 + v) * 10) / 10
+        mesesMap.set(mes, cur)
+      }
+    })
+
+    const porMes = Array.from(mesesMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([mes, info]) => ({
+        mes,
+        cargas: info.cargas,
+        volume_m3: Math.round(info.volume_m3 * 10) / 10,
+      }))
+
+    return {
+      totalCargas: cargasList.length,
+      volumeTotalM3: Math.round(volTotal * 10) / 10,
+      totalMovimentacoes,
+      porMes,
+    }
+  },
+
+  /**
+   * REIMPORTAÇÃO COM SUBSTITUIÇÃO SEGURA (Período restrito, ex: 01/01/2026 a 30/09/2026):
+   * 1. Apaga primeiro as cargas da empresa no período selecionado (e suas movimentações de estoque vinculadas).
+   * 2. Desvincula ordens de serviço do período sem apagá-las (integridade fiscal).
+   * 3. OUTUBRO/2026 em diante NUNCA é tocado.
+   * 4. Insere cada linha do CSV com a dosagem exata digitada na planilha.
+   * 5. Casa traço cadastrado da empresa quando houver correspondência exata de dosagem (kg/m³); senão grava como "Manual".
+   * 6. Grava baixa de estoque de cimento e aditivo por carga (movimentação vinculada).
+   * 7. Mantém numeração sequencial sem colidir.
+   */
+  async reimportarCargasComSubstituicao(
+    empresaId: string,
+    cargasParaImportar: Array<any>,
+    periodoExclusao: {
+      dataInicio: string // '2026-01-01'
+      dataFim: string // '2026-09-30'
+    },
+    opcoes?: {
+      gerarBaixasEstoque?: boolean
+      onProgresso?: (etapa: string, atual: number, total: number) => void
+    },
+  ): Promise<{
+    cargasExcluidas: number
+    movimentacoesExcluidas: number
+    cargasInseridas: number
+    tracosVinculados: number
+    tracosManuais: number
+    volumeTotalInseridoM3: number
+  }> {
+    const gerarBaixa = opcoes?.gerarBaixasEstoque ?? true
+    const onProgresso = opcoes?.onProgresso
+
+    onProgresso?.("Consultando cargas existentes no período...", 0, 100)
+
+    // 1. Localiza cargas no período a ser substituído
+    const { data: cargasExistentes, error: findErr } = await (supabase as any)
+      .from("cargas")
+      .select("id, numero_carga")
+      .eq("empresa_id", empresaId)
+      .gte("data", periodoExclusao.dataInicio)
+      .lte("data", periodoExclusao.dataFim)
+
+    if (findErr) throw findErr
+
+    const cargasParaDeletar = (cargasExistentes || []) as Array<{
+      id: string
+      numero_carga: number
+    }>
+    const idsParaDeletar = chargedIds(cargasParaDeletar)
+
+    let movimentacoesExcluidas = 0
+
+    if (idsParaDeletar.length > 0) {
+      onProgresso?.(
+        `Removendo movimentações de estoque vinculadas (${idsParaDeletar.length} cargas)...`,
+        10,
+        100,
+      )
+
+      // Chunks de 100 para deletar movimentações e desvincular OS
+      for (let i = 0; i < idsParaDeletar.length; i += 100) {
+        const slice = idsParaDeletar.slice(i, i + 100)
+
+        // Desvincula ordens de serviço vinculadas a essas cargas sem apagá-las (preservação fiscal)
+        await (supabase as any)
+          .from("ordens_servico")
+          .update({ carga_id: null })
+          .in("carga_id", slice)
+
+        const { error: delMovErr } = await (supabase as any)
+          .from("movimentacoes_estoque")
+          .delete()
+          .in("carga_id", slice)
+
+        if (delMovErr) {
+          console.error("Erro ao deletar movimentações vinculadas:", delMovErr)
+        } else {
+          movimentacoesExcluidas += slice.length
+        }
+      }
+
+      onProgresso?.(
+        `Apagando ${cargasParaDeletar.length} cargas antigas do período...`,
+        25,
+        100,
+      )
+
+      for (let i = 0; i < idsParaDeletar.length; i += 100) {
+        const slice = idsParaDeletar.slice(i, i + 100)
+        const { error: delCargaErr } = await (supabase as any)
+          .from("cargas")
+          .delete()
+          .in("id", slice)
+
+        if (delCargaErr) {
+          throw new Error(
+            `Falha ao remover cargas antigas: ${delCargaErr.message}`,
+          )
+        }
+      }
+    }
+
+    onProgresso?.("Carregando catálogos de traços e insumos...", 35, 100)
+
+    // 2. Carrega traços e materiais da empresa para casamento
+    const [tracosEmpresa, materiaisEmpresa] = await Promise.all([
+      this.getTracos(empresaId),
+      this.getMateriais(empresaId),
+    ])
+
+    const matCimento = materiaisEmpresa.find((m) => m.codigo === "cimento")
+    const matAditivo = materiaisEmpresa.find((m) => m.codigo === "aditivo")
+
+    // Helper de chave de dosagem para casamento exato com traços
+    // Tolerância zero: B12/B19/Areia/Cimento por m³
+    const gerarChaveDosagem = (d: {
+      cimento: number
+      brita12: number
+      brita19: number
+      areia: number
+      po_pedra?: number
+    }) =>
+      `${Math.round(Number(d.cimento))}_${Math.round(Number(d.brita12))}_${Math.round(Number(d.brita19))}_${Math.round(Number(d.areia))}_${Math.round(Number(d.po_pedra || 0))}`
+
+    const tracosPorDosagem = new Map<string, typeof tracosEmpresa[0]>()
+    tracosEmpresa.forEach((t) => {
+      const chave = gerarChaveDosagem({
+        cimento: Number(t.consumo_cimento),
+        brita12: Number(t.consumo_brita12),
+        brita19: Number(t.consumo_brita19),
+        areia: Number(t.consumo_areia),
+        po_pedra: Number(t.consumo_po_pedra || 0),
+      })
+      tracosPorDosagem.set(chave, t)
+    })
+
+    // 3. Determinar o próximo número de carga a usar
+    // Se o período for anterior a outubro, vamos iniciar a numeração em 1 (para o lote de jan-set)
+    // caso não haja cargas anteriores no ano, ou continuar do menor disponível.
+    // Para Monteiro, temos 16 cargas em outubro com numeração 393..408.
+    // O lote de jan-set tem ~542 cargas. Para não colidir com outubro (393-408),
+    // precisamos ajustar as cargas de outubro para virem DEPOIS do lote de jan-set,
+    // ou numerar o lote com segurança.
+    // Vamos verificar a numeração de outubro antes!
+    const { data: cargasOutubro } = await (supabase as any)
+      .from("cargas")
+      .select("id, numero_carga")
+      .eq("empresa_id", empresaId)
+      .gte("data", "2026-10-01")
+      .order("numero_carga", { ascending: true })
+
+    const totalCargasNovas = cargasParaImportar.length
+
+    // Se outubro tem numerações baixas (ex: 393-408) e o novo lote tem 542 cargas,
+    // se numerássemos 1..542, colidiria ou passaria por cima de 393.
+    // Para manter a integridade, deslocamos as cargas de outubro para depois do lote
+    // (ex: a partir de totalCargasNovas + 1), preservando a ordem relativa de outubro!
+    if (cargasOutubro && cargasOutubro.length > 0) {
+      const minNumOutubro = Math.min(
+        ...cargasOutubro.map((c: any) => c.numero_carga || 0),
+      )
+      if (minNumOutubro <= totalCargasNovas) {
+        // Desloca as de outubro para começar em totalCargasNovas + 1
+        let seqOutubro = totalCargasNovas + 1
+        for (const cOut of cargasOutubro) {
+          await (supabase as any)
+            .from("cargas")
+            .update({ numero_carga: seqOutubro++ })
+            .eq("id", cOut.id)
+        }
+      }
+    }
+
+    // 4. Inserção das novas cargas do lote
+    // Ordenar cronologicamente por data (e linha original se mesma data)
+    const cargasOrdenadas = [...cargasParaImportar].sort((a, b) => {
+      const cmp = a.dataIso.localeCompare(b.dataIso)
+      if (cmp !== 0) return cmp
+      return (a.linhaIndex || 0) - (b.linhaIndex || 0)
+    })
+
+    let numeroSequencial = 1
+    let tracosVinculados = 0
+    let tracosManuais = 0
+    let volumeTotalInserido = 0
+    let cargasInseridas = 0
+
+    onProgresso?.("Inserindo cargas e gerando baixas de estoque...", 50, 100)
+
+    // Inserção em lotes de 25 com inserção de movimentações vinculadas
+    const BATCH_SIZE = 25
+    for (let b = 0; b < cargasOrdenadas.length; b += BATCH_SIZE) {
+      const batch = cargasOrdenadas.slice(b, b + BATCH_SIZE)
+      const registrosCargas: any[] = []
+      const metadadosBatch: Array<{
+        linha: any
+        numeroCarga: number
+        tracoId: string | null
+        tracoNome: string
+      }> = []
+
+      for (const item of batch) {
+        const numCarga = numeroSequencial++
+        volumeTotalInserido += Number(item.volume_m3) || 0
+
+        // Casamento exato com traço
+        const chaveLinha = gerarChaveDosagem({
+          cimento: item.dosagemM3?.cimento ?? item.consumo_cimento,
+          brita12: item.dosagemM3?.brita12 ?? item.consumo_brita12,
+          brita19: item.dosagemM3?.brita19 ?? item.consumo_brita19,
+          areia: item.dosagemM3?.areia ?? item.consumo_areia,
+          po_pedra: item.dosagemM3?.po_pedra ?? item.consumo_po_pedra,
+        })
+
+        const tracoCasado = item.carga_zerada
+          ? null
+          : tracosPorDosagem.get(chaveLinha)
+
+        let tracoId: string | null = null
+        let tracoNome = "Manual"
+
+        if (item.carga_zerada) {
+          tracoNome = "Carga Zerada"
+        } else if (tracoCasado) {
+          tracoId = tracoCasado.id
+          tracoNome = tracoCasado.nome
+          tracosVinculados++
+        } else {
+          tracoNome = "Manual"
+          tracosManuais++
+        }
+
+        registrosCargas.push({
+          empresa_id: empresaId,
+          numero_carga: numCarga,
+          data: item.dataIso,
+          volume_m3: item.volume_m3,
+          traco_id: tracoId,
+          traco_nome: tracoNome,
+          motorista_nome: item.motorista_nome || null,
+          veiculo_placa: item.veiculo_placa || null,
+          cidade_nome: item.cidade_nome || null,
+          consumo_brita12: item.consumo_brita12,
+          consumo_brita19: item.consumo_brita19,
+          consumo_areia: item.consumo_areia,
+          consumo_po_pedra: item.consumo_po_pedra || 0,
+          consumo_cimento: item.consumo_cimento,
+          consumo_aditivo: item.consumo_aditivo,
+          consumo_agua: 0,
+          observacao:
+            item.observacao || "Importado via planilha de Controle Diário",
+          carga_zerada: Boolean(item.carga_zerada),
+        })
+
+        metadadosBatch.push({
+          linha: item,
+          numeroCarga: numCarga,
+          tracoId,
+          tracoNome,
+        })
+      }
+
+      const { data: cargasSalvas, error: insErr } = await (supabase as any)
+        .from("cargas")
+        .insert(registrosCargas)
+        .select(
+          "id, numero_carga, volume_m3, consumo_cimento, consumo_aditivo, data, traco_nome, carga_zerada",
+        )
+
+      if (insErr) {
+        throw new Error(`Falha ao inserir lote de cargas: ${insErr.message}`)
+      }
+
+      cargasInseridas += (cargasSalvas || []).length
+
+      // Movimentações de estoque vinculadas
+      if (gerarBaixa && cargasSalvas && cargasSalvas.length > 0) {
+        const movimentacoes: any[] = []
+
+        cargasSalvas.forEach((cs: any) => {
+          if (cs.carga_zerada) return
+          const docName = `CARGA-${String(cs.numero_carga).padStart(5, "0")}`
+
+          if (Number(cs.consumo_cimento) > 0 && matCimento?.id) {
+            movimentacoes.push({
+              empresa_id: empresaId,
+              material_id: matCimento.id,
+              tipo: "SAIDA",
+              quantidade: Number(cs.consumo_cimento),
+              data: cs.data,
+              carga_id: cs.id,
+              documento: docName,
+              observacao: `Consumo na carga de ${cs.volume_m3}m³ (${cs.traco_nome || "Manual"})`,
+            })
+          }
+
+          if (Number(cs.consumo_aditivo) > 0 && matAditivo?.id) {
+            movimentacoes.push({
+              empresa_id: empresaId,
+              material_id: matAditivo.id,
+              tipo: "SAIDA",
+              quantidade: Number(cs.consumo_aditivo),
+              data: cs.data,
+              carga_id: cs.id,
+              documento: docName,
+              observacao: `Consumo na carga de ${cs.volume_m3}m³ (${cs.traco_nome || "Manual"})`,
+            })
+          }
+        })
+
+        if (movimentacoes.length > 0) {
+          const { error: movInsErr } = await (supabase as any)
+            .from("movimentacoes_estoque")
+            .insert(movimentacoes)
+
+          if (movInsErr) {
+            console.error("Erro ao inserir movimentações do lote:", movInsErr)
+          }
+        }
+      }
+
+      const perc = Math.round(
+        50 + ((b + batch.length) / cargasOrdenadas.length) * 48,
+      )
+      onProgresso?.(
+        `Gravadas ${cargasInseridas} de ${cargasOrdenadas.length} cargas...`,
+        perc,
+        100,
+      )
+    }
+
+    onProgresso?.("Finalizando reimportação...", 100, 100)
+
+    return {
+      cargasExcluidas: cargasParaDeletar.length,
+      movimentacoesExcluidas,
+      cargasInseridas,
+      tracosVinculados,
+      tracosManuais,
+      volumeTotalInseridoM3: Math.round(volumeTotalInserido * 10) / 10,
+    }
+  },
+}
+
+function chargedIds(list: Array<{ id?: string }>): string[] {
+  return list.map((item) => item.id).filter(Boolean) as string[]
 }

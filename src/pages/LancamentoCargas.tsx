@@ -869,18 +869,20 @@ export default function LancamentoCargas() {
         </div>
 
         {!isBalanceiro && (
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="gap-2 text-xs font-semibold shadow-xs border-border/60 hover:bg-muted/40 self-stretch sm:self-auto h-9"
-            title="Ir para tela de cadastros e importação de planilha de controle diário"
-          >
-            <Link to="/cadastros">
-              <FileSpreadsheet className="w-4 h-4 text-primary" />
-              Importar Planilha CSV
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2 self-stretch sm:self-auto">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="gap-2 text-xs font-semibold shadow-xs border-primary/50 text-primary hover:bg-primary/10 h-9"
+              title="Ir para tela de importação e reimportação de cargas a partir de planilha CSV"
+            >
+              <Link to="/importar">
+                <FileSpreadsheet className="w-4 h-4" />
+                Importar Planilha (CSV)
+              </Link>
+            </Button>
+          </div>
         )}
       </div>
 

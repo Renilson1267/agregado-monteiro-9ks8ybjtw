@@ -19,6 +19,7 @@ import Relatorios from "./pages/Relatorios"
 import ControleExames from "./pages/ControleExames"
 import FolhaPagamento from "./pages/FolhaPagamento"
 import PainelGerencial from "./pages/PainelGerencial"
+import ImportarCargasPage from "./pages/ImportarCargas"
 import NotFound from "./pages/NotFound"
 
 function RotaRaizRedirect() {
@@ -55,6 +56,10 @@ const App = () => (
                     <Route
                       element={<ProtectedRoute permitirApenasAdmin={true} />}
                     >
+                      <Route
+                        path="/importar"
+                        element={<ImportarCargasPage />}
+                      />
                       <Route path="/relatorios" element={<Relatorios />} />
                       <Route path="/painel" element={<PainelGerencial />} />
                       <Route path="/tracos" element={<Tracos />} />

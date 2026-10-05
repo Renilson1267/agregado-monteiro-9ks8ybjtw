@@ -177,6 +177,13 @@ export function Sidebar({
           group: "estoque_tracos",
           adminOnly: true,
         },
+        {
+          icon: FileSpreadsheet,
+          label: "Importar Cargas (CSV)",
+          path: "/importar",
+          group: "estoque_tracos",
+          adminOnly: true,
+        },
       ],
     },
     {

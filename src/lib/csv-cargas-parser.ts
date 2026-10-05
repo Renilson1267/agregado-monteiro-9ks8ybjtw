@@ -16,19 +16,27 @@ export interface LinhaCargaParsed {
   dataIso: string // 'YYYY-MM-DD'
   dataOriginal: string // 'DD/MM/AAAA'
   volume_m3: number
+  // Consumos totais calculados para a carga (multiplicados por volume se dosagem vier por m³)
   consumo_brita12: number
   consumo_brita19: number
   consumo_areia: number
   consumo_po_pedra: number
   consumo_cimento: number
   consumo_aditivo: number
+  // Valores unitários digitados exatamente na linha da planilha
+  unitario_brita12: number
+  unitario_brita19: number
+  unitario_areia: number
+  unitario_po_pedra: number
+  unitario_cimento: number
+  unitario_aditivo: number
   motorista_nome: string | null
   veiculo_placa: string | null
   cidade_nome: string | null
   observacao: string | null
   carga_zerada: boolean
 
-  // Dosagem unitária por m³ (calculada se não zerada)
+  // Dosagem unitária por m³
   dosagemM3: {
     brita12: number
     brita19: number
@@ -39,6 +47,16 @@ export interface LinhaCargaParsed {
   }
   tracoChave: string // Chave única para agrupar traços
   tracoSugeridoNome: string
+}
+
+export interface ResumoMesPlanilha {
+  chaveMes: string // '2026-01'
+  nomeMes: string // 'Janeiro/2026'
+  cargasCount: number
+  volumeTotalM3: number
+  metaM3?: number
+  diferencaM3?: number
+  atingiuMeta?: boolean
 }
 
 export interface TracoResumoDetectado {
@@ -67,6 +85,7 @@ export interface PreviewImportacaoCSV {
   motoristasEncontrados: string[]
   veiculosEncontrados: string[]
   cidadesEncontradas: string[]
+  resumoPorMes: ResumoMesPlanilha[]
   cargas: LinhaCargaParsed[]
 }
 
@@ -220,6 +239,7 @@ export function parseControleDiarioCSV(
       motoristasEncontrados: [],
       veiculosEncontrados: [],
       cidadesEncontradas: [],
+      resumoPorMes: [],
       cargas: [],
     }
   }
@@ -324,7 +344,10 @@ export function parseControleDiarioCSV(
     const colunas = splitCsvLine(linhaTexto)
 
     // Se toda a linha for vazia ou separadores vazios
-    if (colunas.every((c) => !c)) continue
+    if (colunas.every((c) => !c)) {
+      totalLinhasIgnoradas++
+      continue
+    }
 
     const dataOriginal = getCol(colunas, "data", 0)
     const dataIso = parseDataBrParaIso(dataOriginal)
@@ -335,10 +358,11 @@ export function parseControleDiarioCSV(
       continue
     }
 
-    const volume_m3 = parseNumeroBr(getCol(colunas, "volume", 1))
+    const volumeCru = getCol(colunas, "volume", 1)
+    const volume_m3 = parseNumeroBr(volumeCru)
     if (volume_m3 <= 0) {
       avisos.push(
-        `Linha ${i + 1}: Volume inválido ou zero (${volume_m3}m³). Linha ignorada.`,
+        `Linha ${i + 1} (${dataOriginal}): Sem volume de concreto ("${volumeCru}"). Linha ignorada.`,
       )
       totalLinhasIgnoradas++
       continue
@@ -451,6 +475,12 @@ export function parseControleDiarioCSV(
       consumo_po_pedra: consumoCargaPo,
       consumo_cimento: consumoCargaCimento,
       consumo_aditivo: consumoCargaAditivo,
+      unitario_brita12: consumo_brita12,
+      unitario_brita19: consumo_brita19,
+      unitario_areia: consumo_areia,
+      unitario_po_pedra: consumo_po_pedra,
+      unitario_cimento: consumo_cimento,
+      unitario_aditivo: consumo_aditivo,
       motorista_nome,
       veiculo_placa,
       cidade_nome,
@@ -467,12 +497,53 @@ export function parseControleDiarioCSV(
   const motoristasSet = new Set<string>()
   const veiculosSet = new Set<string>()
   const cidadesSet = new Set<string>()
+  type InfoMes = {
+    count: number
+    volume: number
+  }
+  const mesesMap = new Map<string, InfoMes>()
+
+  // Metas oficiais fornecidas pelo usuário para Monteiro jan-set/2026
+  const metasMonteiro2026: Record<string, number> = {
+    "2026-01": 369.0,
+    "2026-02": 316.0,
+    "2026-03": 420.0,
+    "2026-04": 343.0,
+    "2026-05": 413.0,
+    "2026-06": 539.0,
+    "2026-07": 765.0,
+    "2026-08": 635.0,
+    "2026-09": 508.5,
+  }
+
+  const nomesMesesPt: Record<string, string> = {
+    "01": "Janeiro",
+    "02": "Fevereiro",
+    "03": "Março",
+    "04": "Abril",
+    "05": "Maio",
+    "06": "Junho",
+    "07": "Julho",
+    "08": "Agosto",
+    "09": "Setembro",
+    "10": "Outubro",
+    "11": "Novembro",
+    "12": "Dezembro",
+  }
 
   let volumeTotal = 0
   let totalZeradas = 0
 
   linhasValidas.forEach((l) => {
     volumeTotal += l.volume_m3
+
+    // Agrupamento por mês
+    const mesChave = l.dataIso.slice(0, 7) // '2026-01'
+    const curMes = mesesMap.get(mesChave) || { count: 0, volume: 0 }
+    curMes.count += 1
+    curMes.volume += l.volume_m3
+    mesesMap.set(mesChave, curMes)
+
     if (l.carga_zerada) {
       totalZeradas++
       return
@@ -501,6 +572,32 @@ export function parseControleDiarioCSV(
     }
   })
 
+  // Monta lista de resumo por mês ordenada
+  const chavesMesesOrdenadas = Array.from(mesesMap.keys()).sort()
+  const resumoPorMes: ResumoMesPlanilha[] = chavesMesesOrdenadas.map(
+    (chave) => {
+      const dados = mesesMap.get(chave)!
+      const [ano, mes] = chave.split("-")
+      const nomeMes = `${nomesMesesPt[mes] || mes}/${ano}`
+      const vol = Math.round(dados.volume * 10) / 10
+      const meta = metasMonteiro2026[chave]
+      const dif =
+        meta !== undefined ? Math.round((vol - meta) * 10) / 10 : undefined
+      const atingiu =
+        meta !== undefined ? Math.abs(vol - meta) < 0.05 : undefined
+
+      return {
+        chaveMes: chave,
+        nomeMes,
+        cargasCount: dados.count,
+        volumeTotalM3: vol,
+        metaM3: meta,
+        diferencaM3: dif,
+        atingiuMeta: atingiu,
+      }
+    },
+  )
+
   // Datas ordenadas para período
   const datasOrdenadas = [...linhasValidas.map((l) => l.dataIso)].sort()
   const periodoInicio = datasOrdenadas.length > 0 ? datasOrdenadas[0] : null
@@ -522,6 +619,7 @@ export function parseControleDiarioCSV(
     motoristasEncontrados: Array.from(motoristasSet).sort(),
     veiculosEncontrados: Array.from(veiculosSet).sort(),
     cidadesEncontradas: Array.from(cidadesSet).sort(),
+    resumoPorMes,
     cargas: linhasValidas,
   }
 }
