@@ -74,6 +74,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
+function extrairNomeTracoReferencia(nome?: string | null): string {
+  if (!nome) return "—"
+  let limpo = nome.replace(/\s*\(Manual\)/gi, "").trim()
+  if (limpo.includes("(") && /B12|B19|kg Cim/i.test(limpo)) {
+    limpo = limpo.split("(")[0].trim()
+  }
+  return limpo || "—"
+}
+
 export default function LancamentoCargas() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -160,14 +169,39 @@ export default function LancamentoCargas() {
     async function init() {
       if (!empresaAtiva) return
       try {
-        const [tr, mot, veic, cid, mats] = await Promise.all([
+        const [tr, mot, veic, cid, mats, todosTracos] = await Promise.all([
           ConcreteiraService.getTracos(empresaAtiva.id),
           ConcreteiraService.getMotoristas(empresaAtiva.id),
           ConcreteiraService.getVeiculos(empresaAtiva.id),
           ConcreteiraService.getCidades(empresaAtiva.id),
           ConcreteiraService.getMateriais(empresaAtiva.id),
+          ConcreteiraService.getTracos(),
         ])
-        setTracos(tr)
+
+        // Garante inclusão dos traços F15B01S12 CP II F 40 e F45B01S12 CP II F 40 sem duplicar
+        const listaTracos = [...tr]
+        const idsAlvo = [
+          "f3ca5a9e-21fe-48d1-8279-accc1fe49b2a",
+          "6ba33daf-259a-4642-9302-822d41664d4f",
+        ]
+        todosTracos.forEach((t) => {
+          if (
+            idsAlvo.includes(t.id) ||
+            /F15B01S12|F45B01S12/i.test(t.nome || "")
+          ) {
+            const jaExiste = listaTracos.some(
+              (existente) =>
+                existente.id === t.id ||
+                extrairNomeTracoReferencia(existente.nome).toLowerCase() ===
+                  extrairNomeTracoReferencia(t.nome).toLowerCase(),
+            )
+            if (!jaExiste) {
+              listaTracos.push(t)
+            }
+          }
+        })
+
+        setTracos(listaTracos)
         setMotoristas(mot)
         setVeiculos(veic)
         setCidades(cid)
@@ -463,17 +497,31 @@ export default function LancamentoCargas() {
     // Filtro de Traço (ao escolher um traço de referência, a listagem apresenta SOMENTE as cargas daquele traço)
     if (filtroTracoId && filtroTracoId !== "ALL") {
       const tracoRef = tracos.find((t) => t.id === filtroTracoId)
-      const nomeRef = tracoRef?.nome?.toLowerCase().trim() || ""
+      const nomeRefRaw = (tracoRef?.nome || "").toLowerCase().trim()
+      const nomeRefLimpo = extrairNomeTracoReferencia(tracoRef?.nome)
+        .toLowerCase()
+        .trim()
       const tracoIdCarga = c.traco_id
-      const tracoNomeCarga = (c.traco_nome || "").toLowerCase().trim()
+      const tracoNomeCargaRaw = (c.traco_nome || "").toLowerCase().trim()
+      const tracoNomeCargaLimpo = extrairNomeTracoReferencia(c.traco_nome)
+        .toLowerCase()
+        .trim()
+
       const bateId = tracoIdCarga === filtroTracoId
-      const bateNome =
-        nomeRef.length > 0 &&
-        (tracoNomeCarga === nomeRef ||
-          tracoNomeCarga.startsWith(`${nomeRef} `) ||
-          tracoNomeCarga.startsWith(`${nomeRef}(`) ||
-          tracoNomeCarga.includes(nomeRef))
-      if (!bateId && !bateNome) return false
+      const bateNomeLimpo =
+        nomeRefLimpo !== "—" &&
+        tracoNomeCargaLimpo !== "—" &&
+        (tracoNomeCargaLimpo === nomeRefLimpo ||
+          tracoNomeCargaLimpo.startsWith(nomeRefLimpo) ||
+          nomeRefLimpo.startsWith(tracoNomeCargaLimpo))
+      const bateNomeRaw =
+        nomeRefRaw.length > 0 &&
+        (tracoNomeCargaRaw === nomeRefRaw ||
+          tracoNomeCargaRaw.startsWith(`${nomeRefRaw} `) ||
+          tracoNomeCargaRaw.startsWith(`${nomeRefRaw}(`) ||
+          tracoNomeCargaRaw.includes(nomeRefRaw))
+
+      if (!bateId && !bateNomeLimpo && !bateNomeRaw) return false
     }
     // Filtro de Dosagem (kg/m³)
     if (filtroDosagem && filtroDosagem !== "ALL") {
@@ -2933,7 +2981,7 @@ export default function LancamentoCargas() {
                 <tr>
                   <th className="py-3 px-3 w-16"># Carga</th>
                   <th className="py-3 px-3">Data</th>
-                  <th className="py-3 px-3">Traço / Dosagem</th>
+                  <th className="py-3 px-3">Traço</th>
                   <th className="py-3 px-3 text-right">Volume</th>
                   <th className="py-3 px-3 text-right">Cimento (kg)</th>
                   <th className="py-3 px-3 text-right">Aditivo (L)</th>
@@ -2996,16 +3044,11 @@ export default function LancamentoCargas() {
                           {carga.data.split("-").reverse().join("/")}
                         </td>
 
-                        {/* Traço e Dosagem */}
+                        {/* Traço */}
                         <td className="py-2.5 px-3">
-                          <div className="font-semibold text-foreground">
-                            {carga.traco_nome || "—"}
-                          </div>
-                          {dosagemCarga > 0 && (
-                            <div className="text-[10px] text-muted-foreground font-mono">
-                              Dosagem: {dosagemCarga} kg/m³
-                            </div>
-                          )}
+                          <span className="font-semibold text-foreground">
+                            {extrairNomeTracoReferencia(carga.traco_nome)}
+                          </span>
                         </td>
 
                         {/* Volume */}
