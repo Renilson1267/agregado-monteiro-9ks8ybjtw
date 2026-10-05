@@ -74,6 +74,7 @@ import { ReciboImpressao } from "@/components/ReciboImpressao"
 import { printElementInIsolatedIframe } from "@/lib/imprimir-recibo"
 import type { OrdemServico } from "@/types/concreteira"
 import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from "@/assets/logos"
+import { obterDescricaoCompletaCarga } from "@/pages/LancamentoCargas"
 
 type PeriodoTipo = "hoje" | "7dias" | "mes_atual" | "mes_anterior" | "anual" | "personalizado"
 
@@ -87,6 +88,7 @@ export default function Index() {
 
   const [materiais, setMateriais] = useState<Material[]>([])
   const [cargas, setCargas] = useState<Carga[]>([])
+  const [tracos, setTracos] = useState<any[]>([])
   const [metaProducao, setMetaProducao] = useState<MetaProducao | null>(null)
   const [resumoExames, setResumoExames] = useState<ResumoExamesEmpresa | null>(
     null,
@@ -105,16 +107,24 @@ export default function Index() {
     if (!empresaAtiva) return
     setLoading(true)
     try {
-      const [mats, crgs, meta, examesRes] = await Promise.all([
-        ConcreteiraService.getMateriais(empresaAtiva.id),
-        ConcreteiraService.getCargas({ empresaId: empresaAtiva.id }),
-        ConcreteiraService.getMetaProducao(empresaAtiva.id),
-        ExamesService.getResumoExames(empresaAtiva.id),
-      ])
+      const [mats, crgs, meta, examesRes, tracosRes, todosTracos] =
+        await Promise.all([
+          ConcreteiraService.getMateriais(empresaAtiva.id),
+          ConcreteiraService.getCargas({ empresaId: empresaAtiva.id }),
+          ConcreteiraService.getMetaProducao(empresaAtiva.id),
+          ExamesService.getResumoExames(empresaAtiva.id),
+          ConcreteiraService.getTracos(empresaAtiva.id),
+          ConcreteiraService.getTracos(),
+        ])
       setMateriais(mats)
       setCargas(crgs)
       setMetaProducao(meta)
       setResumoExames(examesRes)
+
+      const tracosMap = new Map<string, any>()
+      todosTracos.forEach((t) => tracosMap.set(t.id, t))
+      tracosRes.forEach((t) => tracosMap.set(t.id, t))
+      setTracos(Array.from(tracosMap.values()))
     } catch (e) {
       console.error("Erro ao carregar dados do dashboard:", e)
     } finally {
@@ -796,9 +806,9 @@ export default function Index() {
                         </td>
                         <td
                           className="py-2.5 px-3 max-w-[180px] truncate font-medium text-foreground"
-                          title={c.traco_nome || "—"}
+                          title={obterDescricaoCompletaCarga(c, tracos)}
                         >
-                          {c.traco_nome || "—"}
+                          {obterDescricaoCompletaCarga(c, tracos)}
                         </td>
                         <td className="py-2.5 px-3 text-muted-foreground">
                           {c.motorista_nome ? (
@@ -2331,9 +2341,9 @@ export default function Index() {
                       </td>
                       <td
                         className="py-2.5 px-3 max-w-[180px] truncate text-muted-foreground"
-                        title={c.traco_nome || "—"}
+                        title={obterDescricaoCompletaCarga(c, tracos)}
                       >
-                        {c.traco_nome || "—"}
+                        {obterDescricaoCompletaCarga(c, tracos)}
                       </td>
                       {!isBalanceiro && (
                         <>

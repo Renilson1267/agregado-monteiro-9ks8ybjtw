@@ -74,13 +74,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-function extrairNomeTracoReferencia(nome?: string | null): string {
+export function extrairNomeTracoReferencia(nome?: string | null): string {
   if (!nome) return "—"
   let limpo = nome.replace(/\s*\(Manual\)/gi, "").trim()
-  // Limpar sufixos manuais tipo "(Manual)" ou "(B12:480 / ...)" ou "(320kg Cim - ...)"
-  if (limpo.includes("(") && /B12|B19|kg|Areia|Apenas/i.test(limpo)) {
+  // Limpar sufixos manuais tipo "(Manual)", "(B12:480 / ...)", "(320kg Cim - ...)"
+  if (limpo.includes("(") && /B12|B19|kg|Areia|Apenas|Manual/i.test(limpo)) {
     limpo = limpo.split("(")[0].trim()
   }
+  // Remove eventuais espaços duplicados ou hífens no fim
+  limpo = limpo.replace(/[-–—\s]+$/, "").trim()
   return limpo || "—"
 }
 
@@ -88,7 +90,7 @@ function extrairNomeTracoReferencia(nome?: string | null): string {
  * Retorna a descrição completa formatada do traço conforme o cadastro do traço.
  * Exemplo do formato desejado: "F10B01S12 CP II F 40 (10 MPa)"
  */
-function formatarDescricaoCompletaTraco(traco: {
+export function formatarDescricaoCompletaTraco(traco: {
   nome: string
   fck_mpa?: number | null
 }): string {
@@ -114,7 +116,7 @@ function formatarDescricaoCompletaTraco(traco: {
  * 2º passo: para cargas antigas sem vínculo de ID, resolve pelo nome gravado na carga,
  *           limpando sufixos manuais tipo "(Manual)" ou "(B12:480 / ...)".
  */
-function resolverTracoReferenciaCarga(
+export function resolverTracoReferenciaCarga(
   carga: { traco_id?: string | null traco_nome?: string | null },
   catalogoTracos: Traco[],
 ): Traco | undefined {
@@ -138,7 +140,15 @@ function resolverTracoReferenciaCarga(
   })
   if (matchExato) return matchExato
 
-  // 2. Match por prefixo ou inclusão do código (ex: "F25B=01S12 CP II F 40")
+  // 2. Match por FCK se constar no texto (ex: "Traço FCK 15 MPa", "FCK 25", "F10B01...")
+  const matchFck = nomeLimpoLower.match(/(?:fck\s*|f-?|f)(\d{2})\b/i)
+  if (matchFck) {
+    const fckNum = Number(matchFck[1])
+    const matchPorFck = catalogoTracos.find((t) => Number(t.fck_mpa) === fckNum)
+    if (matchPorFck) return matchPorFck
+  }
+
+  // 3. Match por prefixo ou inclusão do código (ex: "F25B=01S12 CP II F 40")
   const matchPrefixo = catalogoTracos.find((t) => {
     const tNome = (t.nome || "").trim().toLowerCase()
     const tLimpo = extrairNomeTracoReferencia(t.nome).trim().toLowerCase()
@@ -153,8 +163,8 @@ function resolverTracoReferenciaCarga(
   })
   if (matchPrefixo) return matchPrefixo
 
-  // 3. Fallback especial para códigos tipo "Traço SJE 290kg" ou "Traço SJE 320kg":
-  // Se contiver consumo de cimento (ex: 290kg), tentar casar com traço de consumo aproximado/idêntico
+  // 4. Fallback especial para códigos tipo "Traço SJE 290kg" ou "Traço SJE 320kg":
+  // Se contiver consumo de cimento (ex: 290kg), casar com traço de consumo aproximado/idêntico
   const matchKg = nomeLimpoLower.match(/(\d{3})\s*kg/)
   if (matchKg) {
     const kg = Number(matchKg[1])
@@ -171,7 +181,7 @@ function resolverTracoReferenciaCarga(
  * Retorna a descrição completa do traço de referência da carga para exibição na tabela.
  * Formato desejado: "F10B01S12 CP II F 40 (10 MPa)"
  */
-function obterDescricaoCompletaCarga(
+export function obterDescricaoCompletaCarga(
   carga: { traco_id?: string | null traco_nome?: string | null },
   catalogoTracos: Traco[],
 ): string {
@@ -2982,11 +2992,90 @@ export default function LancamentoCargas() {
 
         {/* Bloco de Filtros: Data De/Até, Traço e Dosagem */}
         <Card className="border border-border/60 shadow-xs bg-card/60 backdrop-blur-xs">
-          <CardHeader className="p-3 sm:p-4 pb-2">
+          <CardHeader className="p-3 sm:p-4 pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
               <Filter className="w-3.5 h-3.5 text-primary" />
               Filtros de Pesquisa
             </CardTitle>
+
+            {/* Botões Rápidos de Período (Mês Atual, Mês Anterior, Anual) */}
+            {(() => {
+              const hoje = new Date()
+              const anoAtual = hoje.getFullYear()
+              const mesAtual = hoje.getMonth() + 1
+              const ultimoDiaAtual = new Date(anoAtual, mesAtual, 0).getDate()
+              const iniMesAtual = `${anoAtual}-${String(mesAtual).padStart(2, "0")}-01`
+              const fimMesAtual = `${anoAtual}-${String(mesAtual).padStart(2, "0")}-${String(ultimoDiaAtual).padStart(2, "0")}`
+
+              const dAnt = new Date(anoAtual, mesAtual - 2, 1)
+              const aAnt = dAnt.getFullYear()
+              const mAnt = dAnt.getMonth() + 1
+              const ultimoDiaAnt = new Date(aAnt, mAnt, 0).getDate()
+              const iniMesAnt = `${aAnt}-${String(mAnt).padStart(2, "0")}-01`
+              const fimMesAnt = `${aAnt}-${String(mAnt).padStart(2, "0")}-${String(ultimoDiaAnt).padStart(2, "0")}`
+
+              const iniAnual = `${anoAtual}-01-01`
+              const fimAnual = `${anoAtual}-12-31`
+
+              const isMesAtual =
+                filtroDataInicio === iniMesAtual &&
+                filtroDataFim === fimMesAtual
+              const isMesAnt =
+                filtroDataInicio === iniMesAnt && filtroDataFim === fimMesAnt
+              const isAnual =
+                filtroDataInicio === iniAnual && filtroDataFim === fimAnual
+
+              return (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-muted-foreground mr-1 hidden sm:inline-flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-primary" />
+                    Período:
+                  </span>
+                  <Button
+                    type="button"
+                    variant={isMesAtual ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setFiltroDataInicio(iniMesAtual)
+                      setFiltroDataFim(fimMesAtual)
+                    }}
+                    className={`h-7 text-[11px] font-semibold px-2.5 rounded-lg border-border/60 ${
+                      isMesAtual ? "" : "hover:bg-primary/10 hover:text-primary"
+                    }`}
+                  >
+                    MÊS ATUAL
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={isMesAnt ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setFiltroDataInicio(iniMesAnt)
+                      setFiltroDataFim(fimMesAnt)
+                    }}
+                    className={`h-7 text-[11px] font-semibold px-2.5 rounded-lg border-border/60 ${
+                      isMesAnt ? "" : "hover:bg-primary/10 hover:text-primary"
+                    }`}
+                  >
+                    MÊS ANTERIOR
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={isAnual ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setFiltroDataInicio(iniAnual)
+                      setFiltroDataFim(fimAnual)
+                    }}
+                    className={`h-7 text-[11px] font-semibold px-2.5 rounded-lg border-border/60 ${
+                      isAnual ? "" : "hover:bg-primary/10 hover:text-primary"
+                    }`}
+                  >
+                    ANUAL
+                  </Button>
+                </div>
+              )
+            })()}
           </CardHeader>
           <CardContent className="p-3 sm:p-4 pt-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Filtro Data Inicial */}
