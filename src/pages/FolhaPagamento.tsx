@@ -519,10 +519,11 @@ export function FolhaPagamento() {
     return linhas.filter((l) => l.tipo === "Terceiro")
   }, [linhas])
 
-  // Filtragem de funcionários na tela
-  const funcionariosFiltrados = useMemo(() => {
+  // LISTAS BASE:
+  // 1. linhasParaTotais: MANTÉM ocultos (oculto=true, ex: Renilson), aplicando apenas o filtro de busca textual
+  // 2. linhasParaExibicao: EXCLUI ocultos quando o toggle mostrarOcultos está desligado (comportamento visual atual)
+  const funcionariosParaTotais = useMemo(() => {
     return funcionariosLinhas.filter((l) => {
-      if (!mostrarOcultos && l.oculto) return false
       if (busca.trim()) {
         const termo = busca.toLowerCase()
         const nomeOk = l.nome?.toLowerCase().includes(termo)
@@ -532,12 +533,10 @@ export function FolhaPagamento() {
       }
       return true
     })
-  }, [funcionariosLinhas, mostrarOcultos, busca])
+  }, [funcionariosLinhas, busca])
 
-  // Filtragem de terceiros na tela
-  const terceirosFiltrados = useMemo(() => {
+  const terceirosParaTotais = useMemo(() => {
     return terceirosLinhas.filter((l) => {
-      if (!mostrarOcultos && l.oculto) return false
       if (busca.trim()) {
         const termo = busca.toLowerCase()
         const nomeOk = l.nome?.toLowerCase().includes(termo)
@@ -547,7 +546,23 @@ export function FolhaPagamento() {
       }
       return true
     })
-  }, [terceirosLinhas, mostrarOcultos, busca])
+  }, [terceirosLinhas, busca])
+
+  // Filtragem de funcionários na tela (exibição nas tabelas)
+  const funcionariosFiltrados = useMemo(() => {
+    return funcionariosParaTotais.filter((l) => {
+      if (!mostrarOcultos && l.oculto) return false
+      return true
+    })
+  }, [funcionariosParaTotais, mostrarOcultos])
+
+  // Filtragem de terceiros na tela (exibição nas tabelas)
+  const terceirosFiltrados = useMemo(() => {
+    return terceirosParaTotais.filter((l) => {
+      if (!mostrarOcultos && l.oculto) return false
+      return true
+    })
+  }, [terceirosParaTotais, mostrarOcultos])
 
   // CÁLCULOS DINÂMICOS PARA CADA FUNCIONÁRIO (seguindo as regras da planilha modelo)
   // Se houver tabela oficial, calcula os valores recomendados; senão, mantém null ou digitado
@@ -586,187 +601,206 @@ export function FolhaPagamento() {
     liquidoComposto: number
   }
 
+  // Função pura auxiliar para processar qualquer linha de funcionário com todas as regras fiscais e operacionais
+  const processarFuncionarioLinha = (
+    l: FolhaPagamentoLinha,
+  ): LinhaGeralProcessada => {
+    const bruto = Number(l.bruto || 0)
+    const filhos = Number(l.filhos || 0)
+
+    const inssCalc = calcularInssProgressivo(bruto, tabelaOficial)
+    const familiaCalc = calcularSalarioFamilia(bruto, filhos, tabelaOficial)
+    const irrfCalc = calcularIrrf(
+      bruto,
+      inssCalc ?? Number(l.inss || 0),
+      tabelaOficial,
+    )
+    const quinzenaCalc = calcularQuinzena(bruto, percentualQuinzena)
+
+    // Valores finais fiscais e adiantamento
+    const inssFinal = Number(l.inss ?? inssCalc ?? 0)
+    const familiaFinal = Number(l.familia ?? familiaCalc ?? 0)
+    const irrfFinal = Number(l.ir ?? irrfCalc ?? 0)
+    // Quinzena: se modo_calculo for 'Digitado' e houver valor digitado pelo usuário, respeita;
+    // caso contrário (modo_calculo <> 'Digitado'), sempre calcula automaticamente (bruto × % da competência)
+    const quinzenaFinal =
+      l.modo_calculo === "Digitado" &&
+      l.quinzena !== undefined &&
+      l.quinzena !== null &&
+      Number(l.quinzena) > 0
+        ? Number(l.quinzena)
+        : quinzenaCalc
+
+    // Regra Valdercleiton: forçar producaoTotal = 0 e usar mensal puro = bruto - inss - quinzena (sem comissão e sem ajuda)
+    const isValdercleiton = (l.nome || "")
+      .toUpperCase()
+      .includes("VALDERCLEITON")
+
+    // Extras
+    const obras = Number(l.obras || 0)
+    const valorObra = Number(l.valor_obra ?? 20)
+    const producaoTotal = isValdercleiton
+      ? 0
+      : l.producao !== undefined && Number(l.producao) > 0
+        ? Number(l.producao)
+        : obras * valorObra
+    const limpezaTotal = Number(l.limpeza || 0)
+    const sabadoTotal = Number(l.sabado || 0)
+    const feriasTotal = Number(l.ferias || 0)
+    const ajudaTotal = Number(l.ajuda_custo || 0)
+    const gratificacaoTotal = Number(l.gratificacao || 0)
+    const comissaoTotal = Number(l.comissao || 0)
+    const vendasAjudaTotal = Number(l.vendas_ajuda || 0)
+    const adiantamentoTotal = Number(l.adiantamento || 0)
+
+    // PRODUÇÃO(+) da GERAL = calcularProducaoTotal(linha) + gratificacao
+    // = obras×valor + limpeza + sabado + feriado + ajuda_custo + gratificacao
+    const producaoCompletaCalc = calcularProducaoTotal(l) + gratificacaoTotal
+    const producaoGeralMais = isValdercleiton ? 0 : producaoCompletaCalc
+
+    // A PAGAR da tabela de produção: producaoTotal + gratificacaoTotal - adiantamentoTotal
+    const aPagarProducao = isValdercleiton
+      ? 0
+      : Math.round((producaoGeralMais - adiantamentoTotal) * 100) / 100
+
+    // Cálculo do MENSAL LÍQUIDO:
+    // REGRA OFICIAL GC MIX (para TODOS os funcionários):
+    // MENSAL (LÍQUIDO) = Salário Bruto − INSS − IRRF − Quinzena − Quinzena 2 (se houver)
+    // Sem adicionais (Gratificação, Limpeza, Sábado, Feriado, Férias, Ajuda, Comissão, Vendas/Ajuda).
+    // Adiantamento desconta exclusivamente no Líquido Total.
+    // Aplica a fórmula pura SEMPRE e PARA TODOS (inclusive linhas em modo Digitado).
+    const quinzena2Final = Number(l.quinzena_2 || 0)
+    const mensalCalculadoSemProd = calcularMensalSemProducao(
+      bruto,
+      inssFinal,
+      familiaFinal,
+      irrfFinal,
+      quinzenaFinal,
+      {
+        quinzena_2: quinzena2Final,
+      },
+    )
+
+    // Exibição do mensal deve usar SEMPRE a fórmula pura recalculada para todos
+    const mensalFinal = mensalCalculadoSemProd
+    const mensalCalc = mensalCalculadoSemProd
+
+    // Líquido completo para a aba GERAL:
+    // LÍQUIDO GERAL = mensalFinal (puro) + PRODUÇÃO(+) − adiantamento
+    const liquidoGeral =
+      Math.round((mensalFinal + producaoGeralMais - adiantamentoTotal) * 100) /
+      100
+    const liquidoComposto = liquidoGeral
+
+    const isInssSobrescrito =
+      inssCalc !== null &&
+      Math.abs(inssFinal - inssCalc) > 0.05 &&
+      inssFinal > 0
+    const isFamiliaSobrescrito =
+      familiaCalc !== null && Math.abs(familiaFinal - familiaCalc) > 0.05
+    const isIrrfSobrescrito =
+      irrfCalc !== null &&
+      Math.abs(irrfFinal - irrfCalc) > 0.05 &&
+      irrfFinal > 0
+    const isQuinzenaSobrescrita =
+      l.modo_calculo === "Digitado" &&
+      Math.abs(quinzenaFinal - quinzenaCalc) > 0.05
+    const isMensalSobrescrito = Math.abs(mensalFinal - mensalCalc) > 0.05
+
+    return {
+      ...l,
+      inssCalculado: inssCalc,
+      familiaCalculado: familiaCalc,
+      irrfCalculado: irrfCalc,
+      quinzenaCalculada: quinzenaCalc,
+      mensalCalculado: mensalCalc,
+      inssFinal,
+      familiaFinal,
+      irrfFinal,
+      quinzenaFinal,
+      mensalFinal,
+      liquidoGeral,
+      isInssSobrescrito,
+      isFamiliaSobrescrito,
+      isIrrfSobrescrito,
+      isQuinzenaSobrescrita,
+      isMensalSobrescrito,
+      producaoTotal,
+      limpezaTotal,
+      sabadoTotal,
+      feriasTotal,
+      ajudaTotal,
+      gratificacaoTotal,
+      comissaoTotal,
+      vendasAjudaTotal,
+      adiantamentoTotal,
+      aPagarProducao,
+      producaoGeralMais,
+      liquidoComposto,
+    }
+  }
+
+  // Linhas processadas para exibição visual (respeita toggle mostrarOcultos)
   const linhasGeralProcessadas = useMemo<LinhaGeralProcessada[]>(() => {
-    return funcionariosFiltrados.map((l) => {
-      const bruto = Number(l.bruto || 0)
-      const filhos = Number(l.filhos || 0)
-
-      const inssCalc = calcularInssProgressivo(bruto, tabelaOficial)
-      const familiaCalc = calcularSalarioFamilia(bruto, filhos, tabelaOficial)
-      const irrfCalc = calcularIrrf(
-        bruto,
-        inssCalc ?? Number(l.inss || 0),
-        tabelaOficial,
-      )
-      const quinzenaCalc = calcularQuinzena(bruto, percentualQuinzena)
-
-      // Valores finais fiscais e adiantamento
-      const inssFinal = Number(l.inss ?? inssCalc ?? 0)
-      const familiaFinal = Number(l.familia ?? familiaCalc ?? 0)
-      const irrfFinal = Number(l.ir ?? irrfCalc ?? 0)
-      // Quinzena: se modo_calculo for 'Digitado' e houver valor digitado pelo usuário, respeita;
-      // caso contrário (modo_calculo <> 'Digitado'), sempre calcula automaticamente (bruto × % da competência)
-      const quinzenaFinal =
-        l.modo_calculo === "Digitado" &&
-        l.quinzena !== undefined &&
-        l.quinzena !== null &&
-        Number(l.quinzena) > 0
-          ? Number(l.quinzena)
-          : quinzenaCalc
-
-      // Regra Valdercleiton: forçar producaoTotal = 0 e usar mensal puro = bruto - inss - quinzena (sem comissão e sem ajuda)
-      const isValdercleiton = (l.nome || "")
-        .toUpperCase()
-        .includes("VALDERCLEITON")
-
-      // Extras
-      const obras = Number(l.obras || 0)
-      const valorObra = Number(l.valor_obra ?? 20)
-      const producaoTotal = isValdercleiton
-        ? 0
-        : l.producao !== undefined && Number(l.producao) > 0
-          ? Number(l.producao)
-          : obras * valorObra
-      const limpezaTotal = Number(l.limpeza || 0)
-      const sabadoTotal = Number(l.sabado || 0)
-      const feriasTotal = Number(l.ferias || 0)
-      const ajudaTotal = Number(l.ajuda_custo || 0)
-      const gratificacaoTotal = Number(l.gratificacao || 0)
-      const comissaoTotal = Number(l.comissao || 0)
-      const vendasAjudaTotal = Number(l.vendas_ajuda || 0)
-      const adiantamentoTotal = Number(l.adiantamento || 0)
-
-      // PRODUÇÃO(+) da GERAL = calcularProducaoTotal(linha) + gratificacao
-      // = obras×valor + limpeza + sabado + feriado + ajuda_custo + gratificacao
-      const producaoCompletaCalc = calcularProducaoTotal(l) + gratificacaoTotal
-      const producaoGeralMais = isValdercleiton ? 0 : producaoCompletaCalc
-
-      // A PAGAR da tabela de produção: producaoTotal + gratificacaoTotal - adiantamentoTotal
-      const aPagarProducao = isValdercleiton
-        ? 0
-        : Math.round((producaoGeralMais - adiantamentoTotal) * 100) / 100
-
-      // Cálculo do MENSAL LÍQUIDO:
-      // REGRA OFICIAL GC MIX (para TODOS os funcionários):
-      // MENSAL (LÍQUIDO) = Salário Bruto − INSS − IRRF − Quinzena − Quinzena 2 (se houver)
-      // Sem adicionais (Gratificação, Limpeza, Sábado, Feriado, Férias, Ajuda, Comissão, Vendas/Ajuda).
-      // Adiantamento desconta exclusivamente no Líquido Total.
-      // Aplica a fórmula pura SEMPRE e PARA TODOS (inclusive linhas em modo Digitado).
-      const quinzena2Final = Number(l.quinzena_2 || 0)
-      const mensalCalculadoSemProd = calcularMensalSemProducao(
-        bruto,
-        inssFinal,
-        familiaFinal,
-        irrfFinal,
-        quinzenaFinal,
-        {
-          quinzena_2: quinzena2Final,
-        },
-      )
-
-      // Exibição do mensal deve usar SEMPRE a fórmula pura recalculada para todos
-      const mensalFinal = mensalCalculadoSemProd
-      const mensalCalc = mensalCalculadoSemProd
-
-      // Líquido completo para a aba GERAL:
-      // LÍQUIDO GERAL = mensalFinal (puro) + PRODUÇÃO(+) − adiantamento
-      const liquidoGeral =
-        Math.round(
-          (mensalFinal + producaoGeralMais - adiantamentoTotal) * 100,
-        ) / 100
-      const liquidoComposto = liquidoGeral
-
-      const isInssSobrescrito =
-        inssCalc !== null &&
-        Math.abs(inssFinal - inssCalc) > 0.05 &&
-        inssFinal > 0
-      const isFamiliaSobrescrito =
-        familiaCalc !== null && Math.abs(familiaFinal - familiaCalc) > 0.05
-      const isIrrfSobrescrito =
-        irrfCalc !== null &&
-        Math.abs(irrfFinal - irrfCalc) > 0.05 &&
-        irrfFinal > 0
-      const isQuinzenaSobrescrita =
-        l.modo_calculo === "Digitado" &&
-        Math.abs(quinzenaFinal - quinzenaCalc) > 0.05
-      const isMensalSobrescrito = Math.abs(mensalFinal - mensalCalc) > 0.05
-
-      return {
-        ...l,
-        inssCalculado: inssCalc,
-        familiaCalculado: familiaCalc,
-        irrfCalculado: irrfCalc,
-        quinzenaCalculada: quinzenaCalc,
-        mensalCalculado: mensalCalc,
-        inssFinal,
-        familiaFinal,
-        irrfFinal,
-        quinzenaFinal,
-        mensalFinal,
-        liquidoGeral,
-        isInssSobrescrito,
-        isFamiliaSobrescrito,
-        isIrrfSobrescrito,
-        isQuinzenaSobrescrita,
-        isMensalSobrescrito,
-        producaoTotal,
-        limpezaTotal,
-        sabadoTotal,
-        feriasTotal,
-        ajudaTotal,
-        gratificacaoTotal,
-        comissaoTotal,
-        vendasAjudaTotal,
-        adiantamentoTotal,
-        aPagarProducao,
-        producaoGeralMais,
-        liquidoComposto,
-      }
-    })
+    return funcionariosFiltrados.map((l) => processarFuncionarioLinha(l))
   }, [funcionariosFiltrados, tabelaOficial, percentualQuinzena])
 
-  // Processamento de Terceiros (Folha à parte: sem desconto, quinzena 40% automática pelo % da competência, mensal 60%)
+  // Linhas processadas PARA TOTAIS (inclui oculto=true, ex: Renilson)
+  const linhasGeralProcessadasParaTotais =
+    useMemo<LinhaGeralProcessada[]>(() => {
+      return funcionariosParaTotais.map((l) => processarFuncionarioLinha(l))
+    }, [funcionariosParaTotais, tabelaOficial, percentualQuinzena])
+
+  // Função auxiliar para processar linha de terceiro
+  const processarTerceiroLinha = (t: FolhaPagamentoLinha) => {
+    const cadastrado = terceirosCadastrados.find(
+      (c) =>
+        (t.id && c.id === t.id) ||
+        (t.nome &&
+          c.nome &&
+          c.nome.trim().toUpperCase() === t.nome.trim().toUpperCase()),
+    )
+    const ehVendedor = Boolean(
+      cadastrado?.eh_vendedor ||
+        (t.nome && t.nome.toUpperCase().includes("MARCIO LUAN")),
+    )
+
+    const valorMes = ehVendedor
+      ? Number(t.comissao || 0) + Number(t.ajuda_custo || 0)
+      : Number(t.salario_liquido || t.bruto || 0)
+
+    const quinzenaAuto = ehVendedor
+      ? 0
+      : Math.round(valorMes * percentualQuinzena * 100) / 100
+    const quinzena = ehVendedor
+      ? 0
+      : t.modo_calculo === "Digitado" &&
+          t.quinzena !== undefined &&
+          t.quinzena !== null &&
+          Number(t.quinzena) > 0
+        ? Number(t.quinzena)
+        : quinzenaAuto
+    const mensal = ehVendedor
+      ? valorMes
+      : Math.round((valorMes - quinzena) * 100) / 100
+    return {
+      ...t,
+      ehVendedor,
+      valorMes,
+      quinzena,
+      mensal,
+    }
+  }
+
+  // Processamento de Terceiros para exibição (Folha à parte: sem desconto, quinzena 40% automática pelo % da competência, mensal 60%)
   const terceirosProcessados = useMemo(() => {
-    return terceirosFiltrados.map((t) => {
-      const cadastrado = terceirosCadastrados.find(
-        (c) =>
-          (t.id && c.id === t.id) ||
-          (t.nome &&
-            c.nome &&
-            c.nome.trim().toUpperCase() === t.nome.trim().toUpperCase()),
-      )
-      const ehVendedor = Boolean(
-        cadastrado?.eh_vendedor ||
-          (t.nome && t.nome.toUpperCase().includes("MARCIO LUAN")),
-      )
-
-      const valorMes = ehVendedor
-        ? Number(t.comissao || 0) + Number(t.ajuda_custo || 0)
-        : Number(t.salario_liquido || t.bruto || 0)
-
-      const quinzenaAuto = ehVendedor
-        ? 0
-        : Math.round(valorMes * percentualQuinzena * 100) / 100
-      const quinzena = ehVendedor
-        ? 0
-        : t.modo_calculo === "Digitado" &&
-            t.quinzena !== undefined &&
-            t.quinzena !== null &&
-            Number(t.quinzena) > 0
-          ? Number(t.quinzena)
-          : quinzenaAuto
-      const mensal = ehVendedor
-        ? valorMes
-        : Math.round((valorMes - quinzena) * 100) / 100
-      return {
-        ...t,
-        ehVendedor,
-        valorMes,
-        quinzena,
-        mensal,
-      }
-    })
+    return terceirosFiltrados.map((t) => processarTerceiroLinha(t))
   }, [terceirosFiltrados, terceirosCadastrados, percentualQuinzena])
+
+  // Processamento de Terceiros PARA TOTAIS (inclui terceiros ocultos se houver)
+  const terceirosProcessadosParaTotais = useMemo(() => {
+    return terceirosParaTotais.map((t) => processarTerceiroLinha(t))
+  }, [terceirosParaTotais, terceirosCadastrados, percentualQuinzena])
 
   // Helper: identifica se o colaborador é lançador/responsável de vendas (ex: VALDERCLEITON FREIRE DE OLIVEIRA)
   // que deve ser retirado da produção principal e ter seção própria em VENDAS
@@ -791,7 +825,7 @@ export function FolhaPagamento() {
     )
   }
 
-  // Linhas da Aba PRODUÇÃO (filtra fora quem não tem produção; inclui colaboradores ativos como Victor Emanoel)
+  // Linhas da Aba PRODUÇÃO para EXIBIÇÃO (filtra fora quem não tem produção; inclui colaboradores ativos como Victor Emanoel)
   const linhasProducao = useMemo(() => {
     // 1. Linhas dos funcionários filtrados que têm produção
     const lista = funcionariosFiltrados
@@ -888,6 +922,101 @@ export function FolhaPagamento() {
     competencia,
   ])
 
+  // Linhas da Aba PRODUÇÃO PARA TOTAIS (inclui oculto=true com produção)
+  const linhasProducaoParaTotais = useMemo(() => {
+    const lista = funcionariosParaTotais
+      .filter((l) => !naoTemProducao(l.nome))
+      .map((l) => {
+        const producaoTotal = calcularProducaoTotal(l)
+        const aPagar = calcularAPagarProducao(l)
+        return {
+          ...l,
+          producaoTotal,
+          aPagar,
+        }
+      })
+
+    const jaTemVictor = lista.some((l) =>
+      (l.nome || "")
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .includes("VICTOR EMANOEL"),
+    )
+
+    if (!jaTemVictor) {
+      const victorCadastrado = funcionariosCadastradosEmpresa.find((f) =>
+        (f.nome || "")
+          .toUpperCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .includes("VICTOR EMANOEL"),
+      )
+      const ehUnidadeMonteiro =
+        empresaAtiva?.id === ID_EMPRESA_MONTEIRO ||
+        empresaAtiva?.nome?.toUpperCase().includes("MONTEIRO") ||
+        victorCadastrado !== undefined
+
+      if (victorCadastrado && ehUnidadeMonteiro) {
+        const linhaVictor: FolhaPagamentoLinha = {
+          id: victorCadastrado.id,
+          empresa_id: victorCadastrado.empresa_id || empresaAtiva?.id || "",
+          competencia,
+          tipo: "Funcionario",
+          nome: victorCadastrado.nome,
+          funcao: victorCadastrado.funcao || "MOTORISTA",
+          cargo:
+            victorCadastrado.cargo || victorCadastrado.funcao || "MOTORISTA",
+          unidade: victorCadastrado.unidade || "MONTEIRO",
+          salario_base: Number(victorCadastrado.bruto || 0),
+          bruto: Number(victorCadastrado.bruto || 0),
+          filhos: Number(victorCadastrado.filhos || 0),
+          inss: 0,
+          familia: 0,
+          ir: 0,
+          quinzena: 0,
+          quinzena_2: 0,
+          adiantamento: 0,
+          gratificacao: 0,
+          obras: 0,
+          valor_obra: 20,
+          producao: 0,
+          limpeza: 0,
+          sabado: 0,
+          feriado: 0,
+          ferias: 0,
+          ajuda_custo: 0,
+          vendas_obra: 0,
+          comissao: 0,
+          vendas_ajuda: 0,
+          mensal_liquido: Number(victorCadastrado.bruto || 0),
+          salario_liquido: Number(victorCadastrado.bruto || 0),
+          conta: victorCadastrado.conta || "",
+          pix: victorCadastrado.pix || "",
+          chave_pix: victorCadastrado.pix || "",
+          modo_calculo: "Calculado",
+          oculto: false,
+          inativo: false,
+          funcionario_id: victorCadastrado.id,
+        }
+        const producaoTotal = calcularProducaoTotal(linhaVictor)
+        const aPagar = calcularAPagarProducao(linhaVictor)
+        lista.push({
+          ...linhaVictor,
+          producaoTotal,
+          aPagar,
+        })
+      }
+    }
+
+    return lista
+  }, [
+    funcionariosParaTotais,
+    funcionariosCadastradosEmpresa,
+    empresaAtiva,
+    competencia,
+  ])
+
   // Dados exclusivos do lançador de vendas (Valdercleiton) para a aba VENDAS
   const dadosLancadorVendas = useMemo(() => {
     const lancador = funcionariosFiltrados.find((l) => isLancadorVendas(l.nome))
@@ -916,8 +1045,7 @@ export function FolhaPagamento() {
     }
   }, [funcionariosFiltrados])
 
-  // Linhas de Funcionários da Aba VENDAS (comissão 0,5% ou digitada)
-  // Na SJE ou para colaboradores da unidade, todos os funcionários da empresa ficam acessíveis para digitação de vendas, ou os com obras/comissão/vendedor
+  // Linhas de Funcionários da Aba VENDAS para EXIBIÇÃO (comissão 0,5% ou digitada)
   const linhasVendasFuncionarios = useMemo(() => {
     const ehSje =
       empresaAtiva?.id === ID_EMPRESA_SJE ||
@@ -948,18 +1076,45 @@ export function FolhaPagamento() {
     })
   }, [funcionariosFiltrados, empresaAtiva])
 
-  // Linhas de Vendedores Terceiros da Aba VENDAS (fora da folha, ex: Márcio Luan — Raimundo segue fora)
-  // Utiliza tabela progressiva marginal de comissões por faixa
+  // Linhas de Funcionários da Aba VENDAS PARA TOTAIS (inclui ocultos com vendas/comissão)
+  const linhasVendasFuncionariosParaTotais = useMemo(() => {
+    const ehSje =
+      empresaAtiva?.id === ID_EMPRESA_SJE ||
+      (empresaAtiva?.nome || "").toUpperCase().includes("SJE")
+
+    const candidatos = funcionariosParaTotais.filter(
+      (l) =>
+        ehSje ||
+        Number(l.vendas_obra || 0) > 0 ||
+        Number(l.comissao || 0) > 0 ||
+        (l.nome && l.nome.toUpperCase().includes("VALDERCLEITON")) ||
+        (l.funcao && l.funcao.toUpperCase().includes("VENDEDOR")) ||
+        (l.cargo && l.cargo.toUpperCase().includes("VENDEDOR")),
+    )
+    return candidatos.map((l) => {
+      const comissaoAuto = calcularComissaoVendas(Number(l.vendas_obra || 0))
+      const isComissaoSobrescrita =
+        l.modo_calculo === "Digitado" ||
+        (Number(l.vendas_obra || 0) > 0 &&
+          Math.abs(Number(l.comissao || 0) - comissaoAuto) > 0.05)
+      const comissaoFinal = Number(l.comissao || comissaoAuto)
+      return {
+        ...l,
+        comissaoAuto,
+        comissaoFinal,
+        isComissaoSobrescrita,
+      }
+    })
+  }, [funcionariosParaTotais, empresaAtiva])
+
+  // Linhas de Vendedores Terceiros da Aba VENDAS para EXIBIÇÃO
   const linhasVendasTerceiros = useMemo(() => {
-    // 1. Identifica terceiros marcados como vendedores no cadastro (folha_terceiros)
     const vendedoresCadastrados = terceirosCadastrados.filter(
       (c) => c.eh_vendedor || c.nome.toUpperCase().includes("MARCIO LUAN"),
     )
 
-    // 2. Mapeia com a linha da competência (ou cria representação com dados do cadastro se ainda não tiver linha)
     const linhasVendedores: FolhaPagamentoLinha[] = []
 
-    // Procura nas linhas de terceiros da competência atual
     terceirosFiltrados.forEach((t) => {
       const cadastrado = terceirosCadastrados.find(
         (c) =>
@@ -973,7 +1128,6 @@ export function FolhaPagamento() {
         (t.tipo === "Terceiro" &&
           (Number(t.vendas_obra || 0) > 0 || Number(t.comissao || 0) > 0))
 
-      // Raimundo NUNCA é vendedor
       if (ehVendedor && !t.nome.toUpperCase().includes("RAIMUNDO")) {
         linhasVendedores.push({
           ...t,
@@ -983,7 +1137,6 @@ export function FolhaPagamento() {
       }
     })
 
-    // Se houver terceiro vendedor no cadastro mas ainda não existir linha na competência, inclui
     vendedoresCadastrados.forEach((vc) => {
       if (vc.nome.toUpperCase().includes("RAIMUNDO")) return
       const jaExiste = linhasVendedores.some(
@@ -1043,8 +1196,6 @@ export function FolhaPagamento() {
         : 0
       const comissaoAuto = comissaoProgressiva
 
-      // Quando modo_calculo !== 'Digitado', a comissão exibida/salva deve ser SEMPRE a progressiva automática
-      // Badge 'Digitado' apenas quando modo_calculo === 'Digitado'
       const isComissaoSobrescrita = t.modo_calculo === "Digitado"
 
       const comissaoFinal =
@@ -1062,14 +1213,120 @@ export function FolhaPagamento() {
     })
   }, [terceirosFiltrados, terceirosCadastrados, faixasComissao, competencia])
 
+  // Linhas de Vendedores Terceiros PARA TOTAIS (inclui terceiros ocultos se houver)
+  const linhasVendasTerceirosParaTotais = useMemo(() => {
+    const vendedoresCadastrados = terceirosCadastrados.filter(
+      (c) => c.eh_vendedor || c.nome.toUpperCase().includes("MARCIO LUAN"),
+    )
+
+    const linhasVendedores: FolhaPagamentoLinha[] = []
+
+    terceirosParaTotais.forEach((t) => {
+      const cadastrado = terceirosCadastrados.find(
+        (c) =>
+          c.id === t.id ||
+          c.nome.toUpperCase() === t.nome.toUpperCase() ||
+          t.nome.toUpperCase().includes(c.nome.toUpperCase()),
+      )
+      const ehVendedor =
+        cadastrado?.eh_vendedor ||
+        t.nome.toUpperCase().includes("MARCIO LUAN") ||
+        (t.tipo === "Terceiro" &&
+          (Number(t.vendas_obra || 0) > 0 || Number(t.comissao || 0) > 0))
+
+      if (ehVendedor && !t.nome.toUpperCase().includes("RAIMUNDO")) {
+        linhasVendedores.push({
+          ...t,
+          conta: t.conta || cadastrado?.conta || "",
+          pix: t.pix || t.chave_pix || cadastrado?.pix || "",
+        })
+      }
+    })
+
+    vendedoresCadastrados.forEach((vc) => {
+      if (vc.nome.toUpperCase().includes("RAIMUNDO")) return
+      const jaExiste = linhasVendedores.some(
+        (l) => l.nome.toUpperCase() === vc.nome.toUpperCase(),
+      )
+      if (!jaExiste) {
+        linhasVendedores.push({
+          id: vc.id,
+          empresa_id: vc.empresa_id,
+          competencia,
+          tipo: "Terceiro",
+          nome: vc.nome,
+          cargo: "VENDEDOR TERCEIRO",
+          funcao: "VENDEDOR TERCEIRO",
+          unidade: vc.unidade || "MONTEIRO",
+          salario_base: 0,
+          bruto: Number(vc.bruto || 0),
+          filhos: 0,
+          inss: 0,
+          familia: 0,
+          ir: 0,
+          quinzena: 0,
+          quinzena_2: 0,
+          adiantamento: 0,
+          gratificacao: 0,
+          obras: 0,
+          valor_obra: 20,
+          producao: 0,
+          limpeza: 0,
+          sabado: 0,
+          feriado: 0,
+          ferias: 0,
+          ajuda_custo: 0,
+          vendas_obra: 0,
+          comissao: 0,
+          vendas_ajuda: 0,
+          mensal_liquido: Number(vc.bruto || 0),
+          salario_liquido: Number(vc.bruto || 0),
+          conta: vc.conta || "",
+          pix: vc.pix || "",
+          chave_pix: vc.pix || "",
+          observacao_linha: vc.obs || "",
+          modo_calculo: "Calculado",
+          oculto: false,
+          inativo: false,
+        })
+      }
+    })
+
+    return linhasVendedores.map((t) => {
+      const vendas = Number(t.vendas_obra || 0)
+      const temTabelaConfigurada = Boolean(
+        faixasComissao && faixasComissao.length > 0,
+      )
+      const comissaoProgressiva = temTabelaConfigurada
+        ? (calcularComissaoProgressivaMarginal(vendas, faixasComissao) ?? 0)
+        : 0
+      const comissaoAuto = comissaoProgressiva
+
+      const isComissaoSobrescrita = t.modo_calculo === "Digitado"
+
+      const comissaoFinal =
+        isComissaoSobrescrita && t.comissao !== undefined && t.comissao !== null
+          ? Number(t.comissao)
+          : comissaoAuto
+
+      return {
+        ...t,
+        comissaoAuto,
+        comissaoFinal,
+        isComissaoSobrescrita,
+        temTabelaConfigurada,
+      }
+    })
+  }, [terceirosParaTotais, terceirosCadastrados, faixasComissao, competencia])
+
   // Todas as linhas de vendas combinadas (mantendo compatibilidade com linhasVendas anterior)
   const linhasVendas = useMemo(() => {
     return [...linhasVendasFuncionarios, ...linhasVendasTerceiros]
   }, [linhasVendasFuncionarios, linhasVendasTerceiros])
 
-  // TOTAIS DA ABA GERAL (FUNCIONÁRIOS) COM DISCRIMINAÇÃO COMPLETA
+  // TOTAIS DA ABA GERAL (FUNCIONÁRIOS) COM DISCRIMINAÇÃO COMPLETA — CALCULA SOBRE linhasGeralProcessadasParaTotais (INCLUI OCULTOS)
   const totaisGeral = useMemo(() => {
-    return linhasGeralProcessadas.reduce(
+    return linhasGeralProcessadasParaTotais.reduce(
       (acc, l) => {
         acc.bruto += Number(l.bruto || 0)
         acc.filhos += Number(l.filhos || 0)
