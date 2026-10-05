@@ -43,9 +43,17 @@ import {
   AlertTriangle,
   Flame,
   XCircle,
+  Calendar,
+  Filter,
+  RefreshCw,
+  Pencil,
+  Printer,
 } from "lucide-react"
+import { ReciboImpressao } from "@/components/ReciboImpressao"
+import type { OrdemServico } from "@/types/concreteira"
 import { toast } from "@/hooks/use-toast"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import { LISTA_CIDADES_RAIO_POLOS } from "@/data/cidades-polos"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -87,6 +95,17 @@ export default function LancamentoCargas() {
     useState(false)
   const [modalConfirmarZeradaAberta, setModalConfirmarZeradaAberta] =
     useState(false)
+
+  // Estados da Tabela de Cargas e Filtros
+  const [cargasLista, setCargasLista] = useState<Carga[]>([])
+  const [carregandoCargasLista, setCarregandoCargasLista] = useState(false)
+  const [filtroDataInicio, setFiltroDataInicio] = useState<string>("")
+  const [filtroDataFim, setFiltroDataFim] = useState<string>("")
+  const [filtroTracoId, setFiltroTracoId] = useState<string>("ALL")
+  const [filtroDosagem, setFiltroDosagem] = useState<string>("ALL")
+  const [osParaReimpressao, setOsParaReimpressao] =
+    useState<OrdemServico | null>(null)
+  const [modalReimpressaoAberta, setModalReimpressaoAberta] = useState(false)
 
   // Lançamento 100% MANUAL (especificação Trabalho B):
   // A aba "Traço automático" foi removida — operador escolhe o traço no select e
@@ -398,6 +417,113 @@ export default function LancamentoCargas() {
     }
   }
 
+  // Carregar lista de cargas da empresa ativa
+  const carregarCargasLista = async () => {
+    if (!empresaAtiva) return
+    setCarregandoCargasLista(true)
+    try {
+      const data = await ConcreteiraService.getCargas({
+        empresaId: empresaAtiva.id,
+      })
+      setCargasLista(data)
+    } catch (err) {
+      console.error("Erro ao carregar lista de cargas:", err)
+    } finally {
+      setCarregandoCargasLista(false)
+    }
+  }
+
+  useEffect(() => {
+    carregarCargasLista()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaAtiva?.id])
+
+  // Lista de dosagens únicas calculadas a partir das cargas da unidade (kg/m³)
+  const opcoesDosagens = Array.from(
+    new Set(
+      cargasLista
+        .map((c) => {
+          const vol = Number(c.volume_m3) || 0
+          const cim = Number(c.consumo_cimento) || 0
+          if (vol > 0 && cim > 0) {
+            return Math.round(cim / vol)
+          }
+          return null
+        })
+        .filter((d): d is number => d !== null && d > 0),
+    ),
+  ).sort((a, b) => a - b)
+
+  // Filtragem das cargas
+  const cargasFiltradas = cargasLista.filter((c) => {
+    // Filtro de Data Inicial
+    if (filtroDataInicio && c.data < filtroDataInicio) return false
+    // Filtro de Data Final
+    if (filtroDataFim && c.data > filtroDataFim) return false
+    // Filtro de Traço (ao escolher um traço de referência, a listagem apresenta SOMENTE as cargas daquele traço)
+    if (filtroTracoId && filtroTracoId !== "ALL") {
+      const tracoRef = tracos.find((t) => t.id === filtroTracoId)
+      const nomeRef = tracoRef?.nome?.toLowerCase().trim() || ""
+      const tracoIdCarga = c.traco_id
+      const tracoNomeCarga = (c.traco_nome || "").toLowerCase().trim()
+      const bateId = tracoIdCarga === filtroTracoId
+      const bateNome =
+        nomeRef.length > 0 &&
+        (tracoNomeCarga === nomeRef ||
+          tracoNomeCarga.startsWith(`${nomeRef} `) ||
+          tracoNomeCarga.startsWith(`${nomeRef}(`) ||
+          tracoNomeCarga.includes(nomeRef))
+      if (!bateId && !bateNome) return false
+    }
+    // Filtro de Dosagem (kg/m³)
+    if (filtroDosagem && filtroDosagem !== "ALL") {
+      const dosAlvo = Number(filtroDosagem)
+      const vol = Number(c.volume_m3) || 0
+      const cim = Number(c.consumo_cimento) || 0
+      const dosCarga = vol > 0 ? Math.round(cim / vol) : 0
+      if (dosCarga !== dosAlvo) return false
+    }
+    return true
+  })
+
+  // Impressão da OS no recibo
+  const handleImprimirReciboOS = () => {
+    const conteudo = document.getElementById(
+      "recibo-impressao-modal-lancamentos",
+    )
+    if (!conteudo) {
+      window.print()
+      return
+    }
+    const janela = window.open("", "_blank")
+    if (!janela) {
+      window.print()
+      return
+    }
+    janela.document.write(`
+      <html>
+        <head>
+          <title>Recibo OS - Concreteira</title>
+          <style>
+            @page { size: A4; margin: 8mm; }
+            body { font-family: sans-serif; margin: 0; padding: 0; color: #000; }
+            * { box-sizing: border-box; }
+            table { width: 100%; border-collapse: collapse; }
+          </style>
+        </head>
+        <body>
+          ${conteudo.innerHTML}
+        </body>
+      </html>
+    `)
+    janela.document.close()
+    janela.focus()
+    setTimeout(() => {
+      janela.print()
+      janela.close()
+    }, 250)
+  }
+
   // Consumos REAIS da carga:
   // Em ambos os modos (manual e traço automático):
   // - Sólidos (cimento, areia, britas, pó de pedra) guardam dosagem por m³ e são multiplicados pelo volume.
@@ -553,6 +679,8 @@ export default function LancamentoCargas() {
           "Movimentações de estoque recalculadas e integridade do saldo mantida.",
       })
 
+      // Se não for balanceiro ou estiver editando, pode recarregar a lista de cargas
+      carregarCargasLista()
       navigate(isBalanceiro ? "/lancamentos" : "/")
     } catch (err: any) {
       console.error("Erro ao atualizar carga:", err)
@@ -623,7 +751,31 @@ export default function LancamentoCargas() {
           : "Baixa de estoque nos materiais controlados (Cimento e Aditivo) realizada com sucesso.",
       })
 
-      navigate(isBalanceiro ? "/lancamentos" : "/")
+      // Limpar formulário para próximo lançamento e atualizar listagem
+      if (isBalanceiro) {
+        setVolume(8.0)
+        setMotoristaNome("")
+        setVeiculoPlaca("")
+        setCidadeNome("")
+        setObservacao("")
+        setCargaZerada(false)
+        setCimento(0)
+        setBrita12(0)
+        setBrita19(0)
+        setAreia(0)
+        setPoPedra(0)
+        setAditivo(0)
+        setAditivoBruto(0)
+        setAgua(0)
+        setAguaBruta(0)
+        setAditivoEditadoManualmente(false)
+        setAguaEditadaManualmente(false)
+        setTentouGravar(false)
+      }
+      carregarCargasLista()
+      if (!isBalanceiro) {
+        navigate("/")
+      }
     } catch (err: any) {
       console.error(err)
       toast({
@@ -1091,9 +1243,26 @@ export default function LancamentoCargas() {
                     }`}
                   />
                   <datalist id="lista-cidades">
-                    {cidades.map((c) => (
-                      <option key={c.id} value={c.nome} />
+                    {LISTA_CIDADES_RAIO_POLOS.map((cidFormatada) => (
+                      <option key={cidFormatada} value={cidFormatada} />
                     ))}
+                    {cidades
+                      .filter(
+                        (c) =>
+                          !LISTA_CIDADES_RAIO_POLOS.some(
+                            (p) =>
+                              p.toLowerCase() === c.nome.toLowerCase() ||
+                              p
+                                .toLowerCase()
+                                .startsWith(`${c.nome.toLowerCase()}/`),
+                          ),
+                      )
+                      .map((c) => (
+                        <option
+                          key={c.id}
+                          value={c.uf ? `${c.nome}/${c.uf}` : c.nome}
+                        />
+                      ))}
                   </datalist>
                 </div>
               </div>
@@ -2602,6 +2771,413 @@ export default function LancamentoCargas() {
               className="w-full sm:w-auto min-h-[44px] h-11 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs sm:text-sm rounded-xl"
             >
               {salvando ? "Salvando Alteração..." : "Sim, Confirmar e Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SEÇÃO DA TABELA DE CARGAS COM FILTROS (DATA, TRAÇO, DOSAGEM) */}
+      <div className="pt-6 border-t border-border/60 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Truck className="w-5 h-5 text-primary" />
+              Tabela de Cargas Lançadas
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Consulte os lançamentos da unidade ativa por período, traço de
+              referência e dosagem.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs px-2.5 py-1">
+              Total: {cargasFiltradas.length} de {cargasLista.length} cargas
+            </Badge>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={carregarCargasLista}
+              disabled={carregandoCargasLista}
+              className="h-8 gap-1.5 text-xs rounded-lg"
+              title="Recarregar cargas"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${
+                  carregandoCargasLista ? "animate-spin" : ""
+                }`}
+              />
+              Atualizar
+            </Button>
+          </div>
+        </div>
+
+        {/* Bloco de Filtros: Data De/Até, Traço e Dosagem */}
+        <Card className="border border-border/60 shadow-xs bg-card/60 backdrop-blur-xs">
+          <CardHeader className="p-3 sm:p-4 pb-2">
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-primary" />
+              Filtros de Pesquisa
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4 pt-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Filtro Data Inicial */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                Data Inicial (De)
+              </Label>
+              <Input
+                type="date"
+                value={filtroDataInicio}
+                onChange={(e) => setFiltroDataInicio(e.target.value)}
+                className="h-9 text-xs rounded-lg font-mono bg-background"
+              />
+            </div>
+
+            {/* Filtro Data Final */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                Data Final (Até)
+              </Label>
+              <Input
+                type="date"
+                value={filtroDataFim}
+                onChange={(e) => setFiltroDataFim(e.target.value)}
+                className="h-9 text-xs rounded-lg font-mono bg-background"
+              />
+            </div>
+
+            {/* Filtro Traço de Referência */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-muted-foreground" />
+                Traço
+              </Label>
+              <Select
+                value={filtroTracoId}
+                onValueChange={(val) => setFiltroTracoId(val)}
+              >
+                <SelectTrigger className="h-9 text-xs rounded-lg bg-background">
+                  <SelectValue placeholder="Todos os traços" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  <SelectItem value="ALL">
+                    Todos os traços ({tracos.length})
+                  </SelectItem>
+                  {tracos.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.nome} ({t.fck_mpa || 0} MPa - {t.consumo_cimento || 0}{" "}
+                      kg/m³)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Filtro Dosagem de Cimento (kg/m³) */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                <Calculator className="w-3.5 h-3.5 text-muted-foreground" />
+                Dosagem (kg/m³)
+              </Label>
+              <div className="flex gap-2">
+                <Select
+                  value={filtroDosagem}
+                  onValueChange={(val) => setFiltroDosagem(val)}
+                >
+                  <SelectTrigger className="h-9 text-xs rounded-lg bg-background flex-1">
+                    <SelectValue placeholder="Todas as dosagens" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    <SelectItem value="ALL">Todas as dosagens</SelectItem>
+                    {opcoesDosagens.map((d) => (
+                      <SelectItem key={d} value={String(d)}>
+                        {d} kg/m³
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {(filtroDataInicio ||
+                  filtroDataFim ||
+                  filtroTracoId !== "ALL" ||
+                  filtroDosagem !== "ALL") && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setFiltroDataInicio("")
+                      setFiltroDataFim("")
+                      setFiltroTracoId("ALL")
+                      setFiltroDosagem("ALL")
+                    }}
+                    title="Limpar filtros"
+                    className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground shrink-0"
+                  >
+                    Limpar
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tabela Responsiva de Cargas */}
+        <Card className="border border-border/60 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-muted/50 border-b border-border/60 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                <tr>
+                  <th className="py-3 px-3 w-16"># Carga</th>
+                  <th className="py-3 px-3">Data</th>
+                  <th className="py-3 px-3">Traço / Dosagem</th>
+                  <th className="py-3 px-3 text-right">Volume</th>
+                  <th className="py-3 px-3 text-right">Cimento (kg)</th>
+                  <th className="py-3 px-3 text-right">Aditivo (L)</th>
+                  <th className="py-3 px-3">Motorista / Betoneira</th>
+                  <th className="py-3 px-3">Destino / Cidade</th>
+                  <th className="py-3 px-3 text-center">Status</th>
+                  <th className="py-3 px-3 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {carregandoCargasLista ? (
+                  <tr>
+                    <td
+                      colSpan={10}
+                      className="py-10 text-center text-muted-foreground"
+                    >
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+                        <span>Carregando histórico de cargas...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : cargasFiltradas.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={10}
+                      className="py-10 text-center text-muted-foreground"
+                    >
+                      <div className="flex flex-col items-center justify-center gap-1.5">
+                        <Truck className="w-6 h-6 text-muted-foreground/40" />
+                        <span className="font-medium text-foreground">
+                          Nenhuma carga encontrada para os filtros selecionados
+                        </span>
+                        <span className="text-[11px]">
+                          Ajuste as datas, traço ou dosagem para visualizar
+                          outros lançamentos.
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  cargasFiltradas.map((carga) => {
+                    const vol = Number(carga.volume_m3) || 0
+                    const cim = Number(carga.consumo_cimento) || 0
+                    const dosagemCarga = vol > 0 ? Math.round(cim / vol) : 0
+                    const isZerada = Boolean(carga.carga_zerada)
+
+                    return (
+                      <tr
+                        key={carga.id}
+                        className="hover:bg-muted/30 transition-colors"
+                      >
+                        {/* Número da Carga */}
+                        <td className="py-2.5 px-3 font-mono font-bold text-foreground">
+                          #{String(carga.numero_carga).padStart(4, "0")}
+                        </td>
+
+                        {/* Data */}
+                        <td className="py-2.5 px-3 font-mono text-muted-foreground whitespace-nowrap">
+                          {carga.data.split("-").reverse().join("/")}
+                        </td>
+
+                        {/* Traço e Dosagem */}
+                        <td className="py-2.5 px-3">
+                          <div className="font-semibold text-foreground">
+                            {carga.traco_nome || "—"}
+                          </div>
+                          {dosagemCarga > 0 && (
+                            <div className="text-[10px] text-muted-foreground font-mono">
+                              Dosagem: {dosagemCarga} kg/m³
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Volume */}
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-foreground whitespace-nowrap">
+                          {vol.toFixed(1)} m³
+                        </td>
+
+                        {/* Cimento */}
+                        <td className="py-2.5 px-3 text-right font-mono text-primary font-semibold whitespace-nowrap">
+                          {cim.toLocaleString("pt-BR")}
+                        </td>
+
+                        {/* Aditivo */}
+                        <td className="py-2.5 px-3 text-right font-mono text-muted-foreground whitespace-nowrap">
+                          {Number(carga.consumo_aditivo || 0).toLocaleString(
+                            "pt-BR",
+                          )}
+                        </td>
+
+                        {/* Motorista / Betoneira */}
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <div className="font-medium text-foreground">
+                            {carga.motorista_nome || "—"}
+                          </div>
+                          {carga.veiculo_placa && (
+                            <div className="text-[10px] font-mono text-muted-foreground">
+                              {carga.veiculo_placa}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Destino / Cidade */}
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <span className="font-medium text-foreground">
+                            {carga.cidade_nome || "—"}
+                          </span>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          {isZerada ? (
+                            <Badge
+                              variant="destructive"
+                              className="text-[10px] font-bold py-0.5"
+                            >
+                              {carga.observacao?.includes("[PERDA OPERACIONAL]")
+                                ? "Perda"
+                                : "Cancelada"}
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-medium text-emerald-600 border-emerald-500/30 bg-emerald-500/10 py-0.5"
+                            >
+                              Normal
+                            </Badge>
+                          )}
+                        </td>
+
+                        {/* Ações: Editar e Imprimir */}
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
+                            {!isBalanceiro && (
+                              <Button
+                                asChild
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 rounded-lg"
+                                title="Editar esta carga"
+                              >
+                                <Link to={`/lancamentos?editar=${carga.id}`}>
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Link>
+                              </Button>
+                            )}
+
+                            {carga.ordem_servico_id && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    const os =
+                                      await ConcreteiraService.getOrdemServicoPorId(
+                                        carga.ordem_servico_id!,
+                                      )
+                                    if (os) {
+                                      setOsParaReimpressao(os)
+                                      setModalReimpressaoAberta(true)
+                                    } else {
+                                      toast({
+                                        title: "OS não localizada",
+                                        description:
+                                          "Não foi possível abrir o recibo desta carga.",
+                                        variant: "destructive",
+                                      })
+                                    }
+                                  } catch (err: any) {
+                                    toast({
+                                      title: "Erro ao abrir recibo",
+                                      description: err.message || "",
+                                      variant: "destructive",
+                                    })
+                                  }
+                                }}
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg"
+                                title="Imprimir Recibo da OS"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+
+      {/* Modal de Reimpressão do Recibo da Carga/OS */}
+      <Dialog
+        open={modalReimpressaoAberta}
+        onOpenChange={setModalReimpressaoAberta}
+      >
+        <DialogContent className="w-[95vw] max-w-3xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <Printer className="w-5 h-5 text-primary shrink-0" />
+              <span>
+                Recibo de Expedição - OS #{osParaReimpressao?.numero_os}
+              </span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Visualize e imprima o canhoto / via oficial do cliente para esta
+              entrega.
+            </DialogDescription>
+          </DialogHeader>
+
+          {osParaReimpressao && (
+            <div className="py-2">
+              <div
+                id="recibo-impressao-modal-lancamentos"
+                className="bg-white text-slate-900 p-4 rounded-xl border border-border shadow-xs"
+              >
+                <ReciboImpressao os={osParaReimpressao} />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setModalReimpressaoAberta(false)}
+              className="w-full sm:w-auto text-xs rounded-xl"
+            >
+              Fechar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleImprimirReciboOS}
+              className="w-full sm:w-auto gap-1.5 font-bold text-xs rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
+              <Printer className="w-4 h-4" />
+              Imprimir Recibo
             </Button>
           </DialogFooter>
         </DialogContent>

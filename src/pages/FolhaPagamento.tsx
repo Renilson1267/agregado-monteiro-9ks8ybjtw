@@ -743,12 +743,14 @@ export function FolhaPagamento() {
   // Linhas processadas para exibição visual (respeita toggle mostrarOcultos)
   const linhasGeralProcessadas = useMemo<LinhaGeralProcessada[]>(() => {
     return funcionariosFiltrados.map((l) => processarFuncionarioLinha(l))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [funcionariosFiltrados, tabelaOficial, percentualQuinzena])
 
   // Linhas processadas PARA TOTAIS (inclui oculto=true, ex: Renilson)
   const linhasGeralProcessadasParaTotais =
     useMemo<LinhaGeralProcessada[]>(() => {
       return funcionariosParaTotais.map((l) => processarFuncionarioLinha(l))
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [funcionariosParaTotais, tabelaOficial, percentualQuinzena])
 
   // Função auxiliar para processar linha de terceiro
@@ -795,11 +797,13 @@ export function FolhaPagamento() {
   // Processamento de Terceiros para exibição (Folha à parte: sem desconto, quinzena 40% automática pelo % da competência, mensal 60%)
   const terceirosProcessados = useMemo(() => {
     return terceirosFiltrados.map((t) => processarTerceiroLinha(t))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [terceirosFiltrados, terceirosCadastrados, percentualQuinzena])
 
   // Processamento de Terceiros PARA TOTAIS (inclui terceiros ocultos se houver)
   const terceirosProcessadosParaTotais = useMemo(() => {
     return terceirosParaTotais.map((t) => processarTerceiroLinha(t))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [terceirosParaTotais, terceirosCadastrados, percentualQuinzena])
 
   // Helper: identifica se o colaborador é lançador/responsável de vendas (ex: VALDERCLEITON FREIRE DE OLIVEIRA)
@@ -1371,7 +1375,7 @@ export function FolhaPagamento() {
         liquidoGeral: 0,
       },
     )
-  }, [linhasGeralProcessadas])
+  }, [linhasGeralProcessadasParaTotais])
 
   // TOTAIS TERCEIROS
   const totaisTerceiros = useMemo(() => {
