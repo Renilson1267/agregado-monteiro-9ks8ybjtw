@@ -287,44 +287,16 @@ export default function LancamentoCargas() {
     async function init() {
       if (!empresaAtiva) return
       try {
-        const [tr, mot, veic, cid, mats, todosTracos] = await Promise.all([
+        const [tr, mot, veic, cid, mats] = await Promise.all([
           ConcreteiraService.getTracos(empresaAtiva.id),
           ConcreteiraService.getMotoristas(empresaAtiva.id),
           ConcreteiraService.getVeiculos(empresaAtiva.id),
           ConcreteiraService.getCidades(empresaAtiva.id),
           ConcreteiraService.getMateriais(empresaAtiva.id),
-          ConcreteiraService.getTracos(),
         ])
 
-        // Garante inclusão dos traços F15B01S12 CP II F 40 e F45B01S12 CP II F 40 sem duplicar
-        const listaTracos = [...tr]
-        const idsAlvo = [
-          "f3ca5a9e-21fe-48d1-8279-accc1fe49b2a",
-          "6ba33daf-259a-4642-9302-822d41664d4f",
-        ]
-        todosTracos.forEach((t) => {
-          if (
-            idsAlvo.includes(t.id) ||
-            /F15B01S12|F45B01S12/i.test(t.nome || "")
-          ) {
-            const jaExiste = listaTracos.some(
-              (existente) =>
-                existente.id === t.id ||
-                extrairNomeTracoReferencia(existente.nome).toLowerCase() ===
-                  extrairNomeTracoReferencia(t.nome).toLowerCase(),
-            )
-            if (!jaExiste) {
-              listaTracos.push(t)
-            }
-          }
-        })
-
-        // Monta a lista completa unificada de traços garantindo a inclusão de todos os traços do catálogo
-        // e os novos F15 e F45
-        const tracosMap = new Map<string, Traco>()
-        todosTracos.forEach((t) => tracosMap.set(t.id, t))
-        listaTracos.forEach((t) => tracosMap.set(t.id, t))
-        const catalogoCompleto = Array.from(tracosMap.values()).sort((a, b) => {
+        // Garante ordenação por FCK e nome da unidade ativa
+        const catalogoCompleto = [...tr].sort((a, b) => {
           const fckA = a.fck_mpa ?? 0
           const fckB = b.fck_mpa ?? 0
           if (fckA !== fckB) return fckA - fckB
