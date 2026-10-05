@@ -20,24 +20,13 @@ import {
 import { ConcreteiraService } from "@/services/concreteira"
 import { useEmpresa } from "@/hooks/use-empresa"
 import { useUsuario } from "@/hooks/use-usuario"
-import type {
-  Traco,
-  Motorista,
-  Veiculo,
-  Cidade,
-  Material,
-  Carga,
-} from "@/types/concreteira"
+import type { Traco, Material, Carga } from "@/types/concreteira"
 import {
   Truck,
   Calculator,
   CheckCircle2,
   ArrowLeft,
-  Edit3,
-  RotateCcw,
   FileSpreadsheet,
-  MapPin,
-  User,
   Layers,
   AlertCircle,
   AlertTriangle,
@@ -53,7 +42,7 @@ import { ReciboImpressao } from "@/components/ReciboImpressao"
 import type { OrdemServico } from "@/types/concreteira"
 import { toast } from "@/hooks/use-toast"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
-import { LISTA_CIDADES_RAIO_POLOS } from "@/data/cidades-polos"
+
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -196,6 +185,16 @@ export function obterDescricaoCompletaCarga(
     return formatarDescricaoCompletaTraco(traco)
   }
 
+  // Sem vínculo com traço cadastrado
+  if (
+    !carga.traco_id &&
+    (!carga.traco_nome ||
+      carga.traco_nome === "Manual" ||
+      carga.traco_nome === "Dosagem Manual")
+  ) {
+    return "Manual"
+  }
+
   // Fallback quando não encontrar vínculo: limpa sufixos manuais do nome gravado
   const limpo = extrairNomeTracoReferencia(carga.traco_nome)
   return limpo || "—"
@@ -208,9 +207,6 @@ export default function LancamentoCargas() {
   const { empresaAtiva } = useEmpresa()
   const { isBalanceiro } = useUsuario()
   const [tracos, setTracos] = useState<Traco[]>([])
-  const [motoristas, setMotoristas] = useState<Motorista[]>([])
-  const [veiculos, setVeiculos] = useState<Veiculo[]>([])
-  const [cidades, setCidades] = useState<Cidade[]>([])
   const [materiais, setMateriais] = useState<Material[]>([])
   const [salvando, setSalvando] = useState(false)
   // Estado para controle de edição de carga gravada
@@ -234,20 +230,13 @@ export default function LancamentoCargas() {
     useState<OrdemServico | null>(null)
   const [modalReimpressaoAberta, setModalReimpressaoAberta] = useState(false)
 
-  // Lançamento 100% MANUAL (especificação Trabalho B):
-  // A aba "Traço automático" foi removida — operador escolhe o traço no select e
-  // digita/ajusta os consumos por m³ com cálculo em tempo real de aditivo e água.
-  const modoDosagem = "manual" as const
-
   // Formulário
   const [dataCarga, setDataCarga] = useState(
     new Date().toISOString().split("T")[0],
   )
   const [volume, setVolume] = useState<number>(8.0)
   const [tracoSelecionadoId, setTracoSelecionadoId] = useState<string>("")
-  const [motoristaNome, setMotoristaNome] = useState<string>("")
-  const [veiculoPlaca, setVeiculoPlaca] = useState<string>("")
-  const [cidadeNome, setCidadeNome] = useState<string>("")
+
   const [observacao, setObservacao] = useState<string>("")
   const [cargaZerada, setCargaZerada] = useState<boolean>(false)
 
@@ -258,26 +247,8 @@ export default function LancamentoCargas() {
   const [poPedra, setPoPedra] = useState<number>(0)
   const [cimento, setCimento] = useState<number>(0)
   const [aditivo, setAditivo] = useState<number>(0)
-  // Fator de dosagem para cálculo do aditivo (manual ou traço automático):
-  // aditivo (L) = cimento TOTAL da carga (kg) × fator
-  // onde cimento_total_kg = dosagem_cimento_kg_m3 × volume_m3 (ou cimento_total no automático)
-  // Faixa de fatores do aditivo: 0,005 a 0,010 (+ personalizado)
-  const [fatorAditivoManual, setFatorAditivoManual] = useState<number>(0.006)
   const [aditivoBruto, setAditivoBruto] = useState<number>(0)
-
-  // INSUMO: ÁGUA (calculada, com opção de digitação manual)
-  // água (L) = cimento TOTAL da carga (kg) × fator_de_água
-  // onde cimento_total_kg = dosagem_cimento_kg_m3 × volume_m3
-  // com fator na faixa 0,45 a 0,8 (opções rápidas: 0,45, 0,5, 0,55, 0,6, 0,65, 0,7, 0,75, 0,8)
-  // Arredondamento inteiro clássico (Math.round)
-  const [agua, setAgua] = useState<number>(0)
-  const [fatorAguaManual, setFatorAguaManual] = useState<number>(0.55)
-  const [aguaBruta, setAguaBruta] = useState<number>(0)
-
-  // Controle de edição manual (sobrescrita do cálculo automático)
   const [aditivoEditadoManualmente, setAditivoEditadoManualmente] =
-    useState<boolean>(false)
-  const [aguaEditadaManualmente, setAguaEditadaManualmente] =
     useState<boolean>(false)
 
   // Estado que rastreia tentativa de submissão para destacar campos obrigatórios faltantes
@@ -287,11 +258,8 @@ export default function LancamentoCargas() {
     async function init() {
       if (!empresaAtiva) return
       try {
-        const [tr, mot, veic, cid, mats] = await Promise.all([
+        const [tr, mats] = await Promise.all([
           ConcreteiraService.getTracos(empresaAtiva.id),
-          ConcreteiraService.getMotoristas(empresaAtiva.id),
-          ConcreteiraService.getVeiculos(empresaAtiva.id),
-          ConcreteiraService.getCidades(empresaAtiva.id),
           ConcreteiraService.getMateriais(empresaAtiva.id),
         ])
 
@@ -304,34 +272,19 @@ export default function LancamentoCargas() {
         })
 
         setTracos(catalogoCompleto)
-        setMotoristas(mot)
-        setVeiculos(veic)
-        setCidades(cid)
         setMateriais(mats)
 
-        const trPadrao = tr.filter((t) =>
-          /^F\d{1,2}B01S12/i.test(t.nome?.trim() || ""),
-        )
-        if (trPadrao.length > 0) {
-          setTracoSelecionadoId(trPadrao[0].id)
-        } else if (tr.length > 0) {
-          setTracoSelecionadoId(tr[0].id)
-          // Ao iniciar carga nova, zera os insumos para digitação manual ou restaura do traço
-          if (isBalanceiro && !editarCargaId) {
-            setCimento(0)
-            setBrita12(0)
-            setBrita19(0)
-            setAreia(0)
-            setPoPedra(0)
-            setAditivo(0)
-            setAditivoBruto(0)
-            setAgua(0)
-            setAguaBruta(0)
-            setAditivoEditadoManualmente(false)
-            setAguaEditadaManualmente(false)
-          }
-        } else {
+        // No novo layout rápido, o formulário inicia limpo/zerado ou sem forçar traço obrigatório
+        if (!editarCargaId) {
           setTracoSelecionadoId("")
+          setCimento(0)
+          setBrita12(0)
+          setBrita19(0)
+          setAreia(0)
+          setPoPedra(0)
+          setAditivo(0)
+          setAditivoBruto(0)
+          setAditivoEditadoManualmente(false)
         }
       } catch (err) {
         console.error("Erro ao carregar dados do formulário:", err)
@@ -379,23 +332,17 @@ export default function LancamentoCargas() {
         const vol = Number(c.volume_m3) || 1
         setVolume(vol)
         setCargaZerada(Boolean(c.carga_zerada))
-        setMotoristaNome(c.motorista_nome || "")
-        setVeiculoPlaca(c.veiculo_placa || "")
-        setCidadeNome(c.cidade_nome || "")
         setObservacao(c.observacao || "")
 
         // Se tiver traço vinculado ou por nome
         if (c.traco_id) {
           setTracoSelecionadoId(c.traco_id)
         } else if (c.traco_nome) {
-          const tEncontrado = tracos.find(
-            (t) => t.nome.toLowerCase() === c.traco_nome?.toLowerCase(),
-          )
+          const tEncontrado = resolverTracoReferenciaCarga(c, tracos)
           if (tEncontrado) setTracoSelecionadoId(tEncontrado.id)
         }
 
-        // Modo sempre manual na edição para refletir com exatidão as dosagens gravadas na carga
-        // Calcular dosagens por m³ a partir do consumo total e volume
+        // Recuperar dosagens por m³ a partir do consumo total e volume
         const dosCimento =
           vol > 0
             ? Math.round(Number(c.consumo_cimento || 0) / vol)
@@ -423,14 +370,10 @@ export default function LancamentoCargas() {
         setAreia(dosAreia)
         setPoPedra(dosPoPedra)
 
-        // No modo manual, aditivo e água são mantidos como totais em litros
+        // Aditivo total em litros
         setAditivo(Number(c.consumo_aditivo || 0))
         setAditivoBruto(Number(c.consumo_aditivo || 0))
         setAditivoEditadoManualmente(true)
-
-        setAgua(Number(c.consumo_agua || 0))
-        setAguaBruta(Number(c.consumo_agua || 0))
-        setAguaEditadaManualmente(true)
       } catch (err: any) {
         console.error("Erro ao carregar carga para edição:", err)
         toast({
@@ -445,118 +388,6 @@ export default function LancamentoCargas() {
 
     carregarCargaParaEdicao()
   }, [editarCargaId, isBalanceiro, navigate, tracos])
-
-  // Função utilitária para aplicar dosagem base do traço aos campos
-  const aplicarDosagemTraco = (tracoId: string, vol: number) => {
-    const traco = tracos.find((t) => t.id === tracoId)
-    if (traco) {
-      const cimentoDosagem = Number(traco.consumo_cimento) || 0
-      setBrita12(Number(traco.consumo_brita12) || 0)
-      setBrita19(Number(traco.consumo_brita19) || 0)
-      setAreia(Number(traco.consumo_areia) || 0)
-      setPoPedra(Number(traco.consumo_po_pedra) || 0)
-      setCimento(cimentoDosagem)
-
-      // Resetar flags de edição manual para reaplicar os valores calculados
-      setAditivoEditadoManualmente(false)
-      setAguaEditadaManualmente(false)
-
-      // Derivar ou manter o fator de aditivo inicial a partir do traço selecionado
-      let fatorAdt = fatorAditivoManual || 0.006
-      if (
-        Number(traco.consumo_cimento) > 0 &&
-        Number(traco.consumo_aditivo) > 0
-      ) {
-        const fatorTraco =
-          Number(traco.consumo_aditivo) / Number(traco.consumo_cimento)
-        if (fatorTraco >= 0.001 && fatorTraco <= 0.05) {
-          fatorAdt = Number(fatorTraco.toFixed(4))
-          setFatorAditivoManual(fatorAdt)
-        }
-      }
-
-      const cimentoTotal = cimentoDosagem * vol
-      // aditivo (L) = cimento total (kg) × fator
-      const adtBruto = cimentoTotal * fatorAdt
-      setAditivoBruto(adtBruto)
-      setAditivo(Math.round(adtBruto))
-
-      // água (L) = cimento total (kg) × fator
-      const agBruta = cimentoTotal * (fatorAguaManual || 0.55)
-      setAguaBruta(agBruta)
-      setAgua(Math.round(agBruta))
-    }
-  }
-
-  // Lançamento 100% manual: cálculo em tempo real de aditivo e água baseado no cimento por m³ e volume
-  useEffect(() => {
-    if (cargaZerada) {
-      return
-    }
-
-    // O cimento digitado (kg/m³) × volume alimenta as fórmulas de aditivo e água em tempo real.
-    const cimentoTotal = cimento * volume
-    const adtBruto = cimentoTotal * (fatorAditivoManual || 0)
-    setAditivoBruto(adtBruto)
-    // Arredondamento INTEIRO clássico: Math.round
-    if (!aditivoEditadoManualmente) {
-      setAditivo(Math.round(adtBruto))
-    }
-
-    // Água (L) = cimento_total_kg × fatorAguaManual
-    const agBruta = cimentoTotal * (fatorAguaManual || 0)
-    setAguaBruta(agBruta)
-    if (!aguaEditadaManualmente) {
-      setAgua(Math.round(agBruta))
-    }
-  }, [
-    volume,
-    cargaZerada,
-    cimento,
-    fatorAditivoManual,
-    fatorAguaManual,
-    aditivoEditadoManualmente,
-    aguaEditadaManualmente,
-  ])
-
-  // Recalcular valor de aditivo conforme fórmula teórica: cimento_total_kg × fator
-  const handleRecalcularAditivo = () => {
-    setAditivoEditadoManualmente(false)
-    const cimentoTotal = cimento * volume
-    const adtBruto = cimentoTotal * (fatorAditivoManual || 0)
-    setAditivoBruto(adtBruto)
-    setAditivo(Math.round(adtBruto))
-    toast({
-      title: "Aditivo recalculado",
-      description: `Valor recalculado pela fórmula: ${Math.round(adtBruto)} L`,
-    })
-  }
-
-  // Recalcular valor de água conforme fórmula teórica: cimento_total_kg × fator
-  const handleRecalcularAgua = () => {
-    setAguaEditadaManualmente(false)
-    const cimentoTotal = cimento * volume
-    const agBruta = cimentoTotal * (fatorAguaManual || 0)
-    setAguaBruta(agBruta)
-    setAgua(Math.round(agBruta))
-    toast({
-      title: "Água recalculada",
-      description: `Valor recalculado pela fórmula: ${Math.round(agBruta)} L`,
-    })
-  }
-
-  const handleResetarParaTraco = () => {
-    if (tracoSelecionadoId) {
-      setAditivoEditadoManualmente(false)
-      setAguaEditadaManualmente(false)
-      aplicarDosagemTraco(tracoSelecionadoId, volume)
-      toast({
-        title: "Dosagem restaurada",
-        description:
-          "Os valores de dosagem (kg/m³) e cálculos de aditivo e água foram restaurados com base no traço selecionado.",
-      })
-    }
-  }
 
   // Carregar lista de cargas da empresa ativa
   const carregarCargasLista = async () => {
@@ -686,10 +517,9 @@ export default function LancamentoCargas() {
   }
 
   // Consumos REAIS da carga:
-  // Em ambos os modos (manual e traço automático):
-  // - Sólidos (cimento, areia, britas, pó de pedra) guardam dosagem por m³ e são multiplicados pelo volume.
-  // - Aditivo e Água são liderados como volume TOTAL em litros da carga (já calculados com fator sobre cimento total ou digitados)
-  //   e gravados como valor INTEIRO (Math.round).
+  // - Sólidos (cimento, brita12, brita19, areia, pó de pedra) guardam dosagem por m³ e são multiplicados pelo volume.
+  // - Aditivo é o volume total em litros da carga (Math.round).
+  // - O que o usuário digitar prevalece exatamente sem alterações.
   const consumoReal = {
     cimento: Math.round(cimento * volume),
     areia: Math.round(areia * volume),
@@ -697,11 +527,15 @@ export default function LancamentoCargas() {
     brita19: Math.round(brita19 * volume),
     poPedra: Math.round(poPedra * volume),
     aditivo: Math.round(aditivo),
-    agua: Math.round(agua),
+    agua: 0,
   }
 
-  // Validação estrita: "SO ACEITAR GRAVAR SE TODOS OS CAMPOS ESTIVEREM PREENCHIDOS"
-  // Campos essenciais: data de expedição, volume (>0), traço/dosagem, aditivo, motorista, placa da betoneira e destino/cidade
+  // Validação mínima solicitada:
+  // - Data
+  // - Volume m³ > 0
+  // - Insumos (cimento e agregados > 0 a menos que seja carga cancelada/zerada)
+  // O traço NÃO é obrigatório (pode salvar manual/sem vínculo)
+  // Motorista, placa e cidade não são mais digitados
   const obterErrosValidacao = () => {
     interface ItemErro {
       campo: string
@@ -713,72 +547,27 @@ export default function LancamentoCargas() {
     if (!dataCarga || dataCarga.trim() === "") {
       faltantes.push({
         campo: "data",
-        rotulo: "Data de Expedição",
-        mensagem: "Informe a data de expedição",
+        rotulo: "Data da Carga",
+        mensagem: "Informe a data da carga",
       })
     }
 
     if (!volume || Number(volume) <= 0) {
       faltantes.push({
         campo: "volume",
-        rotulo: "Volume da Carga",
+        rotulo: "Volume (m³)",
         mensagem: "Volume deve ser maior que 0 m³",
       })
     }
 
-    if (!tracoSelecionadoId || tracoSelecionadoId.trim() === "") {
-      faltantes.push({
-        campo: "traco",
-        rotulo: "Traço / Dosagem",
-        mensagem: "Selecione o traço ou dosagem da carga",
-      })
-    }
-
-    if (!motoristaNome || motoristaNome.trim() === "") {
-      faltantes.push({
-        campo: "motorista",
-        rotulo: "Motorista",
-        mensagem: "Informe o nome do motorista",
-      })
-    }
-
-    if (!veiculoPlaca || veiculoPlaca.trim() === "") {
-      faltantes.push({
-        campo: "veiculo",
-        rotulo: "Placa Betoneira",
-        mensagem: "Selecione o veículo / placa da betoneira",
-      })
-    }
-
-    if (!cidadeNome || cidadeNome.trim() === "") {
-      faltantes.push({
-        campo: "cidade",
-        rotulo: "Destino / Cidade",
-        mensagem: "Informe o destino ou cidade da entrega",
-      })
-    }
-
-    // Aditivo: deve ser informado / maior que zero (a menos que seja carga cancelada/zerada)
-    if (
-      !cargaZerada &&
-      (aditivo === undefined || aditivo === null || Number(aditivo) <= 0)
-    ) {
-      faltantes.push({
-        campo: "aditivo",
-        rotulo: "Aditivo (L)",
-        mensagem: "Informe o volume de aditivo (L)",
-      })
-    }
-
-    // Se estiver no modo manual sem ser cancelada, deve haver consumo de insumos/cimento
-    if (modoDosagem === "manual" && !cargaZerada) {
-      const somaDosagens =
-        brita12 + brita19 + areia + poPedra + cimento + aditivo
-      if (somaDosagens <= 0) {
+    if (!cargaZerada) {
+      const somaInsumos =
+        cimento + brita12 + brita19 + areia + aditivo + poPedra
+      if (somaInsumos <= 0) {
         faltantes.push({
           campo: "insumos",
-          rotulo: "Insumos (kg/m³)",
-          mensagem: "No modo manual, informe a dosagem de cimento e agregados",
+          rotulo: "Insumos da Carga",
+          mensagem: "Informe as quantidades/dosagens dos insumos",
         })
       }
     }
@@ -807,25 +596,28 @@ export default function LancamentoCargas() {
   const executarSalvarEdicao = async (motivoZerada?: "PERDA" | "CANCELAR") => {
     if (!editarCargaId) return
     const traco = tracos.find((t) => t.id === tracoSelecionadoId)
-    const nomeTracoGravado = traco ? `${traco.nome} (Manual)` : "Dosagem Manual"
+    // Se houver traço vinculado, grava a referência do traço; se não houver, grava null / "Manual"
+    const nomeTracoGravado = traco
+      ? formatarDescricaoCompletaTraco(traco)
+      : null
 
     setSalvando(true)
     try {
       await ConcreteiraService.atualizarCarga(editarCargaId, {
         data: dataCarga,
         volume_m3: volume,
-        traco_id: traco?.id,
-        traco_nome: nomeTracoGravado,
-        motorista_nome: motoristaNome || null,
-        veiculo_placa: veiculoPlaca || null,
-        cidade_nome: cidadeNome || null,
+        traco_id: traco?.id || undefined,
+        traco_nome: nomeTracoGravado || "Manual",
+        motorista_nome: null,
+        veiculo_placa: null,
+        cidade_nome: null,
         consumo_brita12: consumoReal.brita12,
         consumo_brita19: consumoReal.brita19,
         consumo_areia: consumoReal.areia,
         consumo_po_pedra: consumoReal.poPedra,
         consumo_cimento: consumoReal.cimento,
         consumo_aditivo: consumoReal.aditivo,
-        consumo_agua: consumoReal.agua,
+        consumo_agua: 0,
         observacao: observacao || null,
         carga_zerada: cargaZerada,
         motivo_zerada: motivoZerada,
@@ -837,10 +629,9 @@ export default function LancamentoCargas() {
       toast({
         title: "Carga alterada com sucesso!",
         description:
-          "Movimentações de estoque recalculadas e integridade do saldo mantida.",
+          "Movimentações de estoque recalculadas com os valores digitados.",
       })
 
-      // Se não for balanceiro ou estiver editando, pode recarregar a lista de cargas
       carregarCargasLista()
       navigate(isBalanceiro ? "/lancamentos" : "/")
     } catch (err: any) {
@@ -857,7 +648,9 @@ export default function LancamentoCargas() {
 
   const executarCriarCarga = async (motivoZerada?: "PERDA" | "CANCELAR") => {
     const traco = tracos.find((t) => t.id === tracoSelecionadoId)
-    const nomeTracoGravado = traco ? `${traco.nome} (Manual)` : "Dosagem Manual"
+    const nomeTracoGravado = traco
+      ? formatarDescricaoCompletaTraco(traco)
+      : null
 
     setSalvando(true)
     try {
@@ -865,37 +658,19 @@ export default function LancamentoCargas() {
         empresa_id: empresaAtiva?.id,
         data: dataCarga,
         volume_m3: volume,
-        traco_id: traco?.id,
-        traco_nome: nomeTracoGravado,
-        motorista_nome: motoristaNome || undefined,
-        veiculo_placa: veiculoPlaca || undefined,
-        cidade_nome: cidadeNome || undefined,
+        traco_id: traco?.id || undefined,
+        traco_nome: nomeTracoGravado || "Manual",
+        motorista_nome: undefined,
+        veiculo_placa: undefined,
+        cidade_nome: undefined,
         consumo_brita12: consumoReal.brita12,
         consumo_brita19: consumoReal.brita19,
         consumo_areia: consumoReal.areia,
         consumo_po_pedra: consumoReal.poPedra,
         consumo_cimento: consumoReal.cimento,
         consumo_aditivo: consumoReal.aditivo,
-        consumo_agua: consumoReal.agua,
-        observacao: observacao
-          ? `[Lançamento manual | Aditivo: ${consumoReal.aditivo}L${
-              aditivoEditadoManualmente
-                ? " (manual)"
-                : ` (fator ${fatorAditivoManual})`
-            } | Água: ${consumoReal.agua}L${
-              aguaEditadaManualmente
-                ? " (manual)"
-                : ` (fator ${fatorAguaManual})`
-            }] ${observacao}`
-          : `[Lançamento manual | Aditivo: ${consumoReal.aditivo}L${
-              aditivoEditadoManualmente
-                ? " (manual)"
-                : ` (fator ${fatorAditivoManual})`
-            } | Água: ${consumoReal.agua}L${
-              aguaEditadaManualmente
-                ? " (manual)"
-                : ` (fator ${fatorAguaManual})`
-            }]`,
+        consumo_agua: 0,
+        observacao: observacao || undefined,
         carga_zerada: cargaZerada,
         motivo_zerada: motivoZerada,
       })
@@ -909,30 +684,23 @@ export default function LancamentoCargas() {
           ? motivoZerada === "PERDA"
             ? "Carga registrada como PERDA OPERACIONAL. Baixa de cimento e aditivo efetuada no estoque."
             : "Carga cancelada registrada SEM nenhuma movimentação de estoque."
-          : "Baixa de estoque nos materiais controlados (Cimento e Aditivo) realizada com sucesso.",
+          : "Baixa de estoque de cimento e aditivo realizada com sucesso.",
       })
 
       // Limpar formulário para próximo lançamento e atualizar listagem
-      if (isBalanceiro) {
-        setVolume(8.0)
-        setMotoristaNome("")
-        setVeiculoPlaca("")
-        setCidadeNome("")
-        setObservacao("")
-        setCargaZerada(false)
-        setCimento(0)
-        setBrita12(0)
-        setBrita19(0)
-        setAreia(0)
-        setPoPedra(0)
-        setAditivo(0)
-        setAditivoBruto(0)
-        setAgua(0)
-        setAguaBruta(0)
-        setAditivoEditadoManualmente(false)
-        setAguaEditadaManualmente(false)
-        setTentouGravar(false)
-      }
+      setVolume(8.0)
+      setObservacao("")
+      setCargaZerada(false)
+      setTracoSelecionadoId("")
+      setCimento(0)
+      setBrita12(0)
+      setBrita19(0)
+      setAreia(0)
+      setPoPedra(0)
+      setAditivo(0)
+      setAditivoBruto(0)
+      setTentouGravar(false)
+
       carregarCargasLista()
       if (!isBalanceiro) {
         navigate("/")
@@ -974,27 +742,79 @@ export default function LancamentoCargas() {
 
   const tracoAtual = tracos.find((t) => t.id === tracoSelecionadoId)
 
-  // Faixa de fatores do aditivo pedida pelo usuário: 0,005 a 0,010
-  const OPCOES_FATOR_ADITIVO = [
-    { valor: 0.005, rotulo: "0,005" },
-    { valor: 0.006, rotulo: "0,006" },
-    { valor: 0.007, rotulo: "0,007" },
-    { valor: 0.008, rotulo: "0,008" },
-    { valor: 0.009, rotulo: "0,009" },
-    { valor: 0.01, rotulo: "0,010" },
+  // Lista dos botões de atalho rápido de traço: F10 a F45
+  const ATALHOS_TRACO = [
+    { label: "F10", fck: 10 },
+    { label: "F15", fck: 15 },
+    { label: "F20", fck: 20 },
+    { label: "F25", fck: 25 },
+    { label: "F30", fck: 30 },
+    { label: "F35", fck: 35 },
+    { label: "F40", fck: 40 },
+    { label: "F45", fck: 45 },
   ]
 
-  // Faixa de fatores de água pedida pelo usuário: 0,45 a 0,8
-  const OPCOES_FATOR_AGUA = [
-    { valor: 0.45, rotulo: "0,45" },
-    { valor: 0.5, rotulo: "0,50" },
-    { valor: 0.55, rotulo: "0,55" },
-    { valor: 0.6, rotulo: "0,60" },
-    { valor: 0.65, rotulo: "0,65" },
-    { valor: 0.7, rotulo: "0,70" },
-    { valor: 0.75, rotulo: "0,75" },
-    { valor: 0.8, rotulo: "0,80" },
-  ]
+  // Encontra o traço correspondente no catálogo da empresa ativa para o FCK informado
+  const encontrarTracoPorFck = (fck: number): Traco | undefined => {
+    // 1. Prioriza os padrões oficiais tipo FxxB01S12 CP II F 40
+    const tracoPadrao = tracos.find(
+      (t) =>
+        Number(t.fck_mpa) === fck &&
+        /^F\d{1,2}B01S12/i.test(t.nome?.trim() || ""),
+    )
+    if (tracoPadrao) return tracoPadrao
+
+    // 2. Qualquer traço com o mesmo fck_mpa
+    const tracoFck = tracos.find((t) => Number(t.fck_mpa) === fck)
+    if (tracoFck) return tracoFck
+
+    // 3. Fallback procurando Fxx no nome
+    return tracos.find((t) => {
+      const regex = new RegExp(`\\bF${fck}\\b`, "i")
+      return regex.test(t.nome || "")
+    })
+  }
+
+  // Ao tocar em um botão de traço rápido: pré-preenche os insumos com as dosagens cadastradas
+  const selecionarAtalhoTraco = (fck: number) => {
+    const traco = encontrarTracoPorFck(fck)
+    if (traco) {
+      setTracoSelecionadoId(traco.id)
+      setCimento(Number(traco.consumo_cimento) || 0)
+      setBrita12(Number(traco.consumo_brita12) || 0)
+      setBrita19(Number(traco.consumo_brita19) || 0)
+      setAreia(Number(traco.consumo_areia) || 0)
+      setPoPedra(Number(traco.consumo_po_pedra) || 0)
+
+      // Aditivo sugerido: calcula total em litros (consumo_aditivo_m3 × volume)
+      const adtBase = Number(traco.consumo_aditivo) || 0
+      const adtTotal = adtBase > 0 ? Math.round(adtBase * volume) : 0
+      setAditivo(adtTotal)
+      setAditivoBruto(adtTotal)
+      setAditivoEditadoManualmente(false)
+
+      toast({
+        title: `Traço ${formatarDescricaoCompletaTraco(traco)} selecionado`,
+        description:
+          "Insumos pré-preenchidos. Você pode ajustar qualquer valor livremente.",
+      })
+    } else {
+      toast({
+        title: `Traço F${fck} não encontrado`,
+        description: "Não há traço cadastrado com esse FCK na empresa ativa.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Permite desmarcar o traço para gravar expressamente como Manual / Sem vínculo
+  const limparTracoVinculado = () => {
+    setTracoSelecionadoId("")
+    toast({
+      title: "Traço desvinculado",
+      description: "A carga será gravada sem traço vinculado (Manual).",
+    })
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6 pb-20 sm:pb-8">
@@ -1062,22 +882,26 @@ export default function LancamentoCargas() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
-        {/* Bloco 1: Dados Essenciais da Expedição (Data, Volume, Traço, Motorista, Placa, Destino) */}
-        <Card className="border-border/50 bg-card/80 shadow-sm">
+        {/* NOVO FORMULÁRIO RÁPIDO PARA O BALANCEIRO:
+            1. DATA (padrão: hoje)
+            2. VOLUME m³ em campo grande/destacado
+            3. INSUMOS: CIMENTO, B12, B19, AREIA, ADITIVO (digitação livre) + ATALHOS F10 a F45
+            4. GRAVAR em destaque (mantendo modal comparativo Antes x Depois) */}
+        <Card className="border-border/60 bg-card shadow-sm">
           <CardHeader className="pb-3 pt-4 px-4 sm:px-6 border-b border-border/30">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2 text-foreground">
-                  <Truck className="w-4 h-4 text-primary" />
-                  1. Dados da Expedição e Viagem
+                <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2 text-foreground">
+                  <Truck className="w-5 h-5 text-primary" />
+                  Lançamento Rápido de Carga
                 </CardTitle>
                 <CardDescription className="text-xs mt-0.5">
-                  Campos essenciais para identificação rápida da viagem na
-                  balança
+                  Preencha data, volume e insumos diretamente. O que você
+                  digitar prevalece exatamente sem alterações.
                 </CardDescription>
               </div>
 
-              {/* Checkbox Carga Zerada Compacto no Topo */}
+              {/* Checkbox Carga Zerada / Cancelada */}
               <div className="flex items-center space-x-2 pt-1 sm:pt-0">
                 <Checkbox
                   id="cargaZerada"
@@ -1105,10 +929,11 @@ export default function LancamentoCargas() {
             </div>
           </CardHeader>
 
-          <CardContent className="p-3.5 sm:p-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
-              {/* Data da Carga */}
-              <div className="space-y-1.5">
+          <CardContent className="p-4 sm:p-6 space-y-5">
+            {/* 1. DATA e 2. VOLUME m³ EM CAMPO GRANDE/DESTACADO */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+              {/* 1. DATA (padrão hoje) */}
+              <div className="md:col-span-4 space-y-1.5">
                 <Label
                   htmlFor="data"
                   className={`text-xs sm:text-sm font-semibold flex items-center justify-between ${
@@ -1117,7 +942,10 @@ export default function LancamentoCargas() {
                       : "text-foreground"
                   }`}
                 >
-                  <span>Data de Expedição *</span>
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-primary" />
+                    1. Data da Carga *
+                  </span>
                   {tentouGravar && (!dataCarga || dataCarga.trim() === "") && (
                     <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
                       <AlertCircle className="w-3.5 h-3.5" /> Obrigatório
@@ -1130,1286 +958,451 @@ export default function LancamentoCargas() {
                   value={dataCarga}
                   onChange={(e) => setDataCarga(e.target.value)}
                   required
-                  className={`min-h-[44px] h-11 sm:h-10 text-sm sm:text-base bg-background font-mono rounded-xl px-3 transition-colors ${
+                  className={`min-h-[48px] h-12 text-sm sm:text-base bg-background font-mono rounded-xl px-3 transition-colors ${
                     tentouGravar && (!dataCarga || dataCarga.trim() === "")
                       ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5"
                       : ""
                   }`}
                 />
+                <p className="text-[11px] text-muted-foreground">
+                  Padrão pré-preenchido com a data de hoje.
+                </p>
               </div>
 
-              {/* Volume m³ em destaque com botões rápidos para celular/tablet */}
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="volume"
-                  className={`text-xs sm:text-sm font-semibold flex items-center justify-between ${
-                    tentouGravar && (!volume || Number(volume) <= 0)
-                      ? "text-destructive font-bold"
-                      : "text-foreground"
-                  }`}
-                >
-                  <span>Volume da Carga *</span>
-                  {tentouGravar && (!volume || Number(volume) <= 0) ? (
-                    <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
+              {/* 2. VOLUME m³ EM CAMPO GRANDE/DESTACADO */}
+              <div className="md:col-span-8 p-3.5 sm:p-4 rounded-2xl border-2 border-primary/40 bg-primary/5 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <Label
+                    htmlFor="volume"
+                    className={`text-sm sm:text-base font-bold flex items-center gap-2 ${
+                      tentouGravar && (!volume || Number(volume) <= 0)
+                        ? "text-destructive font-bold"
+                        : "text-foreground"
+                    }`}
+                  >
+                    <Layers className="w-4 h-4 text-primary" />
+                    <span>2. Volume da Carga (m³) *</span>
+                  </Label>
+                  {tentouGravar && (!volume || Number(volume) <= 0) && (
+                    <span className="text-xs text-destructive flex items-center gap-1 font-medium">
                       <AlertCircle className="w-3.5 h-3.5" /> Informe volume
-                      &gt; 0
+                      maior que 0
                     </span>
-                  ) : (
-                    <span className="text-xs text-primary font-mono font-bold">
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <div className="relative flex-1">
+                    <Input
+                      id="volume"
+                      type="number"
+                      inputMode="decimal"
+                      step="0.5"
+                      min="0.5"
+                      max="20"
+                      value={volume || ""}
+                      onChange={(e) => {
+                        const val =
+                          e.target.value === "" ? 0 : Number(e.target.value)
+                        setVolume(isNaN(val) ? 0 : val)
+                      }}
+                      required
+                      placeholder="8.0"
+                      className={`min-h-[52px] h-14 text-2xl sm:text-3xl font-black font-mono text-primary bg-background text-left pr-14 rounded-xl border-2 transition-colors ${
+                        tentouGravar && (!volume || Number(volume) <= 0)
+                          ? "border-destructive ring-2 ring-destructive/40 bg-destructive/5"
+                          : "border-primary/50 focus-visible:ring-primary"
+                      }`}
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm sm:text-base font-black text-muted-foreground pointer-events-none font-mono">
                       m³
                     </span>
-                  )}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="volume"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.5"
-                    min="0.5"
-                    max="15"
-                    value={volume || ""}
-                    onChange={(e) => {
-                      const val =
-                        e.target.value === "" ? 0 : Number(e.target.value)
-                      setVolume(isNaN(val) ? 0 : val)
-                    }}
-                    required
-                    className={`min-h-[44px] h-11 sm:h-10 text-base sm:text-lg font-bold font-mono text-primary bg-background pr-10 text-left rounded-xl transition-colors ${
-                      tentouGravar && (!volume || Number(volume) <= 0)
-                        ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5 text-destructive"
-                        : ""
-                    }`}
-                    placeholder="8.0"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
-                    m³
-                  </span>
-                </div>
-                {/* Botões rápidos de volume comuns em betoneira (4, 6, 8 m³) para toque com 1 dedo */}
-                <div className="flex items-center gap-1.5 pt-0.5">
-                  {[4, 6, 7, 8].map((vRapido) => (
-                    <button
-                      key={vRapido}
-                      type="button"
-                      onClick={() => setVolume(vRapido)}
-                      className={`px-2.5 py-1 text-xs font-mono font-bold rounded-lg border transition-colors ${
-                        volume === vRapido
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-muted/60 text-muted-foreground hover:bg-muted border-border/50"
-                      }`}
-                    >
-                      {vRapido}m³
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              {/* Traço / Dosagem */}
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="traco"
-                  className={`text-xs sm:text-sm font-semibold flex items-center justify-between ${
-                    tentouGravar &&
-                    (!tracoSelecionadoId || tracoSelecionadoId.trim() === "")
-                      ? "text-destructive font-bold"
-                      : "text-foreground"
-                  }`}
-                >
-                  <span>
-                    {modoDosagem === "manual"
-                      ? "Traço de Referência *"
-                      : "Traço / Dosagem *"}
-                  </span>
-                  {tentouGravar &&
-                    (!tracoSelecionadoId ||
-                      tracoSelecionadoId.trim() === "") && (
-                      <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
-                        <AlertCircle className="w-3.5 h-3.5" /> Selecione o
-                        traço
-                      </span>
-                    )}
-                </Label>
-                <Select
-                  value={tracoSelecionadoId}
-                  onValueChange={(val) => {
-                    setTracoSelecionadoId(val)
-                    if (isBalanceiro && modoDosagem === "manual") {
-                      setCimento(0)
-                      setBrita12(0)
-                      setBrita19(0)
-                      setAreia(0)
-                      setPoPedra(0)
-                      setAditivo(0)
-                      setAditivoBruto(0)
-                      setAgua(0)
-                      setAguaBruta(0)
-                      setAditivoEditadoManualmente(false)
-                      setAguaEditadaManualmente(false)
-                    } else {
-                      aplicarDosagemTraco(val, volume)
-                    }
-                  }}
-                  disabled={cargaZerada}
-                >
-                  <SelectTrigger
-                    id="traco"
-                    className={`min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background rounded-xl px-3 transition-colors ${
-                      tentouGravar &&
-                      (!tracoSelecionadoId || tracoSelecionadoId.trim() === "")
-                        ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5"
-                        : ""
-                    }`}
-                  >
-                    <SelectValue placeholder="Selecione o traço" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tracos
-                      .filter((t) =>
-                        /^F\d{1,2}B01S12/i.test(t.nome?.trim() || ""),
-                      )
-                      .map((t) => (
-                        <SelectItem
-                          key={t.id}
-                          value={t.id}
-                          className="text-xs sm:text-sm py-2.5"
-                        >
-                          {formatarDescricaoCompletaTraco(t)}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Motorista com Datalist e campo alto */}
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="motorista"
-                  className={`text-xs sm:text-sm font-semibold flex items-center justify-between ${
-                    tentouGravar &&
-                    (!motoristaNome || motoristaNome.trim() === "")
-                      ? "text-destructive font-bold"
-                      : "text-foreground"
-                  }`}
-                >
-                  <span className="flex items-center gap-1">
-                    <User className="w-4 h-4 text-primary" />
-                    Motorista *
-                  </span>
-                  {tentouGravar &&
-                    (!motoristaNome || motoristaNome.trim() === "") && (
-                      <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
-                        <AlertCircle className="w-3.5 h-3.5" /> Obrigatório
-                      </span>
-                    )}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="motorista"
-                    list="lista-motoristas"
-                    value={motoristaNome}
-                    onChange={(e) => setMotoristaNome(e.target.value)}
-                    placeholder="Nome do motorista..."
-                    className={`min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background rounded-xl px-3 transition-colors ${
-                      tentouGravar &&
-                      (!motoristaNome || motoristaNome.trim() === "")
-                        ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5"
-                        : ""
-                    }`}
-                  />
-                  <datalist id="lista-motoristas">
-                    {motoristas.map((m) => (
-                      <option key={m.id} value={m.nome} />
-                    ))}
-                  </datalist>
-                </div>
-              </div>
-
-              {/* Placa da Betoneira */}
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="veiculo"
-                  className={`text-xs sm:text-sm font-semibold flex items-center justify-between ${
-                    tentouGravar &&
-                    (!veiculoPlaca || veiculoPlaca.trim() === "")
-                      ? "text-destructive font-bold"
-                      : "text-foreground"
-                  }`}
-                >
-                  <span className="flex items-center gap-1">
-                    <Truck className="w-4 h-4 text-primary" />
-                    Placa Betoneira *
-                  </span>
-                  {tentouGravar &&
-                    (!veiculoPlaca || veiculoPlaca.trim() === "") && (
-                      <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
-                        <AlertCircle className="w-3.5 h-3.5" /> Obrigatório
-                      </span>
-                    )}
-                </Label>
-                <Select value={veiculoPlaca} onValueChange={setVeiculoPlaca}>
-                  <SelectTrigger
-                    id="veiculo"
-                    className={`min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background font-mono rounded-xl px-3 transition-colors ${
-                      tentouGravar &&
-                      (!veiculoPlaca || veiculoPlaca.trim() === "")
-                        ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5"
-                        : ""
-                    }`}
-                  >
-                    <SelectValue placeholder="Selecione o veículo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {veiculos.map((v) => (
-                      <SelectItem
-                        key={v.id}
-                        value={v.placa}
-                        className="text-xs sm:text-sm font-mono py-2.5"
+                  {/* Botões rápidos de volume com 1 toque */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {[4, 6, 7, 8, 9, 10].map((vRapido) => (
+                      <button
+                        key={vRapido}
+                        type="button"
+                        onClick={() => setVolume(vRapido)}
+                        className={`h-12 px-3 sm:px-3.5 text-xs sm:text-sm font-mono font-bold rounded-xl border-2 transition-all ${
+                          volume === vRapido
+                            ? "bg-primary text-primary-foreground border-primary shadow-sm scale-102"
+                            : "bg-background text-foreground hover:bg-muted border-border/70"
+                        }`}
                       >
-                        {v.placa} {v.modelo ? `- ${v.modelo}` : ""}
-                      </SelectItem>
+                        {vRapido} m³
+                      </button>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Cidade / Destino */}
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="cidade"
-                  className={`text-xs sm:text-sm font-semibold flex items-center justify-between ${
-                    tentouGravar && (!cidadeNome || cidadeNome.trim() === "")
-                      ? "text-destructive font-bold"
-                      : "text-foreground"
-                  }`}
-                >
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-4 h-4 text-primary" />
-                    Destino / Cidade *
-                  </span>
-                  {tentouGravar &&
-                    (!cidadeNome || cidadeNome.trim() === "") && (
-                      <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
-                        <AlertCircle className="w-3.5 h-3.5" /> Obrigatório
-                      </span>
-                    )}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="cidade"
-                    list="lista-cidades"
-                    value={cidadeNome}
-                    onChange={(e) => setCidadeNome(e.target.value)}
-                    placeholder="Cidade ou obra de destino..."
-                    className={`min-h-[44px] h-11 sm:h-10 text-xs sm:text-sm bg-background rounded-xl px-3 transition-colors ${
-                      tentouGravar && (!cidadeNome || cidadeNome.trim() === "")
-                        ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5"
-                        : ""
-                    }`}
-                  />
-                  <datalist id="lista-cidades">
-                    {LISTA_CIDADES_RAIO_POLOS.map((cidFormatada) => (
-                      <option key={cidFormatada} value={cidFormatada} />
-                    ))}
-                    {cidades
-                      .filter(
-                        (c) =>
-                          !LISTA_CIDADES_RAIO_POLOS.some(
-                            (p) =>
-                              p.toLowerCase() === c.nome.toLowerCase() ||
-                              p
-                                .toLowerCase()
-                                .startsWith(`${c.nome.toLowerCase()}/`),
-                          ),
-                      )
-                      .map((c) => (
-                        <option
-                          key={c.id}
-                          value={c.uf ? `${c.nome}/${c.uf}` : c.nome}
-                        />
-                      ))}
-                  </datalist>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Observações da Carga (linha compacta) */}
-            <div className="pt-2 border-t border-border/30">
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="observacao"
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Observações adicionais (opcional)
-                </Label>
-                <Input
-                  id="observacao"
-                  value={observacao}
-                  onChange={(e) => setObservacao(e.target.value)}
-                  placeholder="Ex.: Obra Centro, concreto bombeado, nota fiscal na entrega..."
-                  className="min-h-[44px] h-11 sm:h-9 text-xs sm:text-sm bg-background rounded-xl px-3"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Bloco 2: Consumo Calculado ou Manual de Insumos */}
-        <Card className="border-border/40 bg-card/70">
-          <CardHeader className="pb-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Calculator className="w-4 h-4 text-primary" />
-                  Insumos e Agregados da Carga
-                </CardTitle>
-                <CardDescription className="text-xs mt-1">
-                  Informe a dosagem de cada insumo em kg/m³. O cimento alimenta
-                  em tempo real o cálculo do aditivo e da água. O consumo total
-                  gravado é multiplicado automaticamente pelo volume ({volume}{" "}
-                  m³).
-                </CardDescription>
-              </div>
-
-              {/* Indicador de Lançamento 100% Manual */}
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant="outline"
-                  className="h-8 px-3 text-xs font-semibold bg-primary/10 text-primary border-primary/30 gap-1.5"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  Lançamento 100% Manual
-                </Badge>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="space-y-4">
-            {/* Aviso explicativo no modo manual */}
-            {modoDosagem === "manual" && !cargaZerada && (
-              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-start sm:items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
-                  <Edit3 className="w-4 h-4 shrink-0 mt-0.5 sm:mt-0" />
-                  <span>
-                    <strong>Dosagem por m³:</strong> Digite a dosagem de cada
-                    insumo em <strong>kg/m³</strong>. O cimento total da carga é{" "}
-                    <code className="px-1 py-0.5 rounded bg-blue-500/20 font-mono font-semibold">
-                      {cimento} kg/m³ × {volume} m³ = {consumoReal.cimento} kg
-                    </code>
-                    . O <strong>Aditivo</strong> é calculado como{" "}
-                    <code className="px-1 py-0.5 rounded bg-blue-500/20 font-mono font-semibold">
-                      cimento total ({consumoReal.cimento} kg) × fator (
-                      {fatorAditivoManual}) = {aditivo} L
-                    </code>
-                    . A <strong>Água</strong> é calculada como{" "}
-                    <code className="px-1 py-0.5 rounded bg-blue-500/20 font-mono font-semibold">
-                      cimento total ({consumoReal.cimento} kg) × fator (
-                      {fatorAguaManual}) = {agua} L
-                    </code>
-                    .
-                  </span>
-                </div>
-                {tracoAtual && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleResetarParaTraco}
-                    className="h-7 text-xs text-blue-700 dark:text-blue-300 hover:bg-blue-500/20 shrink-0 self-start sm:self-auto gap-1"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    Resetar p/ traço
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {/* SEÇÃO INTEGRADA DE VOLUME NO MESMO AMBIENTE DOS INSUMOS */}
-            <div className="p-3.5 rounded-xl border border-border/60 bg-muted/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
-                  <Truck className="w-5 h-5" />
-                </div>
+            {/* 3. INSUMOS COM ATALHO OPCIONAL DE TRAÇO AO LADO */}
+            <div className="space-y-3 pt-2 border-t border-border/40">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2">
                 <div>
-                  <Label
-                    htmlFor="volume-ambiente-insumos"
-                    className="text-xs sm:text-sm font-semibold text-foreground block"
-                  >
-                    Volume da Carga (m³)
-                  </Label>
-                  <span className="text-[11px] text-muted-foreground block">
-                    {modoDosagem === "manual"
-                      ? "Multiplicador aplicado às dosagens (kg/m³) para obter o consumo total"
-                      : "Multiplica os consumos do traço e define aditivo/água por fator"}
-                  </span>
+                  <h3 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
+                    <Calculator className="w-4 h-4 text-primary" />
+                    3. Insumos da Carga (Digitação Livre)
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    O que você digitar prevalece exatamente como digitado. O
+                    traço ao lado é apenas sugestão opcional de
+                    pré-preenchimento.
+                  </p>
                 </div>
+
+                {tracoAtual && (
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className="text-xs py-1 px-2.5 bg-primary/10 text-primary border-primary/30"
+                    >
+                      Traço sugerido:{" "}
+                      {formatarDescricaoCompletaTraco(tracoAtual)}
+                    </Badge>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={limparTracoVinculado}
+                      className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                      title="Gravar sem vínculo com este traço"
+                    >
+                      Remover vínculo
+                    </Button>
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="relative w-full sm:w-36">
-                  <Input
-                    id="volume-ambiente-insumos"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.5"
-                    min="0.5"
-                    max="15"
-                    value={volume || ""}
-                    onChange={(e) => {
-                      const val =
-                        e.target.value === "" ? 0 : Number(e.target.value)
-                      setVolume(isNaN(val) ? 0 : val)
-                    }}
-                    disabled={cargaZerada}
-                    className="font-mono font-bold text-center pr-9 min-h-[44px] h-11 text-base sm:text-lg bg-background rounded-xl"
-                    placeholder="8.0"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
-                    m³
-                  </span>
+              {/* Layout em 2 colunas:
+                  Esquerda/Principal: Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo)
+                  Direita/Lateral: Atalhos rápidos de traço F10 a F45 */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="lg:col-span-8 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+                    <div className="p-3.5 rounded-xl border-2 border-primary/40 bg-primary/5 space-y-1.5">
+                      <Label
+                        htmlFor="cimento"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          CIMENTO (kg/m³) *
+                          <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal">
+                            Estoque
+                          </span>
+                        </span>
+                        {volume > 0 && (
+                          <span className="text-[11px] font-mono font-bold text-primary">
+                            Total: {consumoReal.cimento.toLocaleString("pt-BR")}{" "}
+                            kg
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="cimento"
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          step="1"
+                          value={cimento === 0 ? "" : cimento}
+                          onChange={(e) => {
+                            const val =
+                              e.target.value === "" ? 0 : Number(e.target.value)
+                            setCimento(isNaN(val) ? 0 : val)
+                          }}
+                          disabled={cargaZerada}
+                          placeholder="0"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                          kg/m³
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* B12 (brita 12) */}
+                    <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
+                      <Label
+                        htmlFor="brita12"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span>B12 - Brita 12 (kg/m³)</span>
+                        {volume > 0 && (
+                          <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                            Total: {consumoReal.brita12.toLocaleString("pt-BR")}{" "}
+                            kg
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="brita12"
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          step="1"
+                          value={brita12 === 0 ? "" : brita12}
+                          onChange={(e) => {
+                            const val =
+                              e.target.value === "" ? 0 : Number(e.target.value)
+                            setBrita12(isNaN(val) ? 0 : val)
+                          }}
+                          disabled={cargaZerada}
+                          placeholder="0"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                          kg/m³
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* B19 (brita 19) */}
+                    <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
+                      <Label
+                        htmlFor="brita19"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span>B19 - Brita 19 (kg/m³)</span>
+                        {volume > 0 && (
+                          <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                            Total: {consumoReal.brita19.toLocaleString("pt-BR")}{" "}
+                            kg
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="brita19"
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          step="1"
+                          value={brita19 === 0 ? "" : brita19}
+                          onChange={(e) => {
+                            const val =
+                              e.target.value === "" ? 0 : Number(e.target.value)
+                            setBrita19(isNaN(val) ? 0 : val)
+                          }}
+                          disabled={cargaZerada}
+                          placeholder="0"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                          kg/m³
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* AREIA */}
+                    <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
+                      <Label
+                        htmlFor="areia"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span>AREIA (kg/m³)</span>
+                        {volume > 0 && (
+                          <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                            Total: {consumoReal.areia.toLocaleString("pt-BR")}{" "}
+                            kg
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="areia"
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          step="1"
+                          value={areia === 0 ? "" : areia}
+                          onChange={(e) => {
+                            const val =
+                              e.target.value === "" ? 0 : Number(e.target.value)
+                            setAreia(isNaN(val) ? 0 : val)
+                          }}
+                          disabled={cargaZerada}
+                          placeholder="0"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                          kg/m³
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* ADITIVO (LITROS TOTAIS DA CARGA) */}
+                    <div className="p-3.5 rounded-xl border-2 border-primary/40 bg-primary/5 space-y-1.5 sm:col-span-2">
+                      <Label
+                        htmlFor="aditivo"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          ADITIVO (Litros totais da carga) *
+                          <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal">
+                            Estoque
+                          </span>
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          Digite o volume total em litros
+                        </span>
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="aditivo"
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          step="1"
+                          value={aditivo === 0 ? "" : aditivo}
+                          onChange={(e) => {
+                            const val =
+                              e.target.value === "" ? 0 : Number(e.target.value)
+                            setAditivo(isNaN(val) ? 0 : Math.round(val))
+                          }}
+                          disabled={cargaZerada}
+                          placeholder="0"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background text-primary pr-14 rounded-xl"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground pointer-events-none">
+                          Litros
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Observação opcional */}
+                  <div className="pt-2">
+                    <Label
+                      htmlFor="observacao"
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Observação (opcional)
+                    </Label>
+                    <Input
+                      id="observacao"
+                      value={observacao}
+                      onChange={(e) => setObservacao(e.target.value)}
+                      placeholder="Ex.: Adicionado na obra, descarga rápida, etc."
+                      className="min-h-[40px] h-10 text-xs sm:text-sm bg-background rounded-xl mt-1"
+                    />
+                  </div>
+                </div>
+
+                {/* ATALHO OPCIONAL DE TRAÇO:
+                    Botões grandes F10 · F15 · F20 · F25 · F30 · F35 · F40 · F45
+                    Ao lado dos insumos no lugar do select atual.
+                    O TRAÇO NÃO É OBRIGATÓRIO: o balanceiro pode digitar livremente */}
+                <div className="lg:col-span-4 p-4 rounded-2xl border border-border/70 bg-muted/30 space-y-3">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" />
+                      Atalhos Rápidos de Traço
+                    </span>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      1 toque pré-preenche as dosagens cadastradas. Opcional:
+                      pode digitar direto sem escolher traço.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2">
+                    {ATALHOS_TRACO.map((atalho) => {
+                      const tracoExistente = encontrarTracoPorFck(atalho.fck)
+                      const isAtivo = tracoSelecionadoId === tracoExistente?.id
+
+                      return (
+                        <button
+                          key={atalho.label}
+                          type="button"
+                          onClick={() => selecionarAtalhoTraco(atalho.fck)}
+                          disabled={cargaZerada}
+                          className={`h-12 px-3 rounded-xl border-2 font-mono font-black text-sm sm:text-base flex items-center justify-between transition-all ${
+                            isAtivo
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm scale-102"
+                              : "bg-background text-foreground hover:bg-primary/10 hover:border-primary/50 border-border/80"
+                          }`}
+                          title={
+                            tracoExistente
+                              ? formatarDescricaoCompletaTraco(tracoExistente)
+                              : `Traço FCK ${atalho.fck} MPa`
+                          }
+                        >
+                          <span>{atalho.label}</span>
+                          <span
+                            className={`text-[10px] font-sans font-normal ${
+                              isAtivo
+                                ? "text-primary-foreground/80"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {atalho.fck} MPa
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {tracoSelecionadoId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={limparTracoVinculado}
+                      className="w-full text-xs font-semibold h-9 rounded-xl border-dashed"
+                    >
+                      Limpar Traço (Gravar Manual)
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Grid dos Insumos (Cimento, Aditivo, ÁGUA, Areia, Brita 12, Brita 19, Pó de Pedra) - Otimizado com campos altos touch-friendly */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
-              {/* Cimento */}
-              <div
-                className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
-                  modoDosagem === "manual"
-                    ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
-                    : "border-border/40 bg-background/50"
-                }`}
-              >
-                <Label
-                  htmlFor="cimento"
-                  className="text-xs text-muted-foreground flex justify-between items-center"
-                >
-                  <span className="font-semibold text-foreground flex items-center gap-1">
-                    {`${materiais.find((m) => m.codigo === "cimento")?.nome || "CP II F-40 / CP V ARI"} (kg/m³)`}
-                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal shrink-0">
-                      Estoque
-                    </span>
-                  </span>
-                  {tracoAtual && (
-                    <span className="text-[10px] text-muted-foreground">
-                      Traço: {tracoAtual.consumo_cimento} kg/m³
-                    </span>
-                  )}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="cimento"
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    step="1"
-                    value={
-                      cimento === 0 && modoDosagem === "manual" ? "" : cimento
-                    }
-                    onChange={(e) => {
-                      const val =
-                        e.target.value === "" ? 0 : Number(e.target.value)
-                      setCimento(isNaN(val) ? 0 : val)
-                    }}
-                    disabled={cargaZerada}
-                    className={`font-mono font-semibold min-h-[44px] h-11 text-base rounded-xl ${
-                      modoDosagem === "manual"
-                        ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
-                        : "pr-10"
-                    }`}
-                    placeholder="0"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
-                    {modoDosagem === "manual" ? "kg/m³" : "kg"}
-                  </span>
-                </div>
-                {modoDosagem === "manual" && (
-                  <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
-                    <span>Total da carga:</span>
-                    <span className="font-semibold text-foreground">
-                      {consumoReal.cimento.toLocaleString("pt-BR")} kg
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Aditivo: CALCULADO POR FATOR (MESMO COMPORTAMENTO NO MODO AUTOMÁTICO E MANUAL) */}
-              <div
-                className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
-                  tentouGravar &&
-                  !cargaZerada &&
-                  (aditivo === undefined ||
-                    aditivo === null ||
-                    Number(aditivo) <= 0)
-                    ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5"
-                    : modoDosagem === "manual"
-                      ? "border-primary/50 bg-primary/10 ring-1 ring-primary/30"
-                      : "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
-                }`}
-              >
-                <Label
-                  htmlFor="aditivo"
-                  className={`text-xs flex justify-between items-center ${
-                    tentouGravar &&
-                    !cargaZerada &&
-                    (aditivo === undefined ||
-                      aditivo === null ||
-                      Number(aditivo) <= 0)
-                      ? "text-destructive font-bold"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  <span className="font-semibold flex items-center gap-1">
-                    Aditivo (L) *
-                    <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal">
-                      Estoque
-                    </span>
-                    {aditivoEditadoManualmente ? (
-                      <span className="text-[10px] px-1 py-0.2 bg-amber-500/15 text-amber-700 dark:text-amber-300 rounded font-medium">
-                        Digitado
-                      </span>
-                    ) : (
-                      <span className="text-[10px] px-1 py-0.2 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded font-medium">
-                        Calculado
-                      </span>
-                    )}
-                  </span>
-                  {tentouGravar &&
-                  !cargaZerada &&
-                  (aditivo === undefined ||
-                    aditivo === null ||
-                    Number(aditivo) <= 0) ? (
-                    <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
-                      <AlertCircle className="w-3.5 h-3.5" /> Obrigatório &gt; 0
-                    </span>
-                  ) : (
-                    tracoAtual && (
-                      <span className="text-[10px] text-muted-foreground">
-                        Traço:{" "}
-                        {(Number(tracoAtual.consumo_aditivo) * volume).toFixed(
-                          2,
-                        )}{" "}
-                        L ({tracoAtual.consumo_aditivo} L/m³)
-                      </span>
-                    )
-                  )}
-                </Label>
-
-                <div className="space-y-2">
-                  {/* Campo Aditivo Editável com opção de recalcular */}
-                  <div className="relative flex items-center gap-1.5">
-                    <div className="relative flex-1">
-                      <Input
-                        id="aditivo"
-                        type="number"
-                        inputMode="numeric"
-                        min="0"
-                        step="1"
-                        value={
-                          aditivo === 0 && aditivoEditadoManualmente
-                            ? ""
-                            : aditivo
-                        }
-                        onChange={(e) => {
-                          const val =
-                            e.target.value === "" ? 0 : Number(e.target.value)
-                          setAditivoEditadoManualmente(true)
-                          setAditivo(isNaN(val) ? 0 : Math.round(val))
-                        }}
-                        disabled={cargaZerada}
-                        className="font-mono font-bold text-base bg-background text-foreground pr-8 border-primary/40 focus-visible:ring-primary min-h-[44px] h-11 rounded-xl"
-                        placeholder="0"
-                        title="Digite o volume de aditivo (L) ou use o cálculo do fator"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
-                        L
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant={
-                        aditivoEditadoManualmente ? "secondary" : "outline"
-                      }
-                      size="icon"
-                      onClick={handleRecalcularAditivo}
-                      disabled={cargaZerada}
-                      className="min-h-[44px] min-w-[44px] h-11 w-11 rounded-xl shrink-0"
-                      title="Recalcular aditivo pela fórmula (cimento total × fator)"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  {/* Fator de dosagem selecionável/editável (faixa 0,005 a 0,010) */}
-                  <div className="pt-1 border-t border-border/30 flex items-center gap-1.5">
-                    <Label
-                      htmlFor="fator-aditivo"
-                      className="text-[11px] font-medium text-muted-foreground shrink-0"
-                    >
-                      Fator:
-                    </Label>
-
-                    {/* Select com opções rápidas (0,005 a 0,010) */}
-                    <Select
-                      value={
-                        OPCOES_FATOR_ADITIVO.some(
-                          (o) => o.valor === fatorAditivoManual,
-                        )
-                          ? String(fatorAditivoManual)
-                          : "custom"
-                      }
-                      onValueChange={(val) => {
-                        if (val !== "custom") {
-                          setFatorAditivoManual(Number(val))
-                          setAditivoEditadoManualmente(false)
-                        }
-                      }}
-                      disabled={cargaZerada}
-                    >
-                      <SelectTrigger
-                        id="fator-aditivo-select"
-                        className="min-h-[40px] h-10 text-xs font-mono font-medium flex-1 px-2.5 bg-background border-border/70 shadow-xs rounded-lg"
-                      >
-                        <SelectValue placeholder="Selecione o fator">
-                          {OPCOES_FATOR_ADITIVO.some(
-                            (o) => o.valor === fatorAditivoManual,
-                          )
-                            ? String(fatorAditivoManual).replace(".", ",")
-                            : `${String(fatorAditivoManual).replace(".", ",")} (outro)`}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="z-50 bg-popover text-popover-foreground">
-                        {OPCOES_FATOR_ADITIVO.map((op) => (
-                          <SelectItem
-                            key={op.valor}
-                            value={String(op.valor)}
-                            className="font-mono text-xs cursor-pointer py-2.5"
-                          >
-                            Fator {op.rotulo}
-                          </SelectItem>
-                        ))}
-                        {!OPCOES_FATOR_ADITIVO.some(
-                          (o) => o.valor === fatorAditivoManual,
-                        ) && (
-                          <SelectItem
-                            value="custom"
-                            className="font-mono text-xs cursor-pointer py-2.5"
-                          >
-                            {String(fatorAditivoManual).replace(".", ",")}{" "}
-                            (Personalizado)
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-
-                    {/* Input numérico para digitação livre do fator (faixa 0,005 a 0,01) */}
-                    <Input
-                      id="fator-aditivo"
-                      type="number"
-                      inputMode="decimal"
-                      step="0.0005"
-                      min="0.001"
-                      max="0.05"
-                      value={fatorAditivoManual || ""}
-                      onChange={(e) => {
-                        const val =
-                          e.target.value === "" ? 0 : Number(e.target.value)
-                        setFatorAditivoManual(isNaN(val) ? 0 : val)
-                        setAditivoEditadoManualmente(false)
-                      }}
-                      disabled={cargaZerada}
-                      className="min-h-[40px] h-10 w-20 text-xs font-mono font-medium text-center px-1 bg-background border-border/70 rounded-lg"
-                      title="Ou digite manualmente o fator de aditivo"
-                      placeholder="0.006"
-                    />
-                  </div>
-                  {/* Legenda com o valor bruto e arredondamento */}
-                  <div className="text-[10px] text-muted-foreground leading-tight space-y-0.5">
-                    <div>
-                      {consumoReal.cimento} kg × {fatorAditivoManual} ={" "}
-                      <span className="font-mono font-medium">
-                        {aditivoBruto.toFixed(2)} →{" "}
-                      </span>
-                      <span className="font-semibold text-foreground font-mono">
-                        {Math.round(aditivoBruto)} L
-                      </span>
-                      {aditivoEditadoManualmente && (
-                        <span className="ml-1 text-amber-600 dark:text-amber-400 font-semibold font-mono">
-                          (Digitado: {aditivo} L)
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[9px] text-muted-foreground/80">
-                      {aditivoEditadoManualmente
-                        ? "Valor manual digitado (toque em ↺ para restaurar)"
-                        : "Arredondamento inteiro: ≥ 0,5 sobe | Digite ou use fator"}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* NOVO: ÁGUA (Calculada com opção de digitação manual) */}
-              <div
-                className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
-                  modoDosagem === "manual"
-                    ? "border-cyan-500/50 bg-cyan-500/10 ring-1 ring-cyan-500/30"
-                    : "border-border/40 bg-background/50"
-                }`}
-              >
-                <Label
-                  htmlFor="agua"
-                  className="text-xs text-muted-foreground flex justify-between items-center"
-                >
-                  <span className="font-semibold text-foreground flex items-center gap-1">
-                    Água (L)
-                    <span className="text-[10px] px-1 py-0.2 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 rounded font-normal">
-                      Sem baixa
-                    </span>
-                    {modoDosagem === "manual" &&
-                      (aguaEditadaManualmente ? (
-                        <span className="text-[10px] px-1 py-0.2 bg-amber-500/15 text-amber-700 dark:text-amber-300 rounded font-medium">
-                          Digitada
-                        </span>
-                      ) : (
-                        <span className="text-[10px] px-1 py-0.2 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded font-medium">
-                          Calculada
-                        </span>
-                      ))}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    Faixa: 0,45 a 0,8
-                  </span>
-                </Label>
-
-                <div className="space-y-2">
-                  {/* Campo Água Editável com opção de recalcular */}
-                  <div className="relative flex items-center gap-1.5">
-                    <div className="relative flex-1">
-                      <Input
-                        id="agua"
-                        type="number"
-                        inputMode="numeric"
-                        min="0"
-                        step="1"
-                        value={agua === 0 && aguaEditadaManualmente ? "" : agua}
-                        onChange={(e) => {
-                          const val =
-                            e.target.value === "" ? 0 : Number(e.target.value)
-                          setAguaEditadaManualmente(true)
-                          setAgua(isNaN(val) ? 0 : Math.round(val))
-                        }}
-                        disabled={cargaZerada}
-                        className="font-mono font-bold text-base bg-background text-foreground pr-8 border-cyan-500/40 focus-visible:ring-cyan-500 min-h-[44px] h-11 rounded-xl"
-                        placeholder="0"
-                        title="Digite o volume de água (L) ou use o cálculo do fator"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
-                        L
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant={aguaEditadaManualmente ? "secondary" : "outline"}
-                      size="icon"
-                      onClick={handleRecalcularAgua}
-                      disabled={cargaZerada}
-                      className="min-h-[44px] min-w-[44px] h-11 w-11 rounded-xl shrink-0"
-                      title="Recalcular água pela fórmula (cimento total × fator)"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  {/* Fator de água selecionável/editável (faixa 0,45 a 0,8) */}
-                  <div className="pt-1 border-t border-border/30 flex items-center gap-1.5">
-                    <Label
-                      htmlFor="fator-agua"
-                      className="text-[11px] font-medium text-muted-foreground shrink-0"
-                    >
-                      Fator:
-                    </Label>
-
-                    {/* Select com opções rápidas (0,45 a 0,80) */}
-                    <Select
-                      value={
-                        OPCOES_FATOR_AGUA.some(
-                          (o) => o.valor === fatorAguaManual,
-                        )
-                          ? String(fatorAguaManual)
-                          : "custom"
-                      }
-                      onValueChange={(val) => {
-                        if (val !== "custom") {
-                          setFatorAguaManual(Number(val))
-                          setAguaEditadaManualmente(false)
-                        }
-                      }}
-                      disabled={cargaZerada}
-                    >
-                      <SelectTrigger
-                        id="fator-agua-select"
-                        className="min-h-[40px] h-10 text-xs font-mono font-medium flex-1 px-2.5 bg-background border-border/70 shadow-xs rounded-lg"
-                      >
-                        <SelectValue placeholder="Selecione o fator">
-                          {OPCOES_FATOR_AGUA.some(
-                            (o) => o.valor === fatorAguaManual,
-                          )
-                            ? String(fatorAguaManual).replace(".", ",")
-                            : `${String(fatorAguaManual).replace(".", ",")} (outro)`}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="z-50 bg-popover text-popover-foreground">
-                        {OPCOES_FATOR_AGUA.map((op) => (
-                          <SelectItem
-                            key={op.valor}
-                            value={String(op.valor)}
-                            className="font-mono text-xs cursor-pointer py-2.5"
-                          >
-                            Fator {op.rotulo}
-                          </SelectItem>
-                        ))}
-                        {!OPCOES_FATOR_AGUA.some(
-                          (o) => o.valor === fatorAguaManual,
-                        ) && (
-                          <SelectItem
-                            value="custom"
-                            className="font-mono text-xs cursor-pointer py-2.5"
-                          >
-                            {String(fatorAguaManual).replace(".", ",")}{" "}
-                            (Personalizado)
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-
-                    {/* Input numérico para digitação livre do fator (faixa 0,45 a 0,8) */}
-                    <Input
-                      id="fator-agua"
-                      type="number"
-                      inputMode="decimal"
-                      step="0.01"
-                      min="0.30"
-                      max="1.20"
-                      value={fatorAguaManual || ""}
-                      onChange={(e) => {
-                        const val =
-                          e.target.value === "" ? 0 : Number(e.target.value)
-                        setFatorAguaManual(isNaN(val) ? 0 : val)
-                        setAguaEditadaManualmente(false)
-                      }}
-                      disabled={cargaZerada}
-                      className="min-h-[40px] h-10 w-20 text-xs font-mono font-medium text-center px-1 bg-background border-border/70 rounded-lg"
-                      title="Ou digite manualmente o fator de água"
-                      placeholder="0.55"
-                    />
-                  </div>
-
-                  {/* Legenda com o valor bruto e arredondamento */}
-                  <div className="text-[10px] text-muted-foreground leading-tight space-y-0.5">
-                    <div>
-                      {consumoReal.cimento} kg × {fatorAguaManual} ={" "}
-                      <span className="font-mono font-medium">
-                        {aguaBruta.toFixed(2)} →{" "}
-                      </span>
-                      <span className="font-semibold text-foreground font-mono">
-                        {Math.round(aguaBruta)} L
-                      </span>
-                      {aguaEditadaManualmente && (
-                        <span className="ml-1 text-cyan-700 dark:text-cyan-300 font-semibold font-mono">
-                          (Digitada: {agua} L)
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[9px] text-muted-foreground/80">
-                      {aguaEditadaManualmente
-                        ? "Valor manual digitado (toque em ↺ para restaurar | Sem estoque)"
-                        : "(Arredondamento inteiro: ≥ 0,5 sobe | Sem estoque)"}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Areia */}
-              <div
-                className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
-                  modoDosagem === "manual"
-                    ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
-                    : "border-border/40 bg-background/50"
-                }`}
-              >
-                <Label
-                  htmlFor="areia"
-                  className="text-xs text-muted-foreground flex justify-between items-center"
-                >
-                  <span className="font-semibold text-foreground">
-                    Areia (kg/m³)
-                  </span>
-                  {tracoAtual && (
-                    <span className="text-[10px] text-muted-foreground">
-                      Traço: {tracoAtual.consumo_areia} kg/m³
-                    </span>
-                  )}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="areia"
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    step="1"
-                    value={areia === 0 && modoDosagem === "manual" ? "" : areia}
-                    onChange={(e) => {
-                      const val =
-                        e.target.value === "" ? 0 : Number(e.target.value)
-                      setAreia(isNaN(val) ? 0 : val)
-                    }}
-                    disabled={cargaZerada}
-                    className={`font-mono font-semibold min-h-[44px] h-11 text-base rounded-xl ${
-                      modoDosagem === "manual"
-                        ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
-                        : "pr-10"
-                    }`}
-                    placeholder="0"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
-                    {modoDosagem === "manual" ? "kg/m³" : "kg"}
-                  </span>
-                </div>
-                {modoDosagem === "manual" && (
-                  <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
-                    <span>Total da carga:</span>
-                    <span className="font-semibold text-foreground">
-                      {consumoReal.areia.toLocaleString("pt-BR")} kg
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Brita 12 */}
-              <div
-                className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
-                  modoDosagem === "manual"
-                    ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
-                    : "border-border/40 bg-background/50"
-                }`}
-              >
-                <Label
-                  htmlFor="brita12"
-                  className="text-xs text-muted-foreground flex justify-between items-center"
-                >
-                  <span className="font-semibold text-foreground">
-                    Brita 12 (kg/m³)
-                  </span>
-                  {tracoAtual && (
-                    <span className="text-[10px] text-muted-foreground">
-                      Traço: {tracoAtual.consumo_brita12} kg/m³
-                    </span>
-                  )}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="brita12"
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    step="1"
-                    value={
-                      brita12 === 0 && modoDosagem === "manual" ? "" : brita12
-                    }
-                    onChange={(e) => {
-                      const val =
-                        e.target.value === "" ? 0 : Number(e.target.value)
-                      setBrita12(isNaN(val) ? 0 : val)
-                    }}
-                    disabled={cargaZerada}
-                    className={`font-mono font-semibold min-h-[44px] h-11 text-base rounded-xl ${
-                      modoDosagem === "manual"
-                        ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
-                        : "pr-10"
-                    }`}
-                    placeholder="0"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
-                    {modoDosagem === "manual" ? "kg/m³" : "kg"}
-                  </span>
-                </div>
-                {modoDosagem === "manual" && (
-                  <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
-                    <span>Total da carga:</span>
-                    <span className="font-semibold text-foreground">
-                      {consumoReal.brita12.toLocaleString("pt-BR")} kg
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Brita 19 */}
-              <div
-                className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
-                  modoDosagem === "manual"
-                    ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
-                    : "border-border/40 bg-background/50"
-                }`}
-              >
-                <Label
-                  htmlFor="brita19"
-                  className="text-xs text-muted-foreground flex justify-between items-center"
-                >
-                  <span className="font-semibold text-foreground">
-                    Brita 19 (kg/m³)
-                  </span>
-                  {tracoAtual && (
-                    <span className="text-[10px] text-muted-foreground">
-                      Traço: {tracoAtual.consumo_brita19} kg/m³
-                    </span>
-                  )}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="brita19"
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    step="1"
-                    value={
-                      brita19 === 0 && modoDosagem === "manual" ? "" : brita19
-                    }
-                    onChange={(e) => {
-                      const val =
-                        e.target.value === "" ? 0 : Number(e.target.value)
-                      setBrita19(isNaN(val) ? 0 : val)
-                    }}
-                    disabled={cargaZerada}
-                    className={`font-mono font-semibold min-h-[44px] h-11 text-base rounded-xl ${
-                      modoDosagem === "manual"
-                        ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
-                        : "pr-10"
-                    }`}
-                    placeholder="0"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
-                    {modoDosagem === "manual" ? "kg/m³" : "kg"}
-                  </span>
-                </div>
-                {modoDosagem === "manual" && (
-                  <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
-                    <span>Total da carga:</span>
-                    <span className="font-semibold text-foreground">
-                      {consumoReal.brita19.toLocaleString("pt-BR")} kg
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Pó de Pedra */}
-              <div
-                className={`space-y-1.5 p-3 sm:p-3.5 rounded-xl border transition-colors ${
-                  modoDosagem === "manual"
-                    ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
-                    : "border-border/40 bg-background/50"
-                }`}
-              >
-                <Label
-                  htmlFor="poPedra"
-                  className="text-xs text-muted-foreground flex justify-between items-center"
-                >
-                  <span className="font-semibold text-foreground">
-                    Pó de Pedra (kg/m³)
-                  </span>
-                  {tracoAtual && (
-                    <span className="text-[10px] text-muted-foreground">
-                      Traço: {tracoAtual.consumo_po_pedra} kg/m³
-                    </span>
-                  )}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="poPedra"
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    step="1"
-                    value={
-                      poPedra === 0 && modoDosagem === "manual" ? "" : poPedra
-                    }
-                    onChange={(e) => {
-                      const val =
-                        e.target.value === "" ? 0 : Number(e.target.value)
-                      setPoPedra(isNaN(val) ? 0 : val)
-                    }}
-                    disabled={cargaZerada}
-                    className={`font-mono font-semibold min-h-[44px] h-11 text-base rounded-xl ${
-                      modoDosagem === "manual"
-                        ? "bg-background border-primary/40 focus-visible:ring-primary pr-14"
-                        : "pr-10"
-                    }`}
-                    placeholder="0"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
-                    {modoDosagem === "manual" ? "kg/m³" : "kg"}
-                  </span>
-                </div>
-                {modoDosagem === "manual" && (
-                  <div className="text-[11px] text-muted-foreground font-mono flex justify-between items-center pt-0.5">
-                    <span>Total da carga:</span>
-                    <span className="font-semibold text-foreground">
-                      {consumoReal.poPedra.toLocaleString("pt-BR")} kg
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Resumo Dinâmico e Clean de Insumos e Agregados Totais da Carga - Cartões responsivos compactos para mobile */}
-            <div className="mt-4 pt-4 border-t border-border/40 bg-muted/20 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-3.5 sm:p-5 rounded-b-xl">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Layers className="w-4 h-4 text-primary" />
-                  Consumo Total Calculado ({volume || 0} m³)
+            {/* RESUMO RÁPIDO DO CONSUMO TOTAL QUE SERÁ BAIXADO */}
+            <div className="p-3.5 rounded-xl border border-border/50 bg-muted/20 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-foreground">
+                  Consumo Total ({volume} m³):
                 </span>
-                <span className="text-[11px] text-muted-foreground">
-                  {modoDosagem === "manual"
-                    ? "Fórmula: Dosagem (kg/m³) × Volume"
-                    : "Fórmula: Traço Selecionado × Volume"}
+                <span className="font-mono text-primary font-bold">
+                  Cimento: {consumoReal.cimento.toLocaleString("pt-BR")} kg
+                </span>
+                <span className="text-muted-foreground">•</span>
+                <span className="font-mono text-primary font-bold">
+                  Aditivo: {consumoReal.aditivo.toLocaleString("pt-BR")} L
                 </span>
               </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                {/* Cimento */}
-                <div className="p-2.5 rounded-xl border border-primary/40 bg-primary/10 flex flex-col justify-between shadow-2xs">
-                  <span className="text-[11px] font-bold text-foreground">
-                    Cimento (CP)
-                  </span>
-                  <div className="mt-1">
-                    <span className="text-base sm:text-lg font-black font-mono text-primary block leading-tight">
-                      {consumoReal.cimento.toLocaleString("pt-BR")}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-mono font-semibold">
-                      kg
-                    </span>
-                  </div>
-                </div>
-
-                {/* Aditivo */}
-                <div className="p-2.5 rounded-xl border border-primary/40 bg-primary/10 flex flex-col justify-between shadow-2xs">
-                  <span className="text-[11px] font-bold text-foreground">
-                    Aditivo
-                  </span>
-                  <div className="mt-1">
-                    <span className="text-base sm:text-lg font-black font-mono text-primary block leading-tight">
-                      {consumoReal.aditivo.toLocaleString("pt-BR")}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-mono font-semibold">
-                      Litros
-                    </span>
-                  </div>
-                </div>
-
-                {/* Água */}
-                <div className="p-2.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 flex flex-col justify-between shadow-2xs">
-                  <span className="text-[11px] font-bold text-cyan-700 dark:text-cyan-300">
-                    Água
-                  </span>
-                  <div className="mt-1">
-                    <span className="text-base sm:text-lg font-black font-mono text-cyan-600 dark:text-cyan-400 block leading-tight">
-                      {consumoReal.agua.toLocaleString("pt-BR")}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-mono font-semibold">
-                      Litros
-                    </span>
-                  </div>
-                </div>
-
-                {/* Areia */}
-                <div className="p-2.5 rounded-xl border border-border/60 bg-background flex flex-col justify-between shadow-2xs">
-                  <span className="text-[11px] font-medium text-muted-foreground">
-                    Areia
-                  </span>
-                  <div className="mt-1">
-                    <span className="text-sm sm:text-base font-bold font-mono text-foreground block leading-tight">
-                      {consumoReal.areia.toLocaleString("pt-BR")}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      kg
-                    </span>
-                  </div>
-                </div>
-
-                {/* Brita 12 */}
-                <div className="p-2.5 rounded-xl border border-border/60 bg-background flex flex-col justify-between shadow-2xs">
-                  <span className="text-[11px] font-medium text-muted-foreground">
-                    Brita 12
-                  </span>
-                  <div className="mt-1">
-                    <span className="text-sm sm:text-base font-bold font-mono text-foreground block leading-tight">
-                      {consumoReal.brita12.toLocaleString("pt-BR")}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      kg
-                    </span>
-                  </div>
-                </div>
-
-                {/* Brita 19 */}
-                <div className="p-2.5 rounded-xl border border-border/60 bg-background flex flex-col justify-between shadow-2xs">
-                  <span className="text-[11px] font-medium text-muted-foreground">
-                    Brita 19
-                  </span>
-                  <div className="mt-1">
-                    <span className="text-sm sm:text-base font-bold font-mono text-foreground block leading-tight">
-                      {consumoReal.brita19.toLocaleString("pt-BR")}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      kg
-                    </span>
-                  </div>
-                </div>
-
-                {/* Pó de Pedra */}
-                <div className="p-2.5 rounded-xl border border-border/60 bg-background col-span-2 sm:col-span-1 flex flex-col justify-between shadow-2xs">
-                  <span className="text-[11px] font-medium text-muted-foreground">
-                    Pó de Pedra
-                  </span>
-                  <div className="mt-1">
-                    <span className="text-sm sm:text-base font-bold font-mono text-foreground block leading-tight">
-                      {consumoReal.poPedra.toLocaleString("pt-BR")}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      kg
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <span className="text-[11px] text-muted-foreground">
+                Traço:{" "}
+                {tracoAtual
+                  ? formatarDescricaoCompletaTraco(tracoAtual)
+                  : "Manual (Sem vínculo)"}
+              </span>
             </div>
           </CardContent>
         </Card>
 
-        {/* Aviso de campos pendentes caso haja erro de validação */}
-        {!formularioValido && (
-          <div
-            className={`p-3 sm:p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs transition-colors ${
-              tentouGravar
-                ? "bg-destructive/10 border-destructive/30 text-destructive"
-                : "bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300"
-            }`}
-          >
+        {/* Aviso de campos pendentes caso haja erro de validação ao tentar gravar */}
+        {!formularioValido && tentouGravar && (
+          <div className="p-3 sm:p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs bg-destructive/10 border-destructive/30 text-destructive">
             <div className="flex items-start sm:items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 sm:mt-0" />
               <div>
                 <span className="font-bold block sm:inline">
-                  {tentouGravar
-                    ? "Preencha todos os campos para gravar:"
-                    : "Campos obrigatórios pendentes para gravação:"}
+                  Preencha os campos obrigatórios para gravar:
                 </span>{" "}
                 <span className="font-medium">
                   {errosValidacao.map((e) => e.rotulo).join(", ")}
                 </span>
               </div>
             </div>
-            <span className="text-[11px] opacity-80 shrink-0 font-medium">
-              Todos os campos são obrigatórios
-            </span>
           </div>
         )}
 
@@ -2424,22 +1417,13 @@ export default function LancamentoCargas() {
             <Link to={isBalanceiro ? "/lancamentos" : "/"}>Cancelar</Link>
           </Button>
 
-          {/* Botão de Gravação / Alteração com bloqueio visual quando há campos pendentes */}
+          {/* Botão de Gravação / Alteração em destaque */}
           {editarCargaId ? (
             <Button
               type="submit"
               variant="default"
-              disabled={salvando || carregandoCargaEdicao || !formularioValido}
-              title={
-                !formularioValido
-                  ? `Preencha todos os campos: faltam ${errosValidacao.map((e) => e.rotulo).join(", ")}`
-                  : undefined
-              }
-              className={`w-full sm:w-auto min-h-[48px] sm:min-h-[40px] h-12 sm:h-10 gap-2 font-bold text-sm sm:text-base shadow-md px-8 rounded-xl transition-all ${
-                !formularioValido
-                  ? "bg-muted text-muted-foreground cursor-not-allowed opacity-60 border border-border/40"
-                  : "bg-amber-600 hover:bg-amber-700 text-white"
-              }`}
+              disabled={salvando || carregandoCargaEdicao}
+              className="w-full sm:w-auto min-h-[52px] sm:min-h-[44px] h-13 sm:h-11 gap-2 font-bold text-base shadow-md px-8 rounded-xl bg-amber-600 hover:bg-amber-700 text-white transition-all"
             >
               {salvando ? (
                 "Salvando alteração..."
@@ -2454,24 +1438,15 @@ export default function LancamentoCargas() {
             <Button
               type="submit"
               variant="default"
-              disabled={salvando || !formularioValido}
-              title={
-                !formularioValido
-                  ? `Preencha todos os campos: faltam ${errosValidacao.map((e) => e.rotulo).join(", ")}`
-                  : undefined
-              }
-              className={`w-full sm:w-auto min-h-[48px] sm:min-h-[40px] h-12 sm:h-10 gap-2 font-bold text-sm sm:text-base shadow-md px-8 rounded-xl transition-all ${
-                !formularioValido
-                  ? "bg-muted text-muted-foreground cursor-not-allowed opacity-60 border border-border/40"
-                  : "bg-primary text-primary-foreground hover:brightness-105"
-              }`}
+              disabled={salvando}
+              className="w-full sm:w-auto min-h-[52px] sm:min-h-[44px] h-13 sm:h-11 gap-2 font-bold text-base shadow-md px-8 rounded-xl bg-primary text-primary-foreground hover:brightness-105 transition-all"
             >
               {salvando ? (
                 "Gravando Carga..."
               ) : (
                 <>
                   <CheckCircle2 className="w-5 h-5" />
-                  Gravar Lançamento da Carga
+                  Gravar Carga
                 </>
               )}
             </Button>
@@ -2517,14 +1492,12 @@ export default function LancamentoCargas() {
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[11px]">
-                    Traço / Dosagem:
+                    Traço:
                   </span>
                   <span className="font-semibold text-xs sm:text-sm">
-                    {modoDosagem === "manual"
-                      ? tracoAtual
-                        ? `${tracoAtual.nome} (Manual)`
-                        : "Dosagem Manual"
-                      : tracoAtual?.nome || "Não selecionado"}
+                    {tracoAtual
+                      ? formatarDescricaoCompletaTraco(tracoAtual)
+                      : "Manual (Sem vínculo)"}
                   </span>
                 </div>
                 <div>
@@ -2543,78 +1516,58 @@ export default function LancamentoCargas() {
                     )}
                   </span>
                 </div>
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">
-                    Motorista:
-                  </span>
-                  <span className="font-semibold">
-                    {motoristaNome || "Não informado"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">
-                    Placa Betoneira:
-                  </span>
-                  <span className="font-semibold font-mono">
-                    {veiculoPlaca || "Não informada"}
-                  </span>
-                </div>
-                <div className="col-span-1 sm:col-span-2">
-                  <span className="text-muted-foreground block text-[11px]">
-                    Destino / Cidade:
-                  </span>
-                  <span className="font-semibold">
-                    {cidadeNome || "Não informado"}
-                  </span>
-                </div>
+                {observacao && (
+                  <div className="col-span-1 sm:col-span-2">
+                    <span className="text-muted-foreground block text-[11px]">
+                      Observação:
+                    </span>
+                    <span className="font-semibold">{observacao}</span>
+                  </div>
+                )}
               </div>
 
               {/* Totais de Insumos */}
               <div className="p-3 space-y-1.5">
                 <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">
-                  Consumos Totais da Carga:
+                  Insumos da Carga:
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs font-mono">
                   <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
                     <span className="text-muted-foreground">Cimento (CP):</span>
                     <span className="font-bold text-primary">
-                      {consumoReal.cimento.toLocaleString("pt-BR")} kg
+                      {consumoReal.cimento.toLocaleString("pt-BR")} kg (
+                      {cimento} kg/m³)
                     </span>
                   </div>
                   <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
-                    <span className="text-muted-foreground">Aditivo:</span>
-                    <span className="font-bold text-primary">
-                      {consumoReal.aditivo.toLocaleString("pt-BR")} L
+                    <span className="text-muted-foreground">
+                      B12 (Brita 12):
+                    </span>
+                    <span className="font-semibold">
+                      {consumoReal.brita12.toLocaleString("pt-BR")} kg (
+                      {brita12} kg/m³)
                     </span>
                   </div>
                   <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
-                    <span className="text-muted-foreground">Água:</span>
-                    <span className="font-bold text-cyan-600 dark:text-cyan-400">
-                      {consumoReal.agua.toLocaleString("pt-BR")} L
+                    <span className="text-muted-foreground">
+                      B19 (Brita 19):
+                    </span>
+                    <span className="font-semibold">
+                      {consumoReal.brita19.toLocaleString("pt-BR")} kg (
+                      {brita19} kg/m³)
                     </span>
                   </div>
                   <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
                     <span className="text-muted-foreground">Areia:</span>
                     <span className="font-semibold">
-                      {consumoReal.areia.toLocaleString("pt-BR")} kg
+                      {consumoReal.areia.toLocaleString("pt-BR")} kg ({areia}{" "}
+                      kg/m³)
                     </span>
                   </div>
-                  <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
-                    <span className="text-muted-foreground">Brita 12:</span>
-                    <span className="font-semibold">
-                      {consumoReal.brita12.toLocaleString("pt-BR")} kg
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
-                    <span className="text-muted-foreground">Brita 19:</span>
-                    <span className="font-semibold">
-                      {consumoReal.brita19.toLocaleString("pt-BR")} kg
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-0.5">
-                    <span className="text-muted-foreground">Pó de Pedra:</span>
-                    <span className="font-semibold">
-                      {consumoReal.poPedra.toLocaleString("pt-BR")} kg
+                  <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0 col-span-1 sm:col-span-2">
+                    <span className="text-muted-foreground">Aditivo:</span>
+                    <span className="font-bold text-primary">
+                      {consumoReal.aditivo.toLocaleString("pt-BR")} Litros
                     </span>
                   </div>
                 </div>
@@ -2623,10 +1576,11 @@ export default function LancamentoCargas() {
 
             {!cargaZerada && (
               <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-700 dark:text-blue-300">
-                ℹ️ Esta gravação registrará a carga e abaterá automaticamente do
-                estoque as quantidades de <strong>Cimento</strong> (
+                ℹ️ Esta gravação registrará a carga e abaterá do estoque as
+                quantidades digitadas de <strong>Cimento</strong> (
                 {consumoReal.cimento} kg) e <strong>Aditivo</strong> (
-                {consumoReal.aditivo} L).
+                {consumoReal.aditivo} L). O catálogo de traços permanece
+                intocado.
               </div>
             )}
           </div>
@@ -2767,44 +1721,44 @@ export default function LancamentoCargas() {
                     </tr>
                     <tr
                       className={
-                        Number(cargaOriginal.consumo_aditivo) !==
-                        Number(consumoReal.aditivo)
+                        Number(cargaOriginal.consumo_brita12) !==
+                        Number(consumoReal.brita12)
                           ? "bg-amber-500/10"
                           : ""
                       }
                     >
                       <td className="py-1.5 px-3 font-semibold text-muted-foreground">
-                        Aditivo (L)
+                        B12 - Brita 12 (kg)
                       </td>
                       <td className="py-1.5 px-3 font-mono">
-                        {Number(cargaOriginal.consumo_aditivo).toLocaleString(
-                          "pt-BR",
-                        )}{" "}
-                        L
+                        {Number(
+                          cargaOriginal.consumo_brita12 || 0,
+                        ).toLocaleString("pt-BR")}{" "}
+                        kg
                       </td>
-                      <td className="py-1.5 px-3 font-mono font-bold text-primary">
-                        {Number(consumoReal.aditivo).toLocaleString("pt-BR")} L
+                      <td className="py-1.5 px-3 font-mono font-bold">
+                        {Number(consumoReal.brita12).toLocaleString("pt-BR")} kg
                       </td>
                     </tr>
                     <tr
                       className={
-                        Number(cargaOriginal.consumo_agua || 0) !==
-                        Number(consumoReal.agua)
+                        Number(cargaOriginal.consumo_brita19) !==
+                        Number(consumoReal.brita19)
                           ? "bg-amber-500/10"
                           : ""
                       }
                     >
                       <td className="py-1.5 px-3 font-semibold text-muted-foreground">
-                        Água (L)
+                        B19 - Brita 19 (kg)
                       </td>
                       <td className="py-1.5 px-3 font-mono">
-                        {Number(cargaOriginal.consumo_agua || 0).toLocaleString(
-                          "pt-BR",
-                        )}{" "}
-                        L
+                        {Number(
+                          cargaOriginal.consumo_brita19 || 0,
+                        ).toLocaleString("pt-BR")}{" "}
+                        kg
                       </td>
-                      <td className="py-1.5 px-3 font-mono font-bold text-cyan-600 dark:text-cyan-400">
-                        {Number(consumoReal.agua).toLocaleString("pt-BR")} L
+                      <td className="py-1.5 px-3 font-mono font-bold">
+                        {Number(consumoReal.brita19).toLocaleString("pt-BR")} kg
                       </td>
                     </tr>
                     <tr
@@ -2830,75 +1784,23 @@ export default function LancamentoCargas() {
                     </tr>
                     <tr
                       className={
-                        Number(cargaOriginal.consumo_brita12) !==
-                          Number(consumoReal.brita12) ||
-                        Number(cargaOriginal.consumo_brita19) !==
-                          Number(consumoReal.brita19)
+                        Number(cargaOriginal.consumo_aditivo) !==
+                        Number(consumoReal.aditivo)
                           ? "bg-amber-500/10"
                           : ""
                       }
                     >
                       <td className="py-1.5 px-3 font-semibold text-muted-foreground">
-                        Britas 12 / 19
+                        Aditivo (L)
                       </td>
                       <td className="py-1.5 px-3 font-mono">
-                        {Number(cargaOriginal.consumo_brita12)} /{" "}
-                        {Number(cargaOriginal.consumo_brita19)} kg
+                        {Number(cargaOriginal.consumo_aditivo).toLocaleString(
+                          "pt-BR",
+                        )}{" "}
+                        L
                       </td>
-                      <td className="py-1.5 px-3 font-mono font-bold">
-                        {Number(consumoReal.brita12)} /{" "}
-                        {Number(consumoReal.brita19)} kg
-                      </td>
-                    </tr>
-                    <tr
-                      className={
-                        cargaOriginal.motorista_nome !== motoristaNome
-                          ? "bg-amber-500/10"
-                          : ""
-                      }
-                    >
-                      <td className="py-1.5 px-3 font-semibold text-muted-foreground">
-                        Motorista
-                      </td>
-                      <td className="py-1.5 px-3">
-                        {cargaOriginal.motorista_nome || "—"}
-                      </td>
-                      <td className="py-1.5 px-3 font-bold">
-                        {motoristaNome || "—"}
-                      </td>
-                    </tr>
-                    <tr
-                      className={
-                        cargaOriginal.veiculo_placa !== veiculoPlaca
-                          ? "bg-amber-500/10"
-                          : ""
-                      }
-                    >
-                      <td className="py-1.5 px-3 font-semibold text-muted-foreground">
-                        Placa Veículo
-                      </td>
-                      <td className="py-1.5 px-3 font-mono">
-                        {cargaOriginal.veiculo_placa || "—"}
-                      </td>
-                      <td className="py-1.5 px-3 font-mono font-bold">
-                        {veiculoPlaca || "—"}
-                      </td>
-                    </tr>
-                    <tr
-                      className={
-                        cargaOriginal.cidade_nome !== cidadeNome
-                          ? "bg-amber-500/10"
-                          : ""
-                      }
-                    >
-                      <td className="py-1.5 px-3 font-semibold text-muted-foreground">
-                        Cidade / Destino
-                      </td>
-                      <td className="py-1.5 px-3">
-                        {cargaOriginal.cidade_nome || "—"}
-                      </td>
-                      <td className="py-1.5 px-3 font-bold">
-                        {cidadeNome || "—"}
+                      <td className="py-1.5 px-3 font-mono font-bold text-primary">
+                        {Number(consumoReal.aditivo).toLocaleString("pt-BR")} L
                       </td>
                     </tr>
                   </tbody>
@@ -3174,14 +2076,13 @@ export default function LancamentoCargas() {
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-muted/50 border-b border-border/60 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-3 w-16"># Carga</th>
                   <th className="py-3 px-3">Data</th>
+                  <th className="py-3 px-3 w-20"># Carga</th>
                   <th className="py-3 px-3">Traço</th>
                   <th className="py-3 px-3 text-right">Volume</th>
-                  <th className="py-3 px-3 text-right">Cimento (kg)</th>
-                  <th className="py-3 px-3 text-right">Aditivo (L)</th>
-                  <th className="py-3 px-3">Motorista / Betoneira</th>
-                  <th className="py-3 px-3">Destino / Cidade</th>
+                  <th className="py-3 px-3 text-right">
+                    Insumos (Consumo Real)
+                  </th>
                   <th className="py-3 px-3 text-center">Status</th>
                   <th className="py-3 px-3 text-right">Ações</th>
                 </tr>
@@ -3190,7 +2091,7 @@ export default function LancamentoCargas() {
                 {carregandoCargasLista ? (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={7}
                       className="py-10 text-center text-muted-foreground"
                     >
                       <div className="flex flex-col items-center justify-center gap-2">
@@ -3202,7 +2103,7 @@ export default function LancamentoCargas() {
                 ) : cargasFiltradas.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={7}
                       className="py-10 text-center text-muted-foreground"
                     >
                       <div className="flex flex-col items-center justify-center gap-1.5">
@@ -3221,28 +2122,44 @@ export default function LancamentoCargas() {
                   cargasFiltradas.map((carga) => {
                     const vol = Number(carga.volume_m3) || 0
                     const cim = Number(carga.consumo_cimento) || 0
-                    const dosagemCarga = vol > 0 ? Math.round(cim / vol) : 0
+                    const adt = Number(carga.consumo_aditivo) || 0
+                    const b12 = Number(carga.consumo_brita12) || 0
+                    const b19 = Number(carga.consumo_brita19) || 0
+                    const ar = Number(carga.consumo_areia) || 0
                     const isZerada = Boolean(carga.carga_zerada)
+
+                    // Traço: descrição completa quando houver vínculo, ou "Manual" / "—" sem vínculo
+                    const descricaoTraco = obterDescricaoCompletaCarga(
+                      carga,
+                      tracos,
+                    )
 
                     return (
                       <tr
                         key={carga.id}
                         className="hover:bg-muted/30 transition-colors"
                       >
-                        {/* Número da Carga */}
-                        <td className="py-2.5 px-3 font-mono font-bold text-foreground">
-                          #{String(carga.numero_carga).padStart(4, "0")}
-                        </td>
-
                         {/* Data */}
                         <td className="py-2.5 px-3 font-mono text-muted-foreground whitespace-nowrap">
                           {carga.data.split("-").reverse().join("/")}
                         </td>
 
+                        {/* Número da Carga */}
+                        <td className="py-2.5 px-3 font-mono font-bold text-foreground whitespace-nowrap">
+                          #{String(carga.numero_carga).padStart(4, "0")}
+                        </td>
+
                         {/* Traço */}
-                        <td className="py-2.5 px-3">
-                          <span className="font-semibold text-foreground">
-                            {obterDescricaoCompletaCarga(carga, tracos)}
+                        <td className="py-2.5 px-3 max-w-[280px]">
+                          <span
+                            className={`font-semibold ${
+                              descricaoTraco === "—" ||
+                              descricaoTraco === "Manual"
+                                ? "text-muted-foreground italic"
+                                : "text-foreground"
+                            }`}
+                          >
+                            {descricaoTraco}
                           </span>
                         </td>
 
@@ -3251,35 +2168,34 @@ export default function LancamentoCargas() {
                           {vol.toFixed(1)} m³
                         </td>
 
-                        {/* Cimento */}
-                        <td className="py-2.5 px-3 text-right font-mono text-primary font-semibold whitespace-nowrap">
-                          {cim.toLocaleString("pt-BR")}
-                        </td>
-
-                        {/* Aditivo */}
-                        <td className="py-2.5 px-3 text-right font-mono text-muted-foreground whitespace-nowrap">
-                          {Number(carga.consumo_aditivo || 0).toLocaleString(
-                            "pt-BR",
-                          )}
-                        </td>
-
-                        {/* Motorista / Betoneira */}
-                        <td className="py-2.5 px-3 whitespace-nowrap">
-                          <div className="font-medium text-foreground">
-                            {carga.motorista_nome || "—"}
+                        {/* Insumos detalhados */}
+                        <td className="py-2.5 px-3 text-right font-mono text-xs whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2 text-[11px]">
+                            <span
+                              className="font-bold text-primary"
+                              title="Cimento"
+                            >
+                              Cim: {cim.toLocaleString("pt-BR")} kg
+                            </span>
+                            <span className="text-muted-foreground" title="B12">
+                              B12: {b12.toLocaleString("pt-BR")} kg
+                            </span>
+                            <span className="text-muted-foreground" title="B19">
+                              B19: {b19.toLocaleString("pt-BR")} kg
+                            </span>
+                            <span
+                              className="text-muted-foreground"
+                              title="Areia"
+                            >
+                              Ar: {ar.toLocaleString("pt-BR")} kg
+                            </span>
+                            <span
+                              className="font-bold text-primary"
+                              title="Aditivo"
+                            >
+                              Adt: {adt.toLocaleString("pt-BR")} L
+                            </span>
                           </div>
-                          {carga.veiculo_placa && (
-                            <div className="text-[10px] font-mono text-muted-foreground">
-                              {carga.veiculo_placa}
-                            </div>
-                          )}
-                        </td>
-
-                        {/* Destino / Cidade */}
-                        <td className="py-2.5 px-3 whitespace-nowrap">
-                          <span className="font-medium text-foreground">
-                            {carga.cidade_nome || "—"}
-                          </span>
                         </td>
 
                         {/* Status */}
