@@ -37,6 +37,7 @@ import {
   RefreshCw,
   Pencil,
   Printer,
+  Sparkles,
 } from "lucide-react"
 import { ReciboImpressao } from "@/components/ReciboImpressao"
 import type { OrdemServico } from "@/types/concreteira"
