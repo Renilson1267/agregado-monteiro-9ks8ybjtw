@@ -169,33 +169,66 @@ export function parseNumeroBr(val: string | number | null | undefined): number {
 }
 
 /**
- * Converte DD/MM/AAAA para YYYY-MM-DD com validação
+ * Converte datas em múltiplos formatos (DD/MM/AAAA, DD/MM/AA de 2 dígitos, serial de planilha Excel/Sheets, ISO)
+ * para YYYY-MM-DD com validação estrita.
  */
-export function parseDataBrParaIso(dataStr: string): string | null {
-  if (!dataStr) return null
-  const limpo = dataStr.trim()
+export function parseDataBrParaIso(dataStr: string | number): string | null {
+  if (dataStr === null || dataStr === undefined) return null
+  const limpo = String(dataStr).trim()
+  if (!limpo) return null
 
-  // Formato dd/mm/aaaa ou d/m/aaaa
-  const match = limpo.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
-  if (!match) {
-    // Pode já estar em YYYY-MM-DD
-    if (/^\d{4}-\d{2}-\d{2}$/.test(limpo)) {
-      return limpo
+  // 1. Já está em ISO (YYYY-MM-DD)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(limpo)) {
+    const [a, m, d] = limpo.split("-").map((v) => parseInt(v, 10))
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) return limpo
+    return null
+  }
+
+  // 2. Formato dd/mm/aaaa ou d/m/aaaa (4 dígitos no ano)
+  const match4 = limpo.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
+  if (match4) {
+    const dia = match4[1].padStart(2, "0")
+    const mes = match4[2].padStart(2, "0")
+    const ano = match4[3]
+    const diaNum = parseInt(dia, 10)
+    const mesNum = parseInt(mes, 10)
+    if (diaNum >= 1 && diaNum <= 31 && mesNum >= 1 && mesNum <= 12) {
+      return `${ano}-${mes}-${dia}`
     }
     return null
   }
 
-  const dia = match[1].padStart(2, "0")
-  const mes = match[2].padStart(2, "0")
-  const ano = match[3]
-
-  const diaNum = parseInt(dia, 10)
-  const mesNum = parseInt(mes, 10)
-  if (diaNum < 1 || diaNum > 31 || mesNum < 1 || mesNum > 12) {
+  // 3. Formato dd/mm/aa ou d/m/aa (2 dígitos no ano, ex: 01/02/26, 15/08/26)
+  const match2 = limpo.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2})$/)
+  if (match2) {
+    const dia = match2[1].padStart(2, "0")
+    const mes = match2[2].padStart(2, "0")
+    const ano2 = parseInt(match2[3], 10)
+    // Século XXI (2000-2099) para anos <= 69, ou 1900 para > 69
+    const anoCheio = ano2 <= 69 ? `20${match2[3]}` : `19${match2[3]}`
+    const diaNum = parseInt(dia, 10)
+    const mesNum = parseInt(mes, 10)
+    if (diaNum >= 1 && diaNum <= 31 && mesNum >= 1 && mesNum <= 12) {
+      return `${anoCheio}-${mes}-${dia}`
+    }
     return null
   }
 
-  return `${ano}-${mes}-${dia}`
+  // 4. Número serial do Excel/Google Sheets (ex: 46023 para 06/01/2026, 46294 para 01/10/2026)
+  // Faixa de 2020 a 2035 corresponde a seriais entre 43831 e 49308
+  if (/^\d{5}$/.test(limpo)) {
+    const serial = parseInt(limpo, 10)
+    if (serial >= 35000 && serial <= 55000) {
+      // Época do Excel: 30 de dezembro de 1899 (compensando o bug do ano bissexto 1900)
+      const dataJs = new Date(Math.round((serial - 25569) * 86400 * 1000))
+      const ano = dataJs.getUTCFullYear()
+      const mes = String(dataJs.getUTCMonth() + 1).padStart(2, "0")
+      const dia = String(dataJs.getUTCDate()).padStart(2, "0")
+      return `${ano}-${mes}-${dia}`
+    }
+  }
+
+  return null
 }
 
 /**
@@ -303,9 +336,11 @@ export function parseControleDiarioCSV(
   let indiceLinhaCabecalho = -1
   let mapaColunas: Record<string, number> = {}
 
-  // Procura a linha de cabeçalho que contenha "Data" e "Volume"
-  for (let i = 0; i < Math.min(linhasCruas.length, 10); i++) {
-    const colunas = splitCsvLine(linhasCruas[i]).map((c) =>
+  // Função auxiliar para mapear cabeçalho dinamicamente
+  const mapearColunasDeCabecalho = (
+    colunasCruas: string[],
+  ): Record<string, number> | null => {
+    const colunas = colunasCruas.map((c) =>
       c.toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
@@ -315,44 +350,63 @@ export function parseControleDiarioCSV(
     const temData = colunas.some((c) => c === "data" || c.startsWith("data"))
     const temVolume = colunas.some((c) => c.includes("volume"))
 
-    if (temData && temVolume) {
+    if (!temData || !temVolume) return null
+
+    const mapa: Record<string, number> = {}
+    colunas.forEach((col, idx) => {
+      if (col === "data" || col.startsWith("data")) mapa["data"] = idx
+      else if (col.includes("volume")) mapa["volume"] = idx
+      else if (col.includes("brita 12") && !col.includes("total"))
+        mapa["brita12"] = idx
+      else if (col.includes("brita 19") && !col.includes("total"))
+        mapa["brita19"] = idx
+      else if (col.includes("areia") && !col.includes("total"))
+        mapa["areia"] = idx
+      else if (
+        (col.includes("po de pedra") ||
+          col.includes("po (kg)") ||
+          col === "po" ||
+          col.startsWith("po ")) &&
+        !col.includes("total")
+      )
+        mapa["po_pedra"] = idx
+      else if (
+        col.includes("cimento") &&
+        !col.includes("total") &&
+        !col.includes("acumulado") &&
+        !col.includes("saldo")
+      )
+        mapa["cimento"] = idx
+      else if (
+        col.includes("aditivo") &&
+        !col.includes("total") &&
+        !col.includes("acumulado") &&
+        !col.includes("saldo")
+      )
+        mapa["aditivo"] = idx
+      else if (col.includes("motorista")) mapa["motorista"] = idx
+      else if (col.includes("placa")) mapa["placa"] = idx
+      else if (col.includes("cidade")) mapa["cidade"] = idx
+      else if (col.includes("observa")) mapa["observacoes"] = idx
+    })
+
+    if (mapa["cimento"] === undefined || mapa["cimento"] >= 12) {
+      mapa["cimento"] = 6
+    }
+    if (mapa["aditivo"] === undefined || mapa["aditivo"] >= 12) {
+      mapa["aditivo"] = 7
+    }
+
+    return mapa
+  }
+
+  // Procura a linha de cabeçalho inicial que contenha "Data" e "Volume"
+  for (let i = 0; i < Math.min(linhasCruas.length, 15); i++) {
+    const colunas = splitCsvLine(linhasCruas[i])
+    const mapa = mapearColunasDeCabecalho(colunas)
+    if (mapa) {
       indiceLinhaCabecalho = i
-
-      // Mapeia índices exatos das colunas esperadas
-      colunas.forEach((col, idx) => {
-        if (col === "data" || col.startsWith("data")) mapaColunas["data"] = idx
-        else if (col.includes("volume")) mapaColunas["volume"] = idx
-        else if (col.includes("brita 12") && !col.includes("total"))
-          mapaColunas["brita12"] = idx
-        else if (col.includes("brita 19") && !col.includes("total"))
-          mapaColunas["brita19"] = idx
-        else if (col.includes("areia") && !col.includes("total"))
-          mapaColunas["areia"] = idx
-        else if (
-          (col.includes("po de pedra") || col.includes("po (kg)")) &&
-          !col.includes("total")
-        )
-          mapaColunas["po_pedra"] = idx
-        else if (
-          col.includes("cimento") &&
-          !col.includes("total") &&
-          !col.includes("acumulado") &&
-          !col.includes("saldo")
-        )
-          mapaColunas["cimento"] = idx
-        else if (
-          col.includes("aditivo") &&
-          !col.includes("total") &&
-          !col.includes("acumulado") &&
-          !col.includes("saldo")
-        )
-          mapaColunas["aditivo"] = idx
-        else if (col.includes("motorista")) mapaColunas["motorista"] = idx
-        else if (col.includes("placa")) mapaColunas["placa"] = idx
-        else if (col.includes("cidade")) mapaColunas["cidade"] = idx
-        else if (col.includes("observa")) mapaColunas["observacoes"] = idx
-      })
-
+      mapaColunas = mapa
       break
     }
   }
@@ -360,28 +414,26 @@ export function parseControleDiarioCSV(
   // Fallback para índices posicionais se cabeçalho não tiver todas as labels
   // Data(0) | Volume(1) | Brita 12(2) | Brita 19(3) | Areia(4) | Pó de Pedra(5) | Cimento(6) | Aditivo(7) | Motorista(8) | Placa(9) | Cidade(10) | Observações(11)
   if (indiceLinhaCabecalho === -1) {
-    // Tenta assumir ordem posicional a partir da linha 1 ou 2 se linha 0 for título da planilha
     indiceLinhaCabecalho = 0
     if (linhasCruas[0].toLowerCase().includes("concreteira")) {
       indiceLinhaCabecalho = 1
     }
   }
 
-  // Garante que, se a coluna de cimento não tiver sido mapeada ou tiver sido associada a coluna de saldo acumulado (>= 12),
-  // usa a coluna 6 que é a posição padrão do Cimento nas planilhas do sistema.
   if (mapaColunas["cimento"] === undefined || mapaColunas["cimento"] >= 12) {
     mapaColunas["cimento"] = 6
   }
   if (mapaColunas["aditivo"] === undefined || mapaColunas["aditivo"] >= 12) {
     mapaColunas["aditivo"] = 7
   }
-  const getCol = (
+
+  const getColAtual = (
     cols: string[],
     chave: string,
     defaultIdx: number,
+    mapa: Record<string, number>,
   ): string => {
-    const idx =
-      mapaColunas[chave] !== undefined ? mapaColunas[chave] : defaultIdx
+    const idx = mapa[chave] !== undefined ? mapa[chave] : defaultIdx
     return cols[idx] !== undefined ? cols[idx].trim() : ""
   }
 
@@ -393,6 +445,10 @@ export function parseControleDiarioCSV(
   // Herdamos a última data válida encontrada.
   let ultimaDataIso: string | null = null
   let ultimaDataOriginal: string | null = null
+
+  // Padrão de títulos de meses (ex: "JANEIRO", "FEVEREIRO/2026", "MARÇO - 2026", "TOTAL DE MARÇO")
+  const regexTituloMes =
+    /^(janeiro|fevereiro|marco|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(\s*[-/]?\s*\d{2,4})?$/i
 
   for (let i = indiceLinhaCabecalho + 1; i < linhasCruas.length; i++) {
     const linhaTexto = linhasCruas[i].trim()
@@ -411,7 +467,86 @@ export function parseControleDiarioCSV(
       continue
     }
 
-    const dataOriginalBruta = getCol(colunas, "data", 0)
+    // DETECÇÃO DE CABEÇALHOS INTERMEDIÁRIOS / REPETIDOS NO MEIO DO CSV
+    // Ex: novos blocos mensais repetindo "Data, Volume, Brita 12..."
+    const novoMapa = mapearColunasDeCabecalho(colunas)
+    if (novoMapa) {
+      mapaColunas = novoMapa
+      totalLinhasIgnoradas++
+      linhasIgnoradasDetalhes.push({
+        linhaNumero: i + 1,
+        motivo: "Cabeçalho de bloco mensal repetido/reconfigurado",
+        conteudoBruto: linhaTexto,
+      })
+      // Reset do fill-down de data ao iniciar novo bloco para evitar que cargas herdem data do mês anterior
+      ultimaDataIso = null
+      ultimaDataOriginal = null
+      continue
+    }
+
+    // Texto da primeira coluna limpo
+    const primeiraColuna = (colunas[0] || "").trim()
+    const primeiraColunaNorm = primeiraColuna
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+
+    // DETECÇÃO DE TÍTULOS DE MÊS OU SEPARADORES DE BLOCO
+    // Ex: "JANEIRO", "FEVEREIRO 2026", "MARÇO", "MÊS DE ABRIL", "CONTROLE DIÁRIO"
+    if (
+      regexTituloMes.test(primeiraColunaNorm) ||
+      primeiraColunaNorm.startsWith("mes de ") ||
+      primeiraColunaNorm.startsWith("mes: ") ||
+      primeiraColunaNorm.includes("controle diario") ||
+      primeiraColunaNorm.includes("concreteira")
+    ) {
+      totalLinhasIgnoradas++
+      linhasIgnoradasDetalhes.push({
+        linhaNumero: i + 1,
+        motivo: `Título ou separador de bloco mensal: "${primeiraColuna}"`,
+        conteudoBruto: linhaTexto,
+      })
+      // Reset do fill-down ao cruzar fronteira de mês anunciada
+      ultimaDataIso = null
+      ultimaDataOriginal = null
+      continue
+    }
+
+    // DETECÇÃO DE LINHAS DE TOTAL, SUBTOTAL OU SALDO
+    // Ex: "TOTAL", "SUBTOTAL", "TOTAL GERAL", "SALDO ATUAL", "MÉDIA", "SOMA"
+    const linhaContemTotal = colunas.some((c) => {
+      const cNorm = c
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+      return (
+        cNorm === "total" ||
+        cNorm === "subtotal" ||
+        cNorm.startsWith("total ") ||
+        cNorm.startsWith("subtotal ") ||
+        cNorm.startsWith("saldo ") ||
+        cNorm === "saldo" ||
+        cNorm === "media" ||
+        cNorm === "soma"
+      )
+    })
+
+    if (linhaContemTotal) {
+      totalLinhasIgnoradas++
+      linhasIgnoradasDetalhes.push({
+        linhaNumero: i + 1,
+        motivo: "Linha de total/subtotal/saldo mensal detectada e ignorada",
+        conteudoBruto: linhaTexto,
+      })
+      // Uma linha de subtotal encerra as cargas daquele dia/bloco
+      ultimaDataIso = null
+      ultimaDataOriginal = null
+      continue
+    }
+
+    const dataOriginalBruta = getColAtual(colunas, "data", 0, mapaColunas)
     let dataIso: string | null = null
     let dataOriginal: string = ""
 
@@ -446,7 +581,7 @@ export function parseControleDiarioCSV(
       continue
     }
 
-    const volumeCru = getCol(colunas, "volume", 1)
+    const volumeCru = getColAtual(colunas, "volume", 1, mapaColunas)
     const volume_m3 = parseNumeroBr(volumeCru)
     if (volume_m3 <= 0) {
       const motivo = `Volume zerado ou não numérico ("${volumeCru}")`
@@ -463,6 +598,30 @@ export function parseControleDiarioCSV(
       })
       continue
     }
+
+    const consumo_brita12 = parseNumeroBr(
+      getColAtual(colunas, "brita12", 2, mapaColunas),
+    )
+    const consumo_brita19 = parseNumeroBr(
+      getColAtual(colunas, "brita19", 3, mapaColunas),
+    )
+    const consumo_areia = parseNumeroBr(
+      getColAtual(colunas, "areia", 4, mapaColunas),
+    )
+    const consumo_po_pedra = parseNumeroBr(
+      getColAtual(colunas, "po_pedra", 5, mapaColunas),
+    )
+    const consumo_cimento = parseNumeroBr(
+      getColAtual(colunas, "cimento", 6, mapaColunas),
+    )
+    const consumo_aditivo = parseNumeroBr(
+      getColAtual(colunas, "aditivo", 7, mapaColunas),
+    )
+
+    const motoristaCru = getColAtual(colunas, "motorista", 8, mapaColunas)
+    const veiculoCru = getColAtual(colunas, "placa", 9, mapaColunas)
+    const cidadeCru = getColAtual(colunas, "cidade", 10, mapaColunas)
+    const observacaoCru = getColAtual(colunas, "observacoes", 11, mapaColunas)
 
     const consumo_brita12 = parseNumeroBr(getCol(colunas, "brita12", 2))
     const consumo_brita19 = parseNumeroBr(getCol(colunas, "brita19", 3))
