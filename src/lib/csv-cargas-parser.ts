@@ -623,18 +623,6 @@ export function parseControleDiarioCSV(
     const cidadeCru = getColAtual(colunas, "cidade", 10, mapaColunas)
     const observacaoCru = getColAtual(colunas, "observacoes", 11, mapaColunas)
 
-    const consumo_brita12 = parseNumeroBr(getCol(colunas, "brita12", 2))
-    const consumo_brita19 = parseNumeroBr(getCol(colunas, "brita19", 3))
-    const consumo_areia = parseNumeroBr(getCol(colunas, "areia", 4))
-    const consumo_po_pedra = parseNumeroBr(getCol(colunas, "po_pedra", 5))
-    const consumo_cimento = parseNumeroBr(getCol(colunas, "cimento", 6))
-    const consumo_aditivo = parseNumeroBr(getCol(colunas, "aditivo", 7))
-
-    const motoristaCru = getCol(colunas, "motorista", 8)
-    const veiculoCru = getCol(colunas, "placa", 9)
-    const cidadeCru = getCol(colunas, "cidade", 10)
-    const observacaoCru = getCol(colunas, "observacoes", 11)
-
     const motorista_nome = motoristaCru ? motoristaCru.toUpperCase() : null
     const veiculo_placa = veiculoCru
       ? veiculoCru.replace(/[^A-Za-z0-9]/g, "").toUpperCase()
