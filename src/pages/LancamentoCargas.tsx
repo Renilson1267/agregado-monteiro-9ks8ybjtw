@@ -237,6 +237,7 @@ export default function LancamentoCargas() {
   )
   const [carregandoTracos, setCarregandoTracos] = useState<boolean>(false)
   const [volume, setVolume] = useState<number>(8.0)
+  const [volumeTexto, setVolumeTexto] = useState<string>("8")
   const volumeInputRef = useRef<HTMLInputElement>(null)
   const [tracoSelecionadoId, setTracoSelecionadoId] = useState<string>("")
 
@@ -339,6 +340,7 @@ export default function LancamentoCargas() {
         setDataCarga(c.data)
         const vol = Number(c.volume_m3) || 1
         setVolume(vol)
+        setVolumeTexto(String(vol).replace(".", ","))
         if (volumeInputRef.current) {
           volumeInputRef.current.value = String(vol).replace(".", ",")
         }
@@ -566,10 +568,13 @@ export default function LancamentoCargas() {
       })
     }
 
-    // Lê o volume diretamente do ref (se disponível) ou do estado
-    const volRaw = volumeInputRef.current
-      ? volumeInputRef.current.value
-      : String(volume)
+    // Lê o volume diretamente de volumeTexto ou do estado
+    const volRaw =
+      volumeTexto !== ""
+        ? volumeTexto
+        : volumeInputRef.current
+          ? volumeInputRef.current.value
+          : String(volume)
     const volNum = parseFloat(String(volRaw).replace(",", ".").trim())
 
     if (isNaN(volNum) || volNum < 3.0 || volNum > 10.0) {
@@ -602,15 +607,18 @@ export default function LancamentoCargas() {
   const formularioValido = errosValidacao.length === 0
 
   const validarFormulario = (): boolean => {
-    // Sincroniza o volume do input para o estado antes de validar e gravar
-    if (volumeInputRef.current) {
-      const raw = volumeInputRef.current.value
-      const parsed = parseFloat(raw.replace(",", ".").trim())
-      if (!isNaN(parsed) && parsed > 0) {
-        setVolume(parsed)
-      } else {
-        setVolume(0)
-      }
+    // Sincroniza o volume do texto para o estado antes de validar e gravar
+    const raw =
+      volumeTexto.trim() !== ""
+        ? volumeTexto
+        : volumeInputRef.current
+          ? volumeInputRef.current.value
+          : ""
+    const parsed = parseFloat(raw.replace(",", ".").trim())
+    if (!isNaN(parsed) && parsed > 0) {
+      setVolume(parsed)
+    } else {
+      setVolume(0)
     }
 
     setTentouGravar(true)
@@ -724,6 +732,7 @@ export default function LancamentoCargas() {
 
       // Limpar formulário para próximo lançamento e atualizar listagem
       setVolume(8.0)
+      setVolumeTexto("8")
       if (volumeInputRef.current) {
         volumeInputRef.current.value = "8"
       }
@@ -873,9 +882,17 @@ export default function LancamentoCargas() {
       setAreia(Number(traco.consumo_areia) || 0)
       setPoPedra(Number(traco.consumo_po_pedra) || 0)
 
+      // Sincroniza o volume se necessário e preserva volumeTexto
+      if (!volume || volume <= 0) {
+        setVolume(8.0)
+        setVolumeTexto("8")
+        if (volumeInputRef.current) volumeInputRef.current.value = "8"
+      }
+      const volAtual = volume && volume > 0 ? volume : 8.0
+
       // Aditivo sugerido: calcula total em litros (consumo_aditivo_m3 × volume)
       const adtBase = Number(traco.consumo_aditivo) || 0
-      const adtTotal = adtBase > 0 ? Math.round(adtBase * volume) : 0
+      const adtTotal = adtBase > 0 ? Math.round(adtBase * volAtual) : 0
       setAditivo(adtTotal)
       setAditivoInput(adtTotal > 0 ? String(adtTotal) : "")
       setAditivoBruto(adtTotal)
@@ -1095,11 +1112,10 @@ export default function LancamentoCargas() {
                       type="text"
                       inputMode="decimal"
                       autoComplete="off"
-                      defaultValue="8"
+                      value={volumeTexto}
                       onChange={(e) => {
-                        // Input NÃO controlado: NUNCA zera nem reescreve o display do usuário durante a digitação
-                        // Apenas lê o valor para atualizar os cálculos em tempo real
                         const raw = e.target.value
+                        setVolumeTexto(raw)
                         if (!raw || raw.trim() === "") {
                           setVolume(0)
                           return
@@ -1124,12 +1140,13 @@ export default function LancamentoCargas() {
                       }}
                       required
                       placeholder="Ex.: 8"
-                      className={`min-h-[52px] h-14 text-2xl sm:text-3xl font-black font-mono text-foreground dark:text-primary bg-background text-left pr-14 rounded-xl border-2 transition-colors ${
+                      style={{ color: "#0f172a", backgroundColor: "#ffffff" }}
+                      className={`min-h-[52px] h-14 text-2xl sm:text-3xl font-black font-mono !text-slate-900 !bg-white dark:!text-slate-900 dark:!bg-white text-left pr-14 rounded-xl border-2 transition-colors ${
                         tentouGravar &&
                         (!volume ||
                           Number(volume) < 3.0 ||
                           Number(volume) > 10.0)
-                          ? "border-destructive ring-2 ring-destructive/40 bg-destructive/5"
+                          ? "border-destructive ring-2 ring-destructive/40"
                           : "border-primary/50 focus-visible:ring-primary"
                       }`}
                     />
@@ -1146,10 +1163,10 @@ export default function LancamentoCargas() {
                         type="button"
                         onClick={() => {
                           setVolume(vRapido)
+                          const strRapido = String(vRapido).replace(".", ",")
+                          setVolumeTexto(strRapido)
                           if (volumeInputRef.current) {
-                            volumeInputRef.current.value = String(
-                              vRapido,
-                            ).replace(".", ",")
+                            volumeInputRef.current.value = strRapido
                           }
                         }}
                         className={`h-12 px-3 sm:px-3.5 text-xs sm:text-sm font-mono font-bold rounded-xl border-2 transition-all ${
