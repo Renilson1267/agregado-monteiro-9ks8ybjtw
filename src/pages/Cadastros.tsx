@@ -1312,9 +1312,14 @@ export default function Cadastros() {
                             <span
                               className={`w-2 h-2 rounded-full ${
                                 mat.controla_estoque
-                                  ? (mat.saldo || 0) <= mat.estoque_minimo
-                                    ? "bg-amber-500 animate-pulse"
-                                    : "bg-emerald-500"
+                                  ? mat.estoque_minimo > 0 &&
+                                    (mat.saldo || 0) < mat.estoque_minimo
+                                    ? "bg-destructive animate-pulse"
+                                    : mat.estoque_minimo > 0 &&
+                                        (mat.saldo || 0) - mat.estoque_minimo <=
+                                          mat.estoque_minimo * 0.15
+                                      ? "bg-amber-500"
+                                      : "bg-emerald-500"
                                   : "bg-muted-foreground/40"
                               }`}
                             />

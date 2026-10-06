@@ -30,28 +30,67 @@ export const ConcreteiraService = {
     const { data: materiais, error: matErr } = await queryMat
     if (matErr) throw matErr
 
-    let queryMov = (supabase as any)
-      .from("movimentacoes_estoque")
-      .select("material_id, tipo, quantidade")
-
-    if (empresaId) {
-      queryMov = queryMov.eq("empresa_id", empresaId)
-    }
-
-    const { data: movs, error: movErr } = await queryMov
-
-    if (movErr) throw movErr
-
     const saldos: Record<string, number> = {}
-    movs?.forEach((m: any) => {
-      const qtd = Number(m.quantidade) || 0
-      if (!saldos[m.material_id]) saldos[m.material_id] = 0
-      if (m.tipo === "ENTRADA" || m.tipo === "ABERTURA") {
-        saldos[m.material_id] += qtd
-      } else {
-        saldos[m.material_id] -= qtd
+
+    // Tentativa 1: cálculo exato via RPC no banco (sem risco de truncamento por paginação PostgREST)
+    try {
+      const { data: rpcSaldos, error: rpcErr } = await (supabase as any).rpc(
+        "calcular_saldos_estoque",
+        empresaId ? { p_empresa_id: empresaId } : {},
+      )
+
+      if (!rpcErr && Array.isArray(rpcSaldos)) {
+        rpcSaldos.forEach((r: any) => {
+          if (r.material_id) {
+            saldos[r.material_id] = Number(r.saldo) || 0
+          }
+        })
+      } else if (rpcErr) {
+        throw rpcErr
       }
-    })
+    } catch (rpcFallbackErr) {
+      // Fallback com paginação completa em blocos de 1.000 para garantir que 100% das linhas sejam somadas
+      console.warn(
+        "RPC calcular_saldos_estoque indisponível, usando paginação com range:",
+        rpcFallbackErr,
+      )
+      const PAGE_SIZE = 1000
+      let offset = 0
+      let hasMore = true
+
+      while (hasMore) {
+        let q = (supabase as any)
+          .from("movimentacoes_estoque")
+          .select("material_id, tipo, quantidade")
+          .range(offset, offset + PAGE_SIZE - 1)
+
+        if (empresaId) {
+          q = q.eq("empresa_id", empresaId)
+        }
+
+        const { data: pageMovs, error: pageErr } = await q
+        if (pageErr) throw pageErr
+
+        if (pageMovs && pageMovs.length > 0) {
+          pageMovs.forEach((m: any) => {
+            const qtd = Number(m.quantidade) || 0
+            if (!saldos[m.material_id]) saldos[m.material_id] = 0
+            if (m.tipo === "ENTRADA" || m.tipo === "ABERTURA") {
+              saldos[m.material_id] += qtd
+            } else {
+              saldos[m.material_id] -= qtd
+            }
+          })
+          if (pageMovs.length < PAGE_SIZE) {
+            hasMore = false
+          } else {
+            offset += PAGE_SIZE
+          }
+        } else {
+          hasMore = false
+        }
+      }
+    }
 
     return (materiais || []).map((mat: any) => {
       const isControlado = mat.codigo === "cimento" || mat.codigo === "aditivo"

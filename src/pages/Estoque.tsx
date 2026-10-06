@@ -480,18 +480,33 @@ export default function Estoque() {
             .filter((m) => m.codigo === "cimento" || m.codigo === "aditivo")
             .map((mat) => {
               const saldo = mat.saldo || 0
-              const critico = saldo <= mat.estoque_minimo
+              const critico =
+                mat.estoque_minimo > 0 && saldo < mat.estoque_minimo
+              const margem = saldo - mat.estoque_minimo
+              // Âmbar quando próximo ao mínimo (margem positiva até 15% do mínimo)
+              const atencao =
+                !critico &&
+                mat.estoque_minimo > 0 &&
+                margem <= mat.estoque_minimo * 0.15
 
               return (
                 <Card
                   key={mat.id}
                   className={`border-border/40 bg-card/70 relative overflow-hidden shadow-sm ${
-                    critico ? "border-destructive/40" : ""
+                    critico
+                      ? "border-destructive/40"
+                      : atencao
+                        ? "border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/10"
+                        : ""
                   }`}
                 >
                   <div
                     className={`h-1.5 w-full ${
-                      critico ? "bg-destructive" : "bg-primary"
+                      critico
+                        ? "bg-destructive"
+                        : atencao
+                          ? "bg-amber-500"
+                          : "bg-emerald-500"
                     }`}
                   />
                   <CardHeader className="pb-2">
@@ -506,18 +521,39 @@ export default function Estoque() {
                             : "Tanque de Aditivo Químico"}
                         </CardDescription>
                       </div>
-                      <Badge
-                        variant={critico ? "destructive" : "outline"}
-                        className="text-xs"
-                      >
-                        {critico ? "Reposição Urgente" : "Estoque Regular"}
-                      </Badge>
+                      {critico ? (
+                        <Badge variant="destructive" className="text-xs">
+                          Reposição Urgente
+                        </Badge>
+                      ) : atencao ? (
+                        <Badge
+                          variant="outline"
+                          className="text-xs border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 font-semibold"
+                        >
+                          Atenção (Âmbar)
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 font-medium"
+                        >
+                          Estoque Regular (Verde)
+                        </Badge>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex items-baseline justify-between">
                       <div>
-                        <span className="text-3xl font-extrabold text-foreground">
+                        <span
+                          className={`text-3xl font-extrabold ${
+                            critico
+                              ? "text-destructive"
+                              : atencao
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-foreground"
+                          }`}
+                        >
                           {saldo.toLocaleString("pt-BR")}
                         </span>{" "}
                         <span className="text-sm font-medium text-muted-foreground">
@@ -543,13 +579,15 @@ export default function Estoque() {
                         <span>Margem Operacional:</span>
                         <span
                           className={
-                            saldo - mat.estoque_minimo < 0
+                            critico
                               ? "text-destructive font-bold"
-                              : "text-emerald-500 font-medium"
+                              : atencao
+                                ? "text-amber-600 dark:text-amber-400 font-bold"
+                                : "text-emerald-500 font-medium"
                           }
                         >
-                          {(saldo - mat.estoque_minimo).toLocaleString("pt-BR")}{" "}
-                          {mat.unidade}
+                          {margem > 0 ? "+" : ""}
+                          {margem.toLocaleString("pt-BR")} {mat.unidade}
                         </span>
                       </div>
                     </div>

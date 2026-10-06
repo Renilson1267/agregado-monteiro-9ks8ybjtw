@@ -604,8 +604,13 @@ export default function Index() {
                 .filter((m) => m.codigo === "cimento" || m.codigo === "aditivo")
                 .map((mat) => {
                   const saldo = mat.saldo || 0
-                  const estaCritico = saldo <= mat.estoque_minimo
+                  const estaCritico =
+                    mat.estoque_minimo > 0 && saldo < mat.estoque_minimo
                   const margem = saldo - mat.estoque_minimo
+                  const estaAtencao =
+                    !estaCritico &&
+                    mat.estoque_minimo > 0 &&
+                    margem <= mat.estoque_minimo * 0.15
 
                   return (
                     <div
@@ -635,6 +640,14 @@ export default function Index() {
                             <AlertTriangle className="w-3 h-3" />
                             Abaixo do Mínimo
                           </Badge>
+                        ) : estaAtencao ? (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] gap-1 font-bold border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10"
+                          >
+                            <AlertTriangle className="w-3 h-3 text-amber-500" />
+                            Atenção (Âmbar)
+                          </Badge>
                         ) : (
                           <Badge
                             variant="outline"
@@ -646,7 +659,15 @@ export default function Index() {
                       </div>
 
                       <div className="mt-2.5 flex items-baseline gap-2">
-                        <span className="text-2xl sm:text-3xl font-black text-foreground font-mono">
+                        <span
+                          className={`text-2xl sm:text-3xl font-black font-mono ${
+                            estaCritico
+                              ? "text-destructive"
+                              : estaAtencao
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-foreground"
+                          }`}
+                        >
                           {mat.unidade === "kg" && saldo >= 1000
                             ? (saldo / 1000).toLocaleString("pt-BR", {
                                 maximumFractionDigits: 2,
@@ -677,10 +698,13 @@ export default function Index() {
                           className={
                             estaCritico
                               ? "text-destructive font-bold"
-                              : "text-emerald-500 font-semibold"
+                              : estaAtencao
+                                ? "text-amber-600 dark:text-amber-400 font-bold"
+                                : "text-emerald-500 font-semibold"
                           }
                         >
-                          Margem: {margem.toLocaleString("pt-BR")} {mat.unidade}
+                          Margem: {margem > 0 ? "+" : ""}
+                          {margem.toLocaleString("pt-BR")} {mat.unidade}
                         </span>
                       </div>
                     </div>
@@ -2158,7 +2182,13 @@ export default function Index() {
               .filter((m) => m.codigo === "cimento" || m.codigo === "aditivo")
               .map((mat) => {
                 const saldo = mat.saldo || 0
-                const estaCritico = saldo <= mat.estoque_minimo
+                const estaCritico =
+                  mat.estoque_minimo > 0 && saldo < mat.estoque_minimo
+                const margem = saldo - mat.estoque_minimo
+                const estaAtencao =
+                  !estaCritico &&
+                  mat.estoque_minimo > 0 &&
+                  margem <= mat.estoque_minimo * 0.15
 
                 return (
                   <div
@@ -2166,7 +2196,9 @@ export default function Index() {
                     className={`p-4 rounded-lg border transition-all ${
                       estaCritico
                         ? "border-destructive/40 bg-destructive/5"
-                        : "border-border/40 bg-background/50"
+                        : estaAtencao
+                          ? "border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/10"
+                          : "border-border/40 bg-background/50"
                     }`}
                   >
                     <div className="flex justify-between items-start">
@@ -2185,17 +2217,33 @@ export default function Index() {
                           <AlertTriangle className="w-3 h-3" />
                           Reposição Necessária
                         </Badge>
+                      ) : estaAtencao ? (
+                        <Badge
+                          variant="outline"
+                          className="text-xs gap-1 font-semibold border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10"
+                        >
+                          <AlertTriangle className="w-3 h-3 text-amber-500" />
+                          Atenção (Âmbar)
+                        </Badge>
                       ) : (
                         <Badge
                           variant="outline"
-                          className="text-xs text-emerald-500 border-emerald-500/30"
+                          className="text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
                         >
-                          Regular
+                          Regular (Verde)
                         </Badge>
                       )}
                     </div>
                     <div className="mt-3 flex items-baseline gap-2">
-                      <span className="text-3xl font-extrabold text-foreground">
+                      <span
+                        className={`text-3xl font-extrabold ${
+                          estaCritico
+                            ? "text-destructive"
+                            : estaAtencao
+                              ? "text-amber-600 dark:text-amber-400"
+                              : "text-foreground"
+                        }`}
+                      >
                         {mat.unidade === "kg" && saldo >= 1000
                           ? (saldo / 1000).toLocaleString("pt-BR", {
                               maximumFractionDigits: 2,
@@ -2225,12 +2273,13 @@ export default function Index() {
                         className={
                           estaCritico
                             ? "text-destructive font-semibold"
-                            : "text-emerald-500 font-medium"
+                            : estaAtencao
+                              ? "text-amber-600 dark:text-amber-400 font-bold"
+                              : "text-emerald-500 font-medium"
                         }
                       >
-                        Margem:{" "}
-                        {(saldo - mat.estoque_minimo).toLocaleString("pt-BR")}{" "}
-                        {mat.unidade}
+                        Margem: {margem > 0 ? "+" : ""}
+                        {margem.toLocaleString("pt-BR")} {mat.unidade}
                       </span>
                     </div>
                   </div>

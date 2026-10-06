@@ -853,6 +853,13 @@ export function PainelGerencial() {
                 )
                 .map((item) => {
                   const critico = item.abaixoMinimo
+                  // Âmbar: quando o saldo está na faixa de atenção (próximo do mínimo, até 15% acima ou no limite seguro)
+                  const margem = item.saldo - item.estoqueMinimo
+                  const atencao =
+                    !critico &&
+                    item.controlaEstoque &&
+                    item.estoqueMinimo > 0 &&
+                    margem <= item.estoqueMinimo * 0.15 // ex: 15.623 kg cimento vs mín 15.000 kg (margem 623 kg <= 2.250 kg)
                   const ehCimento = item.codigo === "cimento"
                   const ehAditivo = item.codigo === "aditivo"
                   const saldoTon =
@@ -867,7 +874,9 @@ export function PainelGerencial() {
                         "rounded-xl border p-3.5 flex flex-col justify-between transition-all bg-card/60 shadow-xs relative overflow-hidden",
                         critico
                           ? "border-destructive/50 bg-destructive/5 dark:bg-destructive/10"
-                          : "border-border/50 hover:border-border",
+                          : atencao
+                            ? "border-amber-500/50 bg-amber-500/5 dark:bg-amber-500/10"
+                            : "border-border/50 hover:border-border",
                       )}
                     >
                       <div
@@ -875,9 +884,11 @@ export function PainelGerencial() {
                           "absolute top-0 left-0 right-0 h-1",
                           critico
                             ? "bg-destructive"
-                            : item.controlaEstoque
-                              ? "bg-primary"
-                              : "bg-muted-foreground/30",
+                            : atencao
+                              ? "bg-amber-500"
+                              : item.controlaEstoque
+                                ? "bg-emerald-500"
+                                : "bg-muted-foreground/30",
                         )}
                       />
 
@@ -900,16 +911,28 @@ export function PainelGerencial() {
                                     : "Agregado / Consumo"}
                             </span>
                           </div>
-                          <Badge
-                            variant={critico ? "destructive" : "outline"}
-                            className="text-[10px] shrink-0 font-medium"
-                          >
-                            {critico
-                              ? "Abaixo do Mínimo"
-                              : item.controlaEstoque
-                                ? "Estoque Regular"
-                                : "Consumo"}
-                          </Badge>
+                          {critico ? (
+                            <Badge
+                              variant="destructive"
+                              className="text-[10px] shrink-0 font-medium"
+                            >
+                              Abaixo do Mínimo
+                            </Badge>
+                          ) : atencao ? (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] shrink-0 font-semibold border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10"
+                            >
+                              Atenção / Próximo ao Mínimo
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] shrink-0 font-medium text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+                            >
+                              Estoque Regular
+                            </Badge>
+                          )}
                         </div>
 
                         {/* Saldo Principal */}
@@ -920,7 +943,9 @@ export function PainelGerencial() {
                                 "text-2xl font-black font-mono tracking-tight",
                                 critico
                                   ? "text-destructive"
-                                  : "text-foreground",
+                                  : atencao
+                                    ? "text-amber-600 dark:text-amber-400"
+                                    : "text-foreground",
                               )}
                             >
                               {item.saldo.toLocaleString("pt-BR", {
@@ -984,9 +1009,11 @@ export function PainelGerencial() {
                             <span
                               className={cn(
                                 "font-mono font-bold",
-                                item.saldo - item.estoqueMinimo < 0
+                                critico
                                   ? "text-destructive"
-                                  : "text-emerald-600 dark:text-emerald-400",
+                                  : atencao
+                                    ? "text-amber-600 dark:text-amber-400"
+                                    : "text-emerald-600 dark:text-emerald-400",
                               )}
                             >
                               {item.saldo - item.estoqueMinimo > 0 ? "+" : ""}

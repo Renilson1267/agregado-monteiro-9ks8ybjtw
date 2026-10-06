@@ -792,7 +792,7 @@ export const PainelService = {
       .forEach((m) => {
         const saldo = Number(m.saldo || 0)
         const minimo = Number(m.estoque_minimo || 0)
-        if (saldo <= minimo) {
+        if (saldo < minimo) {
           estoqueBaixo.push({
             material: m,
             saldo,
@@ -831,7 +831,7 @@ export const PainelService = {
           const saldo = Number(m.saldo || 0)
           const minimo = Number(m.estoque_minimo || 0)
           const controla = m.controla_estoque !== false
-          const abaixoMinimo = controla && minimo > 0 && saldo <= minimo
+          const abaixoMinimo = controla && minimo > 0 && saldo < minimo
           saldosInsumos.push({
             id: m.id,
             nome: m.nome,
@@ -855,7 +855,7 @@ export const PainelService = {
           const saldo = Number(m.saldo || 0)
           const minimo = Number(m.estoque_minimo || 0)
           const controla = m.controla_estoque !== false
-          const abaixoMinimo = controla && minimo > 0 && saldo <= minimo
+          const abaixoMinimo = controla && minimo > 0 && saldo < minimo
           saldosInsumos.push({
             id: m.id,
             nome: m.nome,
@@ -896,7 +896,7 @@ export const PainelService = {
           const saldo = Number(m.saldo || 0)
           const minimo = Number(m.estoque_minimo || 0)
           const controla = m.controla_estoque !== false
-          const abaixo = controla && minimo > 0 && saldo <= minimo
+          const abaixo = controla && minimo > 0 && saldo < minimo
           mapaConsolidado.set(key, {
             id: m.id,
             nome: m.nome,
@@ -927,10 +927,10 @@ export const PainelService = {
             item.saldoTotal = Math.round((item.saldoTotal + saldo) * 100) / 100
             item.estoqueMinimo = Math.max(item.estoqueMinimo, minimo)
             // Se qualquer das unidades ou o total estiver crítico
-            const abaixoSje = controla && minimo > 0 && saldo <= minimo
+            const abaixoSje = controla && minimo > 0 && saldo < minimo
             if (abaixoSje) item.abaixoMinimo = true
           } else {
-            const abaixo = controla && minimo > 0 && saldo <= minimo
+            const abaixo = controla && minimo > 0 && saldo < minimo
             mapaConsolidado.set(key, {
               id: m.id,
               nome: m.nome,
