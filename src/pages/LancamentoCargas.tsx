@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   Card,
   CardContent,
@@ -237,7 +237,7 @@ export default function LancamentoCargas() {
   )
   const [carregandoTracos, setCarregandoTracos] = useState<boolean>(false)
   const [volume, setVolume] = useState<number>(8.0)
-  const [volumeInput, setVolumeInput] = useState<string>("8")
+  const volumeInputRef = useRef<HTMLInputElement>(null)
   const [tracoSelecionadoId, setTracoSelecionadoId] = useState<string>("")
 
   const [observacao, setObservacao] = useState<string>("")
@@ -339,7 +339,9 @@ export default function LancamentoCargas() {
         setDataCarga(c.data)
         const vol = Number(c.volume_m3) || 1
         setVolume(vol)
-        setVolumeInput(String(vol).replace(".", ","))
+        if (volumeInputRef.current) {
+          volumeInputRef.current.value = String(vol).replace(".", ",")
+        }
         setCargaZerada(Boolean(c.carga_zerada))
         setObservacao(c.observacao || "")
 
@@ -564,12 +566,20 @@ export default function LancamentoCargas() {
       })
     }
 
-    const volNum = Number(volume)
-    if (!volume || isNaN(volNum) || volNum < 3.0 || volNum > 10.0) {
+    // Lê o volume diretamente do ref (se disponível) ou do estado
+    const volRaw = volumeInputRef.current
+      ? volumeInputRef.current.value
+      : String(volume)
+    const volNum = parseFloat(String(volRaw).replace(",", ".").trim())
+
+    if (isNaN(volNum) || volNum < 3.0 || volNum > 10.0) {
       faltantes.push({
         campo: "volume",
         rotulo: "Volume (m³)",
-        mensagem: "Volume deve ser entre 3,0 e 10,0 m³",
+        mensagem:
+          "Volume deve ser entre 3,0 e 10,0 m³ (informado: " +
+          (isNaN(volNum) ? "em branco" : volNum) +
+          ")",
       })
     }
 
@@ -592,10 +602,22 @@ export default function LancamentoCargas() {
   const formularioValido = errosValidacao.length === 0
 
   const validarFormulario = (): boolean => {
+    // Sincroniza o volume do input para o estado antes de validar e gravar
+    if (volumeInputRef.current) {
+      const raw = volumeInputRef.current.value
+      const parsed = parseFloat(raw.replace(",", ".").trim())
+      if (!isNaN(parsed) && parsed > 0) {
+        setVolume(parsed)
+      } else {
+        setVolume(0)
+      }
+    }
+
     setTentouGravar(true)
 
-    if (errosValidacao.length > 0) {
-      const listaFaltantes = errosValidacao.map((e) => e.rotulo).join(", ")
+    const errosAtuais = obterErrosValidacao()
+    if (errosAtuais.length > 0) {
+      const listaFaltantes = errosAtuais.map((e) => e.rotulo).join(", ")
       toast({
         title: "Preencha todos os campos para gravar",
         description: `Campos obrigatórios pendentes: ${listaFaltantes}.`,
@@ -702,7 +724,9 @@ export default function LancamentoCargas() {
 
       // Limpar formulário para próximo lançamento e atualizar listagem
       setVolume(8.0)
-      setVolumeInput("8")
+      if (volumeInputRef.current) {
+        volumeInputRef.current.value = "8"
+      }
       setObservacao("")
       setCargaZerada(false)
       setTracoSelecionadoId("")
@@ -1067,59 +1091,40 @@ export default function LancamentoCargas() {
                   <div className="relative flex-1">
                     <Input
                       id="volume"
+                      ref={volumeInputRef}
                       type="text"
                       inputMode="decimal"
                       autoComplete="off"
-                      value={volumeInput}
+                      defaultValue="8"
                       onChange={(e) => {
-                        // Limpa qualquer caractere não numérico exceto vírgula e ponto
-                        const valBruto = e.target.value
-                        // Permite apenas dígitos, ponto e vírgula
-                        let valLimpo = valBruto.replace(/[^0-9.,]/g, "")
-                        // Permite apenas um separador decimal (o primeiro)
-                        const primeiroSeparadorIdx = valLimpo.search(/[.,]/)
-                        if (primeiroSeparadorIdx !== -1) {
-                          const parteInteira = valLimpo.slice(
-                            0,
-                            primeiroSeparadorIdx + 1,
-                          )
-                          const parteDecimal = valLimpo
-                            .slice(primeiroSeparadorIdx + 1)
-                            .replace(/[.,]/g, "")
-                          valLimpo = parteInteira + parteDecimal
-                        }
-
-                        setVolumeInput(valLimpo)
-
-                        if (!valLimpo || valLimpo.trim() === "") {
+                        // Input NÃO controlado: NUNCA zera nem reescreve o display do usuário durante a digitação
+                        // Apenas lê o valor para atualizar os cálculos em tempo real
+                        const raw = e.target.value
+                        if (!raw || raw.trim() === "") {
                           setVolume(0)
                           return
                         }
-
-                        const normalizado = valLimpo.replace(",", ".").trim()
+                        const normalizado = raw.replace(",", ".").trim()
                         const parsed = parseFloat(normalizado)
                         setVolume(!isNaN(parsed) && parsed > 0 ? parsed : 0)
                       }}
-                      onBlur={() => {
-                        // Ao sair do campo, formata com vírgula apenas se for um número válido > 0
-                        if (!volumeInput || volumeInput.trim() === "") {
+                      onBlur={(e) => {
+                        const raw = e.target.value
+                        if (!raw || raw.trim() === "") {
                           setVolume(0)
-                          setVolumeInput("")
                           return
                         }
-                        const normalizado = volumeInput.replace(",", ".").trim()
+                        const normalizado = raw.replace(",", ".").trim()
                         const parsed = parseFloat(normalizado)
                         if (!isNaN(parsed) && parsed > 0) {
                           setVolume(parsed)
-                          setVolumeInput(String(parsed).replace(".", ","))
                         } else {
                           setVolume(0)
-                          setVolumeInput("")
                         }
                       }}
                       required
                       placeholder="Ex.: 8"
-                      className={`min-h-[52px] h-14 text-2xl sm:text-3xl font-black font-mono text-primary bg-background text-left pr-14 rounded-xl border-2 transition-colors ${
+                      className={`min-h-[52px] h-14 text-2xl sm:text-3xl font-black font-mono text-foreground dark:text-primary bg-background text-left pr-14 rounded-xl border-2 transition-colors ${
                         tentouGravar &&
                         (!volume ||
                           Number(volume) < 3.0 ||
@@ -1141,7 +1146,11 @@ export default function LancamentoCargas() {
                         type="button"
                         onClick={() => {
                           setVolume(vRapido)
-                          setVolumeInput(String(vRapido).replace(".", ","))
+                          if (volumeInputRef.current) {
+                            volumeInputRef.current.value = String(
+                              vRapido,
+                            ).replace(".", ",")
+                          }
                         }}
                         className={`h-12 px-3 sm:px-3.5 text-xs sm:text-sm font-mono font-bold rounded-xl border-2 transition-all ${
                           volume === vRapido
