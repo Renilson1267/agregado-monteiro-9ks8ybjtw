@@ -250,6 +250,7 @@ export default function LancamentoCargas() {
   const [poPedra, setPoPedra] = useState<number>(0)
   const [cimento, setCimento] = useState<number>(0)
   const [aditivo, setAditivo] = useState<number>(0)
+  const [aditivoInput, setAditivoInput] = useState<string>("")
   const [aditivoBruto, setAditivoBruto] = useState<number>(0)
   const [aditivoEditadoManualmente, setAditivoEditadoManualmente] =
     useState<boolean>(false)
@@ -287,6 +288,7 @@ export default function LancamentoCargas() {
           setAreia(0)
           setPoPedra(0)
           setAditivo(0)
+          setAditivoInput("")
           setAditivoBruto(0)
           setAditivoEditadoManualmente(false)
         }
@@ -378,8 +380,10 @@ export default function LancamentoCargas() {
         setPoPedra(dosPoPedra)
 
         // Aditivo total em litros
-        setAditivo(Number(c.consumo_aditivo || 0))
-        setAditivoBruto(Number(c.consumo_aditivo || 0))
+        const adtValor = Number(c.consumo_aditivo || 0)
+        setAditivo(adtValor)
+        setAditivoInput(adtValor > 0 ? String(adtValor) : "")
+        setAditivoBruto(adtValor)
         setAditivoEditadoManualmente(true)
       } catch (err: any) {
         console.error("Erro ao carregar carga para edição:", err)
@@ -524,15 +528,16 @@ export default function LancamentoCargas() {
   }
 
   // Consumos REAIS da carga:
-  // - Sólidos (cimento, brita12, brita19, areia, pó de pedra) guardam dosagem por m³ e são multiplicados pelo volume.
+  // - Sólidos (cimento, brita12, brita19, areia, pó de pedra) guardam dosagem por m³ e são multiplicados pelo volume efetivo.
   // - Aditivo é o volume total em litros da carga (Math.round).
   // - O que o usuário digitar prevalece exatamente sem alterações.
+  const volumeEfetivo = Number(volume) || 0
   const consumoReal = {
-    cimento: Math.round(cimento * volume),
-    areia: Math.round(areia * volume),
-    brita12: Math.round(brita12 * volume),
-    brita19: Math.round(brita19 * volume),
-    poPedra: Math.round(poPedra * volume),
+    cimento: Math.round(cimento * volumeEfetivo),
+    areia: Math.round(areia * volumeEfetivo),
+    brita12: Math.round(brita12 * volumeEfetivo),
+    brita19: Math.round(brita19 * volumeEfetivo),
+    poPedra: Math.round(poPedra * volumeEfetivo),
     aditivo: Math.round(aditivo),
     agua: 0,
   }
@@ -707,6 +712,7 @@ export default function LancamentoCargas() {
       setAreia(0)
       setPoPedra(0)
       setAditivo(0)
+      setAditivoInput("")
       setAditivoBruto(0)
       setTentouGravar(false)
 
@@ -847,6 +853,7 @@ export default function LancamentoCargas() {
       const adtBase = Number(traco.consumo_aditivo) || 0
       const adtTotal = adtBase > 0 ? Math.round(adtBase * volume) : 0
       setAditivo(adtTotal)
+      setAditivoInput(adtTotal > 0 ? String(adtTotal) : "")
       setAditivoBruto(adtTotal)
       setAditivoEditadoManualmente(false)
 
@@ -1062,25 +1069,56 @@ export default function LancamentoCargas() {
                       id="volume"
                       type="text"
                       inputMode="decimal"
+                      autoComplete="off"
                       value={volumeInput}
                       onChange={(e) => {
-                        const val = e.target.value
-                        setVolumeInput(val)
-                        const normalizado = val.replace(",", ".").trim()
+                        // Limpa qualquer caractere não numérico exceto vírgula e ponto
+                        const valBruto = e.target.value
+                        // Permite apenas dígitos, ponto e vírgula
+                        let valLimpo = valBruto.replace(/[^0-9.,]/g, "")
+                        // Permite apenas um separador decimal (o primeiro)
+                        const primeiroSeparadorIdx = valLimpo.search(/[.,]/)
+                        if (primeiroSeparadorIdx !== -1) {
+                          const parteInteira = valLimpo.slice(
+                            0,
+                            primeiroSeparadorIdx + 1,
+                          )
+                          const parteDecimal = valLimpo
+                            .slice(primeiroSeparadorIdx + 1)
+                            .replace(/[.,]/g, "")
+                          valLimpo = parteInteira + parteDecimal
+                        }
+
+                        setVolumeInput(valLimpo)
+
+                        if (!valLimpo || valLimpo.trim() === "") {
+                          setVolume(0)
+                          return
+                        }
+
+                        const normalizado = valLimpo.replace(",", ".").trim()
                         const parsed = parseFloat(normalizado)
                         setVolume(!isNaN(parsed) && parsed > 0 ? parsed : 0)
                       }}
                       onBlur={() => {
-                        // Ao sair do campo, normaliza apenas se for um número válido > 0
+                        // Ao sair do campo, formata com vírgula apenas se for um número válido > 0
+                        if (!volumeInput || volumeInput.trim() === "") {
+                          setVolume(0)
+                          setVolumeInput("")
+                          return
+                        }
                         const normalizado = volumeInput.replace(",", ".").trim()
                         const parsed = parseFloat(normalizado)
                         if (!isNaN(parsed) && parsed > 0) {
                           setVolume(parsed)
                           setVolumeInput(String(parsed).replace(".", ","))
+                        } else {
+                          setVolume(0)
+                          setVolumeInput("")
                         }
                       }}
                       required
-                      placeholder="Ex.: 8,0"
+                      placeholder="Ex.: 8"
                       className={`min-h-[52px] h-14 text-2xl sm:text-3xl font-black font-mono text-primary bg-background text-left pr-14 rounded-xl border-2 transition-colors ${
                         tentouGravar &&
                         (!volume ||
@@ -1337,15 +1375,34 @@ export default function LancamentoCargas() {
                       <div className="relative">
                         <Input
                           id="aditivo"
-                          type="number"
+                          type="text"
                           inputMode="numeric"
-                          min="0"
-                          step="1"
-                          value={aditivo === 0 ? "" : aditivo}
+                          autoComplete="off"
+                          value={aditivoInput}
                           onChange={(e) => {
-                            const val =
-                              e.target.value === "" ? 0 : Number(e.target.value)
-                            setAditivo(isNaN(val) ? 0 : Math.round(val))
+                            const valBruto = e.target.value
+                            const valLimpo = valBruto.replace(/[^0-9]/g, "")
+                            setAditivoInput(valLimpo)
+                            const parsed = parseInt(valLimpo, 10)
+                            setAditivo(
+                              !isNaN(parsed) && parsed >= 0 ? parsed : 0,
+                            )
+                            setAditivoEditadoManualmente(true)
+                          }}
+                          onBlur={() => {
+                            if (!aditivoInput || aditivoInput.trim() === "") {
+                              setAditivo(0)
+                              setAditivoInput("")
+                              return
+                            }
+                            const parsed = parseInt(aditivoInput, 10)
+                            if (!isNaN(parsed) && parsed > 0) {
+                              setAditivo(parsed)
+                              setAditivoInput(String(parsed))
+                            } else {
+                              setAditivo(0)
+                              setAditivoInput("")
+                            }
                           }}
                           disabled={cargaZerada}
                           placeholder="0"
@@ -1448,7 +1505,11 @@ export default function LancamentoCargas() {
             <div className="p-3.5 rounded-xl border border-border/50 bg-muted/20 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-foreground">
-                  Consumo Total ({volume} m³):
+                  Consumo Total (
+                  {volumeEfetivo > 0
+                    ? String(volumeEfetivo).replace(".", ",")
+                    : "0"}{" "}
+                  m³):
                 </span>
                 <span className="font-mono text-primary font-bold">
                   Cimento: {consumoReal.cimento.toLocaleString("pt-BR")} kg
