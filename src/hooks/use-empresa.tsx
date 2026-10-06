@@ -27,6 +27,25 @@ interface EmpresaContextType {
 const EmpresaContext = createContext<EmpresaContextType | undefined>(undefined)
 
 const STORAGE_KEY = "concreteira_empresa_ativa_id"
+export const ID_EMPRESA_MONTEIRO_PADRAO = "11111111-1111-1111-1111-111111111111"
+
+// Função auxiliar para encontrar a empresa padrão:
+// Prioridade 1: Monteiro (por ID fixo, slug 'monteiro' ou nome 'Monteiro')
+// Prioridade 2: Primeira empresa ativa
+// Prioridade 3: Primeira da lista
+export const encontrarEmpresaPadrao = (lista: Empresa[]): Empresa | null => {
+  if (!lista || lista.length === 0) return null
+  const monteiro = lista.find(
+    (e) =>
+      e.id === ID_EMPRESA_MONTEIRO_PADRAO ||
+      e.slug?.toLowerCase() === "monteiro" ||
+      e.nome?.toLowerCase().trim() === "monteiro" ||
+      e.nome?.toLowerCase().includes("monteiro"),
+  )
+  if (monteiro) return monteiro
+  const primeiraAtiva = lista.find((e) => e.ativo !== false)
+  return primeiraAtiva || lista[0] || null
+}
 
 export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
   const { empresaVinculadaId, isBalanceiro } = useUsuario()
@@ -58,13 +77,14 @@ export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
         }
 
         // Para Administrador (ou usuário sem vínculo fixo):
-        // Usa a empresa salva no localStorage (última utilizada) ou a padrão
+        // Usa a empresa salva no localStorage (última utilizada) e, quando não houver nada salvo, usa MONTEIRO como padrão
         const savedId = localStorage.getItem(STORAGE_KEY)
-        const encontrada = lista.find(
-          (e) => e.id === savedId || e.slug === savedId,
-        )
-        // Se a empresa salva não existe mais na lista (ex: empresa excluída), seleciona a primeira disponível
-        const padrao = encontrada || lista[0]
+        const encontrada = savedId
+          ? lista.find((e) => e.id === savedId || e.slug === savedId)
+          : null
+
+        // Se houver empresa salva válida, usa ela; senão usa MONTEIRO (nunca a primeira alfabética Caicó)
+        const padrao = encontrada || encontrarEmpresaPadrao(lista)
         setEmpresaAtiva(padrao || null)
         if (padrao) {
           localStorage.setItem(STORAGE_KEY, padrao.id)
