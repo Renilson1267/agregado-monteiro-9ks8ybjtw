@@ -235,6 +235,7 @@ export default function LancamentoCargas() {
   const [dataCarga, setDataCarga] = useState(
     new Date().toISOString().split("T")[0],
   )
+  const [carregandoTracos, setCarregandoTracos] = useState<boolean>(false)
   const [volume, setVolume] = useState<number>(8.0)
   const [volumeInput, setVolumeInput] = useState<string>("8")
   const [tracoSelecionadoId, setTracoSelecionadoId] = useState<string>("")
@@ -259,6 +260,7 @@ export default function LancamentoCargas() {
   useEffect(() => {
     async function init() {
       if (!empresaAtiva) return
+      setCarregandoTracos(true)
       try {
         const [tr, mats] = await Promise.all([
           ConcreteiraService.getTracos(empresaAtiva.id),
@@ -290,6 +292,8 @@ export default function LancamentoCargas() {
         }
       } catch (err) {
         console.error("Erro ao carregar dados do formulário:", err)
+      } finally {
+        setCarregandoTracos(false)
       }
     }
     init()
@@ -760,30 +764,77 @@ export default function LancamentoCargas() {
     { label: "F45", fck: 45 },
   ]
 
-  // Encontra o traço correspondente no catálogo da empresa ativa para o FCK informado
-  const encontrarTracoPorFck = (fck: number): Traco | undefined => {
-    // 1. Prioriza os padrões oficiais tipo FxxB01S12 CP II F 40
-    const tracoPadrao = tracos.find(
-      (t) =>
-        Number(t.fck_mpa) === fck &&
-        /^F\d{1,2}B01S12/i.test(t.nome?.trim() || ""),
-    )
-    if (tracoPadrao) return tracoPadrao
+  // Encontra o traço correspondente no catálogo informado para o FCK fornecido
+  const encontrarTracoPorFckEmLista = (
+    fck: number,
+    lista: Traco[],
+  ): Traco | undefined => {
+    if (!lista || lista.length === 0) return undefined
 
-    // 2. Qualquer traço com o mesmo fck_mpa
-    const tracoFck = tracos.find((t) => Number(t.fck_mpa) === fck)
+    // 1. Prioriza pelo campo fck_mpa exato (caso o nome siga o padrão oficial FxxB01S12 CP II F 40)
+    const tracoPadraoFck = lista.find(
+      (t) =>
+        Number(t.fck_mpa) === fck && /^F\d{1,2}B/i.test(t.nome?.trim() || ""),
+    )
+    if (tracoPadraoFck) return tracoPadraoFck
+
+    // 2. Qualquer traço com o mesmo fck_mpa numérico exato
+    const tracoFck = lista.find((t) => Number(t.fck_mpa) === fck)
     if (tracoFck) return tracoFck
 
-    // 3. Fallback procurando Fxx no nome
-    return tracos.find((t) => {
-      const regex = new RegExp(`\\bF${fck}\\b`, "i")
-      return regex.test(t.nome || "")
+    // 3. Match pelo prefixo oficial real: "F25B", "F25 ", "F25-", "F25/"
+    const prefixos = [`F${fck}B`, `F${fck} `, `F${fck}-`, `F${fck}/`]
+    const tracoPrefixo = lista.find((t) => {
+      const nomeUpper = (t.nome || "").trim().toUpperCase()
+      return prefixos.some((p) => nomeUpper.startsWith(p.toUpperCase()))
     })
+    if (tracoPrefixo) return tracoPrefixo
+
+    // 4. Regex flexível para Fxx seguido de caractere não dígito ou fim de string (ex: F25B01, F25, F25-A)
+    const regexFlexivel = new RegExp(`^F0*${fck}(?:[^0-9]|$)`, "i")
+    const tracoRegex = lista.find((t) =>
+      regexFlexivel.test((t.nome || "").trim()),
+    )
+    if (tracoRegex) return tracoRegex
+
+    // 5. Inclusão de Fxx isolado ou em parênteses: "(25 MPa)" ou "FCK 25"
+    const regexFckTexto = new RegExp(
+      `(?:FCK\\s*|\\()0*${fck}(?:\\s*MPa|\\))`,
+      "i",
+    )
+    return lista.find((t) => regexFckTexto.test(t.nome || ""))
+  }
+
+  // Encontra o traço correspondente no catálogo da empresa ativa para o FCK informado
+  const encontrarTracoPorFck = (fck: number): Traco | undefined => {
+    return encontrarTracoPorFckEmLista(fck, tracos)
   }
 
   // Ao tocar em um botão de traço rápido: pré-preenche os insumos com as dosagens cadastradas
-  const selecionarAtalhoTraco = (fck: number) => {
-    const traco = encontrarTracoPorFck(fck)
+  const selecionarAtalhoTraco = async (fck: number) => {
+    let catalogo = tracos
+
+    // Se o catálogo estiver vazio ou carregando, busca sob demanda do serviço
+    if (catalogo.length === 0 && empresaAtiva?.id) {
+      try {
+        setCarregandoTracos(true)
+        const tr = await ConcreteiraService.getTracos(empresaAtiva.id)
+        const catalogoCompleto = [...tr].sort((a, b) => {
+          const fckA = a.fck_mpa ?? 0
+          const fckB = b.fck_mpa ?? 0
+          if (fckA !== fckB) return fckA - fckB
+          return (a.nome || "").localeCompare(b.nome || "")
+        })
+        setTracos(catalogoCompleto)
+        catalogo = catalogoCompleto
+      } catch (err) {
+        console.error("Erro ao carregar traços sob demanda:", err)
+      } finally {
+        setCarregandoTracos(false)
+      }
+    }
+
+    const traco = encontrarTracoPorFckEmLista(fck, catalogo)
     if (traco) {
       setTracoSelecionadoId(traco.id)
       setCimento(Number(traco.consumo_cimento) || 0)
@@ -807,7 +858,9 @@ export default function LancamentoCargas() {
     } else {
       toast({
         title: `Traço F${fck} não encontrado`,
-        description: "Não há traço cadastrado com esse FCK na empresa ativa.",
+        description: `Não há traço cadastrado com FCK ${fck} MPa na unidade ${
+          empresaAtiva?.nome || "ativa"
+        }.`,
         variant: "destructive",
       })
     }
@@ -1011,47 +1064,23 @@ export default function LancamentoCargas() {
                       inputMode="decimal"
                       value={volumeInput}
                       onChange={(e) => {
-                        const raw = e.target.value
-                        // Permite apenas dígitos, ponto e vírgula
-                        let sanitizado = raw.replace(/[^\d.,]/g, "")
-
-                        // Impede múltiplos separadores decimais (mantém apenas o primeiro ponto ou vírgula)
-                        let separadorEncontrado = false
-                        sanitizado = sanitizado.replace(/[.,]/g, (sep) => {
-                          if (!separadorEncontrado) {
-                            separadorEncontrado = true
-                            return sep
-                          }
-                          return ""
-                        })
-
-                        setVolumeInput(sanitizado)
-
-                        if (
-                          !sanitizado.trim() ||
-                          sanitizado === "," ||
-                          sanitizado === "."
-                        ) {
-                          setVolume(0)
-                          return
-                        }
-
-                        // Converte para formato numérico padrão (aceita ponto ou vírgula decimal)
-                        const normalizado = sanitizado.replace(",", ".")
-                        const num = parseFloat(normalizado)
-                        setVolume(isNaN(num) ? 0 : num)
+                        const val = e.target.value
+                        setVolumeInput(val)
+                        const normalizado = val.replace(",", ".").trim()
+                        const parsed = parseFloat(normalizado)
+                        setVolume(!isNaN(parsed) && parsed > 0 ? parsed : 0)
                       }}
                       onBlur={() => {
-                        // Ao sair do campo, formata suavemente se houver valor válido
-                        if (volume > 0) {
-                          setVolumeInput(String(volume).replace(".", ","))
-                        } else if (!volumeInput.trim()) {
-                          setVolume(0)
-                          setVolumeInput("")
+                        // Ao sair do campo, normaliza apenas se for um número válido > 0
+                        const normalizado = volumeInput.replace(",", ".").trim()
+                        const parsed = parseFloat(normalizado)
+                        if (!isNaN(parsed) && parsed > 0) {
+                          setVolume(parsed)
+                          setVolumeInput(String(parsed).replace(".", ","))
                         }
                       }}
                       required
-                      placeholder="8"
+                      placeholder="Ex.: 8,0"
                       className={`min-h-[52px] h-14 text-2xl sm:text-3xl font-black font-mono text-primary bg-background text-left pr-14 rounded-xl border-2 transition-colors ${
                         tentouGravar &&
                         (!volume ||
@@ -1074,7 +1103,7 @@ export default function LancamentoCargas() {
                         type="button"
                         onClick={() => {
                           setVolume(vRapido)
-                          setVolumeInput(String(vRapido))
+                          setVolumeInput(String(vRapido).replace(".", ","))
                         }}
                         className={`h-12 px-3 sm:px-3.5 text-xs sm:text-sm font-mono font-bold rounded-xl border-2 transition-all ${
                           volume === vRapido
@@ -1372,8 +1401,8 @@ export default function LancamentoCargas() {
                         <button
                           key={atalho.label}
                           type="button"
-                          onClick={() => selecionarAtalhoTraco(atalho.fck)}
-                          disabled={cargaZerada}
+                          onClick={() => void selecionarAtalhoTraco(atalho.fck)}
+                          disabled={cargaZerada || carregandoTracos}
                           className={`h-12 px-3 rounded-xl border-2 font-mono font-black text-sm sm:text-base flex items-center justify-between transition-all ${
                             isAtivo
                               ? "bg-primary text-primary-foreground border-primary shadow-sm scale-102"
