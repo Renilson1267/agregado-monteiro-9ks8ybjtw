@@ -37,7 +37,7 @@ export function initializePwaAssets() {
         // requisições a /pwa-192x192.png e /pwa-512x512.png respondam com o PNG
         canvas.toBlob((blob) => {
           if (blob && "caches" in window) {
-            caches.open("gcmix-pwa-v2").then((cache) => {
+            caches.open("gcmix-pwa-v4").then((cache) => {
               const headers = new Headers({
                 "Content-Type": "image/png",
                 "Cache-Control": "public, max-age=31536000",
