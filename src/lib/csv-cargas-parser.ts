@@ -72,9 +72,18 @@ export interface TracoResumoDetectado {
   fckSugerido: number
 }
 
+export interface LinhaIgnoradaInfo {
+  linhaNumero: number
+  motivo: string
+  conteudoBruto: string
+  dataHerdadaOuOriginal?: string | null
+  volumeInformado?: string | null
+}
+
 export interface PreviewImportacaoCSV {
   totalLinhasValidas: number
   totalLinhasIgnoradas: number
+  linhasIgnoradasDetalhes: LinhaIgnoradaInfo[]
   avisos: string[]
   erros: string[]
   periodoInicio: string | null // 'YYYY-MM-DD'
@@ -98,25 +107,65 @@ export function parseNumeroBr(val: string | number | null | undefined): number {
   if (typeof val === "number") {
     return isNaN(val) ? 0 : val
   }
-  const limpo = String(val).trim()
-  if (!limpo) return 0
+  let str = String(val).trim()
+  if (!str || str === "-" || str === "—" || str === "null") return 0
 
-  // Se contém ponto de milhar e vírgula decimal ex: "2.880,50"
-  if (limpo.includes(".") && limpo.includes(",")) {
-    const semPonto = limpo.replace(/\./g, "").replace(",", ".")
-    const parsed = parseFloat(semPonto)
-    return isNaN(parsed) ? 0 : parsed
+  let negativo = false
+  if (str.startsWith("(") && str.endsWith(")")) {
+    negativo = true
+    str = str.slice(1, -1).trim()
+  } else if (str.startsWith("-")) {
+    negativo = true
+    str = str.slice(1).trim()
   }
 
-  // Se contém apenas vírgula decimal ex: "8,0" ou "7,5"
-  if (limpo.includes(",")) {
-    const parsed = parseFloat(limpo.replace(",", "."))
-    return isNaN(parsed) ? 0 : parsed
+  // Remove símbolos monetários ou unidades acidentais (R$, kg, m3, L)
+  str = str.replace(/[R$\s]/gi, "")
+
+  // Caso 1: Contém ponto E vírgula (ex: "2.880,50" ou "1.562,5") -> ponto é milhar, vírgula é decimal
+  if (str.includes(".") && str.includes(",")) {
+    const limpo = str.replace(/\./g, "").replace(",", ".")
+    const parsed = parseFloat(limpo)
+    if (isNaN(parsed)) return 0
+    return negativo ? -parsed : parsed
   }
 
-  // Se contém apenas número padrão ex: "8", "290" ou número com ponto decimal direto "8.5"
-  const parsed = parseFloat(limpo)
-  return isNaN(parsed) ? 0 : parsed
+  // Caso 2: Contém vírgula (sem ponto) (ex: "8,0", "7,5", "508,5", "2320,0")
+  if (str.includes(",")) {
+    const limpo = str.replace(",", ".")
+    const parsed = parseFloat(limpo)
+    if (isNaN(parsed)) return 0
+    return negativo ? -parsed : parsed
+  }
+
+  // Caso 3: Contém ponto (sem vírgula)
+  // Pode ser separador de milhar puro pt-BR ("2.320", "1.000", "12.500") OU decimal padrão ("8.5", "10.5")
+  if (str.includes(".")) {
+    // Padrão de milhar brasileiro: exatamente 3 dígitos após o ponto, e parte inteira >= 1 (ex: "2.320", "1.500", "28.000")
+    // Note que volumes ou insumos em concreto nunca são 2 metros cúbicos com 3 casas decimais tipo 2.320 m³
+    // Para insumos em kg (cimento, agregados): "2.320" = 2320 kg; "1.740" = 1740 kg.
+    // Para volumes: volumes de caminhão betoneira variam de 0.5 a 15 m³ (ex: 8, 8.5, 10, 10.5).
+    // Se o padrão for N.ddd onde ddd tem exatamente 3 dígitos e N não tem outro ponto:
+    // Se N for pequeno (<= 15) mas seguido de 3 dígitos inteiros (ex: "2.320"):
+    // Em contexto de materiais (kg), é milhar puro: "2.320" -> 2320.
+    // Em contexto geral brasileiro, "2.320" é 2320.
+    if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
+      const limpo = str.replace(/\./g, "")
+      const parsed = parseFloat(limpo)
+      if (isNaN(parsed)) return 0
+      return negativo ? -parsed : parsed
+    }
+
+    // Decimal com ponto (ex: "8.5", "7.5", "10.5")
+    const parsed = parseFloat(str)
+    if (isNaN(parsed)) return 0
+    return negativo ? -parsed : parsed
+  }
+
+  // Caso 4: Inteiro simples ("8", "290", "2320")
+  const parsed = parseFloat(str)
+  if (isNaN(parsed)) return 0
+  return negativo ? -parsed : parsed
 }
 
 /**
@@ -229,6 +278,7 @@ export function parseControleDiarioCSV(
     return {
       totalLinhasValidas: 0,
       totalLinhasIgnoradas: 0,
+      linhasIgnoradasDetalhes: [],
       avisos: [],
       erros: ["Arquivo CSV vazio ou sem conteúdo legível."],
       periodoInicio: null,
@@ -336,6 +386,13 @@ export function parseControleDiarioCSV(
   }
 
   let totalLinhasIgnoradas = 0
+  const linhasIgnoradasDetalhes: LinhaIgnoradaInfo[] = []
+
+  // FILL-DOWN: Quando o Google Planilhas exporta células mescladas na coluna Data,
+  // apenas a 1ª carga do dia traz a data preenchida; as cargas seguintes do mesmo dia trazem célula de data vazia.
+  // Herdamos a última data válida encontrada.
+  let ultimaDataIso: string | null = null
+  let ultimaDataOriginal: string | null = null
 
   for (let i = indiceLinhaCabecalho + 1; i < linhasCruas.length; i++) {
     const linhaTexto = linhasCruas[i].trim()
@@ -346,25 +403,64 @@ export function parseControleDiarioCSV(
     // Se toda a linha for vazia ou separadores vazios
     if (colunas.every((c) => !c)) {
       totalLinhasIgnoradas++
+      linhasIgnoradasDetalhes.push({
+        linhaNumero: i + 1,
+        motivo: "Linha totalmente vazia",
+        conteudoBruto: linhaTexto,
+      })
       continue
     }
 
-    const dataOriginal = getCol(colunas, "data", 0)
-    const dataIso = parseDataBrParaIso(dataOriginal)
+    const dataOriginalBruta = getCol(colunas, "data", 0)
+    let dataIso: string | null = null
+    let dataOriginal: string = ""
 
+    if (dataOriginalBruta) {
+      const isoParsed = parseDataBrParaIso(dataOriginalBruta)
+      if (isoParsed) {
+        dataIso = isoParsed
+        dataOriginal = dataOriginalBruta
+        // Atualiza a data de referência para fill-down
+        ultimaDataIso = isoParsed
+        ultimaDataOriginal = dataOriginalBruta
+      }
+    }
+
+    // Se não veio data na linha atual, aplica o FILL-DOWN se tivermos data anterior
+    if (!dataIso && ultimaDataIso && ultimaDataOriginal) {
+      dataIso = ultimaDataIso
+      dataOriginal = ultimaDataOriginal
+    }
+
+    // Se ainda assim não possui data válida (ex: cabeçalhos intermediários, totais, saldos de abertura sem data)
     if (!dataIso) {
-      // Ignora linhas de rodapé ou fórmulas da planilha
       totalLinhasIgnoradas++
+      const motivo = dataOriginalBruta
+        ? `Data inválida ou não reconhecida: "${dataOriginalBruta}"`
+        : "Linha sem data e sem linha anterior válida para herdar data (fill-down)"
+      linhasIgnoradasDetalhes.push({
+        linhaNumero: i + 1,
+        motivo,
+        conteudoBruto: linhaTexto,
+      })
       continue
     }
 
     const volumeCru = getCol(colunas, "volume", 1)
     const volume_m3 = parseNumeroBr(volumeCru)
     if (volume_m3 <= 0) {
+      const motivo = `Volume zerado ou não numérico ("${volumeCru}")`
       avisos.push(
         `Linha ${i + 1} (${dataOriginal}): Sem volume de concreto ("${volumeCru}"). Linha ignorada.`,
       )
       totalLinhasIgnoradas++
+      linhasIgnoradasDetalhes.push({
+        linhaNumero: i + 1,
+        motivo,
+        conteudoBruto: linhaTexto,
+        dataHerdadaOuOriginal: dataOriginal,
+        volumeInformado: volumeCru,
+      })
       continue
     }
 
@@ -607,6 +703,7 @@ export function parseControleDiarioCSV(
   return {
     totalLinhasValidas: linhasValidas.length,
     totalLinhasIgnoradas,
+    linhasIgnoradasDetalhes,
     avisos,
     erros,
     periodoInicio,

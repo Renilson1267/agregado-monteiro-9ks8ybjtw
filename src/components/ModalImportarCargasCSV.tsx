@@ -465,6 +465,40 @@ export function ModalImportarCargasCSV({
                     </Label>
                   </div>
                 </div>
+
+                {/* Linhas ignoradas e avisos detalhados no modal */}
+                {preview.totalLinhasIgnoradas > 0 && (
+                  <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 space-y-2">
+                    <span className="text-xs font-bold text-amber-800 dark:text-amber-200 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                      {preview.totalLinhasIgnoradas} linha(s) ignorada(s)
+                      (linhas vazias, saldos de cabeçalho ou sem volume)
+                    </span>
+                    {preview.linhasIgnoradasDetalhes &&
+                      preview.linhasIgnoradasDetalhes.length > 0 && (
+                        <div className="max-h-28 overflow-y-auto space-y-1 text-[10px] font-mono text-muted-foreground pr-1">
+                          {preview.linhasIgnoradasDetalhes
+                            .slice(0, 10)
+                            .map((ign, idx) => (
+                              <div key={idx} className="flex items-start gap-1">
+                                <span className="font-bold text-amber-600">
+                                  L#{ign.linhaNumero}:
+                                </span>
+                                <span className="text-foreground">
+                                  {ign.motivo}
+                                </span>
+                              </div>
+                            ))}
+                          {preview.linhasIgnoradasDetalhes.length > 10 && (
+                            <div className="text-[10px] text-muted-foreground italic">
+                              + {preview.linhasIgnoradasDetalhes.length - 10}{" "}
+                              outras linhas ignoradas...
+                            </div>
+                          )}
+                        </div>
+                      )}
+                  </div>
+                )}
               </div>
             </div>
           )}

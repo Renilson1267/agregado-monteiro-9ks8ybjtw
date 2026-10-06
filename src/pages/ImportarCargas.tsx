@@ -704,33 +704,86 @@ export default function ImportarCargasPage() {
               </Table>
             </div>
 
-            {/* Linhas ignoradas e avisos */}
-            {preview.avisos.length > 0 && (
-              <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4" />
+            {/* Linhas ignoradas e avisos detalhados */}
+            {preview.totalLinhasIgnoradas > 0 && (
+              <div className="p-3.5 rounded-xl border border-amber-500/40 bg-amber-500/10 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <span className="text-xs font-bold text-amber-800 dark:text-amber-200 flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                     Linhas ignoradas da planilha ({preview.totalLinhasIgnoradas}{" "}
                     no total):
                   </span>
                   <span className="text-[11px] text-muted-foreground">
-                    Ex: linhas de saldo acumulado, rodapés ou sem data/volume
+                    Ex: linhas de saldo acumulado, rodapés de soma ou linhas
+                    vazias
                   </span>
                 </div>
-                <div className="max-h-28 overflow-y-auto space-y-1 text-[11px] text-muted-foreground font-mono">
-                  {preview.avisos.slice(0, 10).map((av, idx) => (
-                    <div key={idx} className="flex items-start gap-1.5">
-                      <span className="text-amber-600">•</span>
-                      <span>{av}</span>
+
+                {/* Tabela de linhas ignoradas com motivo e conteúdo bruto */}
+                {preview.linhasIgnoradasDetalhes &&
+                preview.linhasIgnoradasDetalhes.length > 0 ? (
+                  <div className="rounded-lg border border-amber-500/30 overflow-hidden bg-background/60">
+                    <div className="max-h-56 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-amber-500/15">
+                            <TableHead className="w-16 font-bold text-[11px]">
+                              Linha
+                            </TableHead>
+                            <TableHead className="font-bold text-[11px]">
+                              Motivo do Descarte
+                            </TableHead>
+                            <TableHead className="font-bold text-[11px]">
+                              Conteúdo Bruto da Linha (CSV)
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {preview.linhasIgnoradasDetalhes
+                            .slice(0, 50)
+                            .map((ign, idx) => (
+                              <TableRow key={idx} className="text-xs font-mono">
+                                <TableCell className="font-bold text-amber-700 dark:text-amber-300 py-1.5">
+                                  #{ign.linhaNumero}
+                                </TableCell>
+                                <TableCell className="text-foreground font-sans text-xs py-1.5">
+                                  <span className="inline-block px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-800 dark:text-amber-200 text-[11px]">
+                                    {ign.motivo}
+                                  </span>
+                                </TableCell>
+                                <TableCell
+                                  className="text-[11px] text-muted-foreground py-1.5 max-w-md truncate"
+                                  title={ign.conteudoBruto}
+                                >
+                                  {ign.conteudoBruto || (
+                                    <span className="italic text-muted-foreground/60">
+                                      (linha vazia)
+                                    </span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
                     </div>
-                  ))}
-                  {preview.avisos.length > 10 && (
-                    <div className="text-[10px] text-muted-foreground italic">
-                      + {preview.avisos.length - 10} outros avisos similares
-                      omitidos...
-                    </div>
-                  )}
-                </div>
+                    {preview.linhasIgnoradasDetalhes.length > 50 && (
+                      <div className="p-2 text-[10px] text-muted-foreground bg-muted/30 text-center italic border-t border-border/30">
+                        Mostrando as primeiras 50 de{" "}
+                        {preview.linhasIgnoradasDetalhes.length} linhas
+                        ignoradas.
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="max-h-28 overflow-y-auto space-y-1 text-[11px] text-muted-foreground font-mono">
+                    {preview.avisos.map((av, idx) => (
+                      <div key={idx} className="flex items-start gap-1.5">
+                        <span className="text-amber-600">•</span>
+                        <span>{av}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
