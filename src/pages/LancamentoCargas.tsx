@@ -236,6 +236,7 @@ export default function LancamentoCargas() {
     new Date().toISOString().split("T")[0],
   )
   const [volume, setVolume] = useState<number>(8.0)
+  const [volumeInput, setVolumeInput] = useState<string>("8")
   const [tracoSelecionadoId, setTracoSelecionadoId] = useState<string>("")
 
   const [observacao, setObservacao] = useState<string>("")
@@ -332,6 +333,7 @@ export default function LancamentoCargas() {
         setDataCarga(c.data)
         const vol = Number(c.volume_m3) || 1
         setVolume(vol)
+        setVolumeInput(String(vol).replace(".", ","))
         setCargaZerada(Boolean(c.carga_zerada))
         setObservacao(c.observacao || "")
 
@@ -691,6 +693,7 @@ export default function LancamentoCargas() {
 
       // Limpar formulário para próximo lançamento e atualizar listagem
       setVolume(8.0)
+      setVolumeInput("8")
       setObservacao("")
       setCargaZerada(false)
       setTracoSelecionadoId("")
@@ -1004,19 +1007,51 @@ export default function LancamentoCargas() {
                   <div className="relative flex-1">
                     <Input
                       id="volume"
-                      type="number"
+                      type="text"
                       inputMode="decimal"
-                      step="0.1"
-                      min="3"
-                      max="10"
-                      value={volume || ""}
+                      value={volumeInput}
                       onChange={(e) => {
-                        const val =
-                          e.target.value === "" ? 0 : Number(e.target.value)
-                        setVolume(isNaN(val) ? 0 : val)
+                        const raw = e.target.value
+                        // Permite apenas dígitos, ponto e vírgula
+                        let sanitizado = raw.replace(/[^\d.,]/g, "")
+
+                        // Impede múltiplos separadores decimais (mantém apenas o primeiro ponto ou vírgula)
+                        let separadorEncontrado = false
+                        sanitizado = sanitizado.replace(/[.,]/g, (sep) => {
+                          if (!separadorEncontrado) {
+                            separadorEncontrado = true
+                            return sep
+                          }
+                          return ""
+                        })
+
+                        setVolumeInput(sanitizado)
+
+                        if (
+                          !sanitizado.trim() ||
+                          sanitizado === "," ||
+                          sanitizado === "."
+                        ) {
+                          setVolume(0)
+                          return
+                        }
+
+                        // Converte para formato numérico padrão (aceita ponto ou vírgula decimal)
+                        const normalizado = sanitizado.replace(",", ".")
+                        const num = parseFloat(normalizado)
+                        setVolume(isNaN(num) ? 0 : num)
+                      }}
+                      onBlur={() => {
+                        // Ao sair do campo, formata suavemente se houver valor válido
+                        if (volume > 0) {
+                          setVolumeInput(String(volume).replace(".", ","))
+                        } else if (!volumeInput.trim()) {
+                          setVolume(0)
+                          setVolumeInput("")
+                        }
                       }}
                       required
-                      placeholder="8.0"
+                      placeholder="8"
                       className={`min-h-[52px] h-14 text-2xl sm:text-3xl font-black font-mono text-primary bg-background text-left pr-14 rounded-xl border-2 transition-colors ${
                         tentouGravar &&
                         (!volume ||
@@ -1037,7 +1072,10 @@ export default function LancamentoCargas() {
                       <button
                         key={vRapido}
                         type="button"
-                        onClick={() => setVolume(vRapido)}
+                        onClick={() => {
+                          setVolume(vRapido)
+                          setVolumeInput(String(vRapido))
+                        }}
                         className={`h-12 px-3 sm:px-3.5 text-xs sm:text-sm font-mono font-bold rounded-xl border-2 transition-all ${
                           volume === vRapido
                             ? "bg-primary text-primary-foreground border-primary shadow-sm scale-102"
