@@ -38,6 +38,7 @@ import {
   CalendarDays,
   Printer,
   Plus,
+  Pencil,
   Trash2,
   Search,
   RefreshCw,
@@ -45,6 +46,7 @@ import {
   Check,
   RotateCcw,
   Sparkles,
+  AlertCircle,
 } from "lucide-react"
 
 export function AbaControleFerias() {
@@ -69,6 +71,24 @@ export function AbaControleFerias() {
   const [novaCalca, setNovaCalca] = useState("")
   const [novaCamisa, setNovaCamisa] = useState("")
   const [salvandoNovo, setSalvandoNovo] = useState(false)
+
+  // Modal Edição com Confirmação
+  const [itemEditando, setItemEditando] = useState<ItemControleFerias | null>(
+    null,
+  )
+  const [openModalEditar, setOpenModalEditar] = useState(false)
+  const [editNome, setEditNome] = useState("")
+  const [editFuncao, setEditFuncao] = useState("")
+  const [editSalario, setEditSalario] = useState("0,00")
+  const [editAdmissao, setEditAdmissao] = useState("")
+  const [editCpf, setEditCpf] = useState("")
+  const [editAgencia, setEditAgencia] = useState("")
+  const [editConta, setEditConta] = useState("")
+  const [editFerias, setEditFerias] = useState("")
+  const [editCalca, setEditCalca] = useState("")
+  const [editCamisa, setEditCamisa] = useState("")
+  const [openConfirmacaoSalvar, setOpenConfirmacaoSalvar] = useState(false)
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false)
 
   // Dialog Exclusão
   const [itemParaExcluir, setItemParaExcluir] =
@@ -272,6 +292,91 @@ export function AbaControleFerias() {
       })
     } finally {
       setExcluindo(false)
+    }
+  }
+
+  // Iniciar edição de uma linha (abrir modal com dados preenchidos)
+  const handleIniciarEdicao = (item: ItemControleFerias) => {
+    setItemEditando(item)
+    setEditNome(item.nome || "")
+    setEditFuncao(item.funcao || "")
+    setEditSalario(
+      (Number(item.salario_2025) || 0).toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    )
+    setEditAdmissao(item.admissao || "")
+    setEditCpf(item.cpf || "")
+    setEditAgencia(item.agencia || "")
+    setEditConta(item.conta_corrente || "")
+    setEditFerias(item.ferias || "")
+    setEditCalca(item.calca || "")
+    setEditCamisa(item.camisa || "")
+    setOpenModalEditar(true)
+  }
+
+  // Ao clicar em Salvar no formulário de edição, abre o modal de confirmação
+  const handleSolicitarSalvarEdicao = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editNome.trim()) {
+      toast({
+        title: "Nome obrigatório",
+        description: "Informe o nome do colaborador",
+        variant: "destructive",
+      })
+      return
+    }
+    // Abre a confirmação antes de gravar no banco
+    setOpenConfirmacaoSalvar(true)
+  }
+
+  // Executa a gravação após o usuário clicar em "Confirmar" na caixa de diálogo
+  const handleConfirmarSalvarEdicao = async () => {
+    if (!itemEditando) return
+    setSalvandoEdicao(true)
+    try {
+      const salarioNumerico =
+        Number(editSalario.replace(/\./g, "").replace(",", ".")) || 0
+
+      const camposAtualizados = {
+        nome: editNome.trim(),
+        funcao: editFuncao.trim(),
+        salario_2025: salarioNumerico,
+        admissao: editAdmissao || null,
+        cpf: editCpf.trim() || null,
+        agencia: editAgencia.trim() || null,
+        conta_corrente: editConta.trim() || null,
+        ferias: editFerias || null,
+        calca: editCalca.trim().toUpperCase() || null,
+        camisa: editCamisa.trim().toUpperCase() || null,
+      }
+
+      await FeriasService.atualizarItemFerias(
+        itemEditando.id,
+        camposAtualizados,
+      )
+
+      toast({
+        title: "Alteração confirmada",
+        description: `Os dados de ${editNome.trim()} foram atualizados com sucesso.`,
+      })
+
+      // Fecha ambos os modais e limpa estado
+      setOpenConfirmacaoSalvar(false)
+      setOpenModalEditar(false)
+      setItemEditando(null)
+
+      // Recarrega os dados do banco
+      await carregarDados()
+    } catch (err: any) {
+      toast({
+        title: "Erro ao salvar alteração",
+        description: err.message || "Não foi possível gravar as alterações.",
+        variant: "destructive",
+      })
+    } finally {
+      setSalvandoEdicao(false)
     }
   }
 
@@ -620,17 +725,32 @@ export function AbaControleFerias() {
 
                       {/* AÇÕES */}
                       <td className="py-2 px-2 text-right">
-                        {isAdministrador && (
+                        <div className="flex items-center justify-end gap-1">
                           <Button
+                            type="button"
                             variant="ghost"
                             size="sm"
-                            onClick={() => setItemParaExcluir(it)}
-                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
-                            title="Excluir este registro"
+                            onClick={() => handleIniciarEdicao(it)}
+                            className="h-7 w-7 p-0 text-primary hover:text-primary hover:bg-primary/10 rounded-md"
+                            title={`Editar registro de ${it.nome}`}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span className="sr-only">Editar {it.nome}</span>
                           </Button>
-                        )}
+                          {isAdministrador && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setItemParaExcluir(it)}
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                              title="Excluir este registro"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span className="sr-only">Excluir {it.nome}</span>
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1011,6 +1131,252 @@ export function AbaControleFerias() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL EDITAR REGISTRO */}
+      <Dialog
+        open={openModalEditar}
+        onOpenChange={(open) => {
+          if (!open && !salvandoEdicao) {
+            setOpenModalEditar(false)
+            setItemEditando(null)
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Pencil className="w-4 h-4 text-primary" />
+              Editar Linha do Controle de Férias
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Altere os campos cadastrais do colaborador{" "}
+              <strong>{itemEditando?.nome}</strong> ({empresaAtiva?.nome}).
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            onSubmit={handleSolicitarSalvarEdicao}
+            className="space-y-4 py-2"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="edit-nome" className="text-xs font-semibold">
+                  Nome do Colaborador *
+                </Label>
+                <Input
+                  id="edit-nome"
+                  required
+                  placeholder="Ex: JOSÉ DA SILVA"
+                  value={editNome}
+                  onChange={(e) => setEditNome(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="edit-funcao" className="text-xs font-semibold">
+                  Função
+                </Label>
+                <Input
+                  id="edit-funcao"
+                  placeholder="Ex: MOTORISTA"
+                  value={editFuncao}
+                  onChange={(e) => setEditFuncao(e.target.value)}
+                  className="h-9 text-xs uppercase"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="edit-salario" className="text-xs font-semibold">
+                  Salário 2025 (R$)
+                </Label>
+                <Input
+                  id="edit-salario"
+                  placeholder="2.410,00"
+                  value={editSalario}
+                  onChange={(e) => setEditSalario(e.target.value)}
+                  className="h-9 text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label
+                  htmlFor="edit-admissao"
+                  className="text-xs font-semibold"
+                >
+                  Data de Admissão
+                </Label>
+                <Input
+                  id="edit-admissao"
+                  type="date"
+                  value={editAdmissao}
+                  onChange={(e) => setEditAdmissao(e.target.value)}
+                  className="h-9 text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="edit-cpf" className="text-xs font-semibold">
+                  CPF
+                </Label>
+                <Input
+                  id="edit-cpf"
+                  placeholder="000.000.000-00"
+                  value={editCpf}
+                  onChange={(e) => setEditCpf(e.target.value)}
+                  className="h-9 text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="edit-agencia" className="text-xs font-semibold">
+                  Agência
+                </Label>
+                <Input
+                  id="edit-agencia"
+                  placeholder="Ex: 6240"
+                  value={editAgencia}
+                  onChange={(e) => setEditAgencia(e.target.value)}
+                  className="h-9 text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="edit-conta" className="text-xs font-semibold">
+                  Conta Corrente
+                </Label>
+                <Input
+                  id="edit-conta"
+                  placeholder="Ex: 255425-9"
+                  value={editConta}
+                  onChange={(e) => setEditConta(e.target.value)}
+                  className="h-9 text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label
+                  htmlFor="edit-ferias"
+                  className="text-xs font-semibold text-primary"
+                >
+                  Data de Férias
+                </Label>
+                <Input
+                  id="edit-ferias"
+                  type="date"
+                  value={editFerias}
+                  onChange={(e) => setEditFerias(e.target.value)}
+                  className="h-9 text-xs font-mono font-bold border-primary/40"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="edit-calca" className="text-xs font-semibold">
+                  Calça
+                </Label>
+                <Input
+                  id="edit-calca"
+                  placeholder="Ex: G, GG, XGG"
+                  value={editCalca}
+                  onChange={(e) => setEditCalca(e.target.value)}
+                  className="h-9 text-xs uppercase"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="edit-camisa" className="text-xs font-semibold">
+                  Camisa
+                </Label>
+                <Input
+                  id="edit-camisa"
+                  placeholder="Ex: G, GG, XGG"
+                  value={editCamisa}
+                  onChange={(e) => setEditCamisa(e.target.value)}
+                  className="h-9 text-xs uppercase"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setOpenModalEditar(false)
+                  setItemEditando(null)
+                }}
+                className="text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                className="bg-primary text-primary-foreground text-xs font-semibold gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                Salvar Alterações
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* CONFIRMAÇÃO ANTES DE GRAVAR A ALTERAÇÃO */}
+      <AlertDialog
+        open={openConfirmacaoSalvar}
+        onOpenChange={(open) => {
+          if (!open && !salvandoEdicao) {
+            setOpenConfirmacaoSalvar(false)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <AlertCircle className="w-4 h-4 text-primary" />
+              Confirmar alteração?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground">
+              Deseja realmente salvar as alterações cadastrais para o
+              colaborador{" "}
+              <strong className="text-foreground">
+                {editNome || itemEditando?.nome}
+              </strong>{" "}
+              na unidade{" "}
+              <strong className="text-foreground">{empresaAtiva?.nome}</strong>?
+              Os novos dados serão gravados no banco de dados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={salvandoEdicao}
+              className="text-xs"
+              onClick={() => setOpenConfirmacaoSalvar(false)}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmarSalvarEdicao}
+              disabled={salvandoEdicao}
+              className="bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 gap-1.5"
+            >
+              {salvandoEdicao ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  Sim, confirmar e gravar
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* CONFIRMAÇÃO DE EXCLUSÃO */}
       <AlertDialog
