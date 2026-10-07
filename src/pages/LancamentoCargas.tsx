@@ -1104,8 +1104,8 @@ export default function LancamentoCargas() {
                     )}
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                  <div className="relative flex-1">
+                <div className="flex flex-col items-stretch gap-3">
+                  <div className="relative w-full">
                     <Input
                       id="volume"
                       ref={volumeInputRef}
@@ -1141,7 +1141,7 @@ export default function LancamentoCargas() {
                       required
                       placeholder="Ex.: 8"
                       style={{ color: "#0f172a", backgroundColor: "#ffffff" }}
-                      className={`min-h-[52px] h-14 text-2xl sm:text-3xl font-black font-mono !text-slate-900 !bg-white dark:!text-slate-900 dark:!bg-white text-left pr-14 rounded-xl border-2 transition-colors ${
+                      className={`min-h-[52px] h-14 text-2xl font-black font-mono !text-slate-900 !bg-white dark:!text-slate-900 dark:!bg-white text-left pr-14 rounded-xl border-2 transition-colors ${
                         tentouGravar &&
                         (!volume ||
                           Number(volume) < 3.0 ||
@@ -1156,7 +1156,7 @@ export default function LancamentoCargas() {
                   </div>
 
                   {/* Botões rápidos de volume com 1 toque */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap w-full">
                     {[3, 4, 5, 6, 7, 8, 9, 10].map((vRapido) => (
                       <button
                         key={vRapido}
