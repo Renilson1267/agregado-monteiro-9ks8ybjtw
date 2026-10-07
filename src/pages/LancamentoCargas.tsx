@@ -1140,7 +1140,11 @@ export default function LancamentoCargas() {
                       }}
                       required
                       placeholder="Ex.: 8"
-                      style={{ color: "#0f172a", backgroundColor: "#ffffff" }}
+                      style={{
+                        color: "#0f172a",
+                        backgroundColor: "#ffffff",
+                        fontSize: "24px",
+                      }}
                       className={`min-h-[52px] h-14 text-2xl font-black font-mono !text-slate-900 !bg-white dark:!text-slate-900 dark:!bg-white text-left pr-14 rounded-xl border-2 transition-colors ${
                         tentouGravar &&
                         (!volume ||
