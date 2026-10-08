@@ -16,10 +16,20 @@ export const LIMITE_AVISO_PEDIDO_CIMENTO_KG = 20000
 // Quantidade padrão de uma carreta granel de cimento para entrega tipo CIF 35T
 export const CARRETA_PADRAO_CIMENTO_KG = 35000
 
+export interface DadosEmpresaPedidoCimento {
+  razao_social?: string | null
+  cnpj?: string | null
+  cidade?: string | null
+  uf?: string | null
+  nome?: string | null
+}
+
 export interface DadosPedidoCimento {
-  unidadeNome: string
-  saldoAtualKg: number
-  estoqueMinimoKg: number
+  unidadeNome?: string
+  saldoAtualKg?: number
+  estoqueMinimoKg?: number
+  empresa?: DadosEmpresaPedidoCimento | null
+  dataSolicitacao?: Date
 }
 
 /**
@@ -56,50 +66,75 @@ export function calcularNecessidadePedidoCimento({
 }
 
 /**
- * Monta o texto pronto da mensagem do WhatsApp conforme especificado:
- * - Título: Pedido de cimento — [UNIDADE]
- * - Produto: CP V ARI RS — CIF 35T
- * - Contato Raquel, CNPJ 33.534.028/0001-68
- * - Saldo atual em kg
- * - Quanto falta para recompor o mínimo da unidade (Monteiro 15.000 kg; SJE conforme mínimo cadastrado)
- * - Sugestão de quantidade para recompor o mínimo (ex.: 35.000 kg / 1 carreta CIF 35T)
+ * Formata data no formato dd/mm/aaaa
+ */
+export function formatarDataBr(data: Date): string {
+  const d = String(data.getDate()).padStart(2, "0")
+  const m = String(data.getMonth() + 1).padStart(2, "0")
+  const a = data.getFullYear()
+  return `${d}/${m}/${a}`
+}
+
+/**
+ * Calcula a data de entrega = SEMPRE o dia seguinte à data da solicitação
+ */
+export function calcularDataEntregaDiaSeguinte(
+  solicitacao: Date = new Date(),
+): string {
+  const diaSeguinte = new Date(solicitacao)
+  diaSeguinte.setDate(diaSeguinte.getDate() + 1)
+  return formatarDataBr(diaSeguinte)
+}
+
+/**
+ * Monta o texto pronto da mensagem do WhatsApp conforme modelo exato do usuário:
+ *
+ * "Raquel Bom dia consegue?
+ * [razão social da empresa].
+ * [CNPJ]
+ * [cidade] [UF]
+ * CP V ARI RS - CIF
+ * 35T
+ * [data de entrega = dia seguinte à solicitação, dd/mm/aaaa]"
+ *
+ * Se algum dado do cadastro estiver faltando, omite a linha com graciosidade (sem "undefined").
+ * SEM detalhes de silo/saldo/mínimo/defasagem — só o pedido direto.
  */
 export function gerarTextoWhatsAppPedidoCimento(
   dados: DadosPedidoCimento,
 ): string {
-  const { saldo, minimo, defasagemMinimoKg, sugeridoKg, carretasSugeridas } =
-    calcularNecessidadePedidoCimento(dados)
+  const emp = dados.empresa
+  const razaoCru = emp?.razao_social?.trim() || dados.unidadeNome?.trim() || ""
+  // Razão social seguida de ponto final (se já terminar com ponto não duplicar)
+  const razaoSocial = razaoCru
+    ? razaoCru.endsWith(".")
+      ? razaoCru
+      : `${razaoCru}.`
+    : ""
 
-  const saldoFormatado = `${saldo.toLocaleString("pt-BR")} kg (${(saldo / 1000).toFixed(2)} t)`
-  const minimoFormatado = `${minimo.toLocaleString("pt-BR")} kg (${(minimo / 1000).toFixed(2)} t)`
-  const faltaFormatado =
-    defasagemMinimoKg > 0
-      ? `${defasagemMinimoKg.toLocaleString("pt-BR")} kg (${(defasagemMinimoKg / 1000).toFixed(2)} t)`
-      : `0 kg (estoque em ${saldoFormatado}, com limite operacional de ${LIMITE_AVISO_PEDIDO_CIMENTO_KG.toLocaleString("pt-BR")} kg)`
+  const cnpj = emp?.cnpj?.trim() || ""
 
-  const sugeridoFormatado = `${sugeridoKg.toLocaleString("pt-BR")} kg (${(sugeridoKg / 1000).toFixed(0)} t — ${carretasSugeridas} carreta${
-    carretasSugeridas > 1 ? "s" : ""
-  } ${FORNECEDOR_CIMENTO.cif})`
+  const cidade = emp?.cidade?.trim() || ""
+  const uf = emp?.uf?.trim() || ""
+  const cidadeUf = cidade && uf ? `${cidade} ${uf}` : cidade || uf || ""
 
-  const linhas = [
-    `*Pedido de cimento — ${dados.unidadeNome.toUpperCase()}*`,
-    ``,
-    `Olá ${FORNECEDOR_CIMENTO.contato},`,
-    `Gostaríamos de programar um novo pedido de cimento para nossa unidade:`,
-    ``,
-    `📦 *Produto:* ${FORNECEDOR_CIMENTO.produtoCompleto}`,
-    `🏢 *Unidade:* ${dados.unidadeNome}`,
-    `📄 *CNPJ do Fornecedor:* ${FORNECEDOR_CIMENTO.cnpj}`,
-    ``,
-    `📊 *Posição Operacional do Silo:*`,
-    `• *Saldo atual:* ${saldoFormatado}`,
-    `• *Estoque mínimo da unidade:* ${minimoFormatado}`,
-    `• *Falta p/ recompor mínimo:* ${faltaFormatado}`,
-    `• *Quantidade sugerida:* ${sugeridoFormatado}`,
-    ``,
-    `Favor confirmar disponibilidade e previsão de entrega.`,
-    `Muito obrigado!`,
-  ]
+  const dataEntrega = calcularDataEntregaDiaSeguinte(dados.dataSolicitacao)
+
+  const linhas: string[] = ["Raquel Bom dia consegue?"]
+
+  if (razaoSocial) {
+    linhas.push(razaoSocial)
+  }
+  if (cnpj) {
+    linhas.push(cnpj)
+  }
+  if (cidadeUf) {
+    linhas.push(cidadeUf)
+  }
+
+  linhas.push("CP V ARI RS - CIF")
+  linhas.push("35T")
+  linhas.push(dataEntrega)
 
   return linhas.join("\n")
 }

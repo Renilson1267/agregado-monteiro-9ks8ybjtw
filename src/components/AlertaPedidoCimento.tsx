@@ -11,15 +11,17 @@ import { Badge } from "@/components/ui/badge"
 import {
   FORNECEDOR_CIMENTO,
   LIMITE_AVISO_PEDIDO_CIMENTO_KG,
-  DadosPedidoCimento,
+  DadosEmpresaPedidoCimento,
   calcularNecessidadePedidoCimento,
   gerarLinkWhatsAppPedidoCimento,
 } from "@/lib/pedido-cimento"
+import { useEmpresa } from "@/hooks/use-empresa"
 
 interface AlertaPedidoCimentoProps {
   unidadeNome: string
   saldoAtualKg: number
   estoqueMinimoKg: number
+  empresa?: DadosEmpresaPedidoCimento | null
   /** Se 'compacto', exibe versão em barra estreita; se 'card', exibe card completo de destaque */
   variante?: "compacto" | "card"
   className?: string
@@ -29,9 +31,12 @@ export const AlertaPedidoCimento: React.FC<AlertaPedidoCimentoProps> = ({
   unidadeNome,
   saldoAtualKg,
   estoqueMinimoKg,
+  empresa,
   variante = "card",
   className = "",
 }) => {
+  const { empresas, empresaAtiva } = useEmpresa()
+
   // Se saldo >= 20.000 kg, nenhum aviso aparece (requisito 3)
   if (saldoAtualKg >= LIMITE_AVISO_PEDIDO_CIMENTO_KG) {
     return null
@@ -43,10 +48,26 @@ export const AlertaPedidoCimento: React.FC<AlertaPedidoCimentoProps> = ({
       estoqueMinimoKg,
     })
 
+  // Resolver a empresa correspondente: prop > correspondência por nome/slug > empresaAtiva
+  const empresaResolvida =
+    empresa ||
+    empresas.find(
+      (e) =>
+        e.nome?.toLowerCase() === unidadeNome?.toLowerCase() ||
+        e.slug?.toLowerCase() === unidadeNome?.toLowerCase() ||
+        (unidadeNome?.toLowerCase().includes("sje") &&
+          (e.slug === "sje" || e.nome?.toLowerCase().includes("egito"))) ||
+        (unidadeNome?.toLowerCase().includes("monteiro") &&
+          (e.slug === "monteiro" ||
+            e.nome?.toLowerCase().includes("monteiro"))),
+    ) ||
+    empresaAtiva
+
   const linkWhatsApp = gerarLinkWhatsAppPedidoCimento({
     unidadeNome,
     saldoAtualKg,
     estoqueMinimoKg,
+    empresa: empresaResolvida,
   })
 
   const handlePedirWhatsApp = () => {

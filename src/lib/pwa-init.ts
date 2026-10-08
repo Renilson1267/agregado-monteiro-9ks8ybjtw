@@ -37,7 +37,7 @@ export function initializePwaAssets() {
         // requisições a /pwa-192x192.png e /pwa-512x512.png respondam com o PNG
         canvas.toBlob((blob) => {
           if (blob && "caches" in window) {
-            caches.open("gcmix-pwa-v10").then((cache) => {
+            caches.open("gcmix-pwa-v13").then((cache) => {
               const headers = new Headers({
                 "Content-Type": "image/png",
                 "Cache-Control": "public, max-age=31536000",
@@ -96,7 +96,7 @@ export function registerPwaServiceWorker() {
   // Apenas registrar após o carregamento da janela para não impactar a inicialização do app
   window.addEventListener("load", () => {
     navigator.serviceWorker
-      .register("/sw.js?v=gcmix-pwa-v11", { scope: "/" })
+      .register("/sw.js?v=gcmix-pwa-v13", { scope: "/" })
       .then((registration) => {
         // Verificar atualizações periódicas
         registration.addEventListener("updatefound", () => {

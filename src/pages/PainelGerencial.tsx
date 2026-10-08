@@ -91,8 +91,31 @@ function fmtDataBr(iso?: string | null): string {
 }
 
 export function PainelGerencial() {
-  const { empresaAtiva } = useEmpresa()
+  const { empresas, empresaAtiva } = useEmpresa()
   const { isBalanceiro } = useUsuario()
+
+  // Helper para resolver os dados cadastrais da empresa por slug/nome
+  const obterEmpresaPorUnidade = useCallback(
+    (slugOuNome?: string) => {
+      if (!slugOuNome) return empresaAtiva
+      const s = slugOuNome.toLowerCase().trim()
+      return (
+        empresas.find(
+          (e) =>
+            e.slug?.toLowerCase() === s ||
+            e.nome?.toLowerCase() === s ||
+            (s.includes("monteiro") &&
+              (e.slug === "monteiro" ||
+                e.nome?.toLowerCase().includes("monteiro"))) ||
+            (s.includes("sje") &&
+              (e.slug === "sje" || e.nome?.toLowerCase().includes("egito"))) ||
+            (s.includes("caico") && e.slug === "caico") ||
+            (s.includes("patos") && e.slug === "patos"),
+        ) || empresaAtiva
+      )
+    },
+    [empresas, empresaAtiva],
+  )
 
   // Determinar visão inicial de empresa (consolidada por padrão se admin, ou vinculada à selecionada)
   const [modoVisao, setModoVisao] = useState<string>(() => {
@@ -705,10 +728,12 @@ export function PainelGerencial() {
             saldoAtualKg: saldoMonteiro,
             estoqueMinimoKg: minimoMonteiro,
           })
+          const empMonteiro = obterEmpresaPorUnidade("monteiro")
           const link = gerarLinkWhatsAppPedidoCimento({
             unidadeNome: "Monteiro",
             saldoAtualKg: saldoMonteiro,
             estoqueMinimoKg: minimoMonteiro,
+            empresa: empMonteiro,
           })
           return (
             <div className="no-print rounded-xl border border-emerald-600/30 bg-emerald-500/5 dark:bg-emerald-500/10 p-3 sm:p-4 shadow-xs">
@@ -769,10 +794,12 @@ export function PainelGerencial() {
             saldoAtualKg: saldoSje,
             estoqueMinimoKg: minimoSje,
           })
+          const empSje = obterEmpresaPorUnidade("sje")
           const link = gerarLinkWhatsAppPedidoCimento({
             unidadeNome: "SJE",
             saldoAtualKg: saldoSje,
             estoqueMinimoKg: minimoSje,
+            empresa: empSje,
           })
           return (
             <div className="no-print rounded-xl border border-emerald-600/30 bg-emerald-500/5 dark:bg-emerald-500/10 p-3 sm:p-4 shadow-xs">
@@ -836,10 +863,12 @@ export function PainelGerencial() {
             saldoAtualKg: saldo,
             estoqueMinimoKg: minimo,
           })
+          const empOutra = obterEmpresaPorUnidade(modoVisao)
           const link = gerarLinkWhatsAppPedidoCimento({
             unidadeNome: nomeUnidade,
             saldoAtualKg: saldo,
             estoqueMinimoKg: minimo,
+            empresa: empOutra,
           })
           return (
             <div className="no-print rounded-xl border border-emerald-600/30 bg-emerald-500/5 dark:bg-emerald-500/10 p-3 sm:p-4 shadow-xs">
@@ -891,6 +920,9 @@ export function PainelGerencial() {
         }
 
         // Visão Consolidada ("todas"): oferece teste por unidade (Monteiro e SJE) ou consolidado geral
+        const empMonteiro = obterEmpresaPorUnidade("monteiro")
+        const empSje = obterEmpresaPorUnidade("sje")
+
         const necMonteiro = calcularNecessidadePedidoCimento({
           saldoAtualKg: saldoMonteiro,
           estoqueMinimoKg: minimoMonteiro,
@@ -899,6 +931,7 @@ export function PainelGerencial() {
           unidadeNome: "Monteiro",
           saldoAtualKg: saldoMonteiro,
           estoqueMinimoKg: minimoMonteiro,
+          empresa: empMonteiro,
         })
 
         const necSje = calcularNecessidadePedidoCimento({
@@ -909,6 +942,7 @@ export function PainelGerencial() {
           unidadeNome: "SJE",
           saldoAtualKg: saldoSje,
           estoqueMinimoKg: minimoSje,
+          empresa: empSje,
         })
 
         const saldoConsolidado = itemCimento.saldo || saldoMonteiro + saldoSje
@@ -921,6 +955,7 @@ export function PainelGerencial() {
           unidadeNome: "Monteiro e SJE (Consolidado)",
           saldoAtualKg: saldoConsolidado,
           estoqueMinimoKg: minimoConsolidado,
+          empresa: empresaAtiva,
         })
 
         return (
@@ -1082,6 +1117,7 @@ export function PainelGerencial() {
                   unidadeNome="Monteiro"
                   saldoAtualKg={saldo}
                   estoqueMinimoKg={minimo}
+                  empresa={obterEmpresaPorUnidade("monteiro")}
                   variante="card"
                 />
               </div>
@@ -1105,6 +1141,7 @@ export function PainelGerencial() {
                   unidadeNome="SJE"
                   saldoAtualKg={saldo}
                   estoqueMinimoKg={minimo}
+                  empresa={obterEmpresaPorUnidade("sje")}
                   variante="card"
                 />
               </div>
@@ -1124,6 +1161,7 @@ export function PainelGerencial() {
                   unidadeNome={modoVisao === "caico" ? "Caicó" : "Patos"}
                   saldoAtualKg={saldo}
                   estoqueMinimoKg={itemCimento.estoqueMinimo || 15000}
+                  empresa={obterEmpresaPorUnidade(modoVisao)}
                   variante="card"
                 />
               </div>
@@ -1153,6 +1191,7 @@ export function PainelGerencial() {
                   unidadeNome="Monteiro e SJE"
                   saldoAtualKg={itemCimento.saldo}
                   estoqueMinimoKg={itemCimento.estoqueMinimo || 15000}
+                  empresa={empresaAtiva}
                   variante="card"
                 />
               </div>
@@ -1168,6 +1207,7 @@ export function PainelGerencial() {
                 unidadeNome="Monteiro"
                 saldoAtualKg={saldoMonteiro}
                 estoqueMinimoKg={(itemCimento as any).minimoMonteiro || 15000}
+                empresa={obterEmpresaPorUnidade("monteiro")}
                 variante="card"
               />
             )}
@@ -1176,6 +1216,7 @@ export function PainelGerencial() {
                 unidadeNome="SJE"
                 saldoAtualKg={saldoSje}
                 estoqueMinimoKg={(itemCimento as any).minimoSje || 15000}
+                empresa={obterEmpresaPorUnidade("sje")}
                 variante="card"
               />
             )}
@@ -1564,11 +1605,13 @@ export function PainelGerencial() {
                                       : modoVisao === "sje"
                                         ? "SJE"
                                         : "Monteiro / SJE"
+                                  const emp = obterEmpresaPorUnidade(modoVisao)
                                   const link = gerarLinkWhatsAppPedidoCimento({
                                     unidadeNome: unidadeParaPedido,
                                     saldoAtualKg: item.saldo,
                                     estoqueMinimoKg:
                                       item.estoqueMinimo || 15000,
+                                    empresa: emp,
                                   })
                                   window.open(
                                     link,
@@ -2540,11 +2583,14 @@ export function PainelGerencial() {
                           <div className="pt-1">
                             <Button
                               onClick={() => {
+                                const unidadeParaPedido =
+                                  modoVisao === "sje" ? "SJE" : "Monteiro"
+                                const emp = obterEmpresaPorUnidade(modoVisao)
                                 const link = gerarLinkWhatsAppPedidoCimento({
-                                  unidadeNome:
-                                    modoVisao === "sje" ? "SJE" : "Monteiro",
+                                  unidadeNome: unidadeParaPedido,
                                   saldoAtualKg: item.saldo,
                                   estoqueMinimoKg: item.minimo,
+                                  empresa: emp,
                                 })
                                 window.open(
                                   link,

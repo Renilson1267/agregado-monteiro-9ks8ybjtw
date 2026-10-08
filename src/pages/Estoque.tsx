@@ -483,6 +483,7 @@ export default function Estoque() {
               unidadeNome={empresaAtiva?.nome || "Unidade"}
               saldoAtualKg={saldo}
               estoqueMinimoKg={matCimento.estoque_minimo || 15000}
+              empresa={empresaAtiva}
               variante="card"
             />
           )
@@ -658,6 +659,7 @@ export default function Estoque() {
                                   unidadeNome: empresaAtiva?.nome || "Unidade",
                                   saldoAtualKg: saldo,
                                   estoqueMinimoKg: mat.estoque_minimo || 15000,
+                                  empresa: empresaAtiva,
                                 })
                                 window.open(
                                   link,
