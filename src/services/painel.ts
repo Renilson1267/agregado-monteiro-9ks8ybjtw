@@ -773,6 +773,7 @@ export const PainelService = {
     const todosMateriais: Material[] = [
       ...materiaisMonteiroRes,
       ...materiaisSjeRes,
+      ...materiaisAlvoRes,
     ]
     const estoqueBaixo: Array<{
       material: Material
@@ -794,7 +795,8 @@ export const PainelService = {
       .forEach((m) => {
         const saldo = Number(m.saldo || 0)
         const minimo = Number(m.estoque_minimo || 0)
-        if (saldo < minimo) {
+        // Alerta de estoque baixo só para insumos com saldo ativo em operação (> 0 e < mínimo)
+        if (saldo > 0 && saldo < minimo) {
           estoqueBaixo.push({
             material: m,
             saldo,
@@ -974,38 +976,66 @@ export const PainelService = {
         })
       })
     } else {
-      // Outra unidade (ex.: Caicó ou Patos)
-      // Se não houver materiais cadastrados ainda, monta lista padrão zerada para exibição limpa (SOMENTE cimento e aditivo)
-      const catalogoPadrao = [
-        {
-          codigo: "cimento",
-          nome: "CP II F-40 / CP V ARI",
-          unidade: "kg",
-          controla: true,
-          min: 1000,
-        },
-        {
-          codigo: "aditivo",
-          nome: "Aditivo Plastificante",
-          unidade: "litros",
-          controla: true,
-          min: 200,
-        },
-      ]
-      catalogoPadrao.forEach((p) => {
-        saldosInsumos.push({
-          id: `zerado-${p.codigo}`,
-          nome: p.nome,
-          codigo: p.codigo,
-          unidade: p.unidade,
-          controlaEstoque: p.controla,
-          estoqueMinimo: p.min,
-          saldo: 0,
-          abaixoMinimo: false,
-          defasagem: 0,
-          empresaId: targetEmpresaId,
+      // Outra unidade individual (ex.: Caicó ou Patos)
+      // Usa os materiais reais da unidade consultados do banco (materiaisAlvoRes)
+      const matsAlvoControlados = materiaisAlvoRes.filter((m) =>
+        ehInsumoSaldoMonitorado(m.codigo),
+      )
+      if (matsAlvoControlados.length > 0) {
+        matsAlvoControlados.forEach((m) => {
+          const saldo = Number(m.saldo || 0)
+          const minimo = Number(m.estoque_minimo || 0)
+          const controla = m.controla_estoque !== false
+          // Alerta de estoque baixo só se a unidade tiver saldo em operação (> 0) e abaixo do mínimo
+          const abaixoMinimo =
+            controla && minimo > 0 && saldo > 0 && saldo < minimo
+          saldosInsumos.push({
+            id: m.id,
+            nome: m.nome,
+            codigo: m.codigo,
+            unidade: m.unidade || "kg",
+            controlaEstoque: controla,
+            estoqueMinimo: minimo,
+            saldo,
+            abaixoMinimo,
+            defasagem: abaixoMinimo
+              ? Math.round((minimo - saldo) * 100) / 100
+              : 0,
+            empresaId: m.empresa_id,
+          })
         })
-      })
+      } else {
+        const catalogoPadrao = [
+          {
+            codigo: "cimento",
+            nome: "CP II F-40 / CP V ARI",
+            unidade: "kg",
+            controla: true,
+            min: 15000,
+          },
+          {
+            codigo: "aditivo",
+            nome: "Aditivo Plastificante",
+            unidade: "litros",
+            controla: true,
+            min: 900,
+          },
+        ]
+        catalogoPadrao.forEach((p) => {
+          saldosInsumos.push({
+            id: `zerado-${p.codigo}`,
+            nome: p.nome,
+            codigo: p.codigo,
+            unidade: p.unidade,
+            controlaEstoque: p.controla,
+            estoqueMinimo: p.min,
+            saldo: 0,
+            abaixoMinimo: false,
+            defasagem: 0,
+            empresaId: targetEmpresaId,
+          })
+        })
+      }
     }
 
     // --- CÁLCULO DETALHADO DO BLOCO: CUSTOS DE INSUMOS ---

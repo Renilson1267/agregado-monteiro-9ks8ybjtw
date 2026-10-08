@@ -464,18 +464,13 @@ export default function Estoque() {
         </div>
       </div>
 
-      {/* Alerta de Pedido Automático de Cimento (quando saldo < 20.000 kg) */}
+      {/* Alerta de Pedido Automático de Cimento (quando saldo > 0 e saldo < 20.000 kg) */}
       {(() => {
         const matCimento = materiais.find((m) => m.codigo === "cimento")
         if (!matCimento) return null
         const saldo = matCimento.saldo || 0
-        // Para Monteiro e SJE: se saldo < 20.000 kg, exibe o aviso
-        // Para Caicó/Patos (unidades vazias): só se tiver estoque cadastrado (> 0)
-        const ehCaicoOuPatos =
-          empresaAtiva?.nome?.toLowerCase().includes("caicó") ||
-          empresaAtiva?.nome?.toLowerCase().includes("patos")
-
-        if (ehCaicoOuPatos && saldo <= 0) return null
+        // Unidades com saldo zerado não disparam alerta (somente quando há saldo em operação < 20.000 kg)
+        if (saldo <= 0) return null
 
         if (saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG) {
           return (

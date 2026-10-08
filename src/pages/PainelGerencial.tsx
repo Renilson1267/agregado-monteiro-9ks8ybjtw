@@ -1090,9 +1090,8 @@ export function PainelGerencial() {
       })()}
 
       {/* =========================================================================
-          AVISO DE PEDIDO AUTOMÁTICO DE CIMENTO (QUANDO SALDO < 20.000 KG)
-          Exibido para Monteiro e SJE (ou consolidado se alguma estiver crítica).
-          Oculto para unidades vazias (Caicó e Patos, a menos que tenham estoque).
+          AVISO DE PEDIDO AUTOMÁTICO DE CIMENTO (QUANDO SALDO > 0 E < 20.000 KG)
+          Válido para as 4 unidades (Monteiro, SJE, Caicó e Patos) apenas quando houver saldo em operação.
       ========================================================================== */}
       {(() => {
         const itemCimento = dados?.saldosInsumos?.find(
@@ -1110,7 +1109,7 @@ export function PainelGerencial() {
             (itemCimento as any).minimoMonteiro ||
             itemCimento.estoqueMinimo ||
             15000
-          if (saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG) {
+          if (saldo > 0 && saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG) {
             return (
               <div className="no-print">
                 <AlertaPedidoCimento
@@ -1134,7 +1133,7 @@ export function PainelGerencial() {
               : itemCimento.saldo
           const minimo =
             (itemCimento as any).minimoSje || itemCimento.estoqueMinimo || 15000
-          if (saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG) {
+          if (saldo > 0 && saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG) {
             return (
               <div className="no-print">
                 <AlertaPedidoCimento
@@ -1150,7 +1149,7 @@ export function PainelGerencial() {
           return null
         }
 
-        // Se estiver na visão Caicó ou Patos: unidades vazias, só mostrar se tiver estoque cadastrado
+        // Se estiver na visão Caicó ou Patos:
         if (modoVisao === "caico" || modoVisao === "patos") {
           const saldo = itemCimento.saldo || 0
           // Se tiver saldo > 0 e menor que 20.000 kg, mostra
@@ -1188,7 +1187,7 @@ export function PainelGerencial() {
             return (
               <div className="no-print">
                 <AlertaPedidoCimento
-                  unidadeNome="Monteiro e SJE"
+                  unidadeNome="Consolidado"
                   saldoAtualKg={itemCimento.saldo}
                   estoqueMinimoKg={itemCimento.estoqueMinimo || 15000}
                   empresa={empresaAtiva}
