@@ -16,6 +16,7 @@ import {
   Briefcase,
   HeartPulse,
   Coins,
+  Send,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -56,6 +57,11 @@ import {
 } from "@/services/painel"
 import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from "@/assets/logos"
 import { cn } from "@/lib/utils"
+import { AlertaPedidoCimento } from "@/components/AlertaPedidoCimento"
+import {
+  LIMITE_AVISO_PEDIDO_CIMENTO_KG,
+  gerarLinkWhatsAppPedidoCimento,
+} from "@/lib/pedido-cimento"
 
 const CORES_PALETA = [
   "#2563eb", // azul principal
@@ -658,6 +664,135 @@ export function PainelGerencial() {
       </div>
 
       {/* =========================================================================
+          AVISO DE PEDIDO AUTOMÁTICO DE CIMENTO (QUANDO SALDO < 20.000 KG)
+          Exibido para Monteiro e SJE (ou consolidado se alguma estiver crítica).
+          Oculto para unidades vazias (Caicó e Patos, a menos que tenham estoque).
+      ========================================================================== */}
+      {(() => {
+        const itemCimento = dados?.saldosInsumos?.find(
+          (i) => i.codigo === "cimento",
+        )
+        if (!itemCimento) return null
+
+        // Se estiver na visão Monteiro:
+        if (modoVisao === "monteiro") {
+          const saldo =
+            itemCimento.saldoMonteiro !== undefined
+              ? itemCimento.saldoMonteiro
+              : itemCimento.saldo
+          const minimo =
+            (itemCimento as any).minimoMonteiro ||
+            itemCimento.estoqueMinimo ||
+            15000
+          if (saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG) {
+            return (
+              <div className="no-print">
+                <AlertaPedidoCimento
+                  unidadeNome="Monteiro"
+                  saldoAtualKg={saldo}
+                  estoqueMinimoKg={minimo}
+                  variante="card"
+                />
+              </div>
+            )
+          }
+          return null
+        }
+
+        // Se estiver na visão SJE:
+        if (modoVisao === "sje") {
+          const saldo =
+            itemCimento.saldoSje !== undefined
+              ? itemCimento.saldoSje
+              : itemCimento.saldo
+          const minimo =
+            (itemCimento as any).minimoSje || itemCimento.estoqueMinimo || 15000
+          if (saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG) {
+            return (
+              <div className="no-print">
+                <AlertaPedidoCimento
+                  unidadeNome="SJE"
+                  saldoAtualKg={saldo}
+                  estoqueMinimoKg={minimo}
+                  variante="card"
+                />
+              </div>
+            )
+          }
+          return null
+        }
+
+        // Se estiver na visão Caicó ou Patos: unidades vazias, só mostrar se tiver estoque cadastrado
+        if (modoVisao === "caico" || modoVisao === "patos") {
+          const saldo = itemCimento.saldo || 0
+          // Se tiver saldo > 0 e menor que 20.000 kg, mostra
+          if (saldo > 0 && saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG) {
+            return (
+              <div className="no-print">
+                <AlertaPedidoCimento
+                  unidadeNome={modoVisao === "caico" ? "Caicó" : "Patos"}
+                  saldoAtualKg={saldo}
+                  estoqueMinimoKg={itemCimento.estoqueMinimo || 15000}
+                  variante="card"
+                />
+              </div>
+            )
+          }
+          return null
+        }
+
+        // Se estiver na visão Consolidada ("todas"):
+        // Verificar Monteiro e SJE individualmente se tiver os saldos discriminados
+        const saldoMonteiro = itemCimento.saldoMonteiro ?? 0
+        const saldoSje = itemCimento.saldoSje ?? 0
+        const criticoMonteiro =
+          saldoMonteiro > 0 && saldoMonteiro < LIMITE_AVISO_PEDIDO_CIMENTO_KG
+        const criticoSje =
+          saldoSje > 0 && saldoSje < LIMITE_AVISO_PEDIDO_CIMENTO_KG
+
+        if (!criticoMonteiro && !criticoSje) {
+          // Se nenhum dos dois específicos foi detectado, mas o saldo total for < 20.000 kg (e > 0)
+          if (
+            itemCimento.saldo > 0 &&
+            itemCimento.saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG
+          ) {
+            return (
+              <div className="no-print">
+                <AlertaPedidoCimento
+                  unidadeNome="Monteiro e SJE"
+                  saldoAtualKg={itemCimento.saldo}
+                  estoqueMinimoKg={itemCimento.estoqueMinimo || 15000}
+                  variante="card"
+                />
+              </div>
+            )
+          }
+          return null
+        }
+
+        return (
+          <div className="no-print space-y-3">
+            {criticoMonteiro && (
+              <AlertaPedidoCimento
+                unidadeNome="Monteiro"
+                saldoAtualKg={saldoMonteiro}
+                estoqueMinimoKg={(itemCimento as any).minimoMonteiro || 15000}
+                variante="card"
+              />
+            )}
+            {criticoSje && (
+              <AlertaPedidoCimento
+                unidadeNome="SJE"
+                saldoAtualKg={saldoSje}
+                estoqueMinimoKg={(itemCimento as any).minimoSje || 15000}
+                variante="card"
+              />
+            )}
+          </div>
+        )
+      })()}
+
+      {/* =========================================================================
           SEÇÃO 1: CARDS DE KPIS EXECUTIVOS DO PERÍODO
       ========================================================================== */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -1024,6 +1159,40 @@ export function PainelGerencial() {
                             </span>
                           </div>
                         )}
+
+                        {/* Botão de pedido rápido se for cimento e saldo < 20.000 kg */}
+                        {ehCimento &&
+                          item.saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG &&
+                          item.saldo > 0 && (
+                            <div className="pt-2">
+                              <Button
+                                onClick={() => {
+                                  const unidadeParaPedido =
+                                    modoVisao === "monteiro"
+                                      ? "Monteiro"
+                                      : modoVisao === "sje"
+                                        ? "SJE"
+                                        : "Monteiro / SJE"
+                                  const link = gerarLinkWhatsAppPedidoCimento({
+                                    unidadeNome: unidadeParaPedido,
+                                    saldoAtualKg: item.saldo,
+                                    estoqueMinimoKg:
+                                      item.estoqueMinimo || 15000,
+                                  })
+                                  window.open(
+                                    link,
+                                    "_blank",
+                                    "noopener,noreferrer",
+                                  )
+                                }}
+                                size="sm"
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 h-8 shadow-xs"
+                              >
+                                <Send className="w-3 h-3" />
+                                Pedir pelo WhatsApp
+                              </Button>
+                            </div>
+                          )}
                       </div>
                     </div>
                   )
@@ -1976,6 +2145,30 @@ export function PainelGerencial() {
                             Mín: {item.minimo.toLocaleString("pt-BR")}
                           </span>
                         </div>
+                        {item.material.codigo === "cimento" && (
+                          <div className="pt-1">
+                            <Button
+                              onClick={() => {
+                                const link = gerarLinkWhatsAppPedidoCimento({
+                                  unidadeNome:
+                                    modoVisao === "sje" ? "SJE" : "Monteiro",
+                                  saldoAtualKg: item.saldo,
+                                  estoqueMinimoKg: item.minimo,
+                                })
+                                window.open(
+                                  link,
+                                  "_blank",
+                                  "noopener,noreferrer",
+                                )
+                              }}
+                              size="sm"
+                              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] gap-1 h-7"
+                            >
+                              <Send className="w-3 h-3" />
+                              Pedir pelo WhatsApp
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

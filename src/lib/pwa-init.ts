@@ -96,7 +96,7 @@ export function registerPwaServiceWorker() {
   // Apenas registrar após o carregamento da janela para não impactar a inicialização do app
   window.addEventListener("load", () => {
     navigator.serviceWorker
-      .register("/sw.js", { scope: "/" })
+      .register("/sw.js?v=gcmix-pwa-v11", { scope: "/" })
       .then((registration) => {
         // Verificar atualizações periódicas
         registration.addEventListener("updatefound", () => {

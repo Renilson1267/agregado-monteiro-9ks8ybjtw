@@ -50,9 +50,15 @@ import {
   Settings2,
   RefreshCw,
   FileSpreadsheet,
+  Send,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Link } from "react-router-dom"
+import { AlertaPedidoCimento } from "@/components/AlertaPedidoCimento"
+import {
+  LIMITE_AVISO_PEDIDO_CIMENTO_KG,
+  gerarLinkWhatsAppPedidoCimento,
+} from "@/lib/pedido-cimento"
 
 export default function Estoque() {
   const { empresaAtiva } = useEmpresa()
@@ -458,6 +464,32 @@ export default function Estoque() {
         </div>
       </div>
 
+      {/* Alerta de Pedido Automático de Cimento (quando saldo < 20.000 kg) */}
+      {(() => {
+        const matCimento = materiais.find((m) => m.codigo === "cimento")
+        if (!matCimento) return null
+        const saldo = matCimento.saldo || 0
+        // Para Monteiro e SJE: se saldo < 20.000 kg, exibe o aviso
+        // Para Caicó/Patos (unidades vazias): só se tiver estoque cadastrado (> 0)
+        const ehCaicoOuPatos =
+          empresaAtiva?.nome?.toLowerCase().includes("caicó") ||
+          empresaAtiva?.nome?.toLowerCase().includes("patos")
+
+        if (ehCaicoOuPatos && saldo <= 0) return null
+
+        if (saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG) {
+          return (
+            <AlertaPedidoCimento
+              unidadeNome={empresaAtiva?.nome || "Unidade"}
+              saldoAtualKg={saldo}
+              estoqueMinimoKg={matCimento.estoque_minimo || 15000}
+              variante="card"
+            />
+          )
+        }
+        return null
+      })()}
+
       {/* Grid de Materiais Controlados (Cimento e Aditivo) */}
       <div>
         <div className="flex items-center justify-between mb-3">
@@ -614,18 +646,43 @@ export default function Estoque() {
                         </span>
                       )}
 
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs h-8 gap-1 px-2 text-primary hover:text-primary"
-                        onClick={() => {
-                          setMaterialEntradaId(mat.id)
-                          setOpenEntrada(true)
-                        }}
-                      >
-                        <PlusCircle className="w-3.5 h-3.5" />
-                        Repor Estoque
-                      </Button>
+                      <div className="flex items-center gap-1.5">
+                        {mat.codigo === "cimento" &&
+                          saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="text-xs h-8 gap-1 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                              onClick={() => {
+                                const link = gerarLinkWhatsAppPedidoCimento({
+                                  unidadeNome: empresaAtiva?.nome || "Unidade",
+                                  saldoAtualKg: saldo,
+                                  estoqueMinimoKg: mat.estoque_minimo || 15000,
+                                })
+                                window.open(
+                                  link,
+                                  "_blank",
+                                  "noopener,noreferrer",
+                                )
+                              }}
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                              Pedir WhatsApp
+                            </Button>
+                          )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-8 gap-1 px-2 text-primary hover:text-primary"
+                          onClick={() => {
+                            setMaterialEntradaId(mat.id)
+                            setOpenEntrada(true)
+                          }}
+                        >
+                          <PlusCircle className="w-3.5 h-3.5" />
+                          Repor Estoque
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

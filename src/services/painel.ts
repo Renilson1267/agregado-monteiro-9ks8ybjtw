@@ -83,6 +83,8 @@ export interface ItemEstoqueInsumo {
   saldoSje?: number
   saldoCaico?: number
   saldoPatos?: number
+  minimoMonteiro?: number
+  minimoSje?: number
   abaixoMinimo: boolean
   defasagem: number
   empresaId?: string
@@ -884,6 +886,8 @@ export const PainelService = {
         saldoTotal: number
         saldoMonteiro: number
         saldoSje: number
+        minimoMonteiro?: number
+        minimoSje?: number
         abaixoMinimo: boolean
         defasagem: number
       }>()
@@ -907,6 +911,8 @@ export const PainelService = {
             saldoTotal: saldo,
             saldoMonteiro: saldo,
             saldoSje: 0,
+            minimoMonteiro: minimo,
+            minimoSje: 0,
             abaixoMinimo: abaixo,
             defasagem: abaixo ? minimo - saldo : 0,
           })
@@ -925,6 +931,7 @@ export const PainelService = {
             const item = mapaConsolidado.get(key)!
             item.saldoSje = saldo
             item.saldoTotal = Math.round((item.saldoTotal + saldo) * 100) / 100
+            item.minimoSje = minimo
             item.estoqueMinimo = Math.max(item.estoqueMinimo, minimo)
             // Se qualquer das unidades ou o total estiver crítico
             const abaixoSje = controla && minimo > 0 && saldo < minimo
@@ -941,6 +948,8 @@ export const PainelService = {
               saldoTotal: saldo,
               saldoMonteiro: 0,
               saldoSje: saldo,
+              minimoMonteiro: 0,
+              minimoSje: minimo,
               abaixoMinimo: abaixo,
               defasagem: abaixo ? minimo - saldo : 0,
             })
@@ -958,6 +967,8 @@ export const PainelService = {
           saldo: val.saldoTotal,
           saldoMonteiro: val.saldoMonteiro,
           saldoSje: val.saldoSje,
+          minimoMonteiro: (val as any).minimoMonteiro || 0,
+          minimoSje: (val as any).minimoSje || 0,
           abaixoMinimo: val.abaixoMinimo,
           defasagem: Math.round(val.defasagem * 100) / 100,
         })
