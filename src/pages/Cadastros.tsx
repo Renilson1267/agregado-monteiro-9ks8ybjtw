@@ -69,6 +69,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { ModalImportarCargasCSV } from "@/components/ModalImportarCargasCSV"
+import { AbaEstoquesMinimos } from "@/components/AbaEstoquesMinimos"
 import {
   formatarCpfCnpj,
   formatarCep,
@@ -106,6 +107,7 @@ export default function Cadastros() {
     const permitidas = [
       "usuarios",
       "ferias",
+      "estoques-minimos",
       "metas",
       "clientes",
       "insumos",
@@ -120,6 +122,7 @@ export default function Cadastros() {
     const permitidas = [
       "usuarios",
       "ferias",
+      "estoques-minimos",
       "metas",
       "clientes",
       "insumos",
@@ -831,7 +834,7 @@ export default function Cadastros() {
         }}
         className="w-full"
       >
-        <TabsList className="grid grid-cols-4 sm:grid-cols-8 w-full max-w-5xl">
+        <TabsList className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 w-full max-w-6xl">
           <TabsTrigger value="ferias" className="gap-1.5 text-xs font-semibold">
             <CalendarDays className="w-4 h-4 text-primary" />
             Controle de Férias
@@ -839,6 +842,13 @@ export default function Cadastros() {
           <TabsTrigger value="usuarios" className="gap-1.5 text-xs">
             <UserCog className="w-4 h-4" />
             Usuários
+          </TabsTrigger>
+          <TabsTrigger
+            value="estoques-minimos"
+            className="gap-1.5 text-xs font-semibold"
+          >
+            <Boxes className="w-4 h-4 text-primary" />
+            Estoques Mínimos
           </TabsTrigger>
           <TabsTrigger value="metas" className="gap-1.5 text-xs">
             <Target className="w-4 h-4 text-primary" />
@@ -874,6 +884,11 @@ export default function Cadastros() {
         {/* TAB USUÁRIOS */}
         <TabsContent value="usuarios" className="mt-6 space-y-4">
           <PainelUsuarios />
+        </TabsContent>
+
+        {/* TAB ESTOQUES MÍNIMOS */}
+        <TabsContent value="estoques-minimos" className="mt-6 space-y-4">
+          <AbaEstoquesMinimos />
         </TabsContent>
 
         {/* TAB METAS DE PRODUÇÃO (Opção 2) */}
