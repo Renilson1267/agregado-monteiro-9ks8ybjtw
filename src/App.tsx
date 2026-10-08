@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/hooks/use-auth"
 import { UsuarioProvider, useUsuario } from "@/hooks/use-usuario"
 import { EmpresaProvider } from "@/hooks/use-empresa"
+import { AtualizacaoPwaBanner } from "@/components/AtualizacaoPwaBanner"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import Layout from "./components/Layout"
 import Login from "./pages/Login"
@@ -38,6 +39,7 @@ const App = () => (
             <TooltipProvider>
               <Toaster />
               <Sonner />
+              <AtualizacaoPwaBanner />
               <Routes>
                 {/* Rota Pública de Login */}
                 <Route path="/login" element={<Login />} />
