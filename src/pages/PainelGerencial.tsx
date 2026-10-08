@@ -60,6 +60,8 @@ import { cn } from "@/lib/utils"
 import { AlertaPedidoCimento } from "@/components/AlertaPedidoCimento"
 import {
   LIMITE_AVISO_PEDIDO_CIMENTO_KG,
+  FORNECEDOR_CIMENTO,
+  calcularNecessidadePedidoCimento,
   gerarLinkWhatsAppPedidoCimento,
 } from "@/lib/pedido-cimento"
 
@@ -662,6 +664,395 @@ export function PainelGerencial() {
           </Button>
         </div>
       </div>
+
+      {/* =========================================================================
+          BLOCO PERMANENTE: TESTAR PEDIDO DE CIMENTO (WHATSAPP)
+          Visível SEMPRE no Painel Gerencial (independente do saldo estar acima ou abaixo de 20.000 kg).
+          Respeita a unidade selecionada (Monteiro/SJE) e visão consolidada.
+      ========================================================================== */}
+      {(() => {
+        const itemCimento = dados?.saldosInsumos?.find(
+          (i) => i.codigo === "cimento",
+        )
+        if (!itemCimento) return null
+
+        // Resolver os dados de cada unidade para alimentar o teste
+        const saldoMonteiro =
+          itemCimento.saldoMonteiro !== undefined
+            ? itemCimento.saldoMonteiro
+            : modoVisao === "monteiro"
+              ? itemCimento.saldo
+              : 0
+        const minimoMonteiro =
+          (itemCimento as any).minimoMonteiro ||
+          (modoVisao === "monteiro" ? itemCimento.estoqueMinimo : 15000) ||
+          15000
+
+        const saldoSje =
+          itemCimento.saldoSje !== undefined
+            ? itemCimento.saldoSje
+            : modoVisao === "sje"
+              ? itemCimento.saldo
+              : 0
+        const minimoSje =
+          (itemCimento as any).minimoSje ||
+          (modoVisao === "sje" ? itemCimento.estoqueMinimo : 15000) ||
+          15000
+
+        // Se for Monteiro:
+        if (modoVisao === "monteiro") {
+          const nec = calcularNecessidadePedidoCimento({
+            saldoAtualKg: saldoMonteiro,
+            estoqueMinimoKg: minimoMonteiro,
+          })
+          const link = gerarLinkWhatsAppPedidoCimento({
+            unidadeNome: "Monteiro",
+            saldoAtualKg: saldoMonteiro,
+            estoqueMinimoKg: minimoMonteiro,
+          })
+          return (
+            <div className="no-print rounded-xl border border-emerald-600/30 bg-emerald-500/5 dark:bg-emerald-500/10 p-3 sm:p-4 shadow-xs">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                      <Send className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      Pedido de Cimento — {FORNECEDOR_CIMENTO.produtoCompleto}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className="text-[11px] font-semibold border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10"
+                    >
+                      Monteiro
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] text-muted-foreground border-border/50"
+                    >
+                      Raquel ({FORNECEDOR_CIMENTO.telefoneFormatado})
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Saldo atual:{" "}
+                    <strong className="text-foreground font-mono">
+                      {nec.saldo.toLocaleString("pt-BR")} kg
+                    </strong>{" "}
+                    ({(nec.saldo / 1000).toFixed(2)} t) • Mínimo:{" "}
+                    <span className="font-mono">
+                      {nec.minimo.toLocaleString("pt-BR")} kg
+                    </span>{" "}
+                    • Sugerido:{" "}
+                    <strong className="text-emerald-700 dark:text-emerald-400 font-mono">
+                      {nec.sugeridoKg.toLocaleString("pt-BR")} kg
+                    </strong>{" "}
+                    ({nec.carretasSugeridas} {FORNECEDOR_CIMENTO.cif})
+                  </p>
+                </div>
+                <Button
+                  onClick={() =>
+                    window.open(link, "_blank", "noopener,noreferrer")
+                  }
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 shrink-0 shadow-sm w-full sm:w-auto"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Testar pedido de cimento
+                </Button>
+              </div>
+            </div>
+          )
+        }
+
+        // Se for SJE:
+        if (modoVisao === "sje") {
+          const nec = calcularNecessidadePedidoCimento({
+            saldoAtualKg: saldoSje,
+            estoqueMinimoKg: minimoSje,
+          })
+          const link = gerarLinkWhatsAppPedidoCimento({
+            unidadeNome: "SJE",
+            saldoAtualKg: saldoSje,
+            estoqueMinimoKg: minimoSje,
+          })
+          return (
+            <div className="no-print rounded-xl border border-emerald-600/30 bg-emerald-500/5 dark:bg-emerald-500/10 p-3 sm:p-4 shadow-xs">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                      <Send className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      Pedido de Cimento — {FORNECEDOR_CIMENTO.produtoCompleto}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className="text-[11px] font-semibold border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10"
+                    >
+                      SJE
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] text-muted-foreground border-border/50"
+                    >
+                      Raquel ({FORNECEDOR_CIMENTO.telefoneFormatado})
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Saldo atual:{" "}
+                    <strong className="text-foreground font-mono">
+                      {nec.saldo.toLocaleString("pt-BR")} kg
+                    </strong>{" "}
+                    ({(nec.saldo / 1000).toFixed(2)} t) • Mínimo:{" "}
+                    <span className="font-mono">
+                      {nec.minimo.toLocaleString("pt-BR")} kg
+                    </span>{" "}
+                    • Sugerido:{" "}
+                    <strong className="text-emerald-700 dark:text-emerald-400 font-mono">
+                      {nec.sugeridoKg.toLocaleString("pt-BR")} kg
+                    </strong>{" "}
+                    ({nec.carretasSugeridas} {FORNECEDOR_CIMENTO.cif})
+                  </p>
+                </div>
+                <Button
+                  onClick={() =>
+                    window.open(link, "_blank", "noopener,noreferrer")
+                  }
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 shrink-0 shadow-sm w-full sm:w-auto"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Testar pedido de cimento
+                </Button>
+              </div>
+            </div>
+          )
+        }
+
+        // Se for Caicó ou Patos:
+        if (modoVisao === "caico" || modoVisao === "patos") {
+          const nomeUnidade = modoVisao === "caico" ? "Caicó" : "Patos"
+          const saldo = itemCimento.saldo || 0
+          const minimo = itemCimento.estoqueMinimo || 15000
+          const nec = calcularNecessidadePedidoCimento({
+            saldoAtualKg: saldo,
+            estoqueMinimoKg: minimo,
+          })
+          const link = gerarLinkWhatsAppPedidoCimento({
+            unidadeNome: nomeUnidade,
+            saldoAtualKg: saldo,
+            estoqueMinimoKg: minimo,
+          })
+          return (
+            <div className="no-print rounded-xl border border-emerald-600/30 bg-emerald-500/5 dark:bg-emerald-500/10 p-3 sm:p-4 shadow-xs">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                      <Send className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      Pedido de Cimento — {FORNECEDOR_CIMENTO.produtoCompleto}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className="text-[11px] font-semibold border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10"
+                    >
+                      {nomeUnidade}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] text-muted-foreground border-border/50"
+                    >
+                      Raquel ({FORNECEDOR_CIMENTO.telefoneFormatado})
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Saldo atual:{" "}
+                    <strong className="text-foreground font-mono">
+                      {nec.saldo.toLocaleString("pt-BR")} kg
+                    </strong>{" "}
+                    ({(nec.saldo / 1000).toFixed(2)} t) • Sugerido:{" "}
+                    <strong className="text-emerald-700 dark:text-emerald-400 font-mono">
+                      {nec.sugeridoKg.toLocaleString("pt-BR")} kg
+                    </strong>{" "}
+                    ({nec.carretasSugeridas} {FORNECEDOR_CIMENTO.cif})
+                  </p>
+                </div>
+                <Button
+                  onClick={() =>
+                    window.open(link, "_blank", "noopener,noreferrer")
+                  }
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 shrink-0 shadow-sm w-full sm:w-auto"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Testar pedido de cimento
+                </Button>
+              </div>
+            </div>
+          )
+        }
+
+        // Visão Consolidada ("todas"): oferece teste por unidade (Monteiro e SJE) ou consolidado geral
+        const necMonteiro = calcularNecessidadePedidoCimento({
+          saldoAtualKg: saldoMonteiro,
+          estoqueMinimoKg: minimoMonteiro,
+        })
+        const linkMonteiro = gerarLinkWhatsAppPedidoCimento({
+          unidadeNome: "Monteiro",
+          saldoAtualKg: saldoMonteiro,
+          estoqueMinimoKg: minimoMonteiro,
+        })
+
+        const necSje = calcularNecessidadePedidoCimento({
+          saldoAtualKg: saldoSje,
+          estoqueMinimoKg: minimoSje,
+        })
+        const linkSje = gerarLinkWhatsAppPedidoCimento({
+          unidadeNome: "SJE",
+          saldoAtualKg: saldoSje,
+          estoqueMinimoKg: minimoSje,
+        })
+
+        const saldoConsolidado = itemCimento.saldo || saldoMonteiro + saldoSje
+        const minimoConsolidado = minimoMonteiro + minimoSje
+        const necConsolidado = calcularNecessidadePedidoCimento({
+          saldoAtualKg: saldoConsolidado,
+          estoqueMinimoKg: minimoConsolidado,
+        })
+        const linkConsolidado = gerarLinkWhatsAppPedidoCimento({
+          unidadeNome: "Monteiro e SJE (Consolidado)",
+          saldoAtualKg: saldoConsolidado,
+          estoqueMinimoKg: minimoConsolidado,
+        })
+
+        return (
+          <div className="no-print rounded-xl border border-emerald-600/30 bg-emerald-500/5 dark:bg-emerald-500/10 p-3 sm:p-4 shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-emerald-600/20 pb-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                  <Send className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  Testar Pedido de Cimento —{" "}
+                  {FORNECEDOR_CIMENTO.produtoCompleto}
+                </span>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] text-muted-foreground border-border/50"
+                >
+                  Contato Raquel ({FORNECEDOR_CIMENTO.telefoneFormatado})
+                </Badge>
+              </div>
+              <span className="text-[11px] text-muted-foreground">
+                Dispara mensagem pronta no WhatsApp (wa.me)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {/* Card Monteiro */}
+              <div className="p-3 rounded-lg bg-background/80 border border-border/50 flex flex-col justify-between gap-2">
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <strong className="text-xs text-foreground">
+                      Monteiro
+                    </strong>
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      Mín: {necMonteiro.minimo.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Saldo:{" "}
+                    <strong className="font-mono text-foreground">
+                      {necMonteiro.saldo.toLocaleString("pt-BR")} kg
+                    </strong>{" "}
+                    ({(necMonteiro.saldo / 1000).toFixed(2)} t) • Sugerido:{" "}
+                    <strong className="text-emerald-700 dark:text-emerald-400 font-mono">
+                      {necMonteiro.sugeridoKg.toLocaleString("pt-BR")} kg
+                    </strong>
+                  </p>
+                </div>
+                <Button
+                  onClick={() =>
+                    window.open(linkMonteiro, "_blank", "noopener,noreferrer")
+                  }
+                  size="sm"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 h-8 shadow-xs"
+                >
+                  <Send className="w-3 h-3" />
+                  Testar pedido Monteiro
+                </Button>
+              </div>
+
+              {/* Card SJE */}
+              <div className="p-3 rounded-lg bg-background/80 border border-border/50 flex flex-col justify-between gap-2">
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <strong className="text-xs text-foreground">SJE</strong>
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      Mín: {necSje.minimo.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Saldo:{" "}
+                    <strong className="font-mono text-foreground">
+                      {necSje.saldo.toLocaleString("pt-BR")} kg
+                    </strong>{" "}
+                    ({(necSje.saldo / 1000).toFixed(2)} t) • Sugerido:{" "}
+                    <strong className="text-emerald-700 dark:text-emerald-400 font-mono">
+                      {necSje.sugeridoKg.toLocaleString("pt-BR")} kg
+                    </strong>
+                  </p>
+                </div>
+                <Button
+                  onClick={() =>
+                    window.open(linkSje, "_blank", "noopener,noreferrer")
+                  }
+                  size="sm"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 h-8 shadow-xs"
+                >
+                  <Send className="w-3 h-3" />
+                  Testar pedido SJE
+                </Button>
+              </div>
+
+              {/* Card Consolidado Geral */}
+              <div className="p-3 rounded-lg bg-background/80 border border-border/50 flex flex-col justify-between gap-2 md:col-span-2 lg:col-span-1">
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <strong className="text-xs text-foreground">
+                      Consolidado Geral
+                    </strong>
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      Mín: {necConsolidado.minimo.toLocaleString("pt-BR")} kg
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Saldo:{" "}
+                    <strong className="font-mono text-foreground">
+                      {necConsolidado.saldo.toLocaleString("pt-BR")} kg
+                    </strong>{" "}
+                    ({(necConsolidado.saldo / 1000).toFixed(2)} t) • Sugerido:{" "}
+                    <strong className="text-emerald-700 dark:text-emerald-400 font-mono">
+                      {necConsolidado.sugeridoKg.toLocaleString("pt-BR")} kg
+                    </strong>
+                  </p>
+                </div>
+                <Button
+                  onClick={() =>
+                    window.open(
+                      linkConsolidado,
+                      "_blank",
+                      "noopener,noreferrer",
+                    )
+                  }
+                  size="sm"
+                  variant="outline"
+                  className="w-full border-emerald-600/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 font-bold text-xs gap-1.5 h-8 shadow-xs"
+                >
+                  <Send className="w-3 h-3" />
+                  Testar pedido Consolidado
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* =========================================================================
           AVISO DE PEDIDO AUTOMÁTICO DE CIMENTO (QUANDO SALDO < 20.000 KG)
