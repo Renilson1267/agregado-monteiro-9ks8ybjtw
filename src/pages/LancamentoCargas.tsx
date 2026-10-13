@@ -256,6 +256,15 @@ export default function LancamentoCargas() {
   const [aditivoEditadoManualmente, setAditivoEditadoManualmente] =
     useState<boolean>(false)
 
+  // Campos de digitação acumulativa específicos para o traço F45 da unidade PATOS (por 1,00 m³)
+  // Valores da tabela impressa acumulada:
+  // Cimento, Brita 0 (brita12), Brita 0+1 acumulado, Areia acumulado, Pó acumulado
+  const [f45PatosCimento, setF45PatosCimento] = useState<string>("")
+  const [f45PatosBrita0, setF45PatosBrita0] = useState<string>("")
+  const [f45PatosBrita01, setF45PatosBrita01] = useState<string>("")
+  const [f45PatosAreiaAcum, setF45PatosAreiaAcum] = useState<string>("")
+  const [f45PatosPoAcum, setF45PatosPoAcum] = useState<string>("")
+
   // Estado que rastreia tentativa de submissão para destacar campos obrigatórios faltantes
   const [tentouGravar, setTentouGravar] = useState<boolean>(false)
 
@@ -292,6 +301,11 @@ export default function LancamentoCargas() {
           setAditivoInput("")
           setAditivoBruto(0)
           setAditivoEditadoManualmente(false)
+          setF45PatosCimento("")
+          setF45PatosBrita0("")
+          setF45PatosBrita01("")
+          setF45PatosAreiaAcum("")
+          setF45PatosPoAcum("")
         }
       } catch (err) {
         console.error("Erro ao carregar dados do formulário:", err)
@@ -382,6 +396,30 @@ export default function LancamentoCargas() {
         setBrita19(dosBrita19)
         setAreia(dosAreia)
         setPoPedra(dosPoPedra)
+
+        // Se for F45 na unidade Patos, preenche os acumulados inversamente
+        const ehPatos =
+          (empresaAtiva?.slug || "").toLowerCase() === "patos" ||
+          (empresaAtiva?.nome || "").toLowerCase().includes("patos")
+        const ehF45 =
+          (c.traco_nome || "").toUpperCase().includes("F45") ||
+          (c.traco_id &&
+            tracos.some(
+              (t) => t.id === c.traco_id && Number(t.fck_mpa) === 45,
+            ))
+
+        if (ehPatos && ehF45) {
+          const acumB0 = dosBrita12
+          const acumB01 = dosBrita12 + dosBrita19
+          const acumAr = acumB01 + dosAreia
+          const acumPo = acumAr + dosPoPedra
+
+          setF45PatosCimento(dosCimento > 0 ? String(dosCimento) : "")
+          setF45PatosBrita0(acumB0 > 0 ? String(acumB0) : "")
+          setF45PatosBrita01(acumB01 > 0 ? String(acumB01) : "")
+          setF45PatosAreiaAcum(acumAr > 0 ? String(acumAr) : "")
+          setF45PatosPoAcum(acumPo > 0 ? String(acumPo) : "")
+        }
 
         // Aditivo total em litros
         const adtValor = Number(c.consumo_aditivo || 0)
@@ -533,17 +571,79 @@ export default function LancamentoCargas() {
 
   // Consumos REAIS da carga:
   // - Sólidos (cimento, brita12, brita19, areia, pó de pedra) guardam dosagem por m³ e são multiplicados pelo volume efetivo.
+  // - No modo acumulativo F45 Patos:
+  //   Valores digitados são por 1,00 m³ (mesmo estilo da tabela impressa CUMULATIVA):
+  //     digita_cimento, digita_brita0, digita_brita01, digita_areia, digita_pó
+  //   Desmembramento:
+  //     cimento_real_m3 = digita_cimento
+  //     brita0_real_m3  = digita_brita0  (brita12)
+  //     brita19_real_m3 = digita_brita01 - digita_brita0
+  //     areia_real_m3   = digita_areia   - digita_brita01
+  //     pó_real_m3      = digita_pó      - digita_areia
+  //   Multiplica pelo volume da carga como nos demais traços.
+  //   Aditivo (Mplast FK320) e água: valores fixos do traço F45 de Patos (aditivo 4,629 kg e água 175 L por 1,00 m³).
   // - Aditivo é o volume total em litros da carga (Math.round).
   // - O que o usuário digitar prevalece exatamente sem alterações.
   const volumeEfetivo = Number(volume) || 0
+
+  // Dosagens calculadas por m³ (reais)
+  const dosagemEfetivaM3 = (() => {
+    if (isModoAcumulativoPatosF45) {
+      const digCimento = parseDecimalBr(f45PatosCimento)
+      const digBrita0 = parseDecimalBr(f45PatosBrita0)
+      const digBrita01 = parseDecimalBr(f45PatosBrita01)
+      const digAreiaAcum = parseDecimalBr(f45PatosAreiaAcum)
+      const digPoAcum = parseDecimalBr(f45PatosPoAcum)
+
+      const realCimento = digCimento
+      const realBrita0 = digBrita0
+      const realBrita19 = Math.max(0, digBrita01 - digBrita0)
+      const realAreia = Math.max(0, digAreiaAcum - digBrita01)
+      const realPo = Math.max(0, digPoAcum - digAreiaAcum)
+
+      return {
+        cimento: realCimento,
+        brita12: realBrita0,
+        brita19: realBrita19,
+        areia: realAreia,
+        poPedra: realPo,
+      }
+    }
+    return {
+      cimento,
+      brita12,
+      brita19,
+      areia,
+      poPedra,
+    }
+  })()
+
+  const aditivoEfetivoTotal = (() => {
+    if (isModoAcumulativoPatosF45) {
+      // Aditivo fixo do traço F45 de Patos (4,629 kg/m³) × volume
+      const adtBase = Number(tracoAtual?.consumo_aditivo) || 4.629
+      return Math.round(adtBase * volumeEfetivo)
+    }
+    return Math.round(aditivo)
+  })()
+
+  const aguaEfetivaTotal = (() => {
+    if (isModoAcumulativoPatosF45) {
+      // Água fixa do traço F45 de Patos (175 L/m³) × volume
+      const aguaBase = Number(tracoAtual?.consumo_agua) || 175
+      return Math.round(aguaBase * volumeEfetivo)
+    }
+    return 0
+  })()
+
   const consumoReal = {
-    cimento: Math.round(cimento * volumeEfetivo),
-    areia: Math.round(areia * volumeEfetivo),
-    brita12: Math.round(brita12 * volumeEfetivo),
-    brita19: Math.round(brita19 * volumeEfetivo),
-    poPedra: Math.round(poPedra * volumeEfetivo),
-    aditivo: Math.round(aditivo),
-    agua: 0,
+    cimento: Math.round(dosagemEfetivaM3.cimento * volumeEfetivo),
+    areia: Math.round(dosagemEfetivaM3.areia * volumeEfetivo),
+    brita12: Math.round(dosagemEfetivaM3.brita12 * volumeEfetivo),
+    brita19: Math.round(dosagemEfetivaM3.brita19 * volumeEfetivo),
+    poPedra: Math.round(dosagemEfetivaM3.poPedra * volumeEfetivo),
+    aditivo: aditivoEfetivoTotal,
+    agua: aguaEfetivaTotal,
   }
 
   // Validação mínima solicitada:
@@ -589,14 +689,38 @@ export default function LancamentoCargas() {
     }
 
     if (!cargaZerada) {
-      const somaInsumos =
-        cimento + brita12 + brita19 + areia + aditivo + poPedra
-      if (somaInsumos <= 0) {
-        faltantes.push({
-          campo: "insumos",
-          rotulo: "Insumos da Carga",
-          mensagem: "Informe as quantidades/dosagens dos insumos",
-        })
+      if (isModoAcumulativoPatosF45) {
+        const digCim = parseDecimalBr(f45PatosCimento)
+        const digB0 = parseDecimalBr(f45PatosBrita0)
+        const digB01 = parseDecimalBr(f45PatosBrita01)
+        const digAr = parseDecimalBr(f45PatosAreiaAcum)
+        const digPo = parseDecimalBr(f45PatosPoAcum)
+
+        if (
+          digCim <= 0 ||
+          digB0 <= 0 ||
+          digB01 <= 0 ||
+          digAr <= 0 ||
+          digPo <= 0
+        ) {
+          faltantes.push({
+            campo: "insumos_f45",
+            rotulo:
+              "Campos Acumulados do F45 (Cimento, Brita 0, Brita 0+1, Areia, Pó)",
+            mensagem:
+              "Preencha todos os 5 campos acumulados do traço F45 (tabela impressa)",
+          })
+        }
+      } else {
+        const somaInsumos =
+          cimento + brita12 + brita19 + areia + aditivo + poPedra
+        if (somaInsumos <= 0) {
+          faltantes.push({
+            campo: "insumos",
+            rotulo: "Insumos da Carga",
+            mensagem: "Informe as quantidades/dosagens dos insumos",
+          })
+        }
       }
     }
 
@@ -660,7 +784,7 @@ export default function LancamentoCargas() {
         consumo_po_pedra: consumoReal.poPedra,
         consumo_cimento: consumoReal.cimento,
         consumo_aditivo: consumoReal.aditivo,
-        consumo_agua: 0,
+        consumo_agua: consumoReal.agua,
         observacao: observacao || null,
         carga_zerada: cargaZerada,
         motivo_zerada: motivoZerada,
@@ -712,7 +836,7 @@ export default function LancamentoCargas() {
         consumo_po_pedra: consumoReal.poPedra,
         consumo_cimento: consumoReal.cimento,
         consumo_aditivo: consumoReal.aditivo,
-        consumo_agua: 0,
+        consumo_agua: consumoReal.agua,
         observacao: observacao || undefined,
         carga_zerada: cargaZerada,
         motivo_zerada: motivoZerada,
@@ -747,6 +871,11 @@ export default function LancamentoCargas() {
       setAditivo(0)
       setAditivoInput("")
       setAditivoBruto(0)
+      setF45PatosCimento("")
+      setF45PatosBrita0("")
+      setF45PatosBrita01("")
+      setF45PatosAreiaAcum("")
+      setF45PatosPoAcum("")
       setTentouGravar(false)
 
       carregarCargasLista()
@@ -789,6 +918,28 @@ export default function LancamentoCargas() {
   }
 
   const tracoAtual = tracos.find((t) => t.id === tracoSelecionadoId)
+
+  // Identifica se a unidade ativa é PATOS
+  const isUnidadePatos =
+    (empresaAtiva?.slug || "").toLowerCase() === "patos" ||
+    (empresaAtiva?.nome || "").toLowerCase().includes("patos")
+
+  // Identifica se o traço selecionado é o F45
+  const isTracoF45 =
+    Number(tracoAtual?.fck_mpa) === 45 ||
+    /^F0*45(?:[^0-9]|$)/i.test((tracoAtual?.nome || "").trim()) ||
+    (tracoAtual?.nome || "").toUpperCase().startsWith("F45")
+
+  // O modo de digitação acumulativa vale APENAS para o traço F45 da unidade PATOS
+  const isModoAcumulativoPatosF45 = isUnidadePatos && isTracoF45
+
+  // Helper para conversão de string digitada (aceita vírgula ou ponto decimal) em número
+  const parseDecimalBr = (val: string): number => {
+    if (!val || val.trim() === "") return 0
+    const normalizado = val.replace(",", ".").trim()
+    const num = parseFloat(normalizado)
+    return isNaN(num) ? 0 : num
+  }
 
   // Lista dos botões de atalho rápido de traço: F10 a F45
   // (Sequência de atalhos rápidos de volume: 3, 4, 5, 6, 7, 8, 9, 10 m³ no template)
@@ -876,11 +1027,6 @@ export default function LancamentoCargas() {
     const traco = encontrarTracoPorFckEmLista(fck, catalogo)
     if (traco) {
       setTracoSelecionadoId(traco.id)
-      setCimento(Number(traco.consumo_cimento) || 0)
-      setBrita12(Number(traco.consumo_brita12) || 0)
-      setBrita19(Number(traco.consumo_brita19) || 0)
-      setAreia(Number(traco.consumo_areia) || 0)
-      setPoPedra(Number(traco.consumo_po_pedra) || 0)
 
       // Sincroniza o volume se necessário e preserva volumeTexto
       if (!volume || volume <= 0) {
@@ -890,19 +1036,64 @@ export default function LancamentoCargas() {
       }
       const volAtual = volume && volume > 0 ? volume : 8.0
 
-      // Aditivo sugerido: calcula total em litros (consumo_aditivo_m3 × volume)
-      const adtBase = Number(traco.consumo_aditivo) || 0
-      const adtTotal = adtBase > 0 ? Math.round(adtBase * volAtual) : 0
-      setAditivo(adtTotal)
-      setAditivoInput(adtTotal > 0 ? String(adtTotal) : "")
-      setAditivoBruto(adtTotal)
-      setAditivoEditadoManualmente(false)
+      const ehPatos =
+        (empresaAtiva?.slug || "").toLowerCase() === "patos" ||
+        (empresaAtiva?.nome || "").toLowerCase().includes("patos")
+      const ehF45 = fck === 45
 
-      toast({
-        title: `Traço ${formatarDescricaoCompletaTraco(traco)} selecionado`,
-        description:
-          "Insumos pré-preenchidos. Você pode ajustar qualquer valor livremente.",
-      })
+      if (ehPatos && ehF45) {
+        // PEDIDO LITERAL PARA UNIDADE PATOS NO F45:
+        // Remover a dosagem fixa e deixar o traço aberto para digitação acumulativa no lançamento
+        // Campos Cimento, Brita 0, Brita 0+1 (acumulado), Areia (acumulado) e Pó (acumulado) iniciam vazios
+        setF45PatosCimento("")
+        setF45PatosBrita0("")
+        setF45PatosBrita01("")
+        setF45PatosAreiaAcum("")
+        setF45PatosPoAcum("")
+
+        // Zera os valores base até a digitação
+        setCimento(0)
+        setBrita12(0)
+        setBrita19(0)
+        setAreia(0)
+        setPoPedra(0)
+
+        // Aditivo (Mplast FK320) e água: usar os valores fixos já cadastrados no traço F45 de PATOS
+        // (banco: aditivo 4,629 kg e água 175 L por 1,00 m³) — sem campo de digitação para eles
+        const adtBase = Number(traco.consumo_aditivo) || 4.629
+        const adtTotal = adtBase > 0 ? Math.round(adtBase * volAtual) : 0
+        setAditivo(adtTotal)
+        setAditivoInput(adtTotal > 0 ? String(adtTotal) : "")
+        setAditivoBruto(adtTotal)
+        setAditivoEditadoManualmente(false)
+
+        toast({
+          title: `Traço ${formatarDescricaoCompletaTraco(traco)} selecionado (Patos)`,
+          description:
+            "Dosagem aberta para digitação acumulativa (tabela impressa).",
+        })
+      } else {
+        // Demais traços / outras unidades mantêm comportamento padrão
+        setCimento(Number(traco.consumo_cimento) || 0)
+        setBrita12(Number(traco.consumo_brita12) || 0)
+        setBrita19(Number(traco.consumo_brita19) || 0)
+        setAreia(Number(traco.consumo_areia) || 0)
+        setPoPedra(Number(traco.consumo_po_pedra) || 0)
+
+        // Aditivo sugerido: calcula total em litros (consumo_aditivo_m3 × volume)
+        const adtBase = Number(traco.consumo_aditivo) || 0
+        const adtTotal = adtBase > 0 ? Math.round(adtBase * volAtual) : 0
+        setAditivo(adtTotal)
+        setAditivoInput(adtTotal > 0 ? String(adtTotal) : "")
+        setAditivoBruto(adtTotal)
+        setAditivoEditadoManualmente(false)
+
+        toast({
+          title: `Traço ${formatarDescricaoCompletaTraco(traco)} selecionado`,
+          description:
+            "Insumos pré-preenchidos. Você pode ajustar qualquer valor livremente.",
+        })
+      }
     } else {
       toast({
         title: `Traço F${fck} não encontrado`,
@@ -917,6 +1108,11 @@ export default function LancamentoCargas() {
   // Permite desmarcar o traço para gravar expressamente como Manual / Sem vínculo
   const limparTracoVinculado = () => {
     setTracoSelecionadoId("")
+    setF45PatosCimento("")
+    setF45PatosBrita0("")
+    setF45PatosBrita01("")
+    setF45PatosAreiaAcum("")
+    setF45PatosPoAcum("")
     toast({
       title: "Traço desvinculado",
       description: "A carga será gravada sem traço vinculado (Manual).",
@@ -1303,6 +1499,250 @@ export default function LancamentoCargas() {
 
               {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
               <div className="space-y-3">
+                {isModoAcumulativoPatosF45 ? (
+                  /* MODO ACUMULATIVO EXCLUSIVO DO F45 NA UNIDADE PATOS:
+                     5 campos de digitação acumulativa por 1,00 m³ (mesmo estilo da tabela impressa):
+                     1. Cimento (kg/m³)
+                     2. Brita 0 (kg/m³)
+                     3. Brita 0+1 acumulado (kg/m³)
+                     4. Areia acumulado (kg/m³)
+                     5. Pó acumulado (kg/m³)
+                     Aditivo (Mplast FK320) e água fixos sem digitação. */
+                  <div className="space-y-4">
+                    <div className="p-3.5 rounded-xl bg-primary/10 border-2 border-primary/40 text-xs text-foreground space-y-1">
+                      <div className="font-bold text-sm text-primary flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4" />
+                        Tabela Impressa Acumulativa — F45 Patos (por 1,00 m³)
+                      </div>
+                      <p className="text-muted-foreground text-[11px]">
+                        Digite os valores da tabela impressa acumulada por 1,00 m³. O app desmembra subtraindo o valor anterior e multiplica pelo volume da carga ({volumeEfetivo > 0 ? String(volumeEfetivo).replace(".", ",") : "0"} m³). Aceita vírgula decimal.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {/* 1. Cimento */}
+                      <div className="p-3.5 rounded-xl border-2 border-primary/40 bg-primary/5 space-y-1.5">
+                        <Label
+                          htmlFor="f45_cimento"
+                          className="text-xs font-bold text-foreground flex items-center justify-between"
+                        >
+                          <span className="flex items-center gap-1">
+                            1. Cimento (por 1,00 m³) *
+                            <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal">
+                              Estoque
+                            </span>
+                          </span>
+                          {volumeEfetivo > 0 && (
+                            <span className="text-[11px] font-mono font-bold text-primary">
+                              Total: {consumoReal.cimento.toLocaleString("pt-BR")} kg
+                            </span>
+                          )}
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="f45_cimento"
+                            type="text"
+                            inputMode="decimal"
+                            value={f45PatosCimento}
+                            onChange={(e) => setF45PatosCimento(e.target.value)}
+                            disabled={cargaZerada}
+                            placeholder="Ex.: 438"
+                            className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                            kg/m³
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground font-mono">
+                          Real: {dosagemEfetivaM3.cimento.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
+                        </p>
+                      </div>
+
+                      {/* 2. Brita 0 */}
+                      <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
+                        <Label
+                          htmlFor="f45_brita0"
+                          className="text-xs font-bold text-foreground flex items-center justify-between"
+                        >
+                          <span>2. Brita 0 (por 1,00 m³) *</span>
+                          {volumeEfetivo > 0 && (
+                            <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                              Total: {consumoReal.brita12.toLocaleString("pt-BR")} kg
+                            </span>
+                          )}
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="f45_brita0"
+                            type="text"
+                            inputMode="decimal"
+                            value={f45PatosBrita0}
+                            onChange={(e) => setF45PatosBrita0(e.target.value)}
+                            disabled={cargaZerada}
+                            placeholder="Ex.: 392"
+                            className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                            kg/m³
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground font-mono">
+                          Real B0: {dosagemEfetivaM3.brita12.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
+                        </p>
+                      </div>
+
+                      {/* 3. Brita 0+1 (acumulado) */}
+                      <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
+                        <Label
+                          htmlFor="f45_brita01"
+                          className="text-xs font-bold text-foreground flex items-center justify-between"
+                        >
+                          <span>3. Brita 0+1 (acumulado) *</span>
+                          {volumeEfetivo > 0 && (
+                            <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                              Total B1: {consumoReal.brita19.toLocaleString("pt-BR")} kg
+                            </span>
+                          )}
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="f45_brita01"
+                            type="text"
+                            inputMode="decimal"
+                            value={f45PatosBrita01}
+                            onChange={(e) => setF45PatosBrita01(e.target.value)}
+                            disabled={cargaZerada}
+                            placeholder="Ex.: 980"
+                            className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                            kg/m³
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground font-mono">
+                          Real B1 (acum − B0): {dosagemEfetivaM3.brita19.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
+                        </p>
+                      </div>
+
+                      {/* 4. Areia (acumulado) */}
+                      <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
+                        <Label
+                          htmlFor="f45_areia"
+                          className="text-xs font-bold text-foreground flex items-center justify-between"
+                        >
+                          <span>4. Areia (acumulado) *</span>
+                          {volumeEfetivo > 0 && (
+                            <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                              Total: {consumoReal.areia.toLocaleString("pt-BR")} kg
+                            </span>
+                          )}
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="f45_areia"
+                            type="text"
+                            inputMode="decimal"
+                            value={f45PatosAreiaAcum}
+                            onChange={(e) => setF45PatosAreiaAcum(e.target.value)}
+                            disabled={cargaZerada}
+                            placeholder="Ex.: 1302"
+                            className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                            kg/m³
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground font-mono">
+                          Real Areia (acum − B0+1): {dosagemEfetivaM3.areia.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
+                        </p>
+                      </div>
+
+                      {/* 5. Pó (acumulado) */}
+                      <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
+                        <Label
+                          htmlFor="f45_po"
+                          className="text-xs font-bold text-foreground flex items-center justify-between"
+                        >
+                          <span>5. Pó (acumulado) *</span>
+                          {volumeEfetivo > 0 && (
+                            <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                              Total: {consumoReal.poPedra.toLocaleString("pt-BR")} kg
+                            </span>
+                          )}
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="f45_po"
+                            type="text"
+                            inputMode="decimal"
+                            value={f45PatosPoAcum}
+                            onChange={(e) => setF45PatosPoAcum(e.target.value)}
+                            disabled={cargaZerada}
+                            placeholder="Ex.: 1690"
+                            className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                            kg/m³
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground font-mono">
+                          Real Pó (acum − areia): {dosagemEfetivaM3.poPedra.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
+                        </p>
+                      </div>
+
+                      {/* Insumos Fixos do F45 (Aditivo e Água) */}
+                      <div className="p-3.5 rounded-xl border border-border/70 bg-muted/30 space-y-1.5 flex flex-col justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-foreground block">
+                            Aditivo & Água (Fixos no Traço)
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">
+                            Traço F45 Patos (sem digitação)
+                          </span>
+                        </div>
+                        <div className="space-y-1 font-mono text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Aditivo (FK320):</span>
+                            <span className="font-bold text-primary">
+                              {consumoReal.aditivo.toLocaleString("pt-BR")} L (4,629 kg/m³)
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Água:</span>
+                            <span className="font-semibold text-foreground">
+                              {consumoReal.agua.toLocaleString("pt-BR")} L (175 L/m³)
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Observação opcional */}
+                    <div className="pt-2">
+                      <Label
+                        htmlFor="observacao"
+                        className="text-xs font-medium text-muted-foreground"
+                      >
+                        Observação (opcional)
+                      </Label>
+                      <Input
+                        id="observacao"
+                        value={observacao}
+                        onChange={(e) => setObservacao(e.target.value)}
+                        placeholder="Ex.: Adicionado na obra, descarga rápida, etc."
+                        className="min-h-[40px] h-10 text-xs sm:text-sm bg-background rounded-xl mt-1"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
                 {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
                     CIMENTO, B12, B19, AREIA e ADITIVO */}
                 <div className="space-y-3">
@@ -1536,6 +1976,7 @@ export default function LancamentoCargas() {
                     />
                   </div>
                 </div>
+                )}
               </div>
             </div>
 
@@ -1714,40 +2155,55 @@ export default function LancamentoCargas() {
                     <span className="text-muted-foreground">Cimento (CP):</span>
                     <span className="font-bold text-primary">
                       {consumoReal.cimento.toLocaleString("pt-BR")} kg (
-                      {cimento} kg/m³)
+                      {dosagemEfetivaM3.cimento.toFixed(1)} kg/m³)
                     </span>
                   </div>
                   <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
                     <span className="text-muted-foreground">
-                      B12 (Brita 12):
+                      B12 (Brita 12 / Brita 0):
                     </span>
                     <span className="font-semibold">
                       {consumoReal.brita12.toLocaleString("pt-BR")} kg (
-                      {brita12} kg/m³)
+                      {dosagemEfetivaM3.brita12.toFixed(1)} kg/m³)
                     </span>
                   </div>
                   <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
                     <span className="text-muted-foreground">
-                      B19 (Brita 19):
+                      B19 (Brita 19 / Brita 1):
                     </span>
                     <span className="font-semibold">
                       {consumoReal.brita19.toLocaleString("pt-BR")} kg (
-                      {brita19} kg/m³)
+                      {dosagemEfetivaM3.brita19.toFixed(1)} kg/m³)
                     </span>
                   </div>
                   <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
                     <span className="text-muted-foreground">Areia:</span>
                     <span className="font-semibold">
-                      {consumoReal.areia.toLocaleString("pt-BR")} kg ({areia}{" "}
+                      {consumoReal.areia.toLocaleString("pt-BR")} kg ({dosagemEfetivaM3.areia.toFixed(1)}{" "}
                       kg/m³)
                     </span>
                   </div>
-                  <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0 col-span-1 sm:col-span-2">
+                  <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
+                    <span className="text-muted-foreground">Pó de Brita:</span>
+                    <span className="font-semibold">
+                      {consumoReal.poPedra.toLocaleString("pt-BR")} kg (
+                      {dosagemEfetivaM3.poPedra.toFixed(1)} kg/m³)
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
                     <span className="text-muted-foreground">Aditivo:</span>
                     <span className="font-bold text-primary">
                       {consumoReal.aditivo.toLocaleString("pt-BR")} Litros
                     </span>
                   </div>
+                  {consumoReal.agua > 0 && (
+                    <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0 col-span-1 sm:col-span-2">
+                      <span className="text-muted-foreground">Água:</span>
+                      <span className="font-semibold">
+                        {consumoReal.agua.toLocaleString("pt-BR")} Litros
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
