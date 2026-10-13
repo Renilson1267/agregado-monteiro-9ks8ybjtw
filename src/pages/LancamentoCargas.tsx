@@ -1039,172 +1039,231 @@ export default function LancamentoCargas() {
           </CardHeader>
 
           <CardContent className="p-4 sm:p-6 space-y-5">
-            {/* 1. DATA e 2. VOLUME m³ EM CAMPO GRANDE/DESTACADO */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-              {/* 1. DATA (padrão hoje) */}
-              <div className="md:col-span-4 space-y-1.5">
+            {/* 1. DATA DA CARGA */}
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="data"
+                className={`text-xs sm:text-sm font-semibold flex items-center justify-between ${
+                  tentouGravar && (!dataCarga || dataCarga.trim() === "")
+                    ? "text-destructive font-bold"
+                    : "text-foreground"
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  1. Data da Carga *
+                </span>
+                {tentouGravar && (!dataCarga || dataCarga.trim() === "") && (
+                  <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
+                    <AlertCircle className="w-3.5 h-3.5" /> Obrigatório
+                  </span>
+                )}
+              </Label>
+              <Input
+                id="data"
+                type="date"
+                value={dataCarga}
+                onChange={(e) => setDataCarga(e.target.value)}
+                required
+                className={`min-h-[48px] h-12 text-sm sm:text-base bg-background font-mono rounded-xl px-3 transition-colors ${
+                  tentouGravar && (!dataCarga || dataCarga.trim() === "")
+                    ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5"
+                    : ""
+                }`}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Padrão pré-preenchido com a data de hoje.
+              </p>
+            </div>
+
+            {/* ATALHOS RÁPIDOS DE TRAÇO: IMEDIATAMENTE ABAIXO DO CAMPO DE DATA */}
+            <div className="p-4 rounded-2xl border border-border/70 bg-muted/30 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-primary" />
+                    Atalhos Rápidos de Traço
+                  </span>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    1 toque pré-preenche as dosagens cadastradas. Opcional: pode
+                    digitar direto sem escolher traço.
+                  </p>
+                </div>
+
+                {tracoSelecionadoId && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={limparTracoVinculado}
+                    className="self-start sm:self-auto text-xs font-semibold h-8 rounded-xl border-dashed"
+                  >
+                    Limpar Traço (Gravar Manual)
+                  </Button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2">
+                {ATALHOS_TRACO.map((atalho) => {
+                  const tracoExistente = encontrarTracoPorFck(atalho.fck)
+                  const isAtivo = tracoSelecionadoId === tracoExistente?.id
+
+                  return (
+                    <button
+                      key={atalho.label}
+                      type="button"
+                      onClick={() => void selecionarAtalhoTraco(atalho.fck)}
+                      disabled={cargaZerada || carregandoTracos}
+                      className={`h-12 px-3 rounded-xl border-2 font-mono font-black text-sm sm:text-base flex items-center justify-between sm:justify-center sm:gap-1.5 transition-all ${
+                        isAtivo
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm scale-102"
+                          : "bg-background text-foreground hover:bg-primary/10 hover:border-primary/50 border-border/80"
+                      }`}
+                      title={
+                        tracoExistente
+                          ? formatarDescricaoCompletaTraco(tracoExistente)
+                          : `Traço FCK ${atalho.fck} MPa`
+                      }
+                    >
+                      <span>{atalho.label}</span>
+                      <span
+                        className={`text-[10px] font-sans font-normal ${
+                          isAtivo
+                            ? "text-primary-foreground/80"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {atalho.fck}M
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* 2. VOLUME m³ EM CAMPO GRANDE/DESTACADO */}
+            <div className="p-3.5 sm:p-4 rounded-2xl border-2 border-primary/40 bg-primary/5 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                 <Label
-                  htmlFor="data"
-                  className={`text-xs sm:text-sm font-semibold flex items-center justify-between ${
-                    tentouGravar && (!dataCarga || dataCarga.trim() === "")
+                  htmlFor="volume"
+                  className={`text-sm sm:text-base font-bold flex items-center gap-2 ${
+                    tentouGravar &&
+                    (!volume || Number(volume) < 0.5 || Number(volume) > 10.0)
                       ? "text-destructive font-bold"
                       : "text-foreground"
                   }`}
                 >
-                  <span className="flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-primary" />
-                    1. Data da Carga *
-                  </span>
-                  {tentouGravar && (!dataCarga || dataCarga.trim() === "") && (
-                    <span className="text-[11px] text-destructive flex items-center gap-1 font-normal">
-                      <AlertCircle className="w-3.5 h-3.5" /> Obrigatório
+                  <Layers className="w-4 h-4 text-primary" />
+                  <span>2. Volume da Carga (m³) *</span>
+                </Label>
+                {tentouGravar &&
+                  (!volume ||
+                    Number(volume) < 0.5 ||
+                    Number(volume) > 10.0) && (
+                    <span className="text-xs text-destructive flex items-center gap-1 font-medium">
+                      <AlertCircle className="w-3.5 h-3.5" /> Informe volume
+                      entre 0,5 e 10,0 m³
                     </span>
                   )}
-                </Label>
-                <Input
-                  id="data"
-                  type="date"
-                  value={dataCarga}
-                  onChange={(e) => setDataCarga(e.target.value)}
-                  required
-                  className={`min-h-[48px] h-12 text-sm sm:text-base bg-background font-mono rounded-xl px-3 transition-colors ${
-                    tentouGravar && (!dataCarga || dataCarga.trim() === "")
-                      ? "border-destructive ring-1 ring-destructive/40 bg-destructive/5"
-                      : ""
-                  }`}
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Padrão pré-preenchido com a data de hoje.
-                </p>
               </div>
 
-              {/* 2. VOLUME m³ EM CAMPO GRANDE/DESTACADO */}
-              <div className="md:col-span-8 p-3.5 sm:p-4 rounded-2xl border-2 border-primary/40 bg-primary/5 space-y-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                  <Label
-                    htmlFor="volume"
-                    className={`text-sm sm:text-base font-bold flex items-center gap-2 ${
+              <div className="flex flex-col items-stretch gap-3">
+                <div className="relative w-full">
+                  <Input
+                    id="volume"
+                    ref={volumeInputRef}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={volumeTexto}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      setVolumeTexto(raw)
+                      if (!raw || raw.trim() === "") {
+                        setVolume(0)
+                        return
+                      }
+                      const normalizado = raw.replace(",", ".").trim()
+                      const parsed = parseFloat(normalizado)
+                      setVolume(!isNaN(parsed) && parsed > 0 ? parsed : 0)
+                    }}
+                    onBlur={(e) => {
+                      const raw = e.target.value
+                      if (!raw || raw.trim() === "") {
+                        setVolume(0)
+                        return
+                      }
+                      const normalizado = raw.replace(",", ".").trim()
+                      const parsed = parseFloat(normalizado)
+                      if (!isNaN(parsed) && parsed > 0) {
+                        setVolume(parsed)
+                      } else {
+                        setVolume(0)
+                      }
+                    }}
+                    required
+                    placeholder="Ex.: 8"
+                    style={{
+                      color: "#0f172a",
+                      backgroundColor: "#ffffff",
+                      fontSize: "24px",
+                    }}
+                    className={`min-h-[52px] h-14 text-2xl font-black font-mono !text-slate-900 !bg-white dark:!text-slate-900 dark:!bg-white text-left pr-14 rounded-xl border-2 transition-colors ${
                       tentouGravar &&
                       (!volume || Number(volume) < 0.5 || Number(volume) > 10.0)
-                        ? "text-destructive font-bold"
-                        : "text-foreground"
+                        ? "border-destructive ring-2 ring-destructive/40"
+                        : "border-primary/50 focus-visible:ring-primary"
                     }`}
-                  >
-                    <Layers className="w-4 h-4 text-primary" />
-                    <span>2. Volume da Carga (m³) *</span>
-                  </Label>
-                  {tentouGravar &&
-                    (!volume ||
-                      Number(volume) < 0.5 ||
-                      Number(volume) > 10.0) && (
-                      <span className="text-xs text-destructive flex items-center gap-1 font-medium">
-                        <AlertCircle className="w-3.5 h-3.5" /> Informe volume
-                        entre 0,5 e 10,0 m³
-                      </span>
-                    )}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm sm:text-base font-black text-muted-foreground pointer-events-none font-mono">
+                    m³
+                  </span>
                 </div>
 
-                <div className="flex flex-col items-stretch gap-3">
-                  <div className="relative w-full">
-                    <Input
-                      id="volume"
-                      ref={volumeInputRef}
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      value={volumeTexto}
-                      onChange={(e) => {
-                        const raw = e.target.value
-                        setVolumeTexto(raw)
-                        if (!raw || raw.trim() === "") {
-                          setVolume(0)
-                          return
-                        }
-                        const normalizado = raw.replace(",", ".").trim()
-                        const parsed = parseFloat(normalizado)
-                        setVolume(!isNaN(parsed) && parsed > 0 ? parsed : 0)
-                      }}
-                      onBlur={(e) => {
-                        const raw = e.target.value
-                        if (!raw || raw.trim() === "") {
-                          setVolume(0)
-                          return
-                        }
-                        const normalizado = raw.replace(",", ".").trim()
-                        const parsed = parseFloat(normalizado)
-                        if (!isNaN(parsed) && parsed > 0) {
-                          setVolume(parsed)
-                        } else {
-                          setVolume(0)
-                        }
-                      }}
-                      required
-                      placeholder="Ex.: 8"
-                      style={{
-                        color: "#0f172a",
-                        backgroundColor: "#ffffff",
-                        fontSize: "24px",
-                      }}
-                      className={`min-h-[52px] h-14 text-2xl font-black font-mono !text-slate-900 !bg-white dark:!text-slate-900 dark:!bg-white text-left pr-14 rounded-xl border-2 transition-colors ${
-                        tentouGravar &&
-                        (!volume ||
-                          Number(volume) < 0.5 ||
-                          Number(volume) > 10.0)
-                          ? "border-destructive ring-2 ring-destructive/40"
-                          : "border-primary/50 focus-visible:ring-primary"
-                      }`}
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm sm:text-base font-black text-muted-foreground pointer-events-none font-mono">
-                      m³
-                    </span>
-                  </div>
+                {/* Opções prontas de volume com 1 toque (0,5 a 10,0 em passos de 0,5) */}
+                <div className="space-y-1.5 w-full">
+                  <span className="text-[11px] font-medium text-muted-foreground block">
+                    Opções prontas (0,5 a 10,0 m³):
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap w-full">
+                    {[
+                      0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5,
+                      6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0,
+                    ].map((vRapido) => {
+                      const strRapido = Number.isInteger(vRapido)
+                        ? String(vRapido)
+                        : vRapido.toString().replace(".", ",")
+                      const isSelecionado =
+                        volume === vRapido ||
+                        volumeTexto.trim().replace(",", ".") === String(vRapido)
 
-                  {/* Opções prontas de volume com 1 toque (0,5 a 10,0 em passos de 0,5) */}
-                  <div className="space-y-1.5 w-full">
-                    <span className="text-[11px] font-medium text-muted-foreground block">
-                      Opções prontas (0,5 a 10,0 m³):
-                    </span>
-                    <div className="flex items-center gap-1.5 flex-wrap w-full">
-                      {[
-                        0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5,
-                        6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0,
-                      ].map((vRapido) => {
-                        const strRapido = Number.isInteger(vRapido)
-                          ? String(vRapido)
-                          : vRapido.toString().replace(".", ",")
-                        const isSelecionado =
-                          volume === vRapido ||
-                          volumeTexto.trim().replace(",", ".") ===
-                            String(vRapido)
-
-                        return (
-                          <button
-                            key={vRapido}
-                            type="button"
-                            onClick={() => {
-                              setVolume(vRapido)
-                              setVolumeTexto(strRapido)
-                              if (volumeInputRef.current) {
-                                volumeInputRef.current.value = strRapido
-                              }
-                            }}
-                            className={`h-9 px-2.5 sm:px-3 text-xs font-mono font-bold rounded-lg border-2 transition-all ${
-                              isSelecionado
-                                ? "bg-primary text-primary-foreground border-primary shadow-sm scale-105"
-                                : "bg-background text-foreground hover:bg-muted border-border/70"
-                            }`}
-                          >
-                            {strRapido} m³
-                          </button>
-                        )
-                      })}
-                    </div>
+                      return (
+                        <button
+                          key={vRapido}
+                          type="button"
+                          onClick={() => {
+                            setVolume(vRapido)
+                            setVolumeTexto(strRapido)
+                            if (volumeInputRef.current) {
+                              volumeInputRef.current.value = strRapido
+                            }
+                          }}
+                          className={`h-9 px-2.5 sm:px-3 text-xs font-mono font-bold rounded-lg border-2 transition-all ${
+                            isSelecionado
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm scale-105"
+                              : "bg-background text-foreground hover:bg-muted border-border/70"
+                          }`}
+                        >
+                          {strRapido} m³
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* 3. INSUMOS COM ATALHO OPCIONAL DE TRAÇO AO LADO */}
+            {/* 3. INSUMOS DA CARGA (DIGITAÇÃO LIVRE) */}
             <div className="space-y-3 pt-2 border-t border-border/40">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2">
                 <div>
@@ -1242,13 +1301,11 @@ export default function LancamentoCargas() {
                 )}
               </div>
 
-              {/* Layout em 2 colunas:
-                  Esquerda/Principal: Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo)
-                  Direita/Lateral: Atalhos rápidos de traço F10 a F45 */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
                 {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
                     CIMENTO, B12, B19, AREIA e ADITIVO */}
-                <div className="lg:col-span-8 space-y-3">
+                <div className="space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* CIMENTO */}
                     <div className="p-3.5 rounded-xl border-2 border-primary/40 bg-primary/5 space-y-1.5">
@@ -1478,72 +1535,6 @@ export default function LancamentoCargas() {
                       className="min-h-[40px] h-10 text-xs sm:text-sm bg-background rounded-xl mt-1"
                     />
                   </div>
-                </div>
-
-                {/* ATALHO OPCIONAL DE TRAÇO:
-                    Botões grandes F10 · F15 · F20 · F25 · F30 · F35 · F40 · F45
-                    Ao lado dos insumos no lugar do select atual.
-                    O TRAÇO NÃO É OBRIGATÓRIO: o balanceiro pode digitar livremente */}
-                <div className="lg:col-span-4 p-4 rounded-2xl border border-border/70 bg-muted/30 space-y-3">
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-primary" />
-                      Atalhos Rápidos de Traço
-                    </span>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      1 toque pré-preenche as dosagens cadastradas. Opcional:
-                      pode digitar direto sem escolher traço.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2">
-                    {ATALHOS_TRACO.map((atalho) => {
-                      const tracoExistente = encontrarTracoPorFck(atalho.fck)
-                      const isAtivo = tracoSelecionadoId === tracoExistente?.id
-
-                      return (
-                        <button
-                          key={atalho.label}
-                          type="button"
-                          onClick={() => void selecionarAtalhoTraco(atalho.fck)}
-                          disabled={cargaZerada || carregandoTracos}
-                          className={`h-12 px-3 rounded-xl border-2 font-mono font-black text-sm sm:text-base flex items-center justify-between transition-all ${
-                            isAtivo
-                              ? "bg-primary text-primary-foreground border-primary shadow-sm scale-102"
-                              : "bg-background text-foreground hover:bg-primary/10 hover:border-primary/50 border-border/80"
-                          }`}
-                          title={
-                            tracoExistente
-                              ? formatarDescricaoCompletaTraco(tracoExistente)
-                              : `Traço FCK ${atalho.fck} MPa`
-                          }
-                        >
-                          <span>{atalho.label}</span>
-                          <span
-                            className={`text-[10px] font-sans font-normal ${
-                              isAtivo
-                                ? "text-primary-foreground/80"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            {atalho.fck} MPa
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  {tracoSelecionadoId && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={limparTracoVinculado}
-                      className="w-full text-xs font-semibold h-9 rounded-xl border-dashed"
-                    >
-                      Limpar Traço (Gravar Manual)
-                    </Button>
-                  )}
                 </div>
               </div>
             </div>

@@ -1,6 +1,6 @@
 // Service Worker simples e seguro para o PWA GC MIX Concreto Usinado
-// Versão do cache: alterar para invalidar cache estático (build v19 trigger - aviso de atualização no app)
-const CACHE_NAME = "gcmix-pwa-v19"
+// Versão do cache: alterar para invalidar cache estático (build v20 trigger - aviso de atualização no app)
+const CACHE_NAME = "gcmix-pwa-v20"
 
 // Recursos estáticos básicos essenciais para abrir o shell do app offline
 const PRECACHE_ASSETS = [
