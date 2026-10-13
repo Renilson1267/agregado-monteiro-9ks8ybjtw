@@ -2277,17 +2277,43 @@ export default function Relatorios() {
                           key={u.empresaId}
                           className="py-2.5 px-3 text-right font-mono"
                         >
-                          {(u.consumos.cimento / 1000).toFixed(2)} t
+                          <div className="font-semibold text-foreground">
+                            {(u.consumos.cimento / 1000).toFixed(2)} t
+                          </div>
+                          <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                            R${" "}
+                            {u.custosPorMaterial.cimento.toLocaleString(
+                              "pt-BR",
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              },
+                            )}
+                          </div>
                         </td>
                       ))}
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-primary">
-                        {(
-                          dadosComparativo.unidades.reduce(
-                            (a, b) => a + b.consumos.cimento,
-                            0,
-                          ) / 1000
-                        ).toFixed(2)}{" "}
-                        t
+                        <div>
+                          {(
+                            dadosComparativo.unidades.reduce(
+                              (a, b) => a + b.consumos.cimento,
+                              0,
+                            ) / 1000
+                          ).toFixed(2)}{" "}
+                          t
+                        </div>
+                        <div className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                          R${" "}
+                          {dadosComparativo.unidades
+                            .reduce(
+                              (a, b) => a + b.custosPorMaterial.cimento,
+                              0,
+                            )
+                            .toLocaleString("pt-BR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                        </div>
                       </td>
                     </tr>
                     <tr>
@@ -2299,14 +2325,40 @@ export default function Relatorios() {
                           key={u.empresaId}
                           className="py-2.5 px-3 text-right font-mono"
                         >
-                          {u.consumos.aditivo.toLocaleString("pt-BR")} L
+                          <div className="font-semibold text-foreground">
+                            {u.consumos.aditivo.toLocaleString("pt-BR")} L
+                          </div>
+                          <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                            R${" "}
+                            {u.custosPorMaterial.aditivo.toLocaleString(
+                              "pt-BR",
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              },
+                            )}
+                          </div>
                         </td>
                       ))}
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-primary">
-                        {dadosComparativo.unidades
-                          .reduce((a, b) => a + b.consumos.aditivo, 0)
-                          .toLocaleString("pt-BR")}{" "}
-                        L
+                        <div>
+                          {dadosComparativo.unidades
+                            .reduce((a, b) => a + b.consumos.aditivo, 0)
+                            .toLocaleString("pt-BR")}{" "}
+                          L
+                        </div>
+                        <div className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                          R${" "}
+                          {dadosComparativo.unidades
+                            .reduce(
+                              (a, b) => a + b.custosPorMaterial.aditivo,
+                              0,
+                            )
+                            .toLocaleString("pt-BR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                        </div>
                       </td>
                     </tr>
                     <tr>
