@@ -39,11 +39,17 @@ import {
 import { ConcreteiraService } from "@/services/concreteira"
 import { useEmpresa } from "@/hooks/use-empresa"
 import { useUsuario } from "@/hooks/use-usuario"
-import type { Material, MovimentacaoEstoque } from "@/types/concreteira"
+import type {
+  Material,
+  MovimentacaoEstoque,
+  RecipienteEstoque,
+} from "@/types/concreteira"
 import {
   Boxes,
   PlusCircle,
   AlertTriangle,
+  CheckCircle2,
+  Cylinder,
   History,
   TrendingDown,
   TrendingUp,
@@ -64,6 +70,7 @@ export default function Estoque() {
   const { empresaAtiva } = useEmpresa()
   const { isBalanceiro } = useUsuario()
   const [materiais, setMateriais] = useState<Material[]>([])
+  const [recipientes, setRecipientes] = useState<RecipienteEstoque[]>([])
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([])
   const [filtroMaterial, setFiltroMaterial] = useState<string>("ALL")
   const [loading, setLoading] = useState(true)
@@ -72,6 +79,7 @@ export default function Estoque() {
   const [openEntrada, setOpenEntrada] = useState(false)
   const [salvandoEntrada, setSalvandoEntrada] = useState(false)
   const [materialEntradaId, setMaterialEntradaId] = useState("")
+  const [recipienteDestinoId, setRecipienteDestinoId] = useState("")
   const [quantidadeEntrada, setQuantidadeEntrada] = useState<number>(0)
   const [precoUnitarioEntrada, setPrecoUnitarioEntrada] = useState<string>("")
   const [dataEntrada, setDataEntrada] = useState(
@@ -96,16 +104,19 @@ export default function Estoque() {
     if (!empresaAtiva) return
     setLoading(true)
     try {
-      const [mats, movs] = await Promise.all([
+      const [mats, movs, recs] = await Promise.all([
         ConcreteiraService.getMateriais(empresaAtiva.id),
         ConcreteiraService.getMovimentacoes(
           filtroMaterial,
           empresaAtiva.id,
           true,
         ),
+        ConcreteiraService.getRecipientesEstoque(empresaAtiva.id),
       ])
       setMateriais(mats)
       setMovimentacoes(movs)
+      setRecipientes(recs || [])
+
       // Seleciona material inicial apenas dentre os controlados (cimento e aditivo)
       const matsControlados = mats.filter(
         (m) => m.codigo === "cimento" || m.codigo === "aditivo",
@@ -136,6 +147,40 @@ export default function Estoque() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtroMaterial, empresaAtiva?.id])
 
+  // Recipientes filtrados para o material selecionado na entrada
+  const materialSelecionadoEntrada = materiais.find(
+    (m) => m.id === materialEntradaId,
+  )
+  const recipientesFiltradosEntrada = recipientes.filter((r) => {
+    if (!materialSelecionadoEntrada) return false
+    if (r.material_id && r.material_id === materialSelecionadoEntrada.id)
+      return true
+    if (materialSelecionadoEntrada.codigo === "cimento") {
+      return r.tipo === "silo" || r.material_codigo === "cimento"
+    }
+    if (materialSelecionadoEntrada.codigo === "aditivo") {
+      return r.tipo === "tanque" || r.material_codigo === "aditivo"
+    }
+    return false
+  })
+
+  // Efeito para ajustar automaticamente o recipiente de destino quando muda o material
+  useEffect(() => {
+    if (recipientesFiltradosEntrada.length > 0) {
+      if (
+        !recipienteDestinoId ||
+        !recipientesFiltradosEntrada.some((r) => r.id === recipienteDestinoId)
+      ) {
+        setRecipienteDestinoId(recipientesFiltradosEntrada[0].id)
+      }
+    } else {
+      setRecipienteDestinoId("")
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [materialEntradaId, recipientes])
+
+  const precisaRecipienteDestino = recipientesFiltradosEntrada.length > 0
+
   // Parse preco unitario numérico
   const precoUnitarioNum = Number(precoUnitarioEntrada.replace(",", ".")) || 0
   const valorTotalCalculado =
@@ -146,11 +191,14 @@ export default function Estoque() {
     Boolean(materialEntradaId) &&
     quantidadeEntrada > 0 &&
     precoUnitarioEntrada.trim() !== "" &&
-    precoUnitarioNum > 0
+    precoUnitarioNum > 0 &&
+    (!precisaRecipienteDestino || Boolean(recipienteDestinoId))
 
   const executarSalvarEntrada = async () => {
     setSalvandoEntrada(true)
     try {
+      const recEscolhido = recipientes.find((r) => r.id === recipienteDestinoId)
+
       await ConcreteiraService.registrarEntradaEstoque({
         empresa_id: empresaAtiva?.id,
         material_id: materialEntradaId,
@@ -159,11 +207,17 @@ export default function Estoque() {
         valor_total: valorTotalCalculado,
         data: dataEntrada,
         documento: documentoEntrada || undefined,
-        observacao: obsEntrada || undefined,
+        observacao:
+          obsEntrada ||
+          (recEscolhido ? `Entrada no ${recEscolhido.nome}` : undefined),
+        recipiente_id: recEscolhido?.id,
+        recipiente_nome: recEscolhido?.nome,
       })
       toast({
         title: "Entrada registrada com sucesso!",
-        description: "Estoque atualizado com a reposição.",
+        description: recEscolhido
+          ? `Estoque atualizado e creditado no ${recEscolhido.nome}.`
+          : "Estoque atualizado com a reposição.",
       })
       setModalConfirmarEntradaAberta(false)
       setOpenEntrada(false)
@@ -189,6 +243,17 @@ export default function Estoque() {
       toast({
         title: "Atenção",
         description: "Informe material e quantidade positiva.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (precisaRecipienteDestino && !recipienteDestinoId) {
+      toast({
+        title: "Atenção",
+        description: `Selecione o ${
+          materialSelecionadoEntrada?.codigo === "aditivo" ? "tanque" : "silo"
+        } de destino.`,
         variant: "destructive",
       })
       return
@@ -318,7 +383,9 @@ export default function Estoque() {
                   <Label htmlFor="materialEntrada">Material Controlado *</Label>
                   <Select
                     value={materialEntradaId}
-                    onValueChange={setMaterialEntradaId}
+                    onValueChange={(val) => {
+                      setMaterialEntradaId(val)
+                    }}
                   >
                     <SelectTrigger id="materialEntrada">
                       <SelectValue placeholder="Selecione o material" />
@@ -337,6 +404,48 @@ export default function Estoque() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Se a unidade tiver recipientes para o material (ex.: Patos), seletor de silo/tanque obrigatório */}
+                {precisaRecipienteDestino && (
+                  <div className="space-y-2 p-3 rounded-lg border border-primary/30 bg-primary/5">
+                    <Label
+                      htmlFor="recipienteDestino"
+                      className="text-xs font-semibold text-foreground flex items-center gap-1.5"
+                    >
+                      <Cylinder className="w-3.5 h-3.5 text-primary" />
+                      {materialSelecionadoEntrada?.codigo === "aditivo"
+                        ? "Tanque de Destino (Patos) *"
+                        : "Silo de Destino (Patos) *"}
+                    </Label>
+                    <Select
+                      value={recipienteDestinoId}
+                      onValueChange={setRecipienteDestinoId}
+                    >
+                      <SelectTrigger
+                        id="recipienteDestino"
+                        className="bg-background text-xs font-semibold"
+                      >
+                        <SelectValue placeholder="Selecione o recipiente de destino..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {recipientesFiltradosEntrada.map((r) => (
+                          <SelectItem
+                            key={r.id}
+                            value={r.id}
+                            className="text-xs"
+                          >
+                            {r.nome} — Saldo:{" "}
+                            {r.saldo_atual.toLocaleString("pt-BR")} {r.unidade}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">
+                      O saldo deste recipiente e o saldo total da unidade serão
+                      creditados simultaneamente.
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
@@ -681,6 +790,128 @@ export default function Estoque() {
                         </Button>
                       </div>
                     </div>
+
+                    {/* SUB-LISTA DE RECIPIENTES (Silos e Tanques individuais de Patos) */}
+                    {(() => {
+                      const recsDoMaterial = recipientes.filter((r) => {
+                        if (r.material_id && r.material_id === mat.id)
+                          return true
+                        if (mat.codigo === "cimento")
+                          return (
+                            r.tipo === "silo" || r.material_codigo === "cimento"
+                          )
+                        if (mat.codigo === "aditivo")
+                          return (
+                            r.tipo === "tanque" ||
+                            r.material_codigo === "aditivo"
+                          )
+                        return false
+                      })
+
+                      if (recsDoMaterial.length === 0) return null
+
+                      return (
+                        <div className="pt-3 mt-3 border-t border-border/40 space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-foreground flex items-center gap-1.5">
+                              <Cylinder className="w-3.5 h-3.5 text-primary" />
+                              Saldos Individuais (
+                              {mat.codigo === "cimento" ? "Silos" : "Tanques"}):
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {recsDoMaterial.length} cadastrados
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {recsDoMaterial.map((rec) => {
+                              const recCritico =
+                                rec.estoque_minimo > 0 &&
+                                rec.saldo_atual < rec.estoque_minimo
+                              const recMargem =
+                                rec.saldo_atual - rec.estoque_minimo
+                              const recAtencao =
+                                !recCritico &&
+                                rec.estoque_minimo > 0 &&
+                                rec.saldo_atual === rec.estoque_minimo
+
+                              return (
+                                <div
+                                  key={rec.id}
+                                  className={`p-2.5 rounded-lg border text-xs bg-background/70 space-y-1.5 ${
+                                    recCritico
+                                      ? "border-destructive/40 bg-destructive/5"
+                                      : recAtencao
+                                        ? "border-amber-500/40 bg-amber-500/5"
+                                        : "border-border/40"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span
+                                      className="font-semibold text-foreground truncate"
+                                      title={rec.nome}
+                                    >
+                                      {rec.nome}
+                                    </span>
+                                    {recCritico ? (
+                                      <Badge
+                                        variant="destructive"
+                                        className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-red-500/10 text-red-600 border-red-500/30 font-bold"
+                                      >
+                                        <AlertTriangle className="w-2.5 h-2.5" />
+                                        Abaixo
+                                      </Badge>
+                                    ) : recAtencao ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-amber-500/10 text-amber-600 border-amber-500/30 font-semibold"
+                                      >
+                                        <AlertTriangle className="w-2.5 h-2.5" />
+                                        No mínimo
+                                      </Badge>
+                                    ) : (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold"
+                                      >
+                                        <CheckCircle2 className="w-2.5 h-2.5" />
+                                        OK
+                                      </Badge>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-baseline justify-between font-mono">
+                                    <div>
+                                      <span
+                                        className={`text-sm font-bold ${
+                                          recCritico
+                                            ? "text-red-600 dark:text-red-400"
+                                            : "text-foreground"
+                                        }`}
+                                      >
+                                        {rec.saldo_atual.toLocaleString(
+                                          "pt-BR",
+                                        )}
+                                      </span>{" "}
+                                      <span className="text-[10px] text-muted-foreground font-normal">
+                                        {rec.unidade}
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      Mín:{" "}
+                                      {rec.estoque_minimo.toLocaleString(
+                                        "pt-BR",
+                                      )}{" "}
+                                      {rec.unidade}
+                                    </span>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </CardContent>
                 </Card>
               )
@@ -823,6 +1054,7 @@ export default function Estoque() {
                   <th className="py-2.5 px-3">Data</th>
                   <th className="py-2.5 px-3">Tipo</th>
                   <th className="py-2.5 px-3">Material</th>
+                  <th className="py-2.5 px-3">Recipiente</th>
                   <th className="py-2.5 px-3">Quantidade</th>
                   <th className="py-2.5 px-3 text-right">Preço Unit.</th>
                   <th className="py-2.5 px-3 text-right">Valor Total</th>
@@ -867,6 +1099,11 @@ export default function Estoque() {
                       </td>
                       <td className="py-2.5 px-3 font-medium text-foreground">
                         {mat?.nome || "—"}
+                      </td>
+                      <td className="py-2.5 px-3 text-muted-foreground text-xs">
+                        {(mov as any).recipiente_nome ||
+                          (mov as any).recipiente_id ||
+                          "—"}
                       </td>
                       <td className="py-2.5 px-3 font-mono font-bold">
                         <span
@@ -937,6 +1174,17 @@ export default function Estoque() {
                     "—"}
                 </span>
               </div>
+              {precisaRecipienteDestino && recipienteDestinoId && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground font-sans">
+                    Destino:
+                  </span>
+                  <span className="font-bold text-primary">
+                    {recipientes.find((r) => r.id === recipienteDestinoId)
+                      ?.nome || "—"}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground font-sans">
                   Tipo de Movimentação:

@@ -27,6 +27,7 @@ import type {
   Veiculo,
   Motorista,
   Cidade,
+  RecipienteEstoque,
 } from "@/types/concreteira"
 import {
   Truck,
@@ -282,6 +283,8 @@ export default function LancamentoCargas() {
     useState<boolean>(false)
 
   // Controle de Silos e Tanques (exclusivo unidade Patos)
+  const [recipientesPatosLista, setRecipientesPatosLista] =
+    useState<RecipienteEstoque[]>([])
   const [siloCimento, setSiloCimento] = useState<string>("silo_1")
   const [tanqueAditivo, setTanqueAditivo] = useState<string>("tanque_1")
 
@@ -300,12 +303,13 @@ export default function LancamentoCargas() {
       setCarregandoTracos(true)
       setCarregandoCadastrosAux(true)
       try {
-        const [tr, mats, veics, mots, cids] = await Promise.all([
+        const [tr, mats, veics, mots, cids, recs] = await Promise.all([
           ConcreteiraService.getTracos(empresaAtiva.id),
           ConcreteiraService.getMateriais(empresaAtiva.id),
           ConcreteiraService.getVeiculos(empresaAtiva.id),
           ConcreteiraService.getMotoristas(empresaAtiva.id),
           ConcreteiraService.getCidades(empresaAtiva.id),
+          ConcreteiraService.getRecipientesEstoque(empresaAtiva.id),
         ])
 
         // Garante ordenação por FCK e nome da unidade ativa
@@ -321,6 +325,7 @@ export default function LancamentoCargas() {
         setVeiculosLista(veics || [])
         setMotoristasLista(mots || [])
         setCidadesLista(cids || [])
+        setRecipientesPatosLista(recs || [])
 
         // No novo layout rápido, o formulário inicia limpo/zerado ou sem forçar traço obrigatório
         if (!editarCargaId) {
@@ -1188,57 +1193,87 @@ export default function LancamentoCargas() {
                 </CardDescription>
               </div>
 
-              {/* Seletores de Silo e Tanque (exclusivo unidade Patos) */}
-              {isPatos && (
+              {/* Seletores de Silo e Tanque (exclusivo unidade Patos / unidades com recipientes) */}
+              {isPatos && recipientesPatosLista.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2.5 p-2 px-3 rounded-xl bg-primary/10 border border-primary/20 text-xs">
                   <span className="font-bold text-foreground flex items-center gap-1">
                     <Layers className="w-3.5 h-3.5 text-primary" />
                     Origem Patos:
                   </span>
-                  <div className="flex items-center gap-1.5">
-                    <Label
-                      htmlFor="silo-cimento-sel"
-                      className="text-[11px] font-semibold text-muted-foreground"
-                    >
-                      Silo Cimento:
-                    </Label>
-                    <Select value={siloCimento} onValueChange={setSiloCimento}>
-                      <SelectTrigger
-                        id="silo-cimento-sel"
-                        className="h-8 w-28 text-xs font-semibold bg-background"
+                  {recipientesPatosLista.filter(
+                    (r) => r.tipo === "silo" || r.material_codigo === "cimento",
+                  ).length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <Label
+                        htmlFor="silo-cimento-sel"
+                        className="text-[11px] font-semibold text-muted-foreground whitespace-nowrap"
                       >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="silo_1">Silo 1</SelectItem>
-                        <SelectItem value="silo_2">Silo 2</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                        Silo Cimento:
+                      </Label>
+                      <Select
+                        value={siloCimento}
+                        onValueChange={setSiloCimento}
+                      >
+                        <SelectTrigger
+                          id="silo-cimento-sel"
+                          className="h-8 min-w-[130px] text-xs font-semibold bg-background"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {recipientesPatosLista
+                            .filter(
+                              (r) =>
+                                r.tipo === "silo" ||
+                                r.material_codigo === "cimento",
+                            )
+                            .map((r) => (
+                              <SelectItem key={r.id} value={r.identificador}>
+                                {r.nome}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
-                  <div className="flex items-center gap-1.5">
-                    <Label
-                      htmlFor="tanque-aditivo-sel"
-                      className="text-[11px] font-semibold text-muted-foreground"
-                    >
-                      Tanque Aditivo:
-                    </Label>
-                    <Select
-                      value={tanqueAditivo}
-                      onValueChange={setTanqueAditivo}
-                    >
-                      <SelectTrigger
-                        id="tanque-aditivo-sel"
-                        className="h-8 w-32 text-xs font-semibold bg-background"
+                  {recipientesPatosLista.filter(
+                    (r) =>
+                      r.tipo === "tanque" || r.material_codigo === "aditivo",
+                  ).length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <Label
+                        htmlFor="tanque-aditivo-sel"
+                        className="text-[11px] font-semibold text-muted-foreground whitespace-nowrap"
                       >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="tanque_1">Tanque 1</SelectItem>
-                        <SelectItem value="tanque_2">Tanque 2</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                        Tanque Aditivo:
+                      </Label>
+                      <Select
+                        value={tanqueAditivo}
+                        onValueChange={setTanqueAditivo}
+                      >
+                        <SelectTrigger
+                          id="tanque-aditivo-sel"
+                          className="h-8 min-w-[140px] text-xs font-semibold bg-background"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {recipientesPatosLista
+                            .filter(
+                              (r) =>
+                                r.tipo === "tanque" ||
+                                r.material_codigo === "aditivo",
+                            )
+                            .map((r) => (
+                              <SelectItem key={r.id} value={r.identificador}>
+                                {r.nome}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2830,55 +2865,75 @@ export default function LancamentoCargas() {
               </div>
 
               {/* Se for unidade Patos: reconfirmar ou escolher Silo e Tanque na edição */}
-              {isPatos && (
+              {isPatos && recipientesPatosLista.length > 0 && (
                 <div className="p-3 rounded-xl border border-primary/30 bg-primary/5 space-y-2">
                   <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                     <Layers className="w-4 h-4 text-primary" />
                     Destino da Baixa de Estoque em Patos (Silo / Tanque):
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <Label className="text-[11px] text-muted-foreground font-semibold">
-                        Silo de Cimento:
-                      </Label>
-                      <Select
-                        value={siloCimento}
-                        onValueChange={setSiloCimento}
-                      >
-                        <SelectTrigger className="h-8 text-xs bg-background mt-1 font-semibold">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="silo_1">
-                            Silo de Cimento 1
-                          </SelectItem>
-                          <SelectItem value="silo_2">
-                            Silo de Cimento 2
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-[11px] text-muted-foreground font-semibold">
-                        Tanque de Aditivo:
-                      </Label>
-                      <Select
-                        value={tanqueAditivo}
-                        onValueChange={setTanqueAditivo}
-                      >
-                        <SelectTrigger className="h-8 text-xs bg-background mt-1 font-semibold">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="tanque_1">
-                            Tanque de Aditivo 1
-                          </SelectItem>
-                          <SelectItem value="tanque_2">
-                            Tanque de Aditivo 2
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {recipientesPatosLista.filter(
+                      (r) =>
+                        r.tipo === "silo" || r.material_codigo === "cimento",
+                    ).length > 0 && (
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground font-semibold">
+                          Silo de Cimento:
+                        </Label>
+                        <Select
+                          value={siloCimento}
+                          onValueChange={setSiloCimento}
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-background mt-1 font-semibold">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {recipientesPatosLista
+                              .filter(
+                                (r) =>
+                                  r.tipo === "silo" ||
+                                  r.material_codigo === "cimento",
+                              )
+                              .map((r) => (
+                                <SelectItem key={r.id} value={r.identificador}>
+                                  {r.nome}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {recipientesPatosLista.filter(
+                      (r) =>
+                        r.tipo === "tanque" || r.material_codigo === "aditivo",
+                    ).length > 0 && (
+                      <div>
+                        <Label className="text-[11px] text-muted-foreground font-semibold">
+                          Tanque de Aditivo:
+                        </Label>
+                        <Select
+                          value={tanqueAditivo}
+                          onValueChange={setTanqueAditivo}
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-background mt-1 font-semibold">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {recipientesPatosLista
+                              .filter(
+                                (r) =>
+                                  r.tipo === "tanque" ||
+                                  r.material_codigo === "aditivo",
+                              )
+                              .map((r) => (
+                                <SelectItem key={r.id} value={r.identificador}>
+                                  {r.nome}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -2891,13 +2946,11 @@ export default function LancamentoCargas() {
                 esta carga e lançará as novas movimentações (
                 {consumoReal.cimento} kg de cimento{" "}
                 {isPatos
-                  ? `no ${siloCimento === "silo_2" ? "Silo 2" : "Silo 1"}`
+                  ? `no ${recipientesPatosLista.find((r) => r.identificador === siloCimento)?.nome || (siloCimento === "silo_2" ? "Silo 2" : "Silo 1")}`
                   : ""}{" "}
                 e {consumoReal.aditivo} L de aditivo{" "}
                 {isPatos
-                  ? `no ${
-                      tanqueAditivo === "tanque_2" ? "Tanque 2" : "Tanque 1"
-                    }`
+                  ? `no ${recipientesPatosLista.find((r) => r.identificador === tanqueAditivo)?.nome || (tanqueAditivo === "tanque_2" ? "Tanque 2" : "Tanque 1")}`
                   : ""}
                 ).
               </div>

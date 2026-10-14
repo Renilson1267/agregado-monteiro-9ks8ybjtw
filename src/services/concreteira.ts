@@ -272,6 +272,8 @@ export const ConcreteiraService = {
     data: string
     documento?: string
     observacao?: string
+    recipiente_id?: string
+    recipiente_nome?: string
   }) {
     const precoUnit = Number(payload.preco_unitario) || 0
     const qtd = Number(payload.quantidade) || 0
@@ -285,6 +287,8 @@ export const ConcreteiraService = {
       .insert({
         empresa_id: payload.empresa_id || null,
         material_id: payload.material_id,
+        recipiente_id: payload.recipiente_id || null,
+        recipiente_nome: payload.recipiente_nome || null,
         tipo: "ENTRADA",
         quantidade: qtd,
         preco_unitario: precoUnit,
@@ -297,6 +301,12 @@ export const ConcreteiraService = {
       .single()
 
     if (error) throw error
+
+    // Se houver recipiente especificado, credita também o saldo do recipiente
+    if (payload.recipiente_id) {
+      await this.atualizarSaldoRecipiente(payload.recipiente_id, qtd)
+    }
+
     return data
   },
 
