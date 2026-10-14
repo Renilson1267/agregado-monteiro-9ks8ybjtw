@@ -552,8 +552,8 @@ export default function LancamentoCargas() {
     (empresaAtiva?.nome || "").toLowerCase().includes("patos") ||
     (empresaAtiva?.cidade || "").toLowerCase().includes("patos")
 
-  // Modo Acumulativo de Patos: ativa quando a unidade selecionada é PATOS e há um traço selecionado
-  const modoAcumulativoPatos = isPatos && Boolean(tracoSelecionadoId)
+  // Modo Acumulativo de Patos: ativa SEMPRE que a unidade selecionada for PATOS (inclusive com traço Manual / sem dosagem cadastrada)
+  const modoAcumulativoPatos = isPatos
 
   // Consumos REAIS da carga:
   // - Sólidos (cimento, brita12, brita19, areia, pó de pedra) guardam dosagem por m³ e são multiplicados pelo volume efetivo.
@@ -955,12 +955,11 @@ export default function LancamentoCargas() {
   // Permite desmarcar o traço para gravar expressamente como Manual / Sem vínculo
   const limparTracoVinculado = () => {
     setTracoSelecionadoId("")
-    setPatosAcumBrita01(0)
-    setPatosAcumAreia(0)
-    setPatosAcumPo(0)
     toast({
       title: "Traço desvinculado",
-      description: "A carga será gravada sem traço vinculado (Manual).",
+      description: isPatos
+        ? "A carga será gravada sem traço vinculado (Manual). Os insumos acumulativos continuam disponíveis para edição."
+        : "A carga será gravada sem traço vinculado (Manual).",
     })
   }
 
@@ -1634,7 +1633,7 @@ export default function LancamentoCargas() {
                         </div>
                       </div>
 
-                      {/* Água (fixo vindo do cadastro do traço: dosagem × volume) */}
+                      {/* Água (vindo do cadastro do traço ou digitação manual em litros totais) */}
                       <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
                         <Label className="text-xs font-bold text-foreground flex items-center justify-between">
                           <span>ÁGUA (Litros totais da carga)</span>
@@ -1642,27 +1641,59 @@ export default function LancamentoCargas() {
                             <span className="text-[11px] text-muted-foreground font-mono">
                               Cadastro: {tracoAtual.consumo_agua} L/m³
                             </span>
-                          ) : null}
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground">
+                              Manual
+                            </span>
+                          )}
                         </Label>
                         <div className="relative">
-                          <Input
-                            type="text"
-                            readOnly
-                            disabled
-                            value={`${Math.round(Number(tracoAtual?.consumo_agua || 0) * volumeEfetivo)} L`}
-                            className="min-h-[48px] h-12 text-lg font-mono font-bold bg-muted/40 pr-14 rounded-xl text-foreground"
-                          />
-                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
-                            Fixo traço
-                          </span>
+                          {tracoAtual?.consumo_agua ? (
+                            <>
+                              <Input
+                                type="text"
+                                readOnly
+                                disabled
+                                value={`${Math.round(Number(tracoAtual?.consumo_agua || 0) * volumeEfetivo)} L`}
+                                className="min-h-[48px] h-12 text-lg font-mono font-bold bg-muted/40 pr-14 rounded-xl text-foreground"
+                              />
+                              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">
+                                Fixo traço
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <Input
+                                type="number"
+                                inputMode="numeric"
+                                min="0"
+                                step="1"
+                                value={agua === 0 ? "" : agua}
+                                onChange={(e) => {
+                                  const val =
+                                    e.target.value === ""
+                                      ? 0
+                                      : Number(e.target.value)
+                                  setAgua(isNaN(val) ? 0 : val)
+                                }}
+                                disabled={cargaZerada}
+                                placeholder="0"
+                                className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-14 rounded-xl text-foreground"
+                              />
+                              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground pointer-events-none">
+                                Litros
+                              </span>
+                            </>
+                          )}
                         </div>
                         <p className="text-[11px] text-muted-foreground">
-                          Calculado automaticamente:{" "}
-                          {Number(tracoAtual?.consumo_agua || 0)} L/m³ ×{" "}
-                          {volumeEfetivo > 0
-                            ? String(volumeEfetivo).replace(".", ",")
-                            : "0"}{" "}
-                          m³.
+                          {tracoAtual?.consumo_agua
+                            ? `Calculado automaticamente: ${Number(tracoAtual.consumo_agua)} L/m³ × ${
+                                volumeEfetivo > 0
+                                  ? String(volumeEfetivo).replace(".", ",")
+                                  : "0"
+                              } m³.`
+                            : "Total de água adicionada na carga (litros)."}
                         </p>
                       </div>
                     </div>
