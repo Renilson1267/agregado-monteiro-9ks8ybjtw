@@ -568,7 +568,7 @@ export default function LancamentoCargas() {
 
   // Validação mínima solicitada:
   // - Data
-  // - Volume m³ entre 3,0 e 10,0
+  // - Volume m³ entre 0,5 e 11,0
   // - Insumos (cimento e agregados > 0 a menos que seja carga cancelada/zerada)
   // O traço NÃO é obrigatório (pode salvar manual/sem vínculo)
   // Motorista, placa e cidade não são mais digitados
@@ -597,12 +597,12 @@ export default function LancamentoCargas() {
           : String(volume)
     const volNum = parseFloat(String(volRaw).replace(",", ".").trim())
 
-    if (isNaN(volNum) || volNum < 0.5 || volNum > 10.0) {
+    if (isNaN(volNum) || volNum < 0.5 || volNum > 11.0) {
       faltantes.push({
         campo: "volume",
         rotulo: "Volume (m³)",
         mensagem:
-          "Volume deve ser entre 0,5 e 10,0 m³ (informado: " +
+          "Volume deve ser entre 0,5 e 11,0 m³ (informado: " +
           (isNaN(volNum) ? "em branco" : volNum) +
           ")",
       })
@@ -1185,7 +1185,7 @@ export default function LancamentoCargas() {
                   htmlFor="volume"
                   className={`text-sm sm:text-base font-bold flex items-center gap-2 ${
                     tentouGravar &&
-                    (!volume || Number(volume) < 0.5 || Number(volume) > 10.0)
+                    (!volume || Number(volume) < 0.5 || Number(volume) > 11.0)
                       ? "text-destructive font-bold"
                       : "text-foreground"
                   }`}
@@ -1196,10 +1196,10 @@ export default function LancamentoCargas() {
                 {tentouGravar &&
                   (!volume ||
                     Number(volume) < 0.5 ||
-                    Number(volume) > 10.0) && (
+                    Number(volume) > 11.0) && (
                     <span className="text-xs text-destructive flex items-center gap-1 font-medium">
                       <AlertCircle className="w-3.5 h-3.5" /> Informe volume
-                      entre 0,5 e 10,0 m³
+                      entre 0,5 e 11,0 m³
                     </span>
                   )}
               </div>
@@ -1247,7 +1247,7 @@ export default function LancamentoCargas() {
                     }}
                     className={`min-h-[52px] h-14 text-2xl font-black font-mono !text-slate-900 !bg-white dark:!text-slate-900 dark:!bg-white text-left pr-14 rounded-xl border-2 transition-colors ${
                       tentouGravar &&
-                      (!volume || Number(volume) < 0.5 || Number(volume) > 10.0)
+                      (!volume || Number(volume) < 0.5 || Number(volume) > 11.0)
                         ? "border-destructive ring-2 ring-destructive/40"
                         : "border-primary/50 focus-visible:ring-primary"
                     }`}
@@ -1257,15 +1257,15 @@ export default function LancamentoCargas() {
                   </span>
                 </div>
 
-                {/* Opções prontas de volume com 1 toque (0,5 a 10,0 em passos de 0,5) */}
+                {/* Opções prontas de volume com 1 toque (0,5 a 11,0 em passos de 0,5) */}
                 <div className="space-y-1.5 w-full">
                   <span className="text-[11px] font-medium text-muted-foreground block">
-                    Opções prontas (0,5 a 10,0 m³):
+                    Opções prontas (0,5 a 11,0 m³):
                   </span>
                   <div className="flex items-center gap-1.5 flex-wrap w-full">
                     {[
                       0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5,
-                      6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0,
+                      6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0,
                     ].map((vRapido) => {
                       const strRapido = Number.isInteger(vRapido)
                         ? String(vRapido)
