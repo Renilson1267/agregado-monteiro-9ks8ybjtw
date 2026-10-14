@@ -1450,10 +1450,59 @@ export default function LancamentoCargas() {
                 ) : (
                   /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
                      CIMENTO, B12, B19, AREIA e ADITIVO */
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
                   <div className="space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {/* CIMENTO */}
-=======
+                =======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+                =======
+                {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+                <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                =======
+                          disabled={cargaZerada}
+                          placeholder="0"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background text-primary pr-14 rounded-xl"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground pointer-events-none">
+                          Litros
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+                <div className="space-y-3">
+                {isModoAcumulativoPatos ? (
+                =======
+                  {/* Observação opcional */}
+                  <div className="pt-2">
+                    <Label
+                      htmlFor="observacao"
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Observação (opcional)
+                    </Label>
+                    <Input
+                      id="observacao"
+                      value={observacao}
+                      onChange={(e) => setObservacao(e.target.value)}
+                      placeholder="Ex.: Adicionado na obra, descarga rápida, etc."
+                      className="min-h-[40px] h-10 text-xs sm:text-sm bg-background rounded-xl mt-1"
+                    />
+                  </div>
+                </div>
+                </div>
+
+                {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+                <div className="space-y-3">
+                {isModoAcumulativoPatos ? (
+                ==============
                   /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
                      CIMENTO, B12, B19, AREIA e ADITIVO */
                   <div className="space-y-3">
