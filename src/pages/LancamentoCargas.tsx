@@ -3102,6 +3102,226 @@ export default function LancamentoCargas() {
                     </div>
                   </div>
 
+            {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+            <div className="space-y-3">
+              {isModoAcumulativoPatos ? (
+                /* MODO ACUMULATIVO PARA TODOS OS TRAÇOS NA UNIDADE PATOS (F10 A F45):
+                   5 campos de digitação acumulativa por 1,00 m³ (mesmo estilo da tabela impressa da central):
+                   1. Cimento (kg/m³)
+                   2. Brita 0 (kg/m³)
+                   3. Brita 0+1 acumulado (kg/m³)
+                   4. Areia acumulado (kg/m³)
+                   5. Pó acumulado (kg/m³)
+                   + card de Aditivo & Água fixos do traço + observação */
+                <div className="space-y-4">
+                  <div className="p-3.5 rounded-xl bg-primary/10 border-2 border-primary/40 text-xs text-foreground space-y-1">
+                    <div className="font-bold text-sm text-primary flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4" />
+                      Tabela Impressa Acumulativa — Patos ({tracoAtual?.nome || "Traço"}) (por 1,00 m³)
+                    </div>
+                    <p className="text-muted-foreground text-[11px]">
+                      Digite os valores da tabela impressa acumulada por 1,00 m³. O app desmembra internamente por subtração (brita19 = acum − brita0; areia = acum − brita01; pó = acum − areia) e multiplica pelo volume da carga ({volumeEfetivo > 0 ? String(volumeEfetivo).replace(".", ",") : "0"} m³). Aceita vírgula decimal.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {/* 1. Cimento */}
+                    <div className="p-3.5 rounded-xl border-2 border-primary/40 bg-primary/5 space-y-1.5">
+                      <Label
+                        htmlFor="patos_cimento"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span className="flex items-center gap-1">
+                          1. Cimento (por 1,00 m³) *
+                          <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal">
+                            Estoque
+                          </span>
+                        </span>
+                        {volumeEfetivo > 0 && (
+                          <span className="text-[11px] font-mono font-bold text-primary">
+                            Total: {consumoReal.cimento.toLocaleString("pt-BR")} kg
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="patos_cimento"
+                          type="text"
+                          inputMode="decimal"
+                          value={f45PatosCimento}
+                          onChange={(e) => setF45PatosCimento(e.target.value)}
+                          disabled={cargaZerada}
+                          placeholder="Ex.: 438"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                          kg/m³
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        Real: {dosagemEfetivaM3.cimento.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
+                      </p>
+                    </div>
+
+                    {/* 2. Brita 0 */}
+                    <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
+                      <Label
+                        htmlFor="patos_brita0"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span>2. Brita 0 (por 1,00 m³) *</span>
+                        {volumeEfetivo > 0 && (
+                          <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                            Total: {consumoReal.brita12.toLocaleString("pt-BR")} kg
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="patos_brita0"
+                          type="text"
+                          inputMode="decimal"
+                          value={f45PatosBrita0}
+                          onChange={(e) => setF45PatosBrita0(e.target.value)}
+                          disabled={cargaZerada}
+                          placeholder="Ex.: 392"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                          kg/m³
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        Real B0: {dosagemEfetivaM3.brita12.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
+                      </p>
+                    </div>
+
+                    {/* 3. Brita 0+1 (acumulado) */}
+                    <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
+                      <Label
+                        htmlFor="patos_brita01"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span>3. Brita 0+1 (acumulado) *</span>
+                        {volumeEfetivo > 0 && (
+                          <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                            Total B1: {consumoReal.brita19.toLocaleString("pt-BR")} kg
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="patos_brita01"
+                          type="text"
+                          inputMode="decimal"
+                          value={f45PatosBrita01}
+                          onChange={(e) => setF45PatosBrita01(e.target.value)}
+                          disabled={cargaZerada}
+                          placeholder="Ex.: 980"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                          kg/m³
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        Real B1 (acum − B0): {dosagemEfetivaM3.brita19.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
+                      </p>
+                    </div>
+
+                    {/* 4. Areia (acumulado) */}
+                    <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
+                      <Label
+                        htmlFor="patos_areia"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span>4. Areia (acumulado) *</span>
+                        {volumeEfetivo > 0 && (
+                          <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                            Total: {consumoReal.areia.toLocaleString("pt-BR")} kg
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="patos_areia"
+                          type="text"
+                          inputMode="decimal"
+                          value={f45PatosAreiaAcum}
+                          onChange={(e) => setF45PatosAreiaAcum(e.target.value)}
+                          disabled={cargaZerada}
+                          placeholder="Ex.: 1302"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                          kg/m³
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        Real Areia (acum − B0+1): {dosagemEfetivaM3.areia.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
+                      </p>
+                    </div>
+
+                    {/* 5. Pó (acumulado) */}
+                    <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
+                      <Label
+                        htmlFor="patos_po"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span>5. Pó (acumulado) *</span>
+                        {volumeEfetivo > 0 && (
+                          <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                            Total: {consumoReal.poPedra.toLocaleString("pt-BR")} kg
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="patos_po"
+                          type="text"
+                          inputMode="decimal"
+                          value={f45PatosPoAcum}
+                          onChange={(e) => setF45PatosPoAcum(e.target.value)}
+                          disabled={cargaZerada}
+                          placeholder="Ex.: 1690"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                          kg/m³
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        Real Pó (acum − areia): {dosagemEfetivaM3.poPedra.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
+                      </p>
+                    </div>
+
+                    {/* Insumos Fixos (Aditivo e Água) */}
+                    <div className="p-3.5 rounded-xl border border-border/70 bg-muted/30 space-y-1.5 flex flex-col justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-foreground block">
+                          Aditivo & Água (Fixos no Traço)
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {tracoAtual?.nome || "Cadastro do Traço"} (sem digitação)
+                        </span>
+                      </div>
+                      <div className="space-y-1 font-mono text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Aditivo:</span>
+                          <span className="font-bold text-primary">
+                            {consumoReal.aditivo.toLocaleString("pt-BR")} L ({Number(tracoAtual?.consumo_aditivo || 0).toLocaleString("pt-BR")} /m³)
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Água:</span>
+                          <span className="font-semibold text-foreground">
+                            {consumoReal.agua.toLocaleString("pt-BR")} L ({Number(tracoAtual?.consumo_agua || 0).toLocaleString("pt-BR")} L/m³)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Observação opcional */}
                   <div className="pt-2">
                     <Label
@@ -3119,12 +3339,245 @@ export default function LancamentoCargas() {
                     />
                   </div>
                 </div>
-                )}
-              </div>
-            </div>
+              ) : (
+                /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                   CIMENTO, B12, B19, AREIA e ADITIVO */
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+                    <div className="p-3.5 rounded-xl border-2 border-primary/40 bg-primary/5 space-y-1.5">
+                      <Label
+                        htmlFor="cimento"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          CIMENTO (kg/m³) *
+                          <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal">
+                            Estoque
+                          </span>
+                        </span>
+                        {volume > 0 && (
+                          <span className="text-[11px] font-mono font-bold text-primary">
+                            Total: {consumoReal.cimento.toLocaleString("pt-BR")}{" "}
+                            kg
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="cimento"
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          step="1"
+                          value={cimento === 0 ? "" : cimento}
+                          onChange={(e) => {
+                            const val =
+                              e.target.value === "" ? 0 : Number(e.target.value)
+                            setCimento(isNaN(val) ? 0 : val)
+                          }}
+                          disabled={cargaZerada}
+                          placeholder="0"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                          kg/m³
+                        </span>
+                      </div>
+                    </div>
 
-            {/* RESUMO RÁPIDO DO CONSUMO TOTAL QUE SERÁ BAIXADO */}
-            <div className="p-3.5 rounded-xl border border-border/50 bg-muted/20 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    {/* B12 (brita 12) */}
+                    <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
+                      <Label
+                        htmlFor="brita12"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span>B12 - Brita 12 (kg/m³)</span>
+                        {volume > 0 && (
+                          <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                            Total: {consumoReal.brita12.toLocaleString("pt-BR")}{" "}
+                            kg
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="brita12"
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          step="1"
+                          value={brita12 === 0 ? "" : brita12}
+                          onChange={(e) => {
+                            const val =
+                              e.target.value === "" ? 0 : Number(e.target.value)
+                            setBrita12(isNaN(val) ? 0 : val)
+                          }}
+                          disabled={cargaZerada}
+                          placeholder="0"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                          kg/m³
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* B19 (brita 19) */}
+                    <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
+                      <Label
+                        htmlFor="brita19"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span>B19 - Brita 19 (kg/m³)</span>
+                        {volume > 0 && (
+                          <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                            Total: {consumoReal.brita19.toLocaleString("pt-BR")}{" "}
+                            kg
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="brita19"
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          step="1"
+                          value={brita19 === 0 ? "" : brita19}
+                          onChange={(e) => {
+                            const val =
+                              e.target.value === "" ? 0 : Number(e.target.value)
+                            setBrita19(isNaN(val) ? 0 : val)
+                          }}
+                          disabled={cargaZerada}
+                          placeholder="0"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                          kg/m³
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* AREIA */}
+                    <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
+                      <Label
+                        htmlFor="areia"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span>AREIA (kg/m³)</span>
+                        {volume > 0 && (
+                          <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                            Total: {consumoReal.areia.toLocaleString("pt-BR")}{" "}
+                            kg
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="areia"
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          step="1"
+                          value={areia === 0 ? "" : areia}
+                          onChange={(e) => {
+                            const val =
+                              e.target.value === "" ? 0 : Number(e.target.value)
+                            setAreia(isNaN(val) ? 0 : val)
+                          }}
+                          disabled={cargaZerada}
+                          placeholder="0"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+                          kg/m³
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* ADITIVO (LITROS TOTAIS DA CARGA) */}
+                    <div className="p-3.5 rounded-xl border-2 border-primary/40 bg-primary/5 space-y-1.5 sm:col-span-2">
+                      <Label
+                        htmlFor="aditivo"
+                        className="text-xs font-bold text-foreground flex items-center justify-between"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          ADITIVO (Litros totais da carga) *
+                          <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal">
+                            Estoque
+                          </span>
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          Digite o volume total em litros
+                        </span>
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="aditivo"
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          value={aditivoInput}
+                          onChange={(e) => {
+                            const valBruto = e.target.value
+                            const valLimpo = valBruto.replace(/[^0-9]/g, "")
+                            setAditivoInput(valLimpo)
+                            const parsed = parseInt(valLimpo, 10)
+                            setAditivo(
+                              !isNaN(parsed) && parsed >= 0 ? parsed : 0,
+                            )
+                            setAditivoEditadoManualmente(true)
+                          }}
+                          onBlur={() => {
+                            if (!aditivoInput || aditivoInput.trim() === "") {
+                              setAditivo(0)
+                              setAditivoInput("")
+                              return
+                            }
+                            const parsed = parseInt(aditivoInput, 10)
+                            if (!isNaN(parsed) && parsed > 0) {
+                              setAditivo(parsed)
+                              setAditivoInput(String(parsed))
+                            } else {
+                              setAditivo(0)
+                              setAditivoInput("")
+                            }
+                          }}
+                          disabled={cargaZerada}
+                          placeholder="0"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background text-primary pr-14 rounded-xl"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground pointer-events-none">
+                          Litros
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Observação opcional */}
+                  <div className="pt-2">
+                    <Label
+                      htmlFor="observacao"
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Observação (opcional)
+                    </Label>
+                    <Input
+                      id="observacao"
+                      value={observacao}
+                      onChange={(e) => setObservacao(e.target.value)}
+                      placeholder="Ex.: Adicionado na obra, descarga rápida, etc."
+                      className="min-h-[40px] h-10 text-xs sm:text-sm bg-background rounded-xl mt-1"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* RESUMO RÁPIDO DO CONSUMO TOTAL QUE SERÁ BAIXADO */}            <div className="p-3.5 rounded-xl border border-border/50 bg-muted/20 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-foreground">
                   Consumo Total (
