@@ -153,6 +153,8 @@ export interface DadosPainelGerencial {
       defasagem: number
       unidade: string
       empresaId?: string
+      recipienteNome?: string
+      tipoRecipiente?: string
     }>
   }
 }
@@ -317,6 +319,7 @@ export const PainelService = {
       materiaisMonteiroRes,
       materiaisSjeRes,
       materiaisAlvoRes,
+      recipientesAlvoRes,
     ] = await Promise.all([
       // Cargas do mês
       (async () => {
@@ -423,6 +426,31 @@ export const PainelService = {
       targetEmpresaId !== ID_EMPRESA_SJE
         ? ConcreteiraService.getMateriais(targetEmpresaId).catch(() => [])
         : Promise.resolve([]),
+
+      // Recipientes de estoque (Silos e Tanques - ex.: Patos)
+      (async () => {
+        try {
+          let q = (supabase as any)
+            .from("recipientes_estoque")
+            .select("*")
+            .order("ordem", { ascending: true })
+          if (targetEmpresaId) {
+            q = q.eq("empresa_id", targetEmpresaId)
+          }
+          const { data, error } = await q
+          if (error) {
+            console.warn("Erro ao buscar recipientes_estoque:", error)
+            return []
+          }
+          return (data || []).map((r: any) => ({
+            ...r,
+            saldo_atual: Number(r.saldo_atual) || 0,
+            estoque_minimo: Number(r.estoque_minimo) || 0,
+          }))
+        } catch {
+          return []
+        }
+      })(),
     ])
 
     // --- CÁLCULO DE KPIS DO PERÍODO ---
@@ -782,31 +810,77 @@ export const PainelService = {
       defasagem: number
       unidade: string
       empresaId?: string
+      recipienteNome?: string
+      tipoRecipiente?: string
     }> = []
 
-    todosMateriais
-      .filter(
-        (m) =>
-          m.controla_estoque !== false &&
-          m.estoque_minimo > 0 &&
-          (m.codigo?.toLowerCase() === "cimento" ||
-            m.codigo?.toLowerCase() === "aditivo"),
-      )
-      .forEach((m) => {
-        const saldo = Number(m.saldo || 0)
-        const minimo = Number(m.estoque_minimo || 0)
-        // Alerta de estoque baixo só para insumos com saldo ativo em operação (> 0 e < mínimo)
-        if (saldo > 0 && saldo < minimo) {
+    // Verificar se a empresa selecionada possui recipientes cadastrados em recipientes_estoque
+    const temRecipientesEmpresa =
+      recipientesAlvoRes && recipientesAlvoRes.length > 0
+
+    if (temRecipientesEmpresa) {
+      // Quando há recipientes específicos (ex: Patos), alimenta os alertas por recipiente onde saldo_atual < estoque_minimo
+      recipientesAlvoRes.forEach((rec: any) => {
+        const saldo = Number(rec.saldo_atual || 0)
+        const minimo = Number(rec.estoque_minimo || 0)
+        if (saldo < minimo) {
+          const matCorrespondente = todosMateriais.find(
+            (m) =>
+              m.id === rec.material_id ||
+              m.codigo?.toLowerCase() === rec.material_codigo?.toLowerCase(),
+          )
+          const matObj: Material = {
+            id: rec.id, // id do recipiente para garantir chave única no React
+            empresa_id: rec.empresa_id,
+            nome: `${rec.nome} (${rec.material_nome || rec.material_codigo})`,
+            codigo: rec.material_codigo,
+            unidade: rec.unidade || "kg",
+            estoque_minimo: minimo,
+            controla_estoque: true,
+            ordem: rec.ordem || 1,
+            saldo: saldo,
+          }
+
           estoqueBaixo.push({
-            material: m,
+            material: matObj,
             saldo,
             minimo,
             defasagem: Math.round((minimo - saldo) * 100) / 100,
-            unidade: m.unidade || "kg",
-            empresaId: m.empresa_id,
+            unidade:
+              rec.unidade ||
+              (rec.material_codigo === "cimento" ? "kg" : "litros"),
+            empresaId: rec.empresa_id,
+            recipienteNome: rec.nome,
+            tipoRecipiente: rec.tipo,
           })
         }
       })
+    } else {
+      // Unidades convencionais (Monteiro, SJE, etc.) que usam saldo geral de materiais
+      todosMateriais
+        .filter(
+          (m) =>
+            m.controla_estoque !== false &&
+            m.estoque_minimo > 0 &&
+            (m.codigo?.toLowerCase() === "cimento" ||
+              m.codigo?.toLowerCase() === "aditivo"),
+        )
+        .forEach((m) => {
+          const saldo = Number(m.saldo || 0)
+          const minimo = Number(m.estoque_minimo || 0)
+          // Alerta de estoque baixo só para insumos com saldo ativo em operação (> 0 e < mínimo)
+          if (saldo > 0 && saldo < minimo) {
+            estoqueBaixo.push({
+              material: m,
+              saldo,
+              minimo,
+              defasagem: Math.round((minimo - saldo) * 100) / 100,
+              unidade: m.unidade || "kg",
+              empresaId: m.empresa_id,
+            })
+          }
+        })
+    }
 
     estoqueBaixo.sort((a, b) => b.defasagem - a.defasagem)
 
@@ -977,64 +1051,130 @@ export const PainelService = {
       })
     } else {
       // Outra unidade individual (ex.: Caicó ou Patos)
-      // Usa os materiais reais da unidade consultados do banco (materiaisAlvoRes)
-      const matsAlvoControlados = materiaisAlvoRes.filter((m) =>
-        ehInsumoSaldoMonitorado(m.codigo),
-      )
-      if (matsAlvoControlados.length > 0) {
-        matsAlvoControlados.forEach((m) => {
-          const saldo = Number(m.saldo || 0)
-          const minimo = Number(m.estoque_minimo || 0)
-          const controla = m.controla_estoque !== false
-          // Alerta de estoque baixo só se a unidade tiver saldo em operação (> 0) e abaixo do mínimo
-          const abaixoMinimo =
-            controla && minimo > 0 && saldo > 0 && saldo < minimo
+      // Se houver recipientes_estoque para a unidade (ex.: Patos), consolida os recipientes por material
+      // cimento = silo1 + silo2, aditivo = tanque1 + tanque2, preservando os totais consolidados
+      if (temRecipientesEmpresa) {
+        const recipientesPorMaterial = new Map<string, {
+          materialCodigo: string
+          materialNome: string
+          unidade: string
+          saldoTotal: number
+          estoqueMinimoTotal: number
+          recipientes: any[]
+        }>()
+
+        recipientesAlvoRes.forEach((rec: any) => {
+          const cod = rec.material_codigo?.toLowerCase()
+          if (!cod || !ehInsumoSaldoMonitorado(cod)) return
+
+          if (!recipientesPorMaterial.has(cod)) {
+            recipientesPorMaterial.set(cod, {
+              materialCodigo: cod,
+              materialNome:
+                cod === "cimento"
+                  ? "Cimento CP II F-40 / CP V ARI"
+                  : "Aditivo Plastificante",
+              unidade: rec.unidade || (cod === "cimento" ? "kg" : "litros"),
+              saldoTotal: 0,
+              estoqueMinimoTotal: 0,
+              recipientes: [],
+            })
+          }
+          const grupo = recipientesPorMaterial.get(cod)!
+          grupo.saldoTotal =
+            Math.round(
+              (grupo.saldoTotal + Number(rec.saldo_atual || 0)) * 100,
+            ) / 100
+          grupo.estoqueMinimoTotal =
+            Math.round(
+              (grupo.estoqueMinimoTotal + Number(rec.estoque_minimo || 0)) *
+                100,
+            ) / 100
+          grupo.recipientes.push(rec)
+        })
+
+        // Monta os itens consolidados por material
+        recipientesPorMaterial.forEach((grupo, cod) => {
+          const matCorrespondente = materiaisAlvoRes.find(
+            (m) => m.codigo?.toLowerCase() === cod,
+          )
+          const abaixoMinimo = grupo.saldoTotal < grupo.estoqueMinimoTotal
           saldosInsumos.push({
-            id: m.id,
-            nome: m.nome,
-            codigo: m.codigo,
-            unidade: m.unidade || "kg",
-            controlaEstoque: controla,
-            estoqueMinimo: minimo,
-            saldo,
+            id: matCorrespondente?.id || `recipientes-grupo-${cod}`,
+            nome: matCorrespondente?.nome || grupo.materialNome,
+            codigo: cod,
+            unidade: grupo.unidade,
+            controlaEstoque: true,
+            estoqueMinimo: grupo.estoqueMinimoTotal,
+            saldo: grupo.saldoTotal,
             abaixoMinimo,
             defasagem: abaixoMinimo
-              ? Math.round((minimo - saldo) * 100) / 100
+              ? Math.round(
+                  (grupo.estoqueMinimoTotal - grupo.saldoTotal) * 100,
+                ) / 100
               : 0,
-            empresaId: m.empresa_id,
-          })
-        })
-      } else {
-        const catalogoPadrao = [
-          {
-            codigo: "cimento",
-            nome: "CP II F-40 / CP V ARI",
-            unidade: "kg",
-            controla: true,
-            min: 15000,
-          },
-          {
-            codigo: "aditivo",
-            nome: "Aditivo Plastificante",
-            unidade: "litros",
-            controla: true,
-            min: 900,
-          },
-        ]
-        catalogoPadrao.forEach((p) => {
-          saldosInsumos.push({
-            id: `zerado-${p.codigo}`,
-            nome: p.nome,
-            codigo: p.codigo,
-            unidade: p.unidade,
-            controlaEstoque: p.controla,
-            estoqueMinimo: p.min,
-            saldo: 0,
-            abaixoMinimo: false,
-            defasagem: 0,
             empresaId: targetEmpresaId,
           })
         })
+      } else {
+        // Unidade sem recipientes (ex.: Caicó)
+        const matsAlvoControlados = materiaisAlvoRes.filter((m) =>
+          ehInsumoSaldoMonitorado(m.codigo),
+        )
+        if (matsAlvoControlados.length > 0) {
+          matsAlvoControlados.forEach((m) => {
+            const saldo = Number(m.saldo || 0)
+            const minimo = Number(m.estoque_minimo || 0)
+            const controla = m.controla_estoque !== false
+            const abaixoMinimo =
+              controla && minimo > 0 && saldo > 0 && saldo < minimo
+            saldosInsumos.push({
+              id: m.id,
+              nome: m.nome,
+              codigo: m.codigo,
+              unidade: m.unidade || "kg",
+              controlaEstoque: controla,
+              estoqueMinimo: minimo,
+              saldo,
+              abaixoMinimo,
+              defasagem: abaixoMinimo
+                ? Math.round((minimo - saldo) * 100) / 100
+                : 0,
+              empresaId: m.empresa_id,
+            })
+          })
+        } else {
+          const catalogoPadrao = [
+            {
+              codigo: "cimento",
+              nome: "CP II F-40 / CP V ARI",
+              unidade: "kg",
+              controla: true,
+              min: 15000,
+            },
+            {
+              codigo: "aditivo",
+              nome: "Aditivo Plastificante",
+              unidade: "litros",
+              controla: true,
+              min: 900,
+            },
+          ]
+          catalogoPadrao.forEach((p) => {
+            saldosInsumos.push({
+              id: `zerado-${p.codigo}`,
+              nome: p.nome,
+              codigo: p.codigo,
+              unidade: p.unidade,
+              controlaEstoque: p.controla,
+              estoqueMinimo: p.min,
+              saldo: 0,
+              abaixoMinimo: false,
+              defasagem: 0,
+              empresaId: targetEmpresaId,
+            })
+          })
+        }
       }
     }
 

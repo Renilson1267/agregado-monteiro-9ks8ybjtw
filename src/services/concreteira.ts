@@ -13,6 +13,7 @@ import type {
   Cliente,
   OrdemServico,
   MetaProducao,
+  RecipienteEstoque,
 } from "@/types/concreteira"
 
 export const ConcreteiraService = {
@@ -442,10 +443,13 @@ export const ConcreteiraService = {
 
   async atualizarRecipienteEstoque(
     id: string,
-    payload: { saldo_atual?: number; estoque_minimo?: number; nome?: string },
+    payload: {
+      saldo_atual?: number
+      estoque_minimo?: number
+      nome?: string
+    },
   ): Promise<RecipienteEstoque> {
-    const updateData: any = {      updated_at: new Date().toISOString(),
-    }
+    const updateData: any = { updated_at: new Date().toISOString() }
     if (payload.saldo_atual !== undefined)
       updateData.saldo_atual = payload.saldo_atual
     if (payload.estoque_minimo !== undefined)

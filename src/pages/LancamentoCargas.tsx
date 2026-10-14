@@ -254,6 +254,7 @@ export default function LancamentoCargas() {
   const [areia, setAreia] = useState<number>(0)
   const [poPedra, setPoPedra] = useState<number>(0)
   const [cimento, setCimento] = useState<number>(0)
+  const [agua, setAgua] = useState<number>(0)
   const [aditivo, setAditivo] = useState<number>(0)
   const [aditivoInput, setAditivoInput] = useState<string>("")
   const [aditivoBruto, setAditivoBruto] = useState<number>(0)
@@ -305,6 +306,7 @@ export default function LancamentoCargas() {
           setPatosAcumBrita01(0)
           setPatosAcumAreia(0)
           setPatosAcumPo(0)
+          setAgua(0)
           setAditivo(0)
           setAditivoInput("")
           setAditivoBruto(0)
@@ -402,6 +404,7 @@ export default function LancamentoCargas() {
         setPatosAcumBrita01(dosBrita12 + dosBrita19)
         setPatosAcumAreia(dosBrita12 + dosBrita19 + dosAreia)
         setPatosAcumPo(dosBrita12 + dosBrita19 + dosAreia + dosPoPedra)
+        setAgua(Number(c.consumo_agua || 0))
 
         // Aditivo total em litros
         const adtValor = Number(c.consumo_aditivo || 0)
@@ -577,7 +580,7 @@ export default function LancamentoCargas() {
     brita19: Math.round(brita19 * volumeEfetivo),
     poPedra: Math.round(poPedra * volumeEfetivo),
     aditivo: Math.round(aditivo),
-    agua: 0,
+    agua: Math.round(agua),
   }
 
   // Validação mínima solicitada:
@@ -694,7 +697,7 @@ export default function LancamentoCargas() {
         consumo_po_pedra: consumoReal.poPedra,
         consumo_cimento: consumoReal.cimento,
         consumo_aditivo: consumoReal.aditivo,
-        consumo_agua: 0,
+        consumo_agua: consumoReal.agua,
         observacao: observacao || null,
         carga_zerada: cargaZerada,
         motivo_zerada: motivoZerada,
@@ -748,7 +751,7 @@ export default function LancamentoCargas() {
         consumo_po_pedra: consumoReal.poPedra,
         consumo_cimento: consumoReal.cimento,
         consumo_aditivo: consumoReal.aditivo,
-        consumo_agua: 0,
+        consumo_agua: consumoReal.agua,
         observacao: observacao || undefined,
         carga_zerada: cargaZerada,
         motivo_zerada: motivoZerada,
@@ -785,6 +788,7 @@ export default function LancamentoCargas() {
       setPatosAcumBrita01(0)
       setPatosAcumAreia(0)
       setPatosAcumPo(0)
+      setAgua(0)
       setAditivo(0)
       setAditivoInput("")
       setAditivoBruto(0)

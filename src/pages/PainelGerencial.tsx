@@ -2559,13 +2559,31 @@ export function PainelGerencial() {
                         className="p-2.5 rounded-lg bg-background border border-destructive/40 bg-destructive/5 text-xs space-y-1"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-foreground truncate max-w-[160px]">
-                            {item.material.nome}
+                          <span
+                            className="font-bold text-foreground truncate max-w-[200px]"
+                            title={
+                              item.recipienteNome
+                                ? `${item.recipienteNome} - ${item.material.nome}`
+                                : item.material.nome
+                            }
+                          >
+                            {item.recipienteNome
+                              ? `${item.recipienteNome}`
+                              : item.material.nome}
                           </span>
                           <Badge variant="destructive" className="text-[9px]">
-                            Abaixo do Mínimo
+                            {item.tipoRecipiente
+                              ? `${item.tipoRecipiente.toUpperCase()} Abaixo do Mínimo`
+                              : "Abaixo do Mínimo"}
                           </Badge>
                         </div>
+                        {item.recipienteNome && (
+                          <div className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider">
+                            {item.material.codigo === "cimento"
+                              ? "Cimento CP II / CP V"
+                              : "Aditivo Plastificante"}
+                          </div>
+                        )}
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="text-muted-foreground">
                             Saldo:{" "}
@@ -2578,33 +2596,40 @@ export function PainelGerencial() {
                             Mín: {item.minimo.toLocaleString("pt-BR")}
                           </span>
                         </div>
-                        {item.material.codigo === "cimento" && (
-                          <div className="pt-1">
-                            <Button
-                              onClick={() => {
-                                const unidadeParaPedido =
-                                  modoVisao === "sje" ? "SJE" : "Monteiro"
-                                const emp = obterEmpresaPorUnidade(modoVisao)
-                                const link = gerarLinkWhatsAppPedidoCimento({
-                                  unidadeNome: unidadeParaPedido,
-                                  saldoAtualKg: item.saldo,
-                                  estoqueMinimoKg: item.minimo,
-                                  empresa: emp,
-                                })
-                                window.open(
-                                  link,
-                                  "_blank",
-                                  "noopener,noreferrer",
-                                )
-                              }}
-                              size="sm"
-                              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] gap-1 h-7"
-                            >
-                              <Send className="w-3 h-3" />
-                              Pedir pelo WhatsApp
-                            </Button>
-                          </div>
-                        )}
+                        {item.material.codigo === "cimento" &&
+                          item.saldo > 0 && (
+                            <div className="pt-1">
+                              <Button
+                                onClick={() => {
+                                  const unidadeParaPedido =
+                                    modoVisao === "sje"
+                                      ? "SJE"
+                                      : modoVisao === "patos"
+                                        ? "Patos"
+                                        : modoVisao === "caico"
+                                          ? "Caicó"
+                                          : "Monteiro"
+                                  const emp = obterEmpresaPorUnidade(modoVisao)
+                                  const link = gerarLinkWhatsAppPedidoCimento({
+                                    unidadeNome: unidadeParaPedido,
+                                    saldoAtualKg: item.saldo,
+                                    estoqueMinimoKg: item.minimo,
+                                    empresa: emp,
+                                  })
+                                  window.open(
+                                    link,
+                                    "_blank",
+                                    "noopener,noreferrer",
+                                  )
+                                }}
+                                size="sm"
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] gap-1 h-7"
+                              >
+                                <Send className="w-3 h-3" />
+                                Pedir pelo WhatsApp
+                              </Button>
+                            </div>
+                          )}
                       </div>
                     ))}
                   </div>
