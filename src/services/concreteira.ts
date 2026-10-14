@@ -952,8 +952,11 @@ export const ConcreteiraService = {
       volume_m3: number
       traco_id?: string
       traco_nome?: string
+      motorista_id?: string | null
       motorista_nome?: string | null
+      veiculo_id?: string | null
       veiculo_placa?: string | null
+      cidade_id?: string | null
       cidade_nome?: string | null
       consumo_brita12: number
       consumo_brita19: number
@@ -984,8 +987,11 @@ export const ConcreteiraService = {
       volume_m3: payload.volume_m3,
       traco_id: payload.traco_id || null,
       traco_nome: payload.traco_nome || null,
+      motorista_id: payload.motorista_id || null,
       motorista_nome: payload.motorista_nome || null,
+      veiculo_id: payload.veiculo_id || null,
       veiculo_placa: payload.veiculo_placa || null,
+      cidade_id: payload.cidade_id || null,
       cidade_nome: payload.cidade_nome || null,
       consumo_brita12: payload.consumo_brita12,
       consumo_brita19: payload.consumo_brita19,
@@ -1229,9 +1235,12 @@ export const ConcreteiraService = {
     volume_m3: number
     traco_id?: string
     traco_nome?: string
-    motorista_nome?: string
-    veiculo_placa?: string
-    cidade_nome?: string
+    motorista_id?: string | null
+    motorista_nome?: string | null
+    veiculo_id?: string | null
+    veiculo_placa?: string | null
+    cidade_id?: string | null
+    cidade_nome?: string | null
     consumo_brita12: number
     consumo_brita19: number
     consumo_areia: number
@@ -1267,8 +1276,11 @@ export const ConcreteiraService = {
         volume_m3: payload.volume_m3,
         traco_id: payload.traco_id || null,
         traco_nome: payload.traco_nome || null,
+        motorista_id: payload.motorista_id || null,
         motorista_nome: payload.motorista_nome || null,
+        veiculo_id: payload.veiculo_id || null,
         veiculo_placa: payload.veiculo_placa || null,
+        cidade_id: payload.cidade_id || null,
         cidade_nome: payload.cidade_nome || null,
         consumo_brita12: payload.consumo_brita12,
         consumo_brita19: payload.consumo_brita19,

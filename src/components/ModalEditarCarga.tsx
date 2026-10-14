@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Carga, Traco } from "@/types/concreteira"
+import { Carga, Traco, Veiculo, Motorista, Cidade } from "@/types/concreteira"
 import { ConcreteiraService } from "@/services/concreteira"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -33,12 +33,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Pencil,
   AlertCircle,
-  RefreshCw,
   Check,
+  Pencil,
+  RefreshCw,
   Scale,
   Sparkles,
+  Truck,
+  User,
+  MapPin,
 } from "lucide-react"
 
 interface ModalEditarCargaProps {
@@ -49,8 +52,8 @@ interface ModalEditarCargaProps {
   tracosCatalogo: Traco[]
   nomeUnidade: string
   isPatos: boolean
+  empresaId?: string
 }
-
 export function ModalEditarCarga({
   carga,
   open,
@@ -77,6 +80,17 @@ export function ModalEditarCarga({
   const [poPedra, setPoPedra] = useState<number>(0)
   const [aditivo, setAditivo] = useState<number>(0)
 
+  // Placa (veículo), Motorista e Cidade
+  const [veiculoId, setVeiculoId] = useState<string>("nenhum")
+  const [motoristaId, setMotoristaId] = useState<string>("nenhum")
+  const [cidadeId, setCidadeId] = useState<string>("nenhum")
+
+  // Listas de opções carregadas da empresa/unidade
+  const [veiculosLista, setVeiculosLista] = useState<Veiculo[]>([])
+  const [motoristasLista, setMotoristasLista] = useState<Motorista[]>([])
+  const [cidadesLista, setCidadesLista] = useState<Cidade[]>([])
+  const [carregandoCadastros, setCarregandoCadastros] = useState(false)
+
   // Silo e Tanque (exclusivo Patos)
   const [siloCimento, setSiloCimento] = useState<string>("silo_1")
   const [tanqueAditivo, setTanqueAditivo] = useState<string>("tanque_1")
@@ -93,6 +107,40 @@ export function ModalEditarCarga({
   // Controle do AlertDialog de confirmação
   const [openConfirmacao, setOpenConfirmacao] = useState(false)
   const [salvando, setSalvando] = useState(false)
+
+  // Carrega opções de veículos, motoristas e cidades da unidade da carga/empresa
+  useEffect(() => {
+    if (!open) return
+    const idEmpresa = carga?.empresa_id || empresaId
+    let cancelado = false
+    setCarregandoCadastros(true)
+
+    Promise.all([
+      ConcreteiraService.getVeiculos(idEmpresa),
+      ConcreteiraService.getMotoristas(idEmpresa),
+      ConcreteiraService.getCidades(idEmpresa),
+    ])
+      .then(([veics, mots, cids]) => {
+        if (!cancelado) {
+          setVeiculosLista(veics || [])
+          setMotoristasLista(mots || [])
+          setCidadesLista(cids || [])
+        }
+      })
+      .catch((err) => {
+        console.error(
+          "Erro ao carregar veiculos/motoristas/cidades no modal:",
+          err,
+        )
+      })
+      .finally(() => {
+        if (!cancelado) setCarregandoCadastros(false)
+      })
+
+    return () => {
+      cancelado = true
+    }
+  }, [open, carga?.empresa_id])
 
   // Popula os estados ao abrir a carga
   useEffect(() => {
@@ -111,6 +159,48 @@ export function ModalEditarCarga({
       // Tentar casar pelo nome
       const match = tracosCatalogo.find((t) => t.nome === carga.traco_nome)
       setTracoId(match ? match.id : "manual")
+    }
+
+    // Veículo / Placa
+    if (carga.veiculo_id) {
+      setVeiculoId(carga.veiculo_id)
+    } else if (carga.veiculo_placa) {
+      const matchV = veiculosLista.find(
+        (v) =>
+          v.placa.trim().toUpperCase() ===
+          carga.veiculo_placa?.trim().toUpperCase(),
+      )
+      setVeiculoId(matchV ? matchV.id : "nenhum")
+    } else {
+      setVeiculoId("nenhum")
+    }
+
+    // Motorista
+    if (carga.motorista_id) {
+      setMotoristaId(carga.motorista_id)
+    } else if (carga.motorista_nome) {
+      const matchM = motoristasLista.find(
+        (m) =>
+          m.nome.trim().toLowerCase() ===
+          carga.motorista_nome?.trim().toLowerCase(),
+      )
+      setMotoristaId(matchM ? matchM.id : "nenhum")
+    } else {
+      setMotoristaId("nenhum")
+    }
+
+    // Cidade
+    if (carga.cidade_id) {
+      setCidadeId(carga.cidade_id)
+    } else if (carga.cidade_nome) {
+      const matchC = cidadesLista.find(
+        (c) =>
+          c.nome.trim().toLowerCase() ===
+          carga.cidade_nome?.trim().toLowerCase(),
+      )
+      setCidadeId(matchC ? matchC.id : "nenhum")
+    } else {
+      setCidadeId("nenhum")
     }
 
     // Dosagens por m³
@@ -156,7 +246,14 @@ export function ModalEditarCarga({
     setPatosAcumBrita01(acum01)
     setPatosAcumAreia(acumAr)
     setPatosAcumPo(acumPo)
-  }, [carga, open, tracosCatalogo])
+  }, [
+    carga,
+    open,
+    tracosCatalogo,
+    veiculosLista,
+    motoristasLista,
+    cidadesLista,
+  ])
 
   const volumeNum =
     parseFloat(String(volumeTexto).replace(",", ".").trim()) || 0
@@ -261,14 +358,45 @@ export function ModalEditarCarga({
           ? "Manual"
           : carga.traco_nome || "Manual"
 
+      const veiculoSel = veiculosLista.find((v) => v.id === veiculoId)
+      const motoristaSel = motoristasLista.find((m) => m.id === motoristaId)
+      const cidadeSel = cidadesLista.find((c) => c.id === cidadeId)
+
       await ConcreteiraService.atualizarCarga(carga.id, {
         data: dataCarga,
         volume_m3: volumeNum,
         traco_id: tracoSelecionado?.id,
         traco_nome: nomeTracoGravado,
-        motorista_nome: carga.motorista_nome || null,
-        veiculo_placa: carga.veiculo_placa || null,
-        cidade_nome: carga.cidade_nome || null,
+        motorista_id: motoristaSel
+          ? motoristaSel.id
+          : motoristaId === "nenhum"
+            ? null
+            : carga.motorista_id || null,
+        motorista_nome: motoristaSel
+          ? motoristaSel.nome
+          : motoristaId === "nenhum"
+            ? null
+            : carga.motorista_nome || null,
+        veiculo_id: veiculoSel
+          ? veiculoSel.id
+          : veiculoId === "nenhum"
+            ? null
+            : carga.veiculo_id || null,
+        veiculo_placa: veiculoSel
+          ? veiculoSel.placa
+          : veiculoId === "nenhum"
+            ? null
+            : carga.veiculo_placa || null,
+        cidade_id: cidadeSel
+          ? cidadeSel.id
+          : cidadeId === "nenhum"
+            ? null
+            : carga.cidade_id || null,
+        cidade_nome: cidadeSel
+          ? cidadeSel.nome
+          : cidadeId === "nenhum"
+            ? null
+            : carga.cidade_nome || null,
         consumo_brita12: consumoCalculado.brita12,
         consumo_brita19: consumoCalculado.brita19,
         consumo_areia: consumoCalculado.areia,
@@ -389,6 +517,155 @@ export function ModalEditarCarga({
                         {t.nome} {t.fck_mpa ? `(${t.fck_mpa} MPa)` : ""}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Linha 2: Placa (Veículo), Motorista e Cidade */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-xl border border-border/60 bg-muted/20">
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="edit-veiculo"
+                  className="text-xs font-semibold flex items-center gap-1.5 text-foreground"
+                >
+                  <Truck className="w-3.5 h-3.5 text-primary" />
+                  Placa (Veículo)
+                </Label>
+                <Select
+                  value={veiculoId}
+                  onValueChange={setVeiculoId}
+                  disabled={carregandoCadastros}
+                >
+                  <SelectTrigger
+                    id="edit-veiculo"
+                    className="h-9 text-xs rounded-lg bg-background"
+                  >
+                    <SelectValue placeholder="Selecione o veículo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      value="nenhum"
+                      className="text-xs text-muted-foreground"
+                    >
+                      — Nenhum / Sem placa —
+                    </SelectItem>
+                    {veiculosLista.map((v) => (
+                      <SelectItem key={v.id} value={v.id} className="text-xs">
+                        {v.placa} {v.modelo ? `(${v.modelo})` : ""}
+                      </SelectItem>
+                    ))}
+                    {/* Se a carga tinha placa sem match no cadastro ativo, exibe opção para manter */}
+                    {carga.veiculo_placa &&
+                      !veiculosLista.some(
+                        (v) =>
+                          v.id === carga.veiculo_id ||
+                          v.placa === carga.veiculo_placa,
+                      ) && (
+                        <SelectItem
+                          value={`legado_${carga.veiculo_placa}`}
+                          className="text-xs italic"
+                        >
+                          {carga.veiculo_placa} (Registro atual)
+                        </SelectItem>
+                      )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="edit-motorista"
+                  className="text-xs font-semibold flex items-center gap-1.5 text-foreground"
+                >
+                  <User className="w-3.5 h-3.5 text-primary" />
+                  Motorista
+                </Label>
+                <Select
+                  value={motoristaId}
+                  onValueChange={setMotoristaId}
+                  disabled={carregandoCadastros}
+                >
+                  <SelectTrigger
+                    id="edit-motorista"
+                    className="h-9 text-xs rounded-lg bg-background"
+                  >
+                    <SelectValue placeholder="Selecione o motorista" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      value="nenhum"
+                      className="text-xs text-muted-foreground"
+                    >
+                      — Nenhum motorista —
+                    </SelectItem>
+                    {motoristasLista.map((m) => (
+                      <SelectItem key={m.id} value={m.id} className="text-xs">
+                        {m.nome}
+                      </SelectItem>
+                    ))}
+                    {carga.motorista_nome &&
+                      !motoristasLista.some(
+                        (m) =>
+                          m.id === carga.motorista_id ||
+                          m.nome === carga.motorista_nome,
+                      ) && (
+                        <SelectItem
+                          value={`legado_${carga.motorista_nome}`}
+                          className="text-xs italic"
+                        >
+                          {carga.motorista_nome} (Registro atual)
+                        </SelectItem>
+                      )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="edit-cidade"
+                  className="text-xs font-semibold flex items-center gap-1.5 text-foreground"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-primary" />
+                  Cidade
+                </Label>
+                <Select
+                  value={cidadeId}
+                  onValueChange={setCidadeId}
+                  disabled={carregandoCadastros}
+                >
+                  <SelectTrigger
+                    id="edit-cidade"
+                    className="h-9 text-xs rounded-lg bg-background"
+                  >
+                    <SelectValue placeholder="Selecione a cidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      value="nenhum"
+                      className="text-xs text-muted-foreground"
+                    >
+                      — Nenhuma cidade —
+                    </SelectItem>
+                    {cidadesLista.map((c) => (
+                      <SelectItem key={c.id} value={c.id} className="text-xs">
+                        {c.nome}
+                        {c.uf ? ` - ${c.uf}` : ""}
+                      </SelectItem>
+                    ))}
+                    {carga.cidade_nome &&
+                      !cidadesLista.some(
+                        (c) =>
+                          c.id === carga.cidade_id ||
+                          c.nome === carga.cidade_nome,
+                      ) && (
+                        <SelectItem
+                          value={`legado_${carga.cidade_nome}`}
+                          className="text-xs italic"
+                        >
+                          {carga.cidade_nome} (Registro atual)
+                        </SelectItem>
+                      )}
                   </SelectContent>
                 </Select>
               </div>
