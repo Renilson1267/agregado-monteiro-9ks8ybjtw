@@ -1954,7 +1954,7 @@ export default function LancamentoCargas() {
                 <span className="font-mono text-foreground font-semibold">
                   Areia: {consumoReal.areia.toLocaleString("pt-BR")} kg
                 </span>
-                {consumoReal.poPedra > 0 && (
+                {(consumoReal.poPedra > 0 || isPatos) && (
                   <>
                     <span className="text-muted-foreground">•</span>
                     <span className="font-mono text-primary font-semibold">
@@ -2153,7 +2153,7 @@ export default function LancamentoCargas() {
                       kg/m³)
                     </span>
                   </div>
-                  {consumoReal.poPedra > 0 && (
+                  {(consumoReal.poPedra > 0 || isPatos) && (
                     <div className="flex justify-between py-0.5 border-b border-border/20 sm:border-0">
                       <span className="text-muted-foreground">
                         Pó de Brita:
@@ -2166,7 +2166,9 @@ export default function LancamentoCargas() {
                   )}
                   <div
                     className={`flex justify-between py-0.5 border-b border-border/20 sm:border-0 ${
-                      consumoReal.poPedra > 0 ? "" : "col-span-1 sm:col-span-2"
+                      consumoReal.poPedra > 0 || isPatos
+                        ? ""
+                        : "col-span-1 sm:col-span-2"
                     }`}
                   >
                     <span className="text-muted-foreground">Aditivo:</span>
@@ -2387,7 +2389,8 @@ export default function LancamentoCargas() {
                       </td>
                     </tr>
                     {(consumoReal.poPedra > 0 ||
-                      Number(cargaOriginal.consumo_po_pedra || 0) > 0) && (
+                      Number(cargaOriginal.consumo_po_pedra || 0) > 0 ||
+                      isPatos) && (
                       <tr
                         className={
                           Number(cargaOriginal.consumo_po_pedra || 0) !==
@@ -2818,15 +2821,16 @@ export default function LancamentoCargas() {
                             >
                               Ar: {ar.toLocaleString("pt-BR")} kg
                             </span>
-                            {Number(carga.consumo_po_pedra || 0) > 0 && (
+                            {(Number(carga.consumo_po_pedra || 0) > 0 ||
+                              isPatos) && (
                               <span
                                 className="text-primary font-semibold"
                                 title="Pó de Brita"
                               >
                                 Pó:{" "}
-                                {Number(carga.consumo_po_pedra).toLocaleString(
-                                  "pt-BR",
-                                )}{" "}
+                                {Number(
+                                  carga.consumo_po_pedra || 0,
+                                ).toLocaleString("pt-BR")}{" "}
                                 kg
                               </span>
                             )}
