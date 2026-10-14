@@ -1485,199 +1485,9 @@ export default function LancamentoCargas() {
                 )}
               </div>
 
-              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
-              <div className="space-y-3">
-                {isModoAcumulativoPatos ? (
-                  /* MODO ACUMULATIVO PARA TODOS OS TRAÇOS NA UNIDADE PATOS (F10 A F45):
-                     5 campos de digitação acumulativa por 1,00 m³ (mesmo estilo da tabela impressa da central):
-                     1. Cimento (kg/m³)
-                     2. Brita 0 (kg/m³)
-                     3. Brita 0+1 acumulado (kg/m³)
-                     4. Areia acumulado (kg/m³)
-                     5. Pó acumulado (kg/m³)
-                     Aditivo e água fixos do cadastro do traço, sem digitação. */
-                  <div className="space-y-4">
-                    <div className="p-3.5 rounded-xl bg-primary/10 border-2 border-primary/40 text-xs text-foreground space-y-1">
-                      <div className="font-bold text-sm text-primary flex items-center gap-1.5">
-                        <Sparkles className="w-4 h-4" />
-                        Tabela Impressa Acumulativa — Patos ({tracoAtual?.nome || "Traço"}) (por 1,00 m³)
-                      </div>
-                      <p className="text-muted-foreground text-[11px]">
-                        Digite os valores da tabela impressa acumulada por 1,00 m³. O app desmembra internamente por subtração (brita19 = acum − brita0; areia = acum − brita01; pó = acum − areia) e multiplica pelo volume da carga ({volumeEfetivo > 0 ? String(volumeEfetivo).replace(".", ",") : "0"} m³). Aceita vírgula decimal.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {/* 1. Cimento */}
-                      <div className="p-3.5 rounded-xl border-2 border-primary/40 bg-primary/5 space-y-1.5">
-                        <Label
-                          htmlFor="patos_cimento"
-                          className="text-xs font-bold text-foreground flex items-center justify-between"
-                        >
-                          <span className="flex items-center gap-1">
-                            1. Cimento (por 1,00 m³) *
-                            <span className="text-[10px] px-1 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded font-normal">
-                              Estoque
-                            </span>
-                          </span>
-                          {volumeEfetivo > 0 && (
-                            <span className="text-[11px] font-mono font-bold text-primary">
-                              Total: {consumoReal.cimento.toLocaleString("pt-BR")} kg
-                            </span>
-                          )}
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="patos_cimento"
-                            type="text"
-                            inputMode="decimal"
-                            value={f45PatosCimento}
-                            onChange={(e) => setF45PatosCimento(e.target.value)}
-                            disabled={cargaZerada}
-                            placeholder="Ex.: 438"
-                            className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
-                            kg/m³
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground font-mono">
-                          Real: {dosagemEfetivaM3.cimento.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
-                        </p>
-                      </div>
-
-                      {/* 2. Brita 0 */}
-                      <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
-                        <Label
-                          htmlFor="patos_brita0"
-                          className="text-xs font-bold text-foreground flex items-center justify-between"
-                        >
-                          <span>2. Brita 0 (por 1,00 m³) *</span>
-                          {volumeEfetivo > 0 && (
-                            <span className="text-[11px] font-mono font-semibold text-muted-foreground">
-                              Total: {consumoReal.brita12.toLocaleString("pt-BR")} kg
-                            </span>
-                          )}
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="patos_brita0"
-                            type="text"
-                            inputMode="decimal"
-                            value={f45PatosBrita0}
-                            onChange={(e) => setF45PatosBrita0(e.target.value)}
-                            disabled={cargaZerada}
-                            placeholder="Ex.: 392"
-                            className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
-                            kg/m³
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground font-mono">
-                          Real B0: {dosagemEfetivaM3.brita12.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
-                        </p>
-                      </div>
-
-                      {/* 3. Brita 0+1 (acumulado) */}
-                      <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
-                        <Label
-                          htmlFor="patos_brita01"
-                          className="text-xs font-bold text-foreground flex items-center justify-between"
-                        >
-                          <span>3. Brita 0+1 (acumulado) *</span>
-                          {volumeEfetivo > 0 && (
-                            <span className="text-[11px] font-mono font-semibold text-muted-foreground">
-                              Total B1: {consumoReal.brita19.toLocaleString("pt-BR")} kg
-                            </span>
-                          )}
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="patos_brita01"
-                            type="text"
-                            inputMode="decimal"
-                            value={f45PatosBrita01}
-                            onChange={(e) => setF45PatosBrita01(e.target.value)}
-                            disabled={cargaZerada}
-                            placeholder="Ex.: 980"
-                            className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
-                            kg/m³
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground font-mono">
-                          Real B1 (acum − B0): {dosagemEfetivaM3.brita19.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
-                        </p>
-                      </div>
-
-                      {/* 4. Areia (acumulado) */}
-                      <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
-                        <Label
-                          htmlFor="patos_areia"
-                          className="text-xs font-bold text-foreground flex items-center justify-between"
-                        >
-                          <span>4. Areia (acumulado) *</span>
-                          {volumeEfetivo > 0 && (
-                            <span className="text-[11px] font-mono font-semibold text-muted-foreground">
-                              Total: {consumoReal.areia.toLocaleString("pt-BR")} kg
-                            </span>
-                          )}
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="patos_areia"
-                            type="text"
-                            inputMode="decimal"
-                            value={f45PatosAreiaAcum}
-                            onChange={(e) => setF45PatosAreiaAcum(e.target.value)}
-                            disabled={cargaZerada}
-                            placeholder="Ex.: 1302"
-                            className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
-                            kg/m³
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground font-mono">
-                          Real Areia (acum − B0+1): {dosagemEfetivaM3.areia.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
-                        </p>
-                      </div>
-
-                      {/* 5. Pó (acumulado) */}
-                      <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-1.5">
-                        <Label
-                          htmlFor="patos_po"
-                          className="text-xs font-bold text-foreground flex items-center justify-between"
-                        >
-                          <span>5. Pó (acumulado) *</span>
-                          {volumeEfetivo > 0 && (
-                            <span className="text-[11px] font-mono font-semibold text-muted-foreground">
-                              Total: {consumoReal.poPedra.toLocaleString("pt-BR")} kg
-                            </span>
-                          )}
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="patos_po"
-                            type="text"
-                            inputMode="decimal"
-                            value={f45PatosPoAcum}
-                            onChange={(e) => setF45PatosPoAcum(e.target.value)}
-                            disabled={cargaZerada}
-                            placeholder="Ex.: 1690"
-                            className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background pr-16 rounded-xl"
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
-                            kg/m³
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground font-mono">
-                          Real Pó (acum − areia): {dosagemEfetivaM3.poPedra.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg/m³
-                        </p>
-                      </div>
-
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
               {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
               <div className="space-y-3">
                 {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
@@ -1685,6 +1495,355 @@ export default function LancamentoCargas() {
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* CIMENTO */}
+=======
+                ) : (
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                ) : (
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                {tracoAtual && (
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className="text-xs py-1 px-2.5 bg-primary/10 text-primary border-primary/30"
+                    >
+                      Traço sugerido:{" "}
+                      {formatarDescricaoCompletaTraco(tracoAtual)}
+                    </Badge>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={limparTracoVinculado}
+                      className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                      title="Gravar sem vínculo com este traço"
+                    >
+                      Remover vínculo
+                    </Button>
+                  </div>
+                )}
+              </div>
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                ) : (
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                ) : (
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+=======
+                {tracoAtual && (
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className="text-xs py-1 px-2.5 bg-primary/10 text-primary border-primary/30"
+                    >
+                      Traço sugerido:{" "}
+                      {formatarDescricaoCompletaTraco(tracoAtual)}
+                    </Badge>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={limparTracoVinculado}
+                      className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                      title="Gravar sem vínculo com este traço"
+                    >
+                      Remover vínculo
+                    </Button>
+                  </div>
+                )}
+              </div>
 =======
                   /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
                      CIMENTO, B12, B19, AREIA e ADITIVO */
@@ -3322,6 +3481,364 @@ export default function LancamentoCargas() {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                ) : (
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                ) : (
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                {tracoAtual && (
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className="text-xs py-1 px-2.5 bg-primary/10 text-primary border-primary/30"
+                    >
+                      Traço sugerido:{" "}
+                      {formatarDescricaoCompletaTraco(tracoAtual)}
+                    </Badge>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={limparTracoVinculado}
+                      className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                      title="Gravar sem vínculo com este traço"
+                    >
+                      Remover vínculo
+                    </Button>
+                  </div>
+                )}
+              </div>
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                ) : (
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                ) : (
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+                  /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
+                     CIMENTO, B12, B19, AREIA e ADITIVO */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* CIMENTO */}
+=======
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CIMENTO */}
+=======
+              {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+              <div className="space-y-3">
+                {/* CAMPOS DOS INSUMOS NA SEQUÊNCIA NATURAL:
+                    CIMENTO, B12, B19, AREIA e ADITIVO */}
+                <div className="space-y-3">
+=======
+                          disabled={cargaZerada}
+                          placeholder="0"
+                          className="min-h-[48px] h-12 text-lg font-mono font-bold bg-background text-primary pr-14 rounded-xl"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground pointer-events-none">
+                          Litros
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+            {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+            <div className="space-y-3">
+              {isModoAcumulativoPatos ? (
+=======
                   {/* Observação opcional */}
                   <div className="pt-2">
                     <Label
@@ -3339,7 +3856,11 @@ export default function LancamentoCargas() {
                     />
                   </div>
                 </div>
-              ) : (
+              </div>
+
+            {/* Insumos (Cimento, Brita 12, Brita 19, Areia, Aditivo) */}
+            <div className="space-y-3">
+              {isModoAcumulativoPatos ? (
                 /* MODO PADRÃO PARA DEMAIS TRAÇOS / UNIDADES:
                    CIMENTO, B12, B19, AREIA e ADITIVO */
                 <div className="space-y-3">
