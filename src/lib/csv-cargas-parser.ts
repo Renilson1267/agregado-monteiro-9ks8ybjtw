@@ -355,35 +355,85 @@ export function parseControleDiarioCSV(
     const mapa: Record<string, number> = {}
     colunas.forEach((col, idx) => {
       if (col === "data" || col.startsWith("data")) mapa["data"] = idx
-      else if (col.includes("volume")) mapa["volume"] = idx
-      else if (col.includes("brita 12") && !col.includes("total"))
+      else if (col.includes("volume") || col === "m3" || col === "m³")
+        mapa["volume"] = idx
+      // Nomenclaturas de Patos / Tabela Impressa e padrão geral
+      else if (
+        col.includes("brita 0+1") ||
+        col.includes("brita 0 + 1") ||
+        col.includes("brita01") ||
+        col.includes("brita 01") ||
+        col.includes("acum brita") ||
+        col.includes("brita acum")
+      )
+        mapa["patos_acum_brita01"] = idx
+      else if (
+        col.includes("areia acum") ||
+        col.includes("acum areia") ||
+        col.includes("areia acumulada")
+      )
+        mapa["patos_acum_areia"] = idx
+      else if (
+        col.includes("po acum") ||
+        col.includes("acum po") ||
+        col.includes("po acumulado")
+      )
+        mapa["patos_acum_po"] = idx
+      else if (
+        (col.includes("brita 12") ||
+          col.includes("brita 0") ||
+          col === "brita0" ||
+          col === "b0") &&
+        !col.includes("total")
+      )
         mapa["brita12"] = idx
-      else if (col.includes("brita 19") && !col.includes("total"))
+      else if (
+        (col.includes("brita 19") ||
+          col.includes("brita 1") ||
+          col === "brita1" ||
+          col === "b1") &&
+        !col.includes("total")
+      )
         mapa["brita19"] = idx
-      else if (col.includes("areia") && !col.includes("total"))
+      else if (
+        (col.includes("areia") || col.includes("areia natural")) &&
+        !col.includes("total") &&
+        !col.includes("acum")
+      )
         mapa["areia"] = idx
       else if (
         (col.includes("po de pedra") ||
+          col.includes("po de brita") ||
           col.includes("po (kg)") ||
           col === "po" ||
           col.startsWith("po ")) &&
-        !col.includes("total")
+        !col.includes("total") &&
+        !col.includes("acum")
       )
         mapa["po_pedra"] = idx
       else if (
-        col.includes("cimento") &&
+        (col.includes("cimento") ||
+          col.includes("cpii") ||
+          col.includes("cp ii") ||
+          col.includes("cp v") ||
+          col.includes("f-40") ||
+          col.includes("f40")) &&
         !col.includes("total") &&
         !col.includes("acumulado") &&
         !col.includes("saldo")
       )
         mapa["cimento"] = idx
       else if (
-        col.includes("aditivo") &&
+        (col.includes("aditivo") ||
+          col.includes("mplast") ||
+          col.includes("fk320") ||
+          col.includes("fk 320")) &&
         !col.includes("total") &&
         !col.includes("acumulado") &&
         !col.includes("saldo")
       )
         mapa["aditivo"] = idx
+      else if (col.includes("agua") || col.includes("água")) mapa["agua"] = idx
       else if (col.includes("motorista")) mapa["motorista"] = idx
       else if (col.includes("placa")) mapa["placa"] = idx
       else if (col.includes("cidade")) mapa["cidade"] = idx
@@ -599,16 +649,17 @@ export function parseControleDiarioCSV(
       continue
     }
 
-    const consumo_brita12 = parseNumeroBr(
+    // Leitura das colunas com suporte a modo acumulativo de Patos
+    let consumo_brita12 = parseNumeroBr(
       getColAtual(colunas, "brita12", 2, mapaColunas),
     )
-    const consumo_brita19 = parseNumeroBr(
+    let consumo_brita19 = parseNumeroBr(
       getColAtual(colunas, "brita19", 3, mapaColunas),
     )
-    const consumo_areia = parseNumeroBr(
+    let consumo_areia = parseNumeroBr(
       getColAtual(colunas, "areia", 4, mapaColunas),
     )
-    const consumo_po_pedra = parseNumeroBr(
+    let consumo_po_pedra = parseNumeroBr(
       getColAtual(colunas, "po_pedra", 5, mapaColunas),
     )
     const consumo_cimento = parseNumeroBr(
@@ -617,6 +668,45 @@ export function parseControleDiarioCSV(
     const consumo_aditivo = parseNumeroBr(
       getColAtual(colunas, "aditivo", 7, mapaColunas),
     )
+
+    // Se a planilha contiver colunas acumuladas de Patos:
+    // Brita 0 (brita12), Brita 0+1 acumulada, Areia acumulada, Pó acumulado
+    if (mapaColunas["patos_acum_brita01"] !== undefined) {
+      const acumB01 = parseNumeroBr(
+        colunas[mapaColunas["patos_acum_brita01"]] || "",
+      )
+      if (acumB01 > 0 && acumB01 >= consumo_brita12) {
+        consumo_brita19 = Math.max(
+          0,
+          Math.round((acumB01 - consumo_brita12) * 10) / 10,
+        )
+      }
+    }
+    if (mapaColunas["patos_acum_areia"] !== undefined) {
+      const acumAreia = parseNumeroBr(
+        colunas[mapaColunas["patos_acum_areia"]] || "",
+      )
+      const baseB01 =
+        mapaColunas["patos_acum_brita01"] !== undefined
+          ? parseNumeroBr(colunas[mapaColunas["patos_acum_brita01"]] || "")
+          : consumo_brita12 + consumo_brita19
+      if (acumAreia > 0 && acumAreia >= baseB01) {
+        consumo_areia = Math.max(0, Math.round((acumAreia - baseB01) * 10) / 10)
+      }
+    }
+    if (mapaColunas["patos_acum_po"] !== undefined) {
+      const acumPo = parseNumeroBr(colunas[mapaColunas["patos_acum_po"]] || "")
+      const baseAreia =
+        mapaColunas["patos_acum_areia"] !== undefined
+          ? parseNumeroBr(colunas[mapaColunas["patos_acum_areia"]] || "")
+          : consumo_brita12 + consumo_brita19 + consumo_areia
+      if (acumPo > 0 && acumPo >= baseAreia) {
+        consumo_po_pedra = Math.max(
+          0,
+          Math.round((acumPo - baseAreia) * 10) / 10,
+        )
+      }
+    }
 
     const motoristaCru = getColAtual(colunas, "motorista", 8, mapaColunas)
     const veiculoCru = getColAtual(colunas, "placa", 9, mapaColunas)
