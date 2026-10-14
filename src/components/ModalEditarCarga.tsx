@@ -62,6 +62,7 @@ export function ModalEditarCarga({
   tracosCatalogo,
   nomeUnidade,
   isPatos,
+  empresaId,
 }: ModalEditarCargaProps) {
   const { toast } = useToast()
 
@@ -140,7 +141,7 @@ export function ModalEditarCarga({
     return () => {
       cancelado = true
     }
-  }, [open, carga?.empresa_id])
+  }, [open, carga?.empresa_id, empresaId])
 
   // Popula os estados ao abrir a carga
   useEffect(() => {
