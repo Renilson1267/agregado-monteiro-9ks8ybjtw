@@ -96,6 +96,7 @@ export interface PreviewImportacaoCSV {
   cidadesEncontradas: string[]
   resumoPorMes: ResumoMesPlanilha[]
   cargas: LinhaCargaParsed[]
+  abasDetectadas?: string[]
 }
 
 /**
@@ -300,8 +301,13 @@ function sugerirNomeTraco(dosagem: {
 /**
  * Parser principal do CSV do Controle Diário de Materiais
  */
+/**
+ * Converte múltiplas planilhas (XLSX exportado para CSV com separadores de aba ou múltiplos CSVs)
+ * ou texto simples de uma única planilha.
+ */
 export function parseControleDiarioCSV(
   conteudoCsv: string,
+  nomeArquivo?: string,
 ): PreviewImportacaoCSV {
   const avisos: string[] = []
   const erros: string[] = []
@@ -542,8 +548,20 @@ export function parseControleDiarioCSV(
       .replace(/[\u0300-\u036f]/g, "")
       .trim()
 
-    // DETECÇÃO DE TÍTULOS DE MÊS OU SEPARADORES DE BLOCO
-    // Ex: "JANEIRO", "FEVEREIRO 2026", "MARÇO", "MÊS DE ABRIL", "CONTROLE DIÁRIO"
+    // DETECÇÃO DE MARCADORES DE ABA OU TÍTULOS DE MÊS OU SEPARADORES DE BLOCO
+    // Ex: "# ABA: ...", "JANEIRO", "FEVEREIRO 2026", "MARÇO", "MÊS DE ABRIL", "CONTROLE DIÁRIO"
+    if (linhaTexto.startsWith("# ABA:") || linhaTexto.startsWith("# ABA ")) {
+      totalLinhasIgnoradas++
+      linhasIgnoradasDetalhes.push({
+        linhaNumero: i + 1,
+        motivo: `Marcador de aba: ${linhaTexto}`,
+        conteudoBruto: linhaTexto,
+      })
+      ultimaDataIso = null
+      ultimaDataOriginal = null
+      continue
+    }
+
     if (
       regexTituloMes.test(primeiraColunaNorm) ||
       primeiraColunaNorm.startsWith("mes de ") ||
@@ -656,12 +674,8 @@ export function parseControleDiarioCSV(
     let consumo_brita19 = parseNumeroBr(
       getColAtual(colunas, "brita19", 3, mapaColunas),
     )
-    let consumo_areia = parseNumeroBr(
-      getColAtual(colunas, "areia", 4, mapaColunas),
-    )
-    let consumo_po_pedra = parseNumeroBr(
-      getColAtual(colunas, "po_pedra", 5, mapaColunas),
-    )
+    let rawAreia = parseNumeroBr(getColAtual(colunas, "areia", 4, mapaColunas))
+    let rawPo = parseNumeroBr(getColAtual(colunas, "po_pedra", 5, mapaColunas))
     const consumo_cimento = parseNumeroBr(
       getColAtual(colunas, "cimento", 6, mapaColunas),
     )
@@ -669,8 +683,10 @@ export function parseControleDiarioCSV(
       getColAtual(colunas, "aditivo", 7, mapaColunas),
     )
 
-    // Se a planilha contiver colunas acumuladas de Patos:
-    // Brita 0 (brita12), Brita 0+1 acumulada, Areia acumulada, Pó acumulado
+    let consumo_areia = rawAreia
+    let consumo_po_pedra = rawPo
+
+    // 1. Se colunas foram explicitamente nomeadas como acumuladas no cabeçalho
     if (mapaColunas["patos_acum_brita01"] !== undefined) {
       const acumB01 = parseNumeroBr(
         colunas[mapaColunas["patos_acum_brita01"]] || "",
@@ -699,12 +715,38 @@ export function parseControleDiarioCSV(
       const baseAreia =
         mapaColunas["patos_acum_areia"] !== undefined
           ? parseNumeroBr(colunas[mapaColunas["patos_acum_areia"]] || "")
-          : consumo_brita12 + consumo_brita19 + consumo_areia
+          : mapaColunas["patos_acum_brita01"] !== undefined
+            ? parseNumeroBr(colunas[mapaColunas["patos_acum_brita01"]] || "") +
+              consumo_areia
+            : consumo_brita12 + consumo_brita19 + consumo_areia
       if (acumPo > 0 && acumPo >= baseAreia) {
         consumo_po_pedra = Math.max(
           0,
           Math.round((acumPo - baseAreia) * 10) / 10,
         )
+      }
+    }
+
+    // 2. Detecção automática de acumulação crescente típica de Patos
+    // Na balança de Patos: Brita 0 (B12) e Brita 1 (B19), depois Areia acumulando Britas, depois Pó acumulando Areia+Britas.
+    // Ex: B19=6845, B12=2965 (soma britas=9810), Areia=10520 (>9810), Pó=14580 (>10520).
+    // O desmembramento real por subtração:
+    // Areia real = Areia acumulada - (Brita 19 + Brita 12)
+    // Pó real = Pó acumulado - Areia acumulada
+    if (
+      mapaColunas["patos_acum_areia"] === undefined &&
+      mapaColunas["patos_acum_po"] === undefined
+    ) {
+      const somaBritas = consumo_brita12 + consumo_brita19
+      if (somaBritas > 0 && rawAreia > somaBritas && rawPo >= rawAreia) {
+        consumo_areia = Math.max(
+          0,
+          Math.round((rawAreia - somaBritas) * 10) / 10,
+        )
+        consumo_po_pedra = Math.max(0, Math.round((rawPo - rawAreia) * 10) / 10)
+      } else if (rawAreia > 0 && rawPo > rawAreia) {
+        // Caso sem britas (ex: argamassa/traço só areia+pó)
+        consumo_po_pedra = Math.max(0, Math.round((rawPo - rawAreia) * 10) / 10)
       }
     }
 

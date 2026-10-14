@@ -2884,42 +2884,51 @@ export const ConcreteiraService = {
       tracosPorDosagem.set(chave, t)
     })
 
-    // 3. Determinar o próximo número de carga a usar
-    // Se o período for anterior a outubro, vamos iniciar a numeração em 1 (para o lote de jan-set)
-    // caso não haja cargas anteriores no ano, ou continuar do menor disponível.
-    // Para Monteiro, temos 16 cargas em outubro com numeração 393..408.
-    // O lote de jan-set tem ~542 cargas. Para não colidir com outubro (393-408),
-    // precisamos ajustar as cargas de outubro para virem DEPOIS do lote de jan-set,
-    // ou numerar o lote com segurança.
-    // Vamos verificar a numeração de outubro antes!
-    const { data: cargasOutubro } = await (supabase as any)
+    // 3. Determinar o próximo número de carga a usar de forma segura e não colidente
+    // Para períodos históricos anteriores (ex: jan-set), ajusta cargas posteriores caso colidam;
+    // Para períodos correntes/posteriores (ex: outubro/2026 em Patos ou Monteiro), continua sequencialmente
+    // a partir do maior número já existente na empresa.
+    const { data: todasCargasExistentes } = await (supabase as any)
       .from("cargas")
-      .select("id, numero_carga")
+      .select("id, numero_carga, data")
       .eq("empresa_id", empresaId)
-      .gte("data", "2026-10-01")
       .order("numero_carga", { ascending: true })
 
     const totalCargasNovas = cargasParaImportar.length
 
-    // Se outubro tem numerações baixas (ex: 393-408) e o novo lote tem 542 cargas,
-    // se numerássemos 1..542, colidiria ou passaria por cima de 393.
-    // Para manter a integridade, deslocamos as cargas de outubro para depois do lote
-    // (ex: a partir de totalCargasNovas + 1), preservando a ordem relativa de outubro!
-    if (cargasOutubro && cargasOutubro.length > 0) {
-      const minNumOutubro = Math.min(
-        ...cargasOutubro.map((c: any) => c.numero_carga || 0),
+    // Cargas que estão DEPOIS da data fim deste lote de substituição
+    const cargasPosteriores = (todasCargasExistentes || []).filter(
+      (c: any) => c.data > periodoExclusao.dataFim,
+    )
+
+    // Se houver cargas posteriores e o período for de meses anteriores (ex: Monteiro jan-set),
+    // garante que cargas posteriores não colidam
+    if (cargasPosteriores.length > 0) {
+      const minNumPosterior = Math.min(
+        ...cargasPosteriores.map((c: any) => c.numero_carga || 0),
       )
-      if (minNumOutubro <= totalCargasNovas) {
-        // Desloca as de outubro para começar em totalCargasNovas + 1
-        let seqOutubro = totalCargasNovas + 1
-        for (const cOut of cargasOutubro) {
+      if (minNumPosterior <= totalCargasNovas) {
+        let seqPosterior = totalCargasNovas + 1
+        for (const cPos of cargasPosteriores) {
           await (supabase as any)
             .from("cargas")
-            .update({ numero_carga: seqOutubro++ })
-            .eq("id", cOut.id)
+            .update({ numero_carga: seqPosterior++ })
+            .eq("id", cPos.id)
         }
       }
     }
+
+    // Cargas ANTERIORES à data de início deste lote
+    const cargasAnteriores = (todasCargasExistentes || []).filter(
+      (c: any) => c.data < periodoExclusao.dataInicio,
+    )
+    const maxNumAnterior = cargasAnteriores.reduce(
+      (max: number, c: any) => Math.max(max, Number(c.numero_carga) || 0),
+      0,
+    )
+
+    // Inicia a numeração após as cargas anteriores existentes, ou em 1 se não houver
+    let numeroSequencial = maxNumAnterior > 0 ? maxNumAnterior + 1 : 1
 
     // 4. Inserção das novas cargas do lote
     // Ordenar cronologicamente por data (e linha original se mesma data)
@@ -2928,8 +2937,6 @@ export const ConcreteiraService = {
       if (cmp !== 0) return cmp
       return (a.linhaIndex || 0) - (b.linhaIndex || 0)
     })
-
-    let numeroSequencial = 1
     let tracosVinculados = 0
     let tracosManuais = 0
     let volumeTotalInserido = 0

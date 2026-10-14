@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import {
   Table,
   TableBody,
@@ -52,11 +53,32 @@ import {
   parseControleDiarioCSV,
   PreviewImportacaoCSV,
 } from "@/lib/csv-cargas-parser"
+import { lerArquivoParaCsv } from "@/lib/xlsx-cargas-reader"
 import { Link } from "react-router-dom"
 
 interface MetaMesInfo {
   nome: string
   meta: number
+}
+
+function formatarChaveMesExtenso(chave: string): string {
+  const [ano, mes] = chave.split("-")
+  const nomesMeses = [
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
+  ]
+  const idx = parseInt(mes, 10) - 1
+  return `${nomesMeses[idx] || mes}/${ano}`
 }
 
 // Metas oficiais fornecidas pelo usuário para Monteiro jan-set/2026
@@ -114,9 +136,44 @@ export default function ImportarCargasPage() {
     volumeTotalInseridoM3: number
   } | null>(null)
 
-  // Período de substituição fixo: Jan a Set/2026
-  const dataInicioSubstituicao = "2026-01-01"
-  const dataFimSubstituicao = "2026-09-30"
+  // Determina se a unidade atual é Monteiro
+  const ehMonteiro = useMemo(() => {
+    const slug = (empresaAtiva?.slug || "").toLowerCase()
+    const nome = (empresaAtiva?.nome || "").toLowerCase()
+    return slug === "monteiro" || nome.includes("monteiro")
+  }, [empresaAtiva])
+
+  // Determina se a unidade atual é Patos
+  const ehPatos = useMemo(() => {
+    const slug = (empresaAtiva?.slug || "").toLowerCase()
+    const nome = (empresaAtiva?.nome || "").toLowerCase()
+    return slug === "patos" || nome.includes("patos")
+  }, [empresaAtiva])
+
+  // Período de importação/substituição configurável:
+  // - Para Patos: padrão Outubro/2026 (01/10/2026 a 31/10/2026)
+  // - Para Monteiro: padrão Jan a Set/2026 (01/01/2026 a 30/09/2026)
+  // - Para outras: padrão mês atual ou configurável
+  const [dataInicioSubstituicao, setDataInicioSubstituicao] = useState(
+    ehPatos ? "2026-10-01" : "2026-01-01",
+  )
+  const [dataFimSubstituicao, setDataFimSubstituicao] = useState(
+    ehPatos ? "2026-10-31" : "2026-09-30",
+  )
+
+  // Atualiza datas padrão quando a unidade selecionada muda
+  useEffect(() => {
+    if (ehPatos) {
+      setDataInicioSubstituicao("2026-10-01")
+      setDataFimSubstituicao("2026-10-31")
+    } else if (ehMonteiro) {
+      setDataInicioSubstituicao("2026-01-01")
+      setDataFimSubstituicao("2026-09-30")
+    }
+  }, [ehPatos, ehMonteiro])
+
+  // Abas detectadas do arquivo (caso seja XLSX)
+  const [abasDetectadas, setAbasDetectadas] = useState<string[]>([])
 
   // Opções
   const [gerarBaixasEstoque, setGerarBaixasEstoque] = useState(true)
@@ -152,54 +209,51 @@ export default function ImportarCargasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaAtiva?.id])
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
     setCarregandoArquivo(true)
     setArquivoNome(file.name)
     setResultadoFinal(null)
+    setAbasDetectadas([])
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      try {
-        const conteudo = event.target?.result as string
-        const resultadoPreview = parseControleDiarioCSV(conteudo)
-        setPreview(resultadoPreview)
+    try {
+      const leitura = await lerArquivoParaCsv(file)
+      setAbasDetectadas(leitura.nomesAbas)
 
-        if (resultadoPreview.erros.length > 0) {
-          toast({
-            title: "Aviso no processamento do arquivo",
-            description: resultadoPreview.erros.join("; "),
-            variant: "destructive",
-          })
-        } else {
-          toast({
-            title: "Arquivo interpretado com sucesso",
-            description: `${resultadoPreview.totalLinhasValidas} cargas válidas encontradas.`,
-          })
-        }
-      } catch (err: any) {
+      const resultadoPreview = parseControleDiarioCSV(
+        leitura.conteudoCsv,
+        file.name,
+      )
+      setPreview(resultadoPreview)
+
+      if (resultadoPreview.erros.length > 0) {
         toast({
-          title: "Erro ao interpretar CSV",
-          description: err.message || "Arquivo corrompido ou formato ilegível.",
+          title: "Aviso no processamento do arquivo",
+          description: resultadoPreview.erros.join("; "),
           variant: "destructive",
         })
-      } finally {
-        setCarregandoArquivo(false)
+      } else {
+        const descAbas =
+          leitura.ehXlsx && leitura.nomesAbas.length > 1
+            ? ` (${leitura.nomesAbas.length} abas lidas: ${leitura.nomesAbas.join(", ")})`
+            : ""
+        toast({
+          title: "Arquivo interpretado com sucesso",
+          description: `${resultadoPreview.totalLinhasValidas} cargas válidas encontradas${descAbas}.`,
+        })
       }
-    }
-
-    reader.onerror = () => {
+    } catch (err: any) {
+      console.error("Erro na leitura da planilha:", err)
       toast({
-        title: "Falha na leitura",
-        description: "Não foi possível ler o arquivo local.",
+        title: "Erro ao interpretar arquivo",
+        description: err.message || "Arquivo corrompido ou formato ilegível.",
         variant: "destructive",
       })
+    } finally {
       setCarregandoArquivo(false)
     }
-
-    reader.readAsText(file, "UTF-8")
   }
 
   // Abre modal de confirmação consultando o banco
@@ -229,15 +283,15 @@ export default function ImportarCargasPage() {
   const executarReimportacao = async () => {
     if (!empresaAtiva?.id || !preview) return
 
-    // Filtra cargas do arquivo CSV pertencentes ao período 01/01/2026 a 30/09/2026
-    const cargasJanSet = preview.cargas.filter(
+    // Filtra cargas do arquivo pertencentes ao período selecionado
+    const cargasFiltradas = preview.cargas.filter(
       (c) =>
         c.dataIso >= dataInicioSubstituicao && c.dataIso <= dataFimSubstituicao,
     )
 
-    if (cargasJanSet.length === 0) {
+    if (cargasFiltradas.length === 0) {
       toast({
-        title: "Nenhuma carga no período",
+        title: "Nenhuma carga no período selecionado",
         description: `Não há cargas entre ${dataInicioSubstituicao} e ${dataFimSubstituicao} no arquivo selecionado.`,
         variant: "destructive",
       })
@@ -245,13 +299,13 @@ export default function ImportarCargasPage() {
     }
 
     setExecutando(true)
-    setProgressoMensagem("Iniciando processo de reimportação...")
+    setProgressoMensagem("Iniciando processo de importação/substituição...")
     setProgressoPercentual(5)
 
     try {
       const res = await ConcreteiraService.reimportarCargasComSubstituicao(
         empresaAtiva.id,
-        cargasJanSet,
+        cargasFiltradas,
         {
           dataInicio: dataInicioSubstituicao,
           dataFim: dataFimSubstituicao,
@@ -269,8 +323,8 @@ export default function ImportarCargasPage() {
       setModalConfirmacaoAberta(false)
 
       toast({
-        title: "Reimportação concluída com sucesso!",
-        description: `${res.cargasInseridas} cargas regravadas. Volume total: ${res.volumeTotalInseridoM3.toLocaleString("pt-BR")} m³.`,
+        title: `Importação concluída para ${empresaAtiva.nome}!`,
+        description: `${res.cargasInseridas} cargas gravadas com sucesso. Volume total: ${res.volumeTotalInseridoM3.toLocaleString("pt-BR")} m³.`,
       })
 
       // Atualiza comparação do banco
@@ -278,7 +332,7 @@ export default function ImportarCargasPage() {
     } catch (err: any) {
       console.error("Erro na reimportação:", err)
       toast({
-        title: "Erro na reimportação",
+        title: "Erro na importação",
         description: err.message || "Falha ao processar reimportação.",
         variant: "destructive",
       })
@@ -288,8 +342,8 @@ export default function ImportarCargasPage() {
     }
   }
 
-  // Totais do preview apenas de jan a set
-  const totaisJanSetPreview = useMemo(() => {
+  // Totais do preview no período configurado
+  const totaisPeriodoPreview = useMemo(() => {
     if (!preview) return { cargas: 0, volume: 0 }
     const filtradas = preview.cargas.filter(
       (c) =>
@@ -300,12 +354,34 @@ export default function ImportarCargasPage() {
       cargas: filtradas.length,
       volume: Math.round(vol * 10) / 10,
     }
-  }, [preview])
+  }, [preview, dataInicioSubstituicao, dataFimSubstituicao])
+
+  // Alias para manter compatibilidade
+  const totaisJanSetPreview = totaisPeriodoPreview
 
   const mesOutubroBanco = dadosBancoPorMes["2026-10"] || {
     cargas: 0,
     volume_m3: 0,
   }
+
+  // Lista de todos os meses detectados na planilha para exibição comparativa
+  const todosMesesExibicao = useMemo(() => {
+    if (ehMonteiro) {
+      // Para Monteiro, mantemos as chaves de Jan a Set da meta
+      return Object.keys(METAS_MONTEIRO_2026)
+    }
+    // Para Patos ou outras empresas, usa os meses presentes na própria planilha + meses do banco
+    const chaves = new Set<string>()
+    if (preview) {
+      preview.resumoPorMes.forEach((r) => chaves.add(r.chaveMes))
+    }
+    Object.keys(dadosBancoPorMes).forEach((m) => {
+      if (dadosBancoPorMes[m].cargas > 0) chaves.add(m)
+    })
+    // Se ainda vazio, adiciona outubro de 2026
+    if (chaves.size === 0) chaves.add("2026-10")
+    return Array.from(chaves).sort()
+  }, [ehMonteiro, preview, dadosBancoPorMes])
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-24 sm:pb-12">
@@ -350,72 +426,158 @@ export default function ImportarCargasPage() {
         </div>
       </div>
 
-      {/* Card informativo de regras fixadas */}
+      {/* Card informativo de regras dinâmicas por unidade */}
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="p-4 sm:p-5">
           <div className="flex items-start gap-3">
             <ShieldAlert className="w-5 h-5 text-primary shrink-0 mt-0.5" />
             <div className="text-xs space-y-1.5">
               <p className="font-bold text-foreground">
-                Regras de integridade para a unidade Monteiro (Janeiro a
-                Setembro/2026):
+                {ehPatos
+                  ? "Regras de integridade e importação para PATOS:"
+                  : ehMonteiro
+                    ? "Regras de integridade para a unidade Monteiro (Janeiro a Setembro/2026):"
+                    : `Regras de importação e substituição para ${empresaAtiva?.nome || "a unidade"}:`}
               </p>
               <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                <li>
-                  <strong className="text-foreground">
-                    Período de substituição:
-                  </strong>{" "}
-                  01/01/2026 a 30/09/2026. As cargas anteriores desse período e
-                  suas movimentações de estoque vinculadas são removidas antes
-                  de reinserir, eliminando duplicatas.
-                </li>
-                <li>
-                  <strong className="text-foreground">
-                    Outubro/2026 intocado:
-                  </strong>{" "}
-                  As 16 cargas de outubro (123,5 m³) já existentes no banco
-                  NUNCA são apagadas nem alteradas. A numeração do novo lote é
-                  mantida sem colidir.
-                </li>
-                <li>
-                  <strong className="text-foreground">Dosagens exatas:</strong>{" "}
-                  Cada carga é gravada com as dosagens exatas digitadas na
-                  planilha, sem arredondamento ou interpolação. Casa traço
-                  oficial quando a dosagem for idêntica; caso contrário grava
-                  como "Manual".
-                </li>
-                <li>
-                  <strong className="text-foreground">
-                    Meta validada pelo usuário:
-                  </strong>{" "}
-                  Total de <strong>4.426,5 m³</strong> de jan a set.
-                </li>
+                {ehPatos ? (
+                  <>
+                    <li>
+                      <strong className="text-foreground">
+                        Período padrão:
+                      </strong>{" "}
+                      Outubro/2026 (01/10/2026 a 31/10/2026). Substitui apenas
+                      as cargas desse período da unidade Patos antes de
+                      reinserir, sem tocar em outros meses ou nas outras
+                      unidades (Monteiro, SJE e Caicó intocadas).
+                    </li>
+                    <li>
+                      <strong className="text-foreground">
+                        Desmembramento acumulativo de Patos:
+                      </strong>{" "}
+                      As colunas da planilha (Brita 19, Brita 12, Areia e Pó de
+                      Pedra) acumuladas são calculadas e gravadas no banco com
+                      as dosagens REAIS por subtração.
+                    </li>
+                    <li>
+                      <strong className="text-foreground">
+                        Estoque e Traços:
+                      </strong>{" "}
+                      Baixas automáticas apenas para cimento (CPII F-40) e
+                      aditivo (Mplast FK320); não altera o cadastro de traços da
+                      unidade.
+                    </li>
+                    <li>
+                      <strong className="text-foreground">
+                        Compatibilidade:
+                      </strong>{" "}
+                      Aceita arquivos <strong>.xlsx</strong> (com múltiplas
+                      abas) ou <strong>.csv</strong> diretamente no navegador.
+                    </li>
+                  </>
+                ) : ehMonteiro ? (
+                  <>
+                    <li>
+                      <strong className="text-foreground">
+                        Período de substituição:
+                      </strong>{" "}
+                      01/01/2026 a 30/09/2026. As cargas anteriores desse
+                      período e suas movimentações de estoque vinculadas são
+                      removidas antes de reinserir.
+                    </li>
+                    <li>
+                      <strong className="text-foreground">
+                        Outubro/2026 intocado:
+                      </strong>{" "}
+                      As 16 cargas de outubro (123,5 m³) já existentes no banco
+                      permanecem preservadas.
+                    </li>
+                    <li>
+                      <strong className="text-foreground">
+                        Meta Monteiro:
+                      </strong>{" "}
+                      Total oficial validado de <strong>4.426,5 m³</strong> de
+                      jan a set.
+                    </li>
+                  </>
+                ) : (
+                  <>
+                    <li>
+                      <strong className="text-foreground">
+                        Período configurável:
+                      </strong>{" "}
+                      Substitui apenas cargas dentro do intervalo de datas
+                      definido para a unidade ativa.
+                    </li>
+                    <li>
+                      <strong className="text-foreground">
+                        Comparativo mês a mês:
+                      </strong>{" "}
+                      Compara os dados do arquivo com o saldo existente no
+                      banco.
+                    </li>
+                  </>
+                )}
               </ul>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Área de Upload de CSV */}
+      {/* Área de Configuração de Período e Upload de Planilha (.xlsx ou .csv) */}
       <Card className="border-border/60">
         <CardHeader className="pb-3">
           <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
             <UploadCloud className="w-5 h-5 text-primary" />
-            1. Selecionar Arquivo CSV de Controle Diário
+            1. Período e Seleção de Arquivo (.xlsx ou .csv)
           </CardTitle>
           <CardDescription className="text-xs">
-            Selecione o arquivo .csv exportado da planilha diária de materiais
-            (colunas Data, Volume, Britas, Areia, Cimento, Aditivo, Motorista,
-            Placa, Cidade).
+            Configure as datas de início e fim da substituição e carregue a
+            planilha diária do controle de cargas (suporta Excel .xlsx com
+            múltiplas abas ou .csv).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Seletor de Período Configurável */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl border border-border/40 bg-muted/20">
+            <div>
+              <Label className="text-xs font-semibold text-foreground">
+                Data Inicial da Substituição:
+              </Label>
+              <Input
+                type="date"
+                value={dataInicioSubstituicao}
+                onChange={(e) => setDataInicioSubstituicao(e.target.value)}
+                disabled={executando}
+                className="mt-1 h-9 text-xs"
+              />
+              <span className="text-[10px] text-muted-foreground">
+                Apenas cargas a partir desta data serão excluídas e reinseridas.
+              </span>
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-foreground">
+                Data Final da Substituição:
+              </Label>
+              <Input
+                type="date"
+                value={dataFimSubstituicao}
+                onChange={(e) => setDataFimSubstituicao(e.target.value)}
+                disabled={executando}
+                className="mt-1 h-9 text-xs"
+              />
+              <span className="text-[10px] text-muted-foreground">
+                Cargas após esta data ficam 100% intocadas no banco.
+              </span>
+            </div>
+          </div>
+
           <div className="p-6 rounded-2xl border-2 border-dashed border-border/80 bg-muted/20 hover:bg-muted/40 transition-colors text-center">
             <input
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
-              accept=".csv,text/csv"
+              accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="hidden"
               id="input-arquivo-csv-cargas"
               disabled={executando || carregandoArquivo}
@@ -429,11 +591,11 @@ export default function ImportarCargasPage() {
                 <p className="text-sm font-semibold text-foreground">
                   {arquivoNome
                     ? `Arquivo: ${arquivoNome}`
-                    : "Clique para selecionar o arquivo .csv"}
+                    : "Clique para selecionar o arquivo .xlsx ou .csv"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Processamento instantâneo no navegador. Nenhum dado fica salvo
-                  em arquivos locais.
+                  Processamento instantâneo no navegador. Aceita XLSX (5 abas ou
+                  mais) e CSV.
                 </p>
               </div>
               <Button
@@ -444,22 +606,35 @@ export default function ImportarCargasPage() {
                 disabled={executando || carregandoArquivo}
               >
                 {arquivoNome
-                  ? "Trocar Arquivo CSV"
-                  : "Selecionar CSV no Computador"}
+                  ? "Trocar Arquivo"
+                  : "Selecionar Planilha no Computador"}
               </Button>
             </label>
           </div>
 
+          {abasDetectadas.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground bg-muted/30 p-2.5 rounded-lg border border-border/30">
+              <span className="font-semibold text-foreground">
+                Abas detectadas ({abasDetectadas.length}):
+              </span>
+              {abasDetectadas.map((aba, i) => (
+                <Badge key={i} variant="secondary" className="text-[11px]">
+                  {aba}
+                </Badge>
+              ))}
+            </div>
+          )}
+
           {carregandoArquivo && (
             <div className="flex items-center justify-center gap-2 p-4 text-xs text-muted-foreground">
               <RefreshCw className="w-4 h-4 animate-spin text-primary" />
-              Lendo e interpretando arquivo CSV...
+              Lendo e interpretando arquivo de cargas...
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* PRÉVIA: Totais por Mês e Validação contra a Meta */}
+      {/* PRÉVIA: Totais por Mês e Validação Planilha × Banco */}
       {preview && (
         <Card className="border-border/60">
           <CardHeader className="pb-3">
@@ -467,26 +642,25 @@ export default function ImportarCargasPage() {
               <div>
                 <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                   <FileCheck className="w-5 h-5 text-emerald-500" />
-                  2. Prévia e Comparativo Mês a Mês (Planilha × Meta Oficial)
+                  {ehMonteiro
+                    ? "2. Prévia e Comparativo Mês a Mês (Planilha × Meta Oficial)"
+                    : "2. Prévia e Comparativo Mês a Mês (Planilha × Banco de Dados)"}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Validação dos totais mensais calculados a partir da planilha
-                  antes de qualquer gravação.
+                  {ehMonteiro
+                    ? "Validação dos totais mensais calculados a partir da planilha antes de qualquer gravação."
+                    : `Comparativo dos totais da planilha carregada com o saldo atual no banco para ${empresaAtiva?.nome}.`}
                 </CardDescription>
               </div>
 
               <div className="flex items-center gap-2">
                 <Badge
-                  variant={
-                    Math.abs(totaisJanSetPreview.volume - META_TOTAL_JAN_SET) <
-                    0.1
-                      ? "default"
-                      : "destructive"
-                  }
+                  variant="default"
                   className="text-xs py-1 px-2.5 font-mono font-bold"
                 >
-                  Jan–Set: {totaisJanSetPreview.volume.toLocaleString("pt-BR")}{" "}
-                  m³ / Meta: {META_TOTAL_JAN_SET.toLocaleString("pt-BR")} m³
+                  Período selecionado:{" "}
+                  {totaisPeriodoPreview.volume.toLocaleString("pt-BR")} m³ (
+                  {totaisPeriodoPreview.cargas} cargas)
                 </Badge>
               </div>
             </div>
@@ -502,203 +676,269 @@ export default function ImportarCargasPage() {
                       Mês / Ano
                     </TableHead>
                     <TableHead className="text-right font-bold text-xs">
-                      Cargas (CSV)
+                      Cargas (Planilha)
                     </TableHead>
                     <TableHead className="text-right font-bold text-xs">
-                      Volume (CSV)
+                      Volume (Planilha)
                     </TableHead>
-                    <TableHead className="text-right font-bold text-xs">
-                      Meta Alvo
-                    </TableHead>
-                    <TableHead className="text-right font-bold text-xs">
-                      Diferença
-                    </TableHead>
-                    <TableHead className="text-center font-bold text-xs">
-                      Status da Meta
-                    </TableHead>
+                    {ehMonteiro && (
+                      <>
+                        <TableHead className="text-right font-bold text-xs">
+                          Meta Alvo
+                        </TableHead>
+                        <TableHead className="text-right font-bold text-xs">
+                          Diferença
+                        </TableHead>
+                        <TableHead className="text-center font-bold text-xs">
+                          Status da Meta
+                        </TableHead>
+                      </>
+                    )}
                     <TableHead className="text-right font-bold text-xs">
                       Banco Atual
                     </TableHead>
+                    {!ehMonteiro && (
+                      <TableHead className="text-center font-bold text-xs">
+                        Situação no Banco
+                      </TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {Object.entries(METAS_MONTEIRO_2026).map(
-                    ([chaveMes, infoMeta]) => {
-                      const linhaPlanilha = preview.resumoPorMes.find(
-                        (r) => r.chaveMes === chaveMes,
-                      )
-                      const volumeCsv = linhaPlanilha?.volumeTotalM3 || 0
-                      const cargasCsv = linhaPlanilha?.cargasCount || 0
-                      const diferenca =
-                        Math.round((volumeCsv - infoMeta.meta) * 10) / 10
-                      const fechouExato = Math.abs(diferenca) < 0.05
-                      const dadoBanco = dadosBancoPorMes[chaveMes]
+                  {ehMonteiro
+                    ? Object.entries(METAS_MONTEIRO_2026).map(
+                        ([chaveMes, infoMeta]) => {
+                          const linhaPlanilha = preview.resumoPorMes.find(
+                            (r) => r.chaveMes === chaveMes,
+                          )
+                          const volumeCsv = linhaPlanilha?.volumeTotalM3 || 0
+                          const cargasCsv = linhaPlanilha?.cargasCount || 0
+                          const diferenca =
+                            Math.round((volumeCsv - infoMeta.meta) * 10) / 10
+                          const fechouExato = Math.abs(diferenca) < 0.05
+                          const dadoBanco = dadosBancoPorMes[chaveMes]
 
-                      return (
-                        <TableRow
-                          key={chaveMes}
-                          className={
-                            fechouExato
-                              ? "bg-emerald-500/5"
-                              : "bg-destructive/5"
-                          }
-                        >
-                          <TableCell className="font-semibold text-xs text-foreground">
-                            {infoMeta.nome}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-xs">
-                            {cargasCsv}
-                          </TableCell>
-                          <TableCell className="text-right font-mono font-bold text-xs">
-                            {volumeCsv.toLocaleString("pt-BR", {
-                              minimumFractionDigits: 1,
-                            })}{" "}
-                            m³
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                            {infoMeta.meta.toLocaleString("pt-BR", {
-                              minimumFractionDigits: 1,
-                            })}{" "}
-                            m³
-                          </TableCell>
-                          <TableCell
-                            className={`text-right font-mono text-xs font-bold ${
-                              fechouExato
-                                ? "text-emerald-600 dark:text-emerald-400"
-                                : "text-destructive"
-                            }`}
+                          return (
+                            <TableRow
+                              key={chaveMes}
+                              className={
+                                fechouExato
+                                  ? "bg-emerald-500/5"
+                                  : "bg-destructive/5"
+                              }
+                            >
+                              <TableCell className="font-semibold text-xs text-foreground">
+                                {infoMeta.nome}
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-xs">
+                                {cargasCsv}
+                              </TableCell>
+                              <TableCell className="text-right font-mono font-bold text-xs">
+                                {volumeCsv.toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 1,
+                                })}{" "}
+                                m³
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                                {infoMeta.meta.toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 1,
+                                })}{" "}
+                                m³
+                              </TableCell>
+                              <TableCell
+                                className={`text-right font-mono text-xs font-bold ${
+                                  fechouExato
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : "text-destructive"
+                                }`}
+                              >
+                                {diferenca === 0
+                                  ? "0,0 m³"
+                                  : `${
+                                      diferenca > 0 ? "+" : ""
+                                    }${diferenca.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} m³`}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {fechouExato ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] gap-1 font-semibold"
+                                  >
+                                    <Check className="w-3 h-3" /> Confere 100%
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="outline"
+                                    className="border-destructive/40 bg-destructive/10 text-destructive text-[10px] gap-1 font-semibold"
+                                  >
+                                    <X className="w-3 h-3" /> Divergente
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                                {dadoBanco
+                                  ? `${dadoBanco.volume_m3.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} m³ (${dadoBanco.cargas})`
+                                  : "0 m³"}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        },
+                      )
+                    : todosMesesExibicao.map((chaveMes) => {
+                        const linhaPlanilha = preview.resumoPorMes.find(
+                          (r) => r.chaveMes === chaveMes,
+                        )
+                        const volumePlanilha = linhaPlanilha?.volumeTotalM3 || 0
+                        const cargasPlanilha = linhaPlanilha?.cargasCount || 0
+                        const dadoBanco = dadosBancoPorMes[chaveMes] || {
+                          cargas: 0,
+                          volume_m3: 0,
+                        }
+                        const nomeFormatado = formatarChaveMesExtenso(chaveMes)
+                        const estaNoPeriodo =
+                          chaveMes >= dataInicioSubstituicao.slice(0, 7) &&
+                          chaveMes <= dataFimSubstituicao.slice(0, 7)
+
+                        return (
+                          <TableRow
+                            key={chaveMes}
+                            className={
+                              estaNoPeriodo
+                                ? "bg-primary/5"
+                                : "hover:bg-muted/30"
+                            }
                           >
-                            {diferenca === 0
-                              ? "0,0 m³"
-                              : `${
-                                  diferenca > 0 ? "+" : ""
-                                }${diferenca.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} m³`}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {fechouExato ? (
-                              <Badge
-                                variant="outline"
-                                className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] gap-1 font-semibold"
-                              >
-                                <Check className="w-3 h-3" /> Confere 100%
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant="outline"
-                                className="border-destructive/40 bg-destructive/10 text-destructive text-[10px] gap-1 font-semibold"
-                              >
-                                <X className="w-3 h-3" /> Divergente
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                            {dadoBanco
-                              ? `${dadoBanco.volume_m3.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} m³ (${dadoBanco.cargas})`
-                              : "0 m³"}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    },
-                  )}
+                            <TableCell className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                              {nomeFormatado}
+                              {estaNoPeriodo && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[9px] px-1.5 py-0"
+                                >
+                                  Período Ativo
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-xs">
+                              {cargasPlanilha}
+                            </TableCell>
+                            <TableCell className="text-right font-mono font-bold text-xs text-primary">
+                              {volumePlanilha.toLocaleString("pt-BR", {
+                                minimumFractionDigits: 1,
+                              })}{" "}
+                              m³
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                              {dadoBanco.volume_m3.toLocaleString("pt-BR", {
+                                minimumFractionDigits: 1,
+                              })}{" "}
+                              m³ ({dadoBanco.cargas} cargas)
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {dadoBanco.cargas === 0 ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] text-muted-foreground"
+                                >
+                                  Sem dados no banco
+                                </Badge>
+                              ) : estaNoPeriodo ? (
+                                <Badge
+                                  variant="outline"
+                                  className="border-amber-500/40 text-amber-600 dark:text-amber-400 text-[10px]"
+                                >
+                                  Será substituído
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="border-emerald-500/40 text-emerald-600 text-[10px]"
+                                >
+                                  Preservado
+                                </Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
 
-                  {/* Linha de Total Jan-Set */}
+                  {/* Linha de Total do Período Selecionado */}
                   <TableRow className="bg-muted/70 font-bold border-t-2 border-border">
                     <TableCell className="text-xs font-extrabold text-foreground">
-                      TOTAL JAN–SET/2026
+                      TOTAL DO PERÍODO SELECIONADO ({dataInicioSubstituicao} a{" "}
+                      {dataFimSubstituicao})
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs font-extrabold">
-                      {totaisJanSetPreview.cargas}
+                      {totaisPeriodoPreview.cargas}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm font-extrabold text-primary">
-                      {totaisJanSetPreview.volume.toLocaleString("pt-BR", {
+                      {totaisPeriodoPreview.volume.toLocaleString("pt-BR", {
                         minimumFractionDigits: 1,
                       })}{" "}
                       m³
                     </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                      {META_TOTAL_JAN_SET.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 1,
-                      })}{" "}
-                      m³
-                    </TableCell>
-                    <TableCell
-                      className={`text-right font-mono text-xs font-extrabold ${
-                        Math.abs(
-                          totaisJanSetPreview.volume - META_TOTAL_JAN_SET,
-                        ) < 0.1
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-destructive"
-                      }`}
-                    >
-                      {(
-                        Math.round(
-                          (totaisJanSetPreview.volume - META_TOTAL_JAN_SET) *
-                            10,
-                        ) / 10
-                      ).toLocaleString("pt-BR", {
-                        minimumFractionDigits: 1,
-                      })}{" "}
-                      m³
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {Math.abs(
-                        totaisJanSetPreview.volume - META_TOTAL_JAN_SET,
-                      ) < 0.1 ? (
-                        <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> TOTAL FECHADO
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="destructive"
-                          className="text-[10px] gap-1"
+                    {ehMonteiro && (
+                      <>
+                        <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                          {META_TOTAL_JAN_SET.toLocaleString("pt-BR", {
+                            minimumFractionDigits: 1,
+                          })}{" "}
+                          m³
+                        </TableCell>
+                        <TableCell
+                          className={`text-right font-mono text-xs font-extrabold ${
+                            Math.abs(
+                              totaisJanSetPreview.volume - META_TOTAL_JAN_SET,
+                            ) < 0.1
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-destructive"
+                          }`}
                         >
-                          <AlertTriangle className="w-3 h-3" /> TOTAL DIVERGE
+                          {(
+                            Math.round(
+                              (totaisJanSetPreview.volume -
+                                META_TOTAL_JAN_SET) *
+                                10,
+                            ) / 10
+                          ).toLocaleString("pt-BR", {
+                            minimumFractionDigits: 1,
+                          })}{" "}
+                          m³
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {Math.abs(
+                            totaisJanSetPreview.volume - META_TOTAL_JAN_SET,
+                          ) < 0.1 ? (
+                            <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] gap-1">
+                              <CheckCircle2 className="w-3 h-3" /> TOTAL FECHADO
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="destructive"
+                              className="text-[10px] gap-1"
+                            >
+                              <AlertTriangle className="w-3 h-3" /> TOTAL
+                              DIVERGE
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </>
+                    )}
+                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                      {cargasExistentesPeriodo
+                        ? `${cargasExistentesPeriodo.volumeTotalM3.toLocaleString(
+                            "pt-BR",
+                            { minimumFractionDigits: 1 },
+                          )} m³ (${cargasExistentesPeriodo.totalCargas})`
+                        : "—"}
+                    </TableCell>
+                    {!ehMonteiro && (
+                      <TableCell className="text-center">
+                        <Badge variant="secondary" className="text-[10px]">
+                          Pronto p/ gravar
                         </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                      {Object.entries(dadosBancoPorMes)
-                        .filter(([m]) => m >= "2026-01" && m <= "2026-09")
-                        .reduce((acc, [, v]) => acc + v.volume_m3, 0)
-                        .toLocaleString("pt-BR", {
-                          minimumFractionDigits: 1,
-                        })}{" "}
-                      m³
-                    </TableCell>
-                  </TableRow>
-
-                  {/* Linha informativa de Outubro/2026 (Preservado) */}
-                  <TableRow className="bg-amber-500/5 border-t border-border/60">
-                    <TableCell className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                      <ShieldAlert className="w-3.5 h-3.5" />
-                      Outubro/2026 (Intocado no Banco)
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                      —
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                      —
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                      Preservar
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                      —
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge
-                        variant="outline"
-                        className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px]"
-                      >
-                        Preservado (100% Intocado)
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs font-bold text-amber-600 dark:text-amber-400">
-                      {mesOutubroBanco.volume_m3.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 1,
-                      })}{" "}
-                      m³ ({mesOutubroBanco.cargas} cargas)
-                    </TableCell>
+                      </TableCell>
+                    )}
                   </TableRow>
                 </TableBody>
               </Table>
@@ -808,12 +1048,15 @@ export default function ImportarCargasPage() {
                 type="button"
                 size="lg"
                 onClick={abrirConfirmacaoSubstituicao}
-                disabled={executando || totaisJanSetPreview.cargas === 0}
+                disabled={executando || totaisPeriodoPreview.cargas === 0}
                 className="gap-2 bg-primary text-primary-foreground font-bold text-xs sm:text-sm h-11 px-6 shadow-sm"
               >
                 <Trash2 className="w-4 h-4 text-destructive-foreground" />
-                Substituir Cargas Jan–Set/2026 ({totaisJanSetPreview.cargas}{" "}
-                Cargas)
+                {ehPatos
+                  ? `Substituir Cargas Out/2026 Patos (${totaisPeriodoPreview.cargas} Cargas)`
+                  : ehMonteiro
+                    ? `Substituir Cargas Jan–Set/2026 (${totaisPeriodoPreview.cargas} Cargas)`
+                    : `Importar Cargas do Período (${totaisPeriodoPreview.cargas} Cargas)`}
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
@@ -937,18 +1180,22 @@ export default function ImportarCargasPage() {
               <>
                 <div className="p-3.5 rounded-xl border border-destructive/40 bg-destructive/10 space-y-2">
                   <div className="font-bold text-destructive flex items-center gap-1.5">
-                    <Trash2 className="w-4 h-4" />O que será APAGADO no banco:
+                    <Trash2 className="w-4 h-4" />O que será APAGADO no banco (
+                    {empresaAtiva?.nome}):
                   </div>
                   <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
                     <li>
-                      Período restrito: <strong>01/01/2026 a 30/09/2026</strong>
+                      Período restrito da unidade:{" "}
+                      <strong>
+                        {dataInicioSubstituicao} a {dataFimSubstituicao}
+                      </strong>
                       .
                     </li>
                     <li>
                       <strong>
                         {cargasExistentesPeriodo?.totalCargas || 0} cargas
                       </strong>{" "}
-                      atualmente lançadas nesse período (totalizando{" "}
+                      atualmente lançadas nesse período na unidade (totalizando{" "}
                       {cargasExistentesPeriodo?.volumeTotalM3.toLocaleString(
                         "pt-BR",
                       ) || 0}{" "}
@@ -972,29 +1219,30 @@ export default function ImportarCargasPage() {
                   </div>
                   <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
                     <li>
-                      <strong>{totaisJanSetPreview.cargas} novas cargas</strong>{" "}
-                      com dosagens exatas.
+                      <strong>
+                        {totaisPeriodoPreview.cargas} novas cargas
+                      </strong>{" "}
+                      com dosagens reais calculadas.
                     </li>
                     <li>
                       Volume total de{" "}
                       <strong className="text-foreground">
-                        {totaisJanSetPreview.volume.toLocaleString("pt-BR")} m³
-                      </strong>{" "}
-                      (meta exata: {META_TOTAL_JAN_SET.toLocaleString("pt-BR")}{" "}
-                      m³).
+                        {totaisPeriodoPreview.volume.toLocaleString("pt-BR")} m³
+                      </strong>
+                      .
                     </li>
                     <li>
                       Novas baixas de estoque automáticas de cimento e aditivo
-                      por carga.
+                      por carga da unidade.
                     </li>
                   </ul>
                 </div>
 
                 <div className="p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300">
-                  <strong>Preservação garantida:</strong> Outubro/2026 (
-                  {mesOutubroBanco.volume_m3.toLocaleString("pt-BR")} m³,{" "}
-                  {mesOutubroBanco.cargas} cargas) e qualquer outro período fora
-                  de jan–set permanecem 100% intocados.
+                  <strong>Preservação garantida:</strong> Nenhuma carga fora do
+                  intervalo {dataInicioSubstituicao} a {dataFimSubstituicao} nem
+                  de outras unidades (Monteiro, SJE, Caicó) será tocada ou
+                  apagada.
                 </div>
               </>
             )}
@@ -1021,12 +1269,12 @@ export default function ImportarCargasPage() {
               {executando ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  Substituindo...
+                  Gravando...
                 </>
               ) : (
                 <>
                   <Trash2 className="w-3.5 h-3.5" />
-                  Sim, Apagar e Reimportar Jan–Set/2026
+                  Sim, Confirmar e Gravar {totaisPeriodoPreview.cargas} Cargas
                 </>
               )}
             </Button>
