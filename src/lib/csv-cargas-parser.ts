@@ -215,7 +215,53 @@ export function parseDataBrParaIso(dataStr: string | number): string | null {
     return null
   }
 
-  // 4. Número serial do Excel/Google Sheets (ex: 46023 para 06/01/2026, 46294 para 01/10/2026)
+  // 4. Datas textuais em português (ex: "1-out.-2026", "8-out.2026", "01/out/2026", "1 de outubro de 2026")
+  const mesesPt: Record<string, string> = {
+    jan: "01",
+    fev: "02",
+    mar: "03",
+    abr: "04",
+    mai: "05",
+    jun: "06",
+    jul: "07",
+    ago: "08",
+    set: "09",
+    out: "10",
+    nov: "11",
+    dez: "12",
+  }
+
+  // Normaliza acentos e pontuações para detecção flexível
+  const limpoNorm = limpo
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+
+  // Procura padrão de dia, nome/abreviação do mês e ano (2 ou 4 dígitos)
+  // Aceita: "1-out.-2026", "8-out.2026", "1-out-2026", "01/out/2026", "01-out-26", "1 out 2026", "1 de outubro de 2026"
+  const matchPt = limpoNorm.match(
+    /^(\d{1,2})\s*[-/.\s]?\s*(?:de\s+)?([a-z]{3,9})\.?\s*[-/.\s]?\s*(?:de\s+)?(\d{2,4})$/i,
+  )
+  if (matchPt) {
+    const dia = matchPt[1].padStart(2, "0")
+    const mesTexto = matchPt[2].slice(0, 3)
+    const anoStr = matchPt[3]
+    const mesIso = mesesPt[mesTexto]
+    if (mesIso) {
+      const diaNum = parseInt(dia, 10)
+      if (diaNum >= 1 && diaNum <= 31) {
+        let anoCheio = anoStr
+        if (anoStr.length === 2) {
+          const ano2 = parseInt(anoStr, 10)
+          anoCheio = ano2 <= 69 ? `20${anoStr}` : `19${anoStr}`
+        }
+        return `${anoCheio}-${mesIso}-${dia}`
+      }
+    }
+  }
+
+  // 5. Número serial do Excel/Google Sheets (ex: 46023 para 06/01/2026, 46294 para 01/10/2026)
   // Faixa de 2020 a 2035 corresponde a seriais entre 43831 e 49308
   if (/^\d{5}$/.test(limpo)) {
     const serial = parseInt(limpo, 10)
@@ -668,12 +714,8 @@ export function parseControleDiarioCSV(
     }
 
     // Leitura das colunas com suporte a modo acumulativo de Patos
-    let consumo_brita12 = parseNumeroBr(
-      getColAtual(colunas, "brita12", 2, mapaColunas),
-    )
-    let consumo_brita19 = parseNumeroBr(
-      getColAtual(colunas, "brita19", 3, mapaColunas),
-    )
+    let rawB12 = parseNumeroBr(getColAtual(colunas, "brita12", 2, mapaColunas))
+    let rawB19 = parseNumeroBr(getColAtual(colunas, "brita19", 3, mapaColunas))
     let rawAreia = parseNumeroBr(getColAtual(colunas, "areia", 4, mapaColunas))
     let rawPo = parseNumeroBr(getColAtual(colunas, "po_pedra", 5, mapaColunas))
     const consumo_cimento = parseNumeroBr(
@@ -683,6 +725,27 @@ export function parseControleDiarioCSV(
       getColAtual(colunas, "aditivo", 7, mapaColunas),
     )
 
+    // Ajuste prévio para anomalia de colunas trocadas (ex: linha 10/10 com 9 m³):
+    // Na planilha, o acumulado B0+B1 parou na coluna B12 (ex: 7.895) e o valor real de B1 parou na coluna B19 (ex: 3.420).
+    // Se rawB12 > rawB19 e rawB12 > 0 e rawB19 > 0, e rawB12 < rawAreia:
+    // Ex: rawB12=7.895, rawB19=3.420, rawAreia=11.745.
+    // O valor correto da Brita 12 acumulada é rawB12 - rawB19 = 7.895 - 3.420 = 4.475 (~497*9 ou similar),
+    // e a coluna rawB12 original era de fato o acumulado de B19 (7.895), ficando B12=4.475 e B19_acum=7.895.
+    if (rawB12 > rawB19 && rawB19 > 0 && rawAreia > rawB12 && volume_m3 > 0) {
+      // Verifica se rawB12 se aproxima da faixa esperada de acumulado de britas total por m³ (entre 700 e 1100 kg/m³)
+      const taxaPorM3 = rawB12 / volume_m3
+      if (taxaPorM3 >= 600 && taxaPorM3 <= 1200) {
+        // rawB12 é na verdade o acumulado de B0+B1, e rawB19 é o valor real da Brita 1
+        const b1Real = rawB19
+        const acumBritaTotal = rawB12
+        const b0Real = Math.max(0, acumBritaTotal - b1Real)
+        rawB12 = b0Real
+        rawB19 = acumBritaTotal
+      }
+    }
+
+    let consumo_brita12 = rawB12
+    let consumo_brita19 = rawB19
     let consumo_areia = rawAreia
     let consumo_po_pedra = rawPo
 
@@ -705,7 +768,9 @@ export function parseControleDiarioCSV(
       const baseB01 =
         mapaColunas["patos_acum_brita01"] !== undefined
           ? parseNumeroBr(colunas[mapaColunas["patos_acum_brita01"]] || "")
-          : consumo_brita12 + consumo_brita19
+          : rawB19 >= rawB12 && rawB19 > 0
+            ? rawB19
+            : rawB12 + rawB19
       if (acumAreia > 0 && acumAreia >= baseB01) {
         consumo_areia = Math.max(0, Math.round((acumAreia - baseB01) * 10) / 10)
       }
@@ -715,10 +780,7 @@ export function parseControleDiarioCSV(
       const baseAreia =
         mapaColunas["patos_acum_areia"] !== undefined
           ? parseNumeroBr(colunas[mapaColunas["patos_acum_areia"]] || "")
-          : mapaColunas["patos_acum_brita01"] !== undefined
-            ? parseNumeroBr(colunas[mapaColunas["patos_acum_brita01"]] || "") +
-              consumo_areia
-            : consumo_brita12 + consumo_brita19 + consumo_areia
+          : rawAreia
       if (acumPo > 0 && acumPo >= baseAreia) {
         consumo_po_pedra = Math.max(
           0,
@@ -727,26 +789,61 @@ export function parseControleDiarioCSV(
       }
     }
 
-    // 2. Detecção automática de acumulação crescente típica de Patos
-    // Na balança de Patos: Brita 0 (B12) e Brita 1 (B19), depois Areia acumulando Britas, depois Pó acumulando Areia+Britas.
-    // Ex: B19=6845, B12=2965 (soma britas=9810), Areia=10520 (>9810), Pó=14580 (>10520).
-    // O desmembramento real por subtração:
-    // Areia real = Areia acumulada - (Brita 19 + Brita 12)
-    // Pó real = Pó acumulado - Areia acumulada
+    // 2. Desmembramento acumulado sequencial coluna a coluna (padrão oficial de Patos):
+    // - B12 real = col12 (valor inicial)
+    // - B19 real:
+    //   Se col19 >= col12: B19 vem acumulado com col12 -> B19 real = col19 - col12
+    //   Caso especial: col19 < col12 (ex: caminhão levou só brita 0, col19=0) -> B19 real = col19 (ou seja, 0)
+    // - Areia real:
+    //   Se col19 >= col12 (houve brita 19 acumulada): base = col19 (acumulado das britas)
+    //   Caso contrário (col19 < col12): base = col12 + col19
+    //   Areia real = colAreia - base
+    // - Pó real:
+    //   Pó real = colPo - colAreia (acumulado anterior)
     if (
       mapaColunas["patos_acum_areia"] === undefined &&
       mapaColunas["patos_acum_po"] === undefined
     ) {
-      const somaBritas = consumo_brita12 + consumo_brita19
-      if (somaBritas > 0 && rawAreia > somaBritas && rawPo >= rawAreia) {
-        consumo_areia = Math.max(
-          0,
-          Math.round((rawAreia - somaBritas) * 10) / 10,
-        )
-        consumo_po_pedra = Math.max(0, Math.round((rawPo - rawAreia) * 10) / 10)
-      } else if (rawAreia > 0 && rawPo > rawAreia) {
-        // Caso sem britas (ex: argamassa/traço só areia+pó)
-        consumo_po_pedra = Math.max(0, Math.round((rawPo - rawAreia) * 10) / 10)
+      // Detecção de formato acumulado: pó >= areia e areia > brita
+      const acumBritas =
+        rawB19 >= rawB12 && rawB19 > 0 ? rawB19 : rawB12 + rawB19
+      const ehAcumulativo =
+        (rawAreia > acumBritas && rawPo >= rawAreia) ||
+        (rawB19 > rawB12 && rawAreia > rawB19)
+
+      if (ehAcumulativo) {
+        // B12 real
+        consumo_brita12 = rawB12
+
+        // B19 real
+        if (rawB19 >= rawB12 && rawB19 > 0) {
+          consumo_brita19 = Math.max(0, Math.round((rawB19 - rawB12) * 10) / 10)
+        } else {
+          // Caso especial: col19 < col12 (apenas brita 0, col19=0)
+          consumo_brita19 = rawB19
+        }
+
+        // Areia real: desconta o acumulado anterior
+        const baseBritas =
+          rawB19 >= rawB12 && rawB19 > 0 ? rawB19 : rawB12 + rawB19
+        if (rawAreia >= baseBritas) {
+          consumo_areia = Math.max(
+            0,
+            Math.round((rawAreia - baseBritas) * 10) / 10,
+          )
+        } else {
+          consumo_areia = rawAreia
+        }
+
+        // Pó real: desconta a areia acumulada anterior
+        if (rawPo >= rawAreia && rawPo > 0) {
+          consumo_po_pedra = Math.max(
+            0,
+            Math.round((rawPo - rawAreia) * 10) / 10,
+          )
+        } else {
+          consumo_po_pedra = rawPo
+        }
       }
     }
 
@@ -814,7 +911,8 @@ export function parseControleDiarioCSV(
       : sugerirNomeTraco(dosagemM3)
 
     // Consumo TOTAL da carga para armazenamento no banco
-    // Se veio já por m³, multiplicamos pelo volume para gravar o consumo total da carga (compatível com a tabela cargas do sistema)
+    // Se veio já por carga (valores já desmembrados para a carga inteira), mantém os valores desmembrados.
+    // Se veio por m³ (cimento <= 600), multiplica pelo volume para obter o total da carga.
     let consumoCargaCimento = consumo_cimento
     let consumoCargaB12 = consumo_brita12
     let consumoCargaB19 = consumo_brita19
