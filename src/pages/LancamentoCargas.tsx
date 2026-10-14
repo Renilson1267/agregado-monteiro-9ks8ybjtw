@@ -40,6 +40,7 @@ import {
   Sparkles,
 } from "lucide-react"
 import { ReciboImpressao } from "@/components/ReciboImpressao"
+import { ModalEditarCarga } from "@/components/ModalEditarCarga"
 import type { OrdemServico } from "@/types/concreteira"
 import { toast } from "@/hooks/use-toast"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
@@ -230,6 +231,9 @@ export default function LancamentoCargas() {
   const [osParaReimpressao, setOsParaReimpressao] =
     useState<OrdemServico | null>(null)
   const [modalReimpressaoAberta, setModalReimpressaoAberta] = useState(false)
+  const [cargaParaEditarModal, setCargaParaEditarModal] =
+    useState<Carga | null>(null)
+  const [modalEditarCargaAberta, setModalEditarCargaAberta] = useState(false)
 
   // Formulário
   const [dataCarga, setDataCarga] = useState(
@@ -2861,15 +2865,17 @@ export default function LancamentoCargas() {
                           <div className="flex items-center justify-end gap-1">
                             {!isBalanceiro && (
                               <Button
-                                asChild
+                                type="button"
                                 variant="ghost"
                                 size="sm"
+                                onClick={() => {
+                                  setCargaParaEditarModal(carga)
+                                  setModalEditarCargaAberta(true)
+                                }}
                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 rounded-lg"
-                                title="Editar esta carga"
+                                title="Editar esta carga diretamente"
                               >
-                                <Link to={`/lancamentos?editar=${carga.id}`}>
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </Link>
+                                <Pencil className="w-3.5 h-3.5" />
                               </Button>
                             )}
 
@@ -2920,6 +2926,22 @@ export default function LancamentoCargas() {
           </div>
         </Card>
       </div>
+
+      {/* Modal de Edição Direta de Carga (Sobre a Listagem, com AlertDialog de Confirmação) */}
+      <ModalEditarCarga
+        carga={cargaParaEditarModal}
+        open={modalEditarCargaAberta}
+        onOpenChange={(aberto) => {
+          setModalEditarCargaAberta(aberto)
+          if (!aberto) setCargaParaEditarModal(null)
+        }}
+        onSalvoComSucesso={() => {
+          carregarCargasLista()
+        }}
+        tracosCatalogo={tracos}
+        nomeUnidade={empresaAtiva?.nome || "Unidade"}
+        isPatos={isPatos}
+      />
 
       {/* Modal de Reimpressão do Recibo da Carga/OS */}
       <Dialog
