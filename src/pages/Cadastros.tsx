@@ -70,6 +70,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { ModalImportarCargasCSV } from "@/components/ModalImportarCargasCSV"
 import { AbaEstoquesMinimos } from "@/components/AbaEstoquesMinimos"
+import { AbaSilosETanques } from "@/components/AbaSilosETanques"
+import { Cylinder } from "lucide-react"
 import {
   formatarCpfCnpj,
   formatarCep,
@@ -101,12 +103,16 @@ import { toast } from "@/hooks/use-toast"
 export default function Cadastros() {
   const { empresaAtiva } = useEmpresa()
   const { isAdministrador } = useUsuario()
+  const isPatos =
+    (empresaAtiva?.nome || "").toLowerCase().includes("patos") ||
+    (empresaAtiva?.cidade || "").toLowerCase().includes("patos")
   const [searchParams, setSearchParams] = useSearchParams()
   const abaUrl = searchParams.get("tab")
   const [abaAtiva, setAbaAtiva] = useState<string>(() => {
     const permitidas = [
       "usuarios",
       "ferias",
+      "silos-tanques",
       "estoques-minimos",
       "metas",
       "clientes",
@@ -122,6 +128,7 @@ export default function Cadastros() {
     const permitidas = [
       "usuarios",
       "ferias",
+      "silos-tanques",
       "estoques-minimos",
       "metas",
       "clientes",
@@ -834,7 +841,13 @@ export default function Cadastros() {
         }}
         className="w-full"
       >
-        <TabsList className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 w-full max-w-6xl">
+        <TabsList
+          className={`grid ${
+            isPatos
+              ? "grid-cols-3 sm:grid-cols-5 md:grid-cols-10"
+              : "grid-cols-3 sm:grid-cols-5 md:grid-cols-9"
+          } w-full max-w-6xl`}
+        >
           <TabsTrigger value="ferias" className="gap-1.5 text-xs font-semibold">
             <CalendarDays className="w-4 h-4 text-primary" />
             Controle de Férias
@@ -843,6 +856,15 @@ export default function Cadastros() {
             <UserCog className="w-4 h-4" />
             Usuários
           </TabsTrigger>
+          {isPatos && (
+            <TabsTrigger
+              value="silos-tanques"
+              className="gap-1.5 text-xs font-semibold text-primary"
+            >
+              <Cylinder className="w-4 h-4 text-primary" />
+              Silos e Tanques
+            </TabsTrigger>
+          )}
           <TabsTrigger
             value="estoques-minimos"
             className="gap-1.5 text-xs font-semibold"
@@ -885,6 +907,13 @@ export default function Cadastros() {
         <TabsContent value="usuarios" className="mt-6 space-y-4">
           <PainelUsuarios />
         </TabsContent>
+
+        {/* TAB SILOS E TANQUES (Exclusivo Patos) */}
+        {isPatos && (
+          <TabsContent value="silos-tanques" className="mt-6 space-y-4">
+            <AbaSilosETanques />
+          </TabsContent>
+        )}
 
         {/* TAB ESTOQUES MÍNIMOS */}
         <TabsContent value="estoques-minimos" className="mt-6 space-y-4">

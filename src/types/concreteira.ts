@@ -188,6 +188,23 @@ export interface CustoBreakdown {
   custoPorM3: number
 }
 
+export interface RecipienteEstoque {
+  id: string
+  empresa_id: string
+  material_id?: string | null
+  material_codigo: "cimento" | "aditivo" | string
+  material_nome: string
+  nome: string
+  tipo: "silo" | "tanque"
+  identificador: string // 'silo_1' | 'silo_2' | 'tanque_1' | 'tanque_2'
+  unidade: string // 'kg' | 'litros'
+  saldo_atual: number
+  estoque_minimo: number
+  ordem: number
+  created_at?: string
+  updated_at?: string
+}
+
 export interface Carga {
   id: string
   empresa_id?: string
@@ -211,6 +228,8 @@ export interface Carga {
   consumo_agua?: number
   observacao: string | null
   carga_zerada: boolean
+  silo_cimento?: string | null
+  tanque_aditivo?: string | null
   custo?: CustoBreakdown
   ordem_servico?: OrdemServico | null
   numero_os?: number | null
@@ -222,6 +241,8 @@ export interface MovimentacaoEstoque {
   id: string
   empresa_id?: string
   material_id: string
+  recipiente_id?: string | null
+  recipiente_nome?: string | null
   tipo: "ENTRADA" | "SAIDA" | "ABERTURA" | "AJUSTE"
   quantidade: number
   preco_unitario?: number | null

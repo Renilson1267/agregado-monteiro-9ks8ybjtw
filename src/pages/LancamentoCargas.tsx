@@ -260,6 +260,10 @@ export default function LancamentoCargas() {
   const [aditivoEditadoManualmente, setAditivoEditadoManualmente] =
     useState<boolean>(false)
 
+  // Controle de Silos e Tanques (exclusivo unidade Patos)
+  const [siloCimento, setSiloCimento] = useState<string>("silo_1")
+  const [tanqueAditivo, setTanqueAditivo] = useState<string>("tanque_1")
+
   // Estados específicos para o Modo Acumulativo de Patos (valores acumulados por 1,00 m³)
   // Cimento = cimento; Brita 0 = brita12; Brita 0+1 = brita0 + brita19; Areia acum = acum_brita01 + areia; Pó acum = acum_areia + poPedra
   const [patosAcumBrita01, setPatosAcumBrita01] = useState<number>(0)
@@ -405,6 +409,12 @@ export default function LancamentoCargas() {
         setAditivoInput(adtValor > 0 ? String(adtValor) : "")
         setAditivoBruto(adtValor)
         setAditivoEditadoManualmente(true)
+
+        // Silo e Tanque salvos na carga
+        if (c.silo_cimento) setSiloCimento(c.silo_cimento)
+        else setSiloCimento("silo_1")
+        if (c.tanque_aditivo) setTanqueAditivo(c.tanque_aditivo)
+        else setTanqueAditivo("tanque_1")
       } catch (err: any) {
         console.error("Erro ao carregar carga para edição:", err)
         toast({
@@ -688,6 +698,8 @@ export default function LancamentoCargas() {
         observacao: observacao || null,
         carga_zerada: cargaZerada,
         motivo_zerada: motivoZerada,
+        silo_cimento: isPatos ? siloCimento : undefined,
+        tanque_aditivo: isPatos ? tanqueAditivo : undefined,
       })
 
       setModalConfirmarEdicaoAberta(false)
@@ -740,6 +752,8 @@ export default function LancamentoCargas() {
         observacao: observacao || undefined,
         carga_zerada: cargaZerada,
         motivo_zerada: motivoZerada,
+        silo_cimento: isPatos ? siloCimento : undefined,
+        tanque_aditivo: isPatos ? tanqueAditivo : undefined,
       })
 
       setModalConfirmarGravacaoAberta(false)
@@ -1049,6 +1063,60 @@ export default function LancamentoCargas() {
                   digitar prevalece exatamente sem alterações.
                 </CardDescription>
               </div>
+
+              {/* Seletores de Silo e Tanque (exclusivo unidade Patos) */}
+              {isPatos && (
+                <div className="flex flex-wrap items-center gap-2.5 p-2 px-3 rounded-xl bg-primary/10 border border-primary/20 text-xs">
+                  <span className="font-bold text-foreground flex items-center gap-1">
+                    <Layers className="w-3.5 h-3.5 text-primary" />
+                    Origem Patos:
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <Label
+                      htmlFor="silo-cimento-sel"
+                      className="text-[11px] font-semibold text-muted-foreground"
+                    >
+                      Silo Cimento:
+                    </Label>
+                    <Select value={siloCimento} onValueChange={setSiloCimento}>
+                      <SelectTrigger
+                        id="silo-cimento-sel"
+                        className="h-8 w-28 text-xs font-semibold bg-background"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="silo_1">Silo 1</SelectItem>
+                        <SelectItem value="silo_2">Silo 2</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <Label
+                      htmlFor="tanque-aditivo-sel"
+                      className="text-[11px] font-semibold text-muted-foreground"
+                    >
+                      Tanque Aditivo:
+                    </Label>
+                    <Select
+                      value={tanqueAditivo}
+                      onValueChange={setTanqueAditivo}
+                    >
+                      <SelectTrigger
+                        id="tanque-aditivo-sel"
+                        className="h-8 w-32 text-xs font-semibold bg-background"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tanque_1">Tanque 1</SelectItem>
+                        <SelectItem value="tanque_2">Tanque 2</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
 
               {/* Checkbox Carga Zerada / Cancelada */}
               <div className="flex items-center space-x-2 pt-1 sm:pt-0">
@@ -2470,14 +2538,77 @@ export default function LancamentoCargas() {
                 </table>
               </div>
 
+              {/* Se for unidade Patos: reconfirmar ou escolher Silo e Tanque na edição */}
+              {isPatos && (
+                <div className="p-3 rounded-xl border border-primary/30 bg-primary/5 space-y-2">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-primary" />
+                    Destino da Baixa de Estoque em Patos (Silo / Tanque):
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <Label className="text-[11px] text-muted-foreground font-semibold">
+                        Silo de Cimento:
+                      </Label>
+                      <Select
+                        value={siloCimento}
+                        onValueChange={setSiloCimento}
+                      >
+                        <SelectTrigger className="h-8 text-xs bg-background mt-1 font-semibold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="silo_1">
+                            Silo de Cimento 1
+                          </SelectItem>
+                          <SelectItem value="silo_2">
+                            Silo de Cimento 2
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[11px] text-muted-foreground font-semibold">
+                        Tanque de Aditivo:
+                      </Label>
+                      <Select
+                        value={tanqueAditivo}
+                        onValueChange={setTanqueAditivo}
+                      >
+                        <SelectTrigger className="h-8 text-xs bg-background mt-1 font-semibold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="tanque_1">
+                            Tanque de Aditivo 1
+                          </SelectItem>
+                          <SelectItem value="tanque_2">
+                            Tanque de Aditivo 2
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="p-2.5 rounded bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300">
                 ⚠️ <strong>Atenção:</strong> Ao confirmar, o sistema
                 cancelará/estornará as baixas de estoque de cimento (
                 {cargaOriginal.consumo_cimento} kg) e aditivo (
                 {cargaOriginal.consumo_aditivo} L) gravadas anteriormente para
                 esta carga e lançará as novas movimentações (
-                {consumoReal.cimento} kg de cimento e {consumoReal.aditivo} L de
-                aditivo).
+                {consumoReal.cimento} kg de cimento{" "}
+                {isPatos
+                  ? `no ${siloCimento === "silo_2" ? "Silo 2" : "Silo 1"}`
+                  : ""}{" "}
+                e {consumoReal.aditivo} L de aditivo{" "}
+                {isPatos
+                  ? `no ${
+                      tanqueAditivo === "tanque_2" ? "Tanque 2" : "Tanque 1"
+                    }`
+                  : ""}
+                ).
               </div>
             </div>
           )}

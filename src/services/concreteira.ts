@@ -419,6 +419,129 @@ export const ConcreteiraService = {
     }
   },
 
+  // Recipientes de Estoque (Silos e Tanques - Exclusivo Patos)
+  async getRecipientesEstoque(empresaId: string): Promise<RecipienteEstoque[]> {
+    if (!empresaId) return []
+    const { data, error } = await (supabase as any)
+      .from("recipientes_estoque")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("ordem", { ascending: true })
+
+    if (error) {
+      console.error("Erro ao buscar recipientes de estoque:", error)
+      return []
+    }
+    return (data || []).map((r: any) => ({
+      ...r,
+      saldo_atual: Number(r.saldo_atual) || 0,
+      estoque_minimo: Number(r.estoque_minimo) || 0,
+      ordem: Number(r.ordem) || 0,
+    }))
+  },
+
+  async atualizarRecipienteEstoque(
+    id: string,
+    payload: { saldo_atual?: number estoque_minimo?: number nome?: string },
+  ): Promise<RecipienteEstoque> {
+    const updateData: any = {
+      updated_at: new Date().toISOString(),
+    }
+    if (payload.saldo_atual !== undefined)
+      updateData.saldo_atual = payload.saldo_atual
+    if (payload.estoque_minimo !== undefined)
+      updateData.estoque_minimo = payload.estoque_minimo
+    if (payload.nome !== undefined) updateData.nome = payload.nome
+
+    const { data, error } = await (supabase as any)
+      .from("recipientes_estoque")
+      .update(updateData)
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return {
+      ...data,
+      saldo_atual: Number(data.saldo_atual) || 0,
+      estoque_minimo: Number(data.estoque_minimo) || 0,
+    }
+  },
+
+  async atualizarSaldoRecipiente(
+    recipienteId: string,
+    delta: number,
+  ): Promise<void> {
+    if (!recipienteId || delta === 0) return
+    const { data: rec, error: getErr } = await (supabase as any)
+      .from("recipientes_estoque")
+      .select("saldo_atual")
+      .eq("id", recipienteId)
+      .single()
+
+    if (getErr || !rec) return
+
+    const novoSaldo = Number(rec.saldo_atual) + Number(delta)
+    await (supabase as any)
+      .from("recipientes_estoque")
+      .update({
+        saldo_atual: novoSaldo,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", recipienteId)
+  },
+
+  async registrarEntradaRecipiente(payload: {
+    empresa_id: string
+    recipiente_id: string
+    quantidade: number
+    data: string
+    documento?: string
+    observacao?: string
+    preco_unitario?: number
+  }): Promise<void> {
+    const { data: rec, error: recErr } = await (supabase as any)
+      .from("recipientes_estoque")
+      .select("*")
+      .eq("id", payload.recipiente_id)
+      .single()
+
+    if (recErr || !rec) {
+      throw new Error("Recipiente não encontrado.")
+    }
+
+    const qtd = Number(payload.quantidade)
+    if (qtd <= 0)
+      throw new Error("A quantidade de entrada deve ser maior que zero.")
+
+    const precoUnit = Number(payload.preco_unitario) || 0
+    const valorTot = precoUnit > 0 ? Number((qtd * precoUnit).toFixed(2)) : 0
+
+    // 1. Registra movimentação de estoque
+    const { error: movErr } = await (supabase as any)
+      .from("movimentacoes_estoque")
+      .insert({
+        empresa_id: payload.empresa_id,
+        material_id: rec.material_id,
+        recipiente_id: rec.id,
+        recipiente_nome: rec.nome,
+        tipo: "ENTRADA",
+        quantidade: qtd,
+        preco_unitario: precoUnit || null,
+        valor_total: valorTot || null,
+        data: payload.data,
+        documento:
+          payload.documento ||
+          `ENTRADA-${rec.nome.toUpperCase().replace(/\s+/g, "-")}`,
+        observacao: payload.observacao || `Entrada no ${rec.nome}`,
+      })
+
+    if (movErr) throw movErr
+
+    // 2. Atualiza o saldo do recipiente
+    await this.atualizarSaldoRecipiente(rec.id, qtd)
+  },
+
   // Cadastros
   async getMotoristas(empresaId?: string): Promise<Motorista[]> {
     let query = (supabase as any).from("motoristas").select("*").order("nome")
@@ -839,6 +962,8 @@ export const ConcreteiraService = {
       observacao?: string | null
       carga_zerada?: boolean
       motivo_zerada?: "PERDA" | "CANCELAR"
+      silo_cimento?: string | null
+      tanque_aditivo?: string | null
     },
   ): Promise<Carga> {
     // Se for zerada por PERDA, prefixa [PERDA OPERACIONAL] na observação se ainda não tiver
@@ -851,26 +976,32 @@ export const ConcreteiraService = {
     }
 
     // 1. Atualiza registro da carga
+    const updateData: any = {
+      data: payload.data,
+      volume_m3: payload.volume_m3,
+      traco_id: payload.traco_id || null,
+      traco_nome: payload.traco_nome || null,
+      motorista_nome: payload.motorista_nome || null,
+      veiculo_placa: payload.veiculo_placa || null,
+      cidade_nome: payload.cidade_nome || null,
+      consumo_brita12: payload.consumo_brita12,
+      consumo_brita19: payload.consumo_brita19,
+      consumo_areia: payload.consumo_areia,
+      consumo_po_pedra: payload.consumo_po_pedra,
+      consumo_cimento: payload.consumo_cimento,
+      consumo_aditivo: payload.consumo_aditivo,
+      consumo_agua: payload.consumo_agua || 0,
+      observacao: obsFinal,
+      carga_zerada: payload.carga_zerada || false,
+    }
+    if (payload.silo_cimento !== undefined)
+      updateData.silo_cimento = payload.silo_cimento
+    if (payload.tanque_aditivo !== undefined)
+      updateData.tanque_aditivo = payload.tanque_aditivo
+
     const { data: cargaAtualizada, error: updErr } = await (supabase as any)
       .from("cargas")
-      .update({
-        data: payload.data,
-        volume_m3: payload.volume_m3,
-        traco_id: payload.traco_id || null,
-        traco_nome: payload.traco_nome || null,
-        motorista_nome: payload.motorista_nome || null,
-        veiculo_placa: payload.veiculo_placa || null,
-        cidade_nome: payload.cidade_nome || null,
-        consumo_brita12: payload.consumo_brita12,
-        consumo_brita19: payload.consumo_brita19,
-        consumo_areia: payload.consumo_areia,
-        consumo_po_pedra: payload.consumo_po_pedra,
-        consumo_cimento: payload.consumo_cimento,
-        consumo_aditivo: payload.consumo_aditivo,
-        consumo_agua: payload.consumo_agua || 0,
-        observacao: obsFinal,
-        carga_zerada: payload.carga_zerada || false,
-      })
+      .update(updateData)
       .eq("id", id)
       .select()
       .single()
@@ -878,6 +1009,43 @@ export const ConcreteiraService = {
     if (updErr) throw updErr
 
     // 2. Estorna TODAS as movimentações de estoque antigas vinculadas a esta carga
+    // Se haviam movimentações vinculadas a recipientes, ajusta o saldo_atual dos recipientes
+    const { data: movsAntigas } = await (supabase as any)
+      .from("movimentacoes_estoque")
+      .select("recipiente_id, quantidade, tipo")
+      .eq("carga_id", id)
+
+    if (movsAntigas && movsAntigas.length > 0) {
+      for (const m of movsAntigas) {
+        if (m.recipiente_id) {
+          const delta =
+            m.tipo === "SAIDA" ? Number(m.quantidade) : -Number(m.quantidade)
+          await (supabase as any)
+            .rpc("executar_delta_recipiente", {
+              p_recipiente_id: m.recipiente_id,
+              p_delta: delta,
+            })
+            .catch(async () => {
+              // Fallback sem RPC se não existir: busca e faz update direto
+              const { data: rec } = await (supabase as any)
+                .from("recipientes_estoque")
+                .select("saldo_atual")
+                .eq("id", m.recipiente_id)
+                .single()
+              if (rec) {
+                await (supabase as any)
+                  .from("recipientes_estoque")
+                  .update({
+                    saldo_atual: Number(rec.saldo_atual) + delta,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq("id", m.recipiente_id)
+              }
+            })
+        }
+      }
+    }
+
     const { error: delErr } = await (supabase as any)
       .from("movimentacoes_estoque")
       .delete()
@@ -904,6 +1072,31 @@ export const ConcreteiraService = {
       const matCimento = materiais.find((m) => m.codigo === "cimento")
       const matAditivo = materiais.find((m) => m.codigo === "aditivo")
 
+      // Se for Patos, buscar recipientes para associar ID e abater saldo
+      let recipientesPatos: RecipienteEstoque[] = []
+      if (empresaId && (payload.silo_cimento || payload.tanque_aditivo)) {
+        recipientesPatos = await this.getRecipientesEstoque(empresaId)
+      }
+
+      const recSilo = payload.silo_cimento
+        ? recipientesPatos.find(
+            (r) =>
+              r.identificador === payload.silo_cimento ||
+              r.nome
+                .toLowerCase()
+                .includes(payload.silo_cimento!.toLowerCase()),
+          )
+        : null
+      const recTanque = payload.tanque_aditivo
+        ? recipientesPatos.find(
+            (r) =>
+              r.identificador === payload.tanque_aditivo ||
+              r.nome
+                .toLowerCase()
+                .includes(payload.tanque_aditivo!.toLowerCase()),
+          )
+        : null
+
       const obsMov = payload.carga_zerada
         ? `Perda operacional na batelada (${payload.volume_m3}m³) (recalculado após edição)`
         : `Consumo na carga de ${payload.volume_m3}m³ (recalculado após edição)`
@@ -912,6 +1105,8 @@ export const ConcreteiraService = {
         saídas.push({
           empresa_id: empresaId || null,
           material_id: matCimento.id,
+          recipiente_id: recSilo?.id || null,
+          recipiente_nome: recSilo?.nome || null,
           tipo: "SAIDA",
           quantidade: payload.consumo_cimento,
           data: payload.data,
@@ -924,6 +1119,8 @@ export const ConcreteiraService = {
         saídas.push({
           empresa_id: empresaId || null,
           material_id: matAditivo.id,
+          recipiente_id: recTanque?.id || null,
+          recipiente_nome: recTanque?.nome || null,
           tipo: "SAIDA",
           quantidade: payload.consumo_aditivo,
           data: payload.data,
@@ -935,6 +1132,18 @@ export const ConcreteiraService = {
 
       if (saídas.length > 0) {
         await (supabase as any).from("movimentacoes_estoque").insert(saídas)
+        if (recSilo && payload.consumo_cimento > 0) {
+          await this.atualizarSaldoRecipiente(
+            recSilo.id,
+            -payload.consumo_cimento,
+          )
+        }
+        if (recTanque && payload.consumo_aditivo > 0) {
+          await this.atualizarSaldoRecipiente(
+            recTanque.id,
+            -payload.consumo_aditivo,
+          )
+        }
       }
     }
     // 4. Se houver Ordem de Serviço vinculada a essa carga, sincroniza seus itens e insumos detalhados
@@ -1030,6 +1239,8 @@ export const ConcreteiraService = {
     observacao?: string
     carga_zerada?: boolean
     motivo_zerada?: "PERDA" | "CANCELAR"
+    silo_cimento?: string | null
+    tanque_aditivo?: string | null
   }) {
     // 0. Calcular próximo número de carga para a empresa
     const proximoNum = await this.getProximoNumeroCarga(payload.empresa_id)
@@ -1065,6 +1276,8 @@ export const ConcreteiraService = {
         consumo_agua: payload.consumo_agua || 0,
         observacao: obsFinal,
         carga_zerada: payload.carga_zerada || false,
+        silo_cimento: payload.silo_cimento || null,
+        tanque_aditivo: payload.tanque_aditivo || null,
       })
       .select()
       .single()
@@ -1087,6 +1300,34 @@ export const ConcreteiraService = {
       const matCimento = materiais.find((m) => m.codigo === "cimento")
       const matAditivo = materiais.find((m) => m.codigo === "aditivo")
 
+      // Se for Patos e houver silo/tanque indicado, buscar recipientes
+      let recipientesPatos: RecipienteEstoque[] = []
+      if (
+        payload.empresa_id &&
+        (payload.silo_cimento || payload.tanque_aditivo)
+      ) {
+        recipientesPatos = await this.getRecipientesEstoque(payload.empresa_id)
+      }
+
+      const recSilo = payload.silo_cimento
+        ? recipientesPatos.find(
+            (r) =>
+              r.identificador === payload.silo_cimento ||
+              r.nome
+                .toLowerCase()
+                .includes(payload.silo_cimento!.toLowerCase()),
+          )
+        : null
+      const recTanque = payload.tanque_aditivo
+        ? recipientesPatos.find(
+            (r) =>
+              r.identificador === payload.tanque_aditivo ||
+              r.nome
+                .toLowerCase()
+                .includes(payload.tanque_aditivo!.toLowerCase()),
+          )
+        : null
+
       const obsMov =
         payload.carga_zerada && payload.motivo_zerada === "PERDA"
           ? `Perda operacional na batelada (${payload.volume_m3}m³)`
@@ -1096,6 +1337,8 @@ export const ConcreteiraService = {
         saídas.push({
           empresa_id: payload.empresa_id || null,
           material_id: matCimento.id,
+          recipiente_id: recSilo?.id || null,
+          recipiente_nome: recSilo?.nome || null,
           tipo: "SAIDA",
           quantidade: payload.consumo_cimento,
           data: payload.data,
@@ -1108,6 +1351,8 @@ export const ConcreteiraService = {
         saídas.push({
           empresa_id: payload.empresa_id || null,
           material_id: matAditivo.id,
+          recipiente_id: recTanque?.id || null,
+          recipiente_nome: recTanque?.nome || null,
           tipo: "SAIDA",
           quantidade: payload.consumo_aditivo,
           data: payload.data,
@@ -1121,6 +1366,18 @@ export const ConcreteiraService = {
 
       if (saídas.length > 0) {
         await (supabase as any).from("movimentacoes_estoque").insert(saídas)
+        if (recSilo && payload.consumo_cimento > 0) {
+          await this.atualizarSaldoRecipiente(
+            recSilo.id,
+            -payload.consumo_cimento,
+          )
+        }
+        if (recTanque && payload.consumo_aditivo > 0) {
+          await this.atualizarSaldoRecipiente(
+            recTanque.id,
+            -payload.consumo_aditivo,
+          )
+        }
       }
     }
 

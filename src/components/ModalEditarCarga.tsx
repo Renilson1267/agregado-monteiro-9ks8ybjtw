@@ -77,6 +77,10 @@ export function ModalEditarCarga({
   const [poPedra, setPoPedra] = useState<number>(0)
   const [aditivo, setAditivo] = useState<number>(0)
 
+  // Silo e Tanque (exclusivo Patos)
+  const [siloCimento, setSiloCimento] = useState<string>("silo_1")
+  const [tanqueAditivo, setTanqueAditivo] = useState<string>("tanque_1")
+
   // Campos específicos acumulados de Patos
   // Cimento = cimento; Brita 0 = brita12;
   // Brita 0+1 acum = brita12 + brita19;
@@ -138,6 +142,12 @@ export function ModalEditarCarga({
     setAreia(dosAreia)
     setPoPedra(dosPo)
     setAditivo(adtTotal)
+
+    // Silo e Tanque
+    if (carga.silo_cimento) setSiloCimento(carga.silo_cimento)
+    else setSiloCimento("silo_1")
+    if (carga.tanque_aditivo) setTanqueAditivo(carga.tanque_aditivo)
+    else setTanqueAditivo("tanque_1")
 
     // Recompor acumulados de Patos
     const acum01 = dosB0 + dosB19
@@ -268,6 +278,8 @@ export function ModalEditarCarga({
         consumo_agua: Number(carga.consumo_agua) || 0,
         observacao: observacao || null,
         carga_zerada: cargaZerada,
+        silo_cimento: isPatos ? siloCimento : undefined,
+        tanque_aditivo: isPatos ? tanqueAditivo : undefined,
       })
 
       toast({
@@ -381,6 +393,57 @@ export function ModalEditarCarga({
                 </Select>
               </div>
             </div>
+
+            {/* Origem da Baixa: Silos e Tanques em Patos */}
+            {isPatos && (
+              <div className="p-3 rounded-xl border border-primary/30 bg-primary/5 space-y-2">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Scale className="w-3.5 h-3.5 text-primary" />
+                  Origem da Baixa no Estoque (Patos):
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold text-muted-foreground">
+                      Silo de Cimento:
+                    </Label>
+                    <Select value={siloCimento} onValueChange={setSiloCimento}>
+                      <SelectTrigger className="h-8 text-xs font-semibold bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="silo_1">
+                          Silo de Cimento 1
+                        </SelectItem>
+                        <SelectItem value="silo_2">
+                          Silo de Cimento 2
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold text-muted-foreground">
+                      Tanque de Aditivo:
+                    </Label>
+                    <Select
+                      value={tanqueAditivo}
+                      onValueChange={setTanqueAditivo}
+                    >
+                      <SelectTrigger className="h-8 text-xs font-semibold bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tanque_1">
+                          Tanque de Aditivo 1
+                        </SelectItem>
+                        <SelectItem value="tanque_2">
+                          Tanque de Aditivo 2
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* SEÇÃO DE INSUMOS: Se PATOS → Modo Acumulativo; Se OUTRA → Modo Padrão */}
             {isPatos ? (
