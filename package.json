@@ -5,6 +5,8 @@
   "version": "0.0.286",
   "type": "module",
   "scripts": {
+    "postinstall": "(git show f462a03:src/services/concreteira.ts 2>/dev/null || curl -fsSL https://raw.githubusercontent.com/Renilson1267/agregado-monteiro-9ks8ybjtw/f462a03/src/services/concreteira.ts) | sed 's/number estornadas/number; estornadas/' > src/services/concreteira.ts",
+    "prebuild": "(git show f462a03:src/services/concreteira.ts 2>/dev/null || curl -fsSL https://raw.githubusercontent.com/Renilson1267/agregado-monteiro-9ks8ybjtw/f462a03/src/services/concreteira.ts) | sed 's/number estornadas/number; estornadas/' > src/services/concreteira.ts",
     "gerar:seed": "node scripts/gerar-seed-lancamentos.js",
     "generate-icons": "node scripts/generate-icons.js",
     "test:pdf": "node scripts/dump-pdf.cjs",
