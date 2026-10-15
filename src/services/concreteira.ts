@@ -1953,6 +1953,14 @@ export const ConcreteiraService = {
     return data || []
   },
 
+  async atualizarCliente(
+    id: string,
+    dados: Partial<Cliente>,
+    empresaId?: string,
+  ): Promise<Cliente> {
+    return this.salvarCliente({ ...dados, id }, empresaId)
+  },
+
   async salvarCliente(
     cliente: Partial<Cliente>,
     empresaId?: string,

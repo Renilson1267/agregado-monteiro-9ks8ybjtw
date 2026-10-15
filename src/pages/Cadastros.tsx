@@ -338,17 +338,37 @@ export default function Cadastros() {
     }
   }
 
-  // Modais de Cadastro
+  // Modais de Cadastro / Edição
   const [openMotorista, setOpenMotorista] = useState(false)
+  const [motoristaEditando, setMotoristaEditando] = useState<Motorista | null>(
+    null,
+  )
   const [nomeMotorista, setNomeMotorista] = useState("")
 
   const [openVeiculo, setOpenVeiculo] = useState(false)
+  const [veiculoEditando, setVeiculoEditando] = useState<Veiculo | null>(null)
   const [placaVeiculo, setPlacaVeiculo] = useState("")
   const [modeloVeiculo, setModeloVeiculo] = useState("")
 
   const [openCidade, setOpenCidade] = useState(false)
+  const [cidadeEditando, setCidadeEditando] = useState<Cidade | null>(null)
   const [nomeCidade, setNomeCidade] = useState("")
   const [ufCidade, setUfCidade] = useState("PB")
+
+  // Modal de Confirmação padrão "Confirmar alteração?" antes de gravar
+  const [dialogConfirmacao, setDialogConfirmacao] = useState<{
+    open: boolean
+    tipo: "motorista" | "veiculo" | "cidade" | "cliente"
+    titulo: string
+    descricao: string
+    onConfirmar: () => Promise<void>
+  }>({
+    open: false,
+    tipo: "motorista",
+    titulo: "",
+    descricao: "",
+    onConfirmar: async () => {},
+  })
 
   const [salvando, setSalvando] = useState(false)
   const [openImportarCsv, setOpenImportarCsv] = useState(false)
@@ -412,19 +432,69 @@ export default function Cadastros() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaAtiva?.id])
 
+  const handleAbrirNovoMotorista = () => {
+    setMotoristaEditando(null)
+    setNomeMotorista("")
+    setOpenMotorista(true)
+  }
+
+  const handleEditarMotorista = (m: Motorista) => {
+    setMotoristaEditando(m)
+    setNomeMotorista(m.nome || "")
+    setOpenMotorista(true)
+  }
+
   const handleSalvarMotorista = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!nomeMotorista.trim()) return
+
+    const nomeFormatado = nomeMotorista.trim()
+    const isEdicao = !!motoristaEditando
+
+    if (isEdicao) {
+      setDialogConfirmacao({
+        open: true,
+        tipo: "motorista",
+        titulo: "Confirmar alteração do motorista?",
+        descricao: `Deseja atualizar o motorista "${motoristaEditando.nome}" para "${nomeFormatado}"? Cargas antigas já registradas permanecem com o histórico preservado.`,
+        onConfirmar: async () => {
+          setSalvando(true)
+          try {
+            await ConcreteiraService.atualizarMotorista(
+              motoristaEditando.id,
+              { nome: nomeFormatado, ativo: motoristaEditando.ativo ?? true },
+              empresaAtiva?.id,
+            )
+            toast({ title: "Motorista atualizado com sucesso!" })
+            setNomeMotorista("")
+            setMotoristaEditando(null)
+            setOpenMotorista(false)
+            carregarTudo()
+          } catch (err: any) {
+            toast({
+              title: "Erro ao atualizar motorista",
+              description: err.message,
+              variant: "destructive",
+            })
+          } finally {
+            setSalvando(false)
+          }
+        },
+      })
+      return
+    }
+
     setSalvando(true)
     try {
       await ConcreteiraService.salvarMotorista(
-        nomeMotorista.trim(),
+        nomeFormatado,
         true,
         undefined,
         empresaAtiva?.id,
       )
       toast({ title: "Motorista cadastrado com sucesso!" })
       setNomeMotorista("")
+      setMotoristaEditando(null)
       setOpenMotorista(false)
       carregarTudo()
     } catch (err: any) {
@@ -438,14 +508,73 @@ export default function Cadastros() {
     }
   }
 
+  const handleAbrirNovoVeiculo = () => {
+    setVeiculoEditando(null)
+    setPlacaVeiculo("")
+    setModeloVeiculo("")
+    setOpenVeiculo(true)
+  }
+
+  const handleEditarVeiculo = (v: Veiculo) => {
+    setVeiculoEditando(v)
+    setPlacaVeiculo(v.placa || "")
+    setModeloVeiculo(v.modelo || "")
+    setOpenVeiculo(true)
+  }
+
   const handleSalvarVeiculo = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!placaVeiculo.trim()) return
+
+    const placaFormatada = placaVeiculo.trim().toUpperCase()
+    const modeloFormatado = modeloVeiculo.trim() || undefined
+    const isEdicao = !!veiculoEditando
+
+    if (isEdicao) {
+      setDialogConfirmacao({
+        open: true,
+        tipo: "veiculo",
+        titulo: "Confirmar alteração do veículo?",
+        descricao: `Deseja atualizar a placa/modelo para "${placaFormatada}${
+          modeloFormatado ? ` - ${modeloFormatado}` : ""
+        }"? Cargas antigas já registradas permanecem intactas.`,
+        onConfirmar: async () => {
+          setSalvando(true)
+          try {
+            await ConcreteiraService.atualizarVeiculo(
+              veiculoEditando.id,
+              {
+                placa: placaFormatada,
+                modelo: modeloFormatado,
+                ativo: veiculoEditando.ativo ?? true,
+              },
+              empresaAtiva?.id,
+            )
+            toast({ title: "Veículo atualizado com sucesso!" })
+            setPlacaVeiculo("")
+            setModeloVeiculo("")
+            setVeiculoEditando(null)
+            setOpenVeiculo(false)
+            carregarTudo()
+          } catch (err: any) {
+            toast({
+              title: "Erro ao atualizar veículo",
+              description: err.message,
+              variant: "destructive",
+            })
+          } finally {
+            setSalvando(false)
+          }
+        },
+      })
+      return
+    }
+
     setSalvando(true)
     try {
       await ConcreteiraService.salvarVeiculo(
-        placaVeiculo.trim().toUpperCase(),
-        modeloVeiculo.trim() || undefined,
+        placaFormatada,
+        modeloFormatado,
         true,
         undefined,
         empresaAtiva?.id,
@@ -453,6 +582,7 @@ export default function Cadastros() {
       toast({ title: "Veículo cadastrado com sucesso!" })
       setPlacaVeiculo("")
       setModeloVeiculo("")
+      setVeiculoEditando(null)
       setOpenVeiculo(false)
       carregarTudo()
     } catch (err: any) {
@@ -493,19 +623,72 @@ export default function Cadastros() {
     }
   }
 
+  const handleAbrirNovaCidade = () => {
+    setCidadeEditando(null)
+    setNomeCidade("")
+    setUfCidade("PB")
+    setOpenCidade(true)
+  }
+
+  const handleEditarCidade = (c: Cidade) => {
+    setCidadeEditando(c)
+    setNomeCidade(c.nome || "")
+    setUfCidade(c.uf || "PB")
+    setOpenCidade(true)
+  }
+
   const handleSalvarCidade = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!nomeCidade.trim()) return
+
+    const nomeFormatado = nomeCidade.trim()
+    const ufFormatada = ufCidade.trim().toUpperCase() || "PB"
+    const isEdicao = !!cidadeEditando
+
+    if (isEdicao) {
+      setDialogConfirmacao({
+        open: true,
+        tipo: "cidade",
+        titulo: "Confirmar alteração da cidade?",
+        descricao: `Deseja atualizar os dados da cidade para "${nomeFormatado} - ${ufFormatada}"? As cargas já lançadas permanecem inalteradas.`,
+        onConfirmar: async () => {
+          setSalvando(true)
+          try {
+            await ConcreteiraService.atualizarCidade(
+              cidadeEditando.id,
+              { nome: nomeFormatado, uf: ufFormatada },
+              empresaAtiva?.id,
+            )
+            toast({ title: "Cidade atualizada com sucesso!" })
+            setNomeCidade("")
+            setCidadeEditando(null)
+            setOpenCidade(false)
+            carregarTudo()
+          } catch (err: any) {
+            toast({
+              title: "Erro ao atualizar cidade",
+              description: err.message,
+              variant: "destructive",
+            })
+          } finally {
+            setSalvando(false)
+          }
+        },
+      })
+      return
+    }
+
     setSalvando(true)
     try {
       await ConcreteiraService.salvarCidade(
-        nomeCidade.trim(),
-        ufCidade.trim().toUpperCase(),
+        nomeFormatado,
+        ufFormatada,
         undefined,
         empresaAtiva?.id,
       )
       toast({ title: "Cidade cadastrada com sucesso!" })
       setNomeCidade("")
+      setCidadeEditando(null)
       setOpenCidade(false)
       carregarTudo()
     } catch (err: any) {
@@ -692,37 +875,64 @@ export default function Cadastros() {
       return
     }
 
+    const payloadCliente = {
+      id: clienteEditando?.id,
+      tipo: tipoCliente,
+      cpf_cnpj: formatarCpfCnpj(docLimpo),
+      nome: nomeCliente.trim(),
+      nome_fantasia: nomeFantasiaCliente.trim() || null,
+      telefone: telefoneCliente.trim() || null,
+      email: emailCliente.trim() || null,
+      cep: cepCliente.trim() || null,
+      logradouro: logradouroCliente.trim() || null,
+      numero: numeroCliente.trim() || null,
+      complemento: complementoCliente.trim() || null,
+      bairro: bairroCliente.trim() || null,
+      cidade: cidadeCliente.trim() || null,
+      uf: ufCliente.trim().toUpperCase() || "PB",
+      observacoes: observacoesCliente.trim() || null,
+      ativo: true,
+      exibir_insumos_os: exibirInsumosOsCliente,
+    }
+
+    if (clienteEditando) {
+      setDialogConfirmacao({
+        open: true,
+        tipo: "cliente",
+        titulo: "Confirmar alteração do cliente?",
+        descricao: `Deseja salvar as alterações cadastrais do cliente "${payloadCliente.nome}"? O histórico de Ordens de Serviço e cargas antigas permanecerá intacto.`,
+        onConfirmar: async () => {
+          setSalvando(true)
+          try {
+            await ConcreteiraService.atualizarCliente(
+              clienteEditando.id,
+              payloadCliente,
+              empresaAtiva?.id,
+            )
+            toast({ title: "Cliente atualizado com sucesso!" })
+            setOpenCliente(false)
+            setClienteEditando(null)
+            carregarTudo()
+          } catch (err: any) {
+            toast({
+              title: "Erro ao salvar cliente",
+              description: err.message,
+              variant: "destructive",
+            })
+          } finally {
+            setSalvando(false)
+          }
+        },
+      })
+      return
+    }
+
     setSalvando(true)
     try {
-      await ConcreteiraService.salvarCliente(
-        {
-          id: clienteEditando?.id,
-          tipo: tipoCliente,
-          cpf_cnpj: formatarCpfCnpj(docLimpo),
-          nome: nomeCliente.trim(),
-          nome_fantasia: nomeFantasiaCliente.trim() || null,
-          telefone: telefoneCliente.trim() || null,
-          email: emailCliente.trim() || null,
-          cep: cepCliente.trim() || null,
-          logradouro: logradouroCliente.trim() || null,
-          numero: numeroCliente.trim() || null,
-          complemento: complementoCliente.trim() || null,
-          bairro: bairroCliente.trim() || null,
-          cidade: cidadeCliente.trim() || null,
-          uf: ufCliente.trim().toUpperCase() || "PB",
-          observacoes: observacoesCliente.trim() || null,
-          ativo: true,
-          exibir_insumos_os: exibirInsumosOsCliente,
-        },
-        empresaAtiva?.id,
-      )
-
-      toast({
-        title: clienteEditando
-          ? "Cliente atualizado com sucesso!"
-          : "Cliente cadastrado com sucesso!",
-      })
+      await ConcreteiraService.salvarCliente(payloadCliente, empresaAtiva?.id)
+      toast({ title: "Cliente cadastrado com sucesso!" })
       setOpenCliente(false)
+      setClienteEditando(null)
       carregarTudo()
     } catch (err: any) {
       toast({
@@ -1530,7 +1740,7 @@ export default function Cadastros() {
               </div>
               <Button
                 size="sm"
-                onClick={() => setOpenMotorista(true)}
+                onClick={handleAbrirNovoMotorista}
                 className="gap-1 bg-primary text-primary-foreground text-xs"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -1552,13 +1762,22 @@ export default function Cadastros() {
                         Status: Ativo na frota
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <Badge
                         variant="outline"
-                        className="text-xs text-emerald-500 border-emerald-500/30 bg-emerald-500/10"
+                        className="text-xs text-emerald-500 border-emerald-500/30 bg-emerald-500/10 mr-1"
                       >
                         Ativo
                       </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 hover:bg-muted"
+                        onClick={() => handleEditarMotorista(m)}
+                        title="Editar Motorista"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-foreground" />
+                      </Button>
                       {isAdministrador && (
                         <Button
                           variant="ghost"
@@ -1600,7 +1819,7 @@ export default function Cadastros() {
               </div>
               <Button
                 size="sm"
-                onClick={() => setOpenVeiculo(true)}
+                onClick={handleAbrirNovoVeiculo}
                 className="gap-1 bg-primary text-primary-foreground text-xs"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -1622,13 +1841,22 @@ export default function Cadastros() {
                         {v.modelo || "Betoneira"}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <Badge
                         variant="outline"
-                        className="text-xs text-emerald-500 border-emerald-500/30 bg-emerald-500/10"
+                        className="text-xs text-emerald-500 border-emerald-500/30 bg-emerald-500/10 mr-1"
                       >
                         Operacional
                       </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 hover:bg-muted"
+                        onClick={() => handleEditarVeiculo(v)}
+                        title="Editar Veículo"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-foreground" />
+                      </Button>
                       {isAdministrador && (
                         <Button
                           variant="ghost"
@@ -1670,7 +1898,7 @@ export default function Cadastros() {
               </div>
               <Button
                 size="sm"
-                onClick={() => setOpenCidade(true)}
+                onClick={handleAbrirNovaCidade}
                 className="gap-1 bg-primary text-primary-foreground text-xs"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -1690,10 +1918,22 @@ export default function Cadastros() {
                         {c.nome}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs font-mono">
+                    <div className="flex items-center gap-1.5">
+                      <Badge
+                        variant="outline"
+                        className="text-xs font-mono mr-1"
+                      >
                         {c.uf}
                       </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 hover:bg-muted"
+                        onClick={() => handleEditarCidade(c)}
+                        title="Editar Cidade"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-foreground" />
+                      </Button>
                       {isAdministrador && (
                         <Button
                           variant="ghost"
@@ -1912,11 +2152,21 @@ export default function Cadastros() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Novo Motorista */}
-      <Dialog open={openMotorista} onOpenChange={setOpenMotorista}>
+      {/* Modal Criar / Editar Motorista */}
+      <Dialog
+        open={openMotorista}
+        onOpenChange={(op) => {
+          setOpenMotorista(op)
+          if (!op) setMotoristaEditando(null)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cadastrar Novo Motorista</DialogTitle>
+            <DialogTitle>
+              {motoristaEditando
+                ? "Editar Motorista"
+                : "Cadastrar Novo Motorista"}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSalvarMotorista} className="space-y-4 py-2">
             <div className="space-y-2">
@@ -1933,7 +2183,10 @@ export default function Cadastros() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpenMotorista(false)}
+                onClick={() => {
+                  setOpenMotorista(false)
+                  setMotoristaEditando(null)
+                }}
               >
                 Cancelar
               </Button>
@@ -1942,18 +2195,32 @@ export default function Cadastros() {
                 disabled={salvando}
                 className="bg-primary text-primary-foreground"
               >
-                Salvar
+                {salvando
+                  ? "Salvando..."
+                  : motoristaEditando
+                    ? "Salvar Alterações"
+                    : "Salvar"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Modal Novo Veículo */}
-      <Dialog open={openVeiculo} onOpenChange={setOpenVeiculo}>
+      {/* Modal Criar / Editar Veículo */}
+      <Dialog
+        open={openVeiculo}
+        onOpenChange={(op) => {
+          setOpenVeiculo(op)
+          if (!op) setVeiculoEditando(null)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cadastrar Novo Veículo (Placa)</DialogTitle>
+            <DialogTitle>
+              {veiculoEditando
+                ? "Editar Veículo"
+                : "Cadastrar Novo Veículo (Placa)"}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSalvarVeiculo} className="space-y-4 py-2">
             <div className="space-y-2">
@@ -1981,7 +2248,10 @@ export default function Cadastros() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpenVeiculo(false)}
+                onClick={() => {
+                  setOpenVeiculo(false)
+                  setVeiculoEditando(null)
+                }}
               >
                 Cancelar
               </Button>
@@ -1990,18 +2260,32 @@ export default function Cadastros() {
                 disabled={salvando}
                 className="bg-primary text-primary-foreground"
               >
-                Salvar
+                {salvando
+                  ? "Salvando..."
+                  : veiculoEditando
+                    ? "Salvar Alterações"
+                    : "Salvar"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Modal Nova Cidade */}
-      <Dialog open={openCidade} onOpenChange={setOpenCidade}>
+      {/* Modal Criar / Editar Cidade */}
+      <Dialog
+        open={openCidade}
+        onOpenChange={(op) => {
+          setOpenCidade(op)
+          if (!op) setCidadeEditando(null)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cadastrar Nova Cidade de Destino</DialogTitle>
+            <DialogTitle>
+              {cidadeEditando
+                ? "Editar Cidade de Destino"
+                : "Cadastrar Nova Cidade de Destino"}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSalvarCidade} className="space-y-4 py-2">
             <div className="grid grid-cols-3 gap-3">
@@ -2031,7 +2315,10 @@ export default function Cadastros() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpenCidade(false)}
+                onClick={() => {
+                  setOpenCidade(false)
+                  setCidadeEditando(null)
+                }}
               >
                 Cancelar
               </Button>
@@ -2040,7 +2327,11 @@ export default function Cadastros() {
                 disabled={salvando}
                 className="bg-primary text-primary-foreground"
               >
-                Salvar
+                {salvando
+                  ? "Salvando..."
+                  : cidadeEditando
+                    ? "Salvar Alterações"
+                    : "Salvar"}
               </Button>
             </DialogFooter>
           </form>
@@ -2698,6 +2989,41 @@ export default function Cadastros() {
           carregarTudo()
         }}
       />
+
+      {/* AlertDialog de Confirmação de Alteração / Edição ("Confirmar alteração?") */}
+      <AlertDialog
+        open={dialogConfirmacao.open}
+        onOpenChange={(open) =>
+          !salvando && setDialogConfirmacao((prev) => ({ ...prev, open }))
+        }
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <AlertCircle className="w-4 h-4 text-amber-500" />
+              {dialogConfirmacao.titulo || "Confirmar alteração?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground pt-1 leading-relaxed">
+              {dialogConfirmacao.descricao}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel disabled={salvando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async (e) => {
+                e.preventDefault()
+                const acao = dialogConfirmacao.onConfirmar
+                setDialogConfirmacao((prev) => ({ ...prev, open: false }))
+                await acao()
+              }}
+              disabled={salvando}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {salvando ? "Salvando..." : "Confirmar alteração"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* AlertDialog de Confirmação de Exclusão */}
       <AlertDialog
