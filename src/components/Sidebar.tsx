@@ -95,6 +95,7 @@ export function Sidebar({
   const {
     perfil,
     isBalanceiro,
+    isGestor,
     isAdministrador,
     nomePerfil,
     nomeUsuario,
@@ -279,9 +280,20 @@ export function Sidebar({
   // Renderiza a lista de itens da navegação organizada por grupos lógicos
   const renderNavList = (isMobileView = false) => {
     // Filtra itens de acordo com o perfil do usuário
+    // Regra do Gestor: acesso APENAS a: /painel, /relatorios, /lancamentos, /estoque
+    const ROTAS_PERMITIDAS_GESTOR = new Set([
+      "/painel",
+      "/relatorios",
+      "/lancamentos",
+      "/estoque",
+    ])
+
     const gruposVisiveis = navGroups
       .map((grupo) => {
         const itensVisiveis = grupo.items.filter((item) => {
+          if (isGestor) {
+            return ROTAS_PERMITIDAS_GESTOR.has(item.path)
+          }
           if (isBalanceiro && item.adminOnly) return false
           return true
         })
@@ -654,6 +666,8 @@ export function Sidebar({
                       <div className="flex items-center gap-1 mt-0.5">
                         {isBalanceiro ? (
                           <Scale className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                        ) : isGestor ? (
+                          <LayoutDashboard className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
                         ) : (
                           <ShieldCheck className="w-2.5 h-2.5 text-primary shrink-0" />
                         )}

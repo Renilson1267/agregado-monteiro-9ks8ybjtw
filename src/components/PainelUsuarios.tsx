@@ -75,9 +75,7 @@ export function PainelUsuarios() {
   const [nome, setNome] = useState("")
   const [email, setEmail] = useState("")
   const [senha, setSenha] = useState("")
-  const [perfil, setPerfil] = useState<"administrador" | "balanceiro">(
-    "balanceiro",
-  )
+  const [perfil, setPerfil] = useState<PerfilUsuario>("balanceiro")
   const [empresaId, setEmpresaId] = useState<string>("todas")
   const [ativo, setAtivo] = useState(true)
   const [salvando, setSalvando] = useState(false)
@@ -172,10 +170,15 @@ export function PainelUsuarios() {
       )
       return
     }
-    // Regra: Balanceiro DEVE ter empresa vinculada
-    if (perfil === "balanceiro" && (empresaId === "todas" || !empresaId)) {
+    // Regra: Balanceiro e Gestor DEVEM ter empresa vinculada
+    if (
+      (perfil === "balanceiro" || perfil === "gestor") &&
+      (empresaId === "todas" || !empresaId)
+    ) {
       setErroModal(
-        "Operador Balanceiro precisa estar vinculado a uma empresa específica.",
+        `O perfil ${
+          perfil === "gestor" ? "Gestor" : "Balanceiro"
+        } precisa estar vinculado obrigatoriamente a uma empresa específica.`,
       )
       return
     }
@@ -301,7 +304,7 @@ export function PainelUsuarios() {
               Gestão de Usuários e Perfis de Acesso
             </CardTitle>
             <CardDescription className="text-xs">
-              Cadastre operadores, defina seus perfis (Administrador ou
+              Cadastre operadores, defina seus perfis (Administrador, Gestor ou
               Balanceiro) e restrinja a empresa permitida
             </CardDescription>
           </div>
@@ -352,6 +355,7 @@ export function PainelUsuarios() {
                 <tbody className="divide-y divide-border/20">
                   {usuariosFiltrados.map((u) => {
                     const isAdm = u.perfil === "administrador"
+                    const isGestorUser = u.perfil === "gestor"
                     return (
                       <tr
                         key={u.id}
@@ -364,7 +368,9 @@ export function PainelUsuarios() {
                             className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
                               isAdm
                                 ? "bg-primary/20 text-primary"
-                                : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                                : isGestorUser
+                                  ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                                  : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
                             }`}
                           >
                             {u.nome.slice(0, 1).toUpperCase()}
@@ -380,15 +386,23 @@ export function PainelUsuarios() {
                             className={`text-[10px] font-bold gap-1 ${
                               isAdm
                                 ? "bg-primary text-primary-foreground"
-                                : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                                : isGestorUser
+                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                                  : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30"
                             }`}
                           >
                             {isAdm ? (
                               <ShieldCheck className="w-3 h-3" />
+                            ) : isGestorUser ? (
+                              <Users className="w-3 h-3" />
                             ) : (
                               <Scale className="w-3 h-3" />
                             )}
-                            {isAdm ? "Administrador" : "Balanceiro"}
+                            {isAdm
+                              ? "Administrador"
+                              : isGestorUser
+                                ? "Gestor"
+                                : "Balanceiro"}
                           </Badge>
                         </td>
                         <td className="py-2.5 px-3">
@@ -556,13 +570,16 @@ export function PainelUsuarios() {
                 </Label>
                 <Select
                   value={perfil}
-                  onValueChange={(val: "administrador" | "balanceiro") => {
+                  onValueChange={(val: PerfilUsuario) => {
                     setPerfil(val)
                     if (val === "administrador" && empresaId !== "todas") {
                       // Sugere multicompany para administrador
                       setEmpresaId("todas")
-                    } else if (val === "balanceiro" && empresaId === "todas") {
-                      // Força seleção de uma empresa específica para balanceiro
+                    } else if (
+                      (val === "balanceiro" || val === "gestor") &&
+                      empresaId === "todas"
+                    ) {
+                      // Força seleção de uma empresa específica para balanceiro e gestor
                       setEmpresaId(empresas[0]?.id || "")
                     }
                   }}
@@ -572,11 +589,14 @@ export function PainelUsuarios() {
                     <SelectValue placeholder="Selecione o perfil" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="gestor">
+                      Gestor (Painel, Relatórios, Cargas e Estoque da Unidade)
+                    </SelectItem>
                     <SelectItem value="balanceiro">
                       Balanceiro (Expedição)
                     </SelectItem>
                     <SelectItem value="administrador">
-                      Administrador (Total)
+                      Administrador (Total Multicompany)
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -608,7 +628,7 @@ export function PainelUsuarios() {
                     {empresas.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id}>
                         {emp.nome}{" "}
-                        {perfil === "balanceiro"
+                        {perfil === "balanceiro" || perfil === "gestor"
                           ? "(Obrigatório)"
                           : "(Unidade inicial)"}
                       </SelectItem>
@@ -618,7 +638,25 @@ export function PainelUsuarios() {
               </div>
             </div>
 
-            {perfil === "balanceiro" ? (
+            {perfil === "gestor" ? (
+              <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-300 space-y-1">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <strong>Regra Gestor:</strong> Acesso restrito a 4 telas da
+                  unidade vinculada
+                </div>
+                <p>
+                  Entrada padrão em <strong>/painel</strong> (Painel Gerencial).
+                  Acesso liberado exclusivamente a: <strong>/painel</strong>,{" "}
+                  <strong>/relatorios</strong>, <strong>/lancamentos</strong> e{" "}
+                  <strong>/estoque</strong>. Fica FIXO na unidade vinculada (
+                  {empresas.find((e) => e.id === empresaId)?.nome ||
+                    "Selecione acima"}
+                  ) e sem acesso a Folha, Cadastros, Usuários ou Tabelas de
+                  comissão.
+                </p>
+              </div>
+            ) : perfil === "balanceiro" ? (
               <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300">
                 <strong>Regra Balanceiro:</strong> Cai direto na expedição
                 (/lancamentos) com campos liberados para digitação. Fica FIXO na
@@ -631,13 +669,12 @@ export function PainelUsuarios() {
               <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-[11px] text-primary space-y-1">
                 <div className="font-semibold flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-                  Administrador Multicompany (Monteiro + SJE)
+                  Administrador Multicompany (Monteiro, SJE, Caicó, Patos)
                 </div>
                 <p>
                   O Administrador tem acesso irrestrito a todas as empresas e
-                  pode alternar livremente entre Monteiro e SJE pelo seletor do
-                  topo. Os dados de cada unidade permanecem isolados e
-                  protegidos.
+                  módulos, podendo alternar livremente entre as unidades pelo
+                  seletor do topo.
                 </p>
               </div>
             )}

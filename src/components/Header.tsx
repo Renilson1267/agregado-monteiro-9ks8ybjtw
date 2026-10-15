@@ -51,12 +51,13 @@ export function Header({
   const {
     perfil,
     isBalanceiro,
+    isGestor,
     isAdministrador,
     nomePerfil,
     nomeUsuario,
     emailUsuario,
-    podeTrocarEmpresa,
     empresaVinculadaNome,
+    podeTrocarEmpresa,
   } = useUsuario()
   const [modalEmpresasOpen, setModalEmpresasOpen] = useState(false)
   const [modalTrocarSenhaOpen, setModalTrocarSenhaOpen] = useState(false)
@@ -244,11 +245,15 @@ export function Header({
             className={`hidden md:flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-semibold bg-card ${
               isBalanceiro
                 ? "border-amber-500/40 bg-amber-500/5 text-amber-600 dark:text-amber-400"
-                : "border-primary/40 bg-primary/5 text-primary"
+                : isGestor
+                  ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400"
+                  : "border-primary/40 bg-primary/5 text-primary"
             }`}
           >
             {isBalanceiro ? (
               <Scale className="w-3 h-3 shrink-0" />
+            ) : isGestor ? (
+              <Users className="w-3 h-3 shrink-0" />
             ) : (
               <ShieldCheck className="w-3 h-3 shrink-0" />
             )}

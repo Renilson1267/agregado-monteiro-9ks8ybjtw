@@ -24,8 +24,10 @@ import ImportarCargasPage from "./pages/ImportarCargas"
 import NotFound from "./pages/NotFound"
 
 function RotaRaizRedirect() {
-  const { isBalanceiro } = useUsuario()
-  return <Navigate to={isBalanceiro ? "/dashboard" : "/painel"} replace />
+  const { isBalanceiro, isGestor } = useUsuario()
+  if (isBalanceiro) return <Navigate to="/dashboard" replace />
+  if (isGestor) return <Navigate to="/painel" replace />
+  return <Navigate to="/painel" replace />
 }
 
 const App = () => (
@@ -49,21 +51,52 @@ const App = () => (
                   <Route element={<Layout />}>
                     {/* Rota Raiz: redireciona conforme o perfil (Balanceiro -> /lancamentos, Admin -> /painel) */}
                     <Route path="/" element={<RotaRaizRedirect />} />
-                    {/* Módulos Permitidos para Balanceiro & Admin (Lançamentos, Estoque, Ordens e Dashboard Enxuto) */}
-                    <Route path="/dashboard" element={<Index />} />
-                    <Route path="/lancamentos" element={<LancamentoCargas />} />
-                    <Route path="/estoque" element={<Estoque />} />
-                    <Route path="/ordens" element={<Ordens />} />
-                    {/* Rotas Restritas a Administrador (Balanceiro é redirecionado para o dashboard dele ou /lancamentos) */}
+                    {/* 4 Telas permitidas para Gestor: /painel, /relatorios, /lancamentos, /estoque */}
+                    {/* Lançamentos e Estoque: liberados para Gestor, Balanceiro e Administrador */}
+                    <Route element={<ProtectedRoute permitirGestor={true} />}>
+                      <Route
+                        path="/lancamentos"
+                        element={<LancamentoCargas />}
+                      />
+                      <Route path="/estoque" element={<Estoque />} />
+                    </Route>
+                    {/* Painel Gerencial e Relatórios: liberados para Gestor e Administrador (bloqueados para Balanceiro) */}
                     <Route
-                      element={<ProtectedRoute permitirApenasAdmin={true} />}
+                      element={
+                        <ProtectedRoute
+                          permitirApenasAdmin={false}
+                          permitirGestor={true}
+                        />
+                      }
+                    >
+                      <Route path="/painel" element={<PainelGerencial />} />
+                      <Route path="/relatorios" element={<Relatorios />} />
+                    </Route>
+                    {/* Módulos permitidos para Balanceiro e Admin (Gestor NÃO tem acesso a /dashboard nem /ordens) */}
+                    <Route
+                      element={
+                        <ProtectedRoute
+                          permitirApenasAdmin={false}
+                          permitirGestor={false}
+                        />
+                      }
+                    >
+                      <Route path="/dashboard" element={<Index />} />
+                      <Route path="/ordens" element={<Ordens />} />
+                    </Route>
+                    {/* Rotas Restritas a Administrador (Gestor e Balanceiro BLOQUEADOS / redirecionados) */}
+                    <Route
+                      element={
+                        <ProtectedRoute
+                          permitirApenasAdmin={true}
+                          permitirGestor={false}
+                        />
+                      }
                     >
                       <Route
                         path="/importar"
                         element={<ImportarCargasPage />}
                       />
-                      <Route path="/relatorios" element={<Relatorios />} />
-                      <Route path="/painel" element={<PainelGerencial />} />
                       <Route path="/tracos" element={<Tracos />} />
                       <Route
                         path="/comparativo"

@@ -157,7 +157,9 @@ export default function Login() {
           return
         }
 
-        // Se for balanceiro, já direciona para expedição
+        // Redirecionamento por perfil após o login:
+        // Balanceiro -> /lancamentos (expedição)
+        // Gestor ou Administrador -> /painel (painel gerencial)
         if (appUser?.perfil === "balanceiro") {
           navigate("/lancamentos", { replace: true })
         } else {

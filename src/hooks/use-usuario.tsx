@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { ConcreteiraService } from "@/services/concreteira"
 import type { UsuarioApp } from "@/types/concreteira"
 
-export type PerfilUsuario = "administrador" | "balanceiro"
+export type PerfilUsuario = "administrador" | "balanceiro" | "gestor"
 
 interface UsuarioContextType {
   usuarioApp: UsuarioApp | null
@@ -89,18 +89,25 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user, loadingAuth, carregarDadosUsuario])
 
-  // Se o usuário logado for balanceiro, ele nunca pode forçar admin
+  // Se o usuário logado não for admin, ele não pode forçar troca de perfil
   const alternarPerfil = (novoPerfil: PerfilUsuario) => {
-    // Se no cadastro o usuário for balanceiro, ele não pode mudar para admin
-    if (usuarioApp?.perfil === "balanceiro" && novoPerfil === "administrador") {
+    if (
+      usuarioApp?.perfil !== "administrador" &&
+      novoPerfil !== usuarioApp?.perfil
+    ) {
       return
     }
     setPerfilAtivo(novoPerfil)
   }
 
   const isBalanceiro = perfilAtivo === "balanceiro"
+  const isGestor = perfilAtivo === "gestor"
   const isAdministrador = perfilAtivo === "administrador"
-  const nomePerfil = isBalanceiro ? "Balanceiro" : "Administrador"
+  const nomePerfil = isBalanceiro
+    ? "Balanceiro"
+    : isGestor
+      ? "Gestor"
+      : "Administrador"
   const nomeUsuario =
     usuarioApp?.nome ||
     user?.user_metadata?.name ||
@@ -108,13 +115,11 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
     "Usuário"
   const emailUsuario = usuarioApp?.email || user?.email || ""
   // Administrador tem acesso irrestrito e multicompany (pode alternar livremente entre Monteiro, SJE ou qualquer outra unidade).
-  // Apenas o Balanceiro fica estritamente restrito à sua empresa vinculada.
-  const empresaVinculadaId = isBalanceiro
-    ? usuarioApp?.empresa_id || null
-    : null
-  const empresaVinculadaNome = isBalanceiro
-    ? usuarioApp?.empresa_nome || null
-    : null
+  // Balanceiro e Gestor ficam estritamente restritos à sua empresa vinculada.
+  const empresaVinculadaId =
+    isBalanceiro || isGestor ? usuarioApp?.empresa_id || null : null
+  const empresaVinculadaNome =
+    isBalanceiro || isGestor ? usuarioApp?.empresa_nome || null : null
   const podeTrocarEmpresa = isAdministrador
 
   return (
@@ -123,6 +128,7 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
         usuarioApp,
         perfil: perfilAtivo,
         isBalanceiro,
+        isGestor,
         isAdministrador,
         nomePerfil,
         nomeUsuario,

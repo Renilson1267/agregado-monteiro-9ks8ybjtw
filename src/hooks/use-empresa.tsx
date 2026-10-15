@@ -48,10 +48,12 @@ export const encontrarEmpresaPadrao = (lista: Empresa[]): Empresa | null => {
 }
 
 export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
-  const { empresaVinculadaId, isBalanceiro } = useUsuario()
+  const { empresaVinculadaId, isBalanceiro, isGestor } = useUsuario()
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [empresaAtiva, setEmpresaAtiva] = useState<Empresa | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const ehUsuarioRestrito = isBalanceiro || isGestor
 
   const carregarEmpresas = useCallback(async () => {
     try {
@@ -66,8 +68,8 @@ export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
       setEmpresas(lista)
 
       if (lista.length > 0) {
-        // Se o usuário for balanceiro e estiver vinculado a uma empresa específica
-        if (isBalanceiro && empresaVinculadaId) {
+        // Se o usuário for balanceiro ou gestor e estiver vinculado a uma empresa específica
+        if (ehUsuarioRestrito && empresaVinculadaId) {
           const vinculada = lista.find((e) => e.id === empresaVinculadaId)
           if (vinculada) {
             setEmpresaAtiva(vinculada)
@@ -97,26 +99,26 @@ export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoading(false)
     }
-  }, [isBalanceiro, empresaVinculadaId])
+  }, [ehUsuarioRestrito, empresaVinculadaId])
 
   useEffect(() => {
     carregarEmpresas()
   }, [carregarEmpresas])
 
-  // Se for balanceiro com empresa vinculada, fixar sempre na sua unidade
+  // Se for usuário restrito (balanceiro ou gestor) com empresa vinculada, fixar sempre na sua unidade
   useEffect(() => {
-    if (isBalanceiro && empresaVinculadaId && empresas.length > 0) {
+    if (ehUsuarioRestrito && empresaVinculadaId && empresas.length > 0) {
       const vinculada = empresas.find((e) => e.id === empresaVinculadaId)
       if (vinculada && empresaAtiva?.id !== vinculada.id) {
         setEmpresaAtiva(vinculada)
         localStorage.setItem(STORAGE_KEY, vinculada.id)
       }
     }
-  }, [isBalanceiro, empresaVinculadaId, empresas, empresaAtiva?.id])
+  }, [ehUsuarioRestrito, empresaVinculadaId, empresas, empresaAtiva?.id])
 
   const selecionarEmpresa = (idOrSlug: string) => {
-    // Balanceiro não pode trocar para outra empresa
-    if (isBalanceiro) {
+    // Usuários restritos (balanceiro/gestor) não podem trocar para outra empresa
+    if (ehUsuarioRestrito) {
       return
     }
     const emp = empresas.find((e) => e.id === idOrSlug || e.slug === idOrSlug)

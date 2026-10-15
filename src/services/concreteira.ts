@@ -1483,7 +1483,7 @@ export const ConcreteiraService = {
     cargasIds: string[]
     retornarEstoque: boolean
     motivo?: string
-  }): Promise<{ canceladas: number; estornadas: number }> {
+  }): Promise<{ canceladas: number estornadas: number }> {
     const { cargasIds, retornarEstoque, motivo } = payload
     if (!cargasIds || !cargasIds.length) {
       return { canceladas: 0, estornadas: 0 }
@@ -2742,7 +2742,7 @@ export const ConcreteiraService = {
     user_id?: string | null
     nome: string
     email: string
-    perfil: "administrador" | "balanceiro"
+    perfil: "administrador" | "balanceiro" | "gestor"
     empresa_id?: string | null
     ativo?: boolean
   }): Promise<any> {

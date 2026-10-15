@@ -5,15 +5,16 @@ import { Loader2 } from "lucide-react"
 
 interface ProtectedRouteProps {
   permitirApenasAdmin?: boolean
+  permitirGestor?: boolean
 }
 
 export function ProtectedRoute({
   permitirApenasAdmin = false,
+  permitirGestor = false,
 }: ProtectedRouteProps) {
   const { user, loading: authLoading } = useAuth()
-  const { isBalanceiro, loadingUsuario } = useUsuario()
+  const { isBalanceiro, isGestor, loadingUsuario } = useUsuario()
   const location = useLocation()
-
   if (authLoading || loadingUsuario) {
     return (
       <div className="min-h-screen w-full flex flex-col items-center justify-center gap-3 bg-background">
@@ -28,6 +29,13 @@ export function ProtectedRoute({
   // Não autenticado -> redireciona para login
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  // Se for rota restrita para Gestor (gestor tem acesso APENAS a /painel, /relatorios, /lancamentos, /estoque)
+  if (isGestor) {
+    if (permitirApenasAdmin || !permitirGestor) {
+      return <Navigate to="/painel" replace />
+    }
   }
 
   // Se a rota for restrita a Administrador e o usuário logado for Balanceiro
