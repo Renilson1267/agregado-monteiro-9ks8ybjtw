@@ -1,4 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom"
+import { Loader2 } from "lucide-react"
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as Sonner } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -24,9 +31,26 @@ import ImportarCargasPage from "./pages/ImportarCargas"
 import NotFound from "./pages/NotFound"
 
 function RotaRaizRedirect() {
-  const { isBalanceiro, isGestor } = useUsuario()
+  const { isBalanceiro, isGestor, isAdministrador, loadingUsuario, usuarioApp } =
+    useUsuario()
+  // Enquanto as permissões carregam qualquer redirecionamento seria prematuro
+  // e pode disparar loop: espera o estado definitivo do perfil.
+  if (loadingUsuario) {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center justify-center gap-3 bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-xs text-muted-foreground font-medium animate-pulse">
+          Carregando permissões do operador...
+        </p>
+      </div>
+    )
+  }
+  // Fallback de emergência: usuário autenticado sem cadastro em usuarios_app
+  // tratado como administrador, sem destino propio de redirecionamento.
+  if (!usuarioApp) return <Navigate to="/painel" replace />
   if (isBalanceiro) return <Navigate to="/dashboard" replace />
   if (isGestor) return <Navigate to="/painel" replace />
+  if (isAdministrador) return <Navigate to="/painel" replace />
   return <Navigate to="/painel" replace />
 }
 
