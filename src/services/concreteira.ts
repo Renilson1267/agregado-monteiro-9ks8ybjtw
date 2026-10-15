@@ -734,6 +734,8 @@ export const ConcreteiraService = {
     veiculo?: string
     material?: string
     apenasZeradas?: boolean
+    incluirCanceladas?: boolean
+    apenasCanceladas?: boolean
   }): Promise<Carga[]> {
     let query = (supabase as any)
       .from("cargas")
@@ -751,6 +753,12 @@ export const ConcreteiraService = {
     if (filtros?.veiculo && filtros.veiculo !== "ALL")
       query = query.eq("veiculo_placa", filtros.veiculo)
     if (filtros?.apenasZeradas) query = query.eq("carga_zerada", true)
+
+    if (filtros?.apenasCanceladas) {
+      query = query.eq("cancelada", true)
+    } else if (!filtros?.incluirCanceladas) {
+      query = query.eq("cancelada", false)
+    }
 
     const { data, error } = await query
     if (error) throw error
@@ -1468,6 +1476,202 @@ export const ConcreteiraService = {
     }
 
     return carga
+  },
+
+  // Cancelamento de cargas com ou sem estorno/retorno dos insumos ao estoque
+  async cancelarCargas(payload: {
+    cargasIds: string[]
+    retornarEstoque: boolean
+    motivo?: string
+  }): Promise<{ canceladas: number estornadas: number }> {
+    const { cargasIds, retornarEstoque, motivo } = payload
+    if (!cargasIds || cargasIds.length === 0) {
+      return { canceladas: 0, estornadas: 0 }
+    }
+
+    // 1. Buscar as cargas selecionadas
+    const { data: cargas, error: cargasErr } = await (supabase as any)
+      .from("cargas")
+      .select("*")
+      .in("id", cargasIds)
+
+    if (cargasErr) throw cargasErr
+    if (!cargas || cargas.length === 0) {
+      throw new Error("Nenhuma carga encontrada para cancelamento.")
+    }
+
+    // 2. Bloquear cancelamento se qualquer carga tiver Recibo/OS vinculada
+    const { data: osVinculadas, error: osErr } = await (supabase as any)
+      .from("ordens_servico")
+      .select("id, numero_os, carga_id")
+      .in("carga_id", cargasIds)
+
+    if (osErr) throw osErr
+    if (osVinculadas && osVinculadas.length > 0) {
+      const numeros = osVinculadas
+        .map((os: any) => `#${os.numero_os}`)
+        .join(", ")
+      throw new Error(
+        `Cancelamento bloqueado: existem Recibos/OS vinculados às cargas selecionadas (${numeros}). Numeração de recibos é sequencial e protegida por integridade fiscal e operacional. Exclua ou desvincule o recibo antes se estritamente necessário.`,
+      )
+    }
+
+    const agora = new Date().toISOString()
+    const motivoFinal =
+      motivo || "Cancelamento operacional via aba de cancelamento"
+
+    // 3. Se retorno ao estoque solicitado: criar movimentações de ENTRADA do tipo ajuste para os consumos
+    let movimentacoesCriadas = 0
+    if (retornarEstoque) {
+      // Buscar empresas únicas envolvidas
+      const empresasIds = Array.from(
+        new Set(cargas.map((c: any) => c.empresa_id).filter(Boolean)),
+      ) as string[]
+
+      // Carregar materiais e recipientes de todas as empresas envolvidas
+      const materiaisPorEmpresa = new Map<string, Material[]>()
+      const recipientesPorEmpresa = new Map<string, RecipienteEstoque[]>()
+
+      for (const empId of empresasIds) {
+        const [mats, recs] = await Promise.all([
+          this.getMateriais(empId),
+          this.getRecipientesEstoque(empId),
+        ])
+        materiaisPorEmpresa.set(empId, mats)
+        recipientesPorEmpresa.set(empId, recs)
+      }
+
+      const novasMovimentacoes: any[] = []
+      const deltasRecipientes = new Map<string, number>()
+
+      for (const carga of cargas) {
+        const empId = carga.empresa_id
+        const mats = empId ? materiaisPorEmpresa.get(empId) || [] : []
+        const recs = empId ? recipientesPorEmpresa.get(empId) || [] : []
+
+        const matCimento = mats.find((m) => m.codigo === "cimento")
+        const matAditivo = mats.find((m) => m.codigo === "aditivo")
+        const matAreia = mats.find((m) => m.codigo === "areia")
+        const matBrita12 = mats.find((m) => m.codigo === "brita12")
+        const matBrita19 = mats.find((m) => m.codigo === "brita19")
+        const matPo = mats.find((m) => m.codigo === "po_pedra")
+        const matAgua = mats.find((m) => m.codigo === "agua")
+
+        // Para cargas de Patos: silo_cimento e tanque_aditivo gravados na carga
+        const recSilo = carga.silo_cimento
+          ? recs.find(
+              (r) =>
+                r.identificador === carga.silo_cimento ||
+                r.nome.toLowerCase().includes(carga.silo_cimento.toLowerCase()),
+            )
+          : null
+
+        const recTanque = carga.tanque_aditivo
+          ? recs.find(
+              (r) =>
+                r.identificador === carga.tanque_aditivo ||
+                r.nome
+                  .toLowerCase()
+                  .includes(carga.tanque_aditivo.toLowerCase()),
+            )
+          : null
+
+        const docCancelamento = `CANCEL-CARGA-${String(carga.numero_carga).padStart(5, "0")}`
+        const obsCancelamento = `Estorno de insumos por cancelamento da carga #${carga.numero_carga}`
+        const dataEstorno = carga.data || agora.slice(0, 10)
+
+        const insumosParaEstornar = [
+          {
+            mat: matCimento,
+            qtd: Number(carga.consumo_cimento) || 0,
+            rec: recSilo,
+          },
+          {
+            mat: matAditivo,
+            qtd: Number(carga.consumo_aditivo) || 0,
+            rec: recTanque,
+          },
+          {
+            mat: matAreia,
+            qtd: Number(carga.consumo_areia) || 0,
+            rec: null,
+          },
+          {
+            mat: matBrita12,
+            qtd: Number(carga.consumo_brita12) || 0,
+            rec: null,
+          },
+          {
+            mat: matBrita19,
+            qtd: Number(carga.consumo_brita19) || 0,
+            rec: null,
+          },
+          {
+            mat: matPo,
+            qtd: Number(carga.consumo_po_pedra) || 0,
+            rec: null,
+          },
+          {
+            mat: matAgua,
+            qtd: Number(carga.consumo_agua) || 0,
+            rec: null,
+          },
+        ]
+
+        for (const ins of insumosParaEstornar) {
+          if (ins.mat && ins.qtd > 0) {
+            novasMovimentacoes.push({
+              empresa_id: empId || null,
+              material_id: ins.mat.id,
+              recipiente_id: ins.rec?.id || null,
+              recipiente_nome: ins.rec?.nome || null,
+              tipo: "ENTRADA",
+              quantidade: ins.qtd,
+              data: dataEstorno,
+              carga_id: carga.id,
+              documento: docCancelamento,
+              observacao: obsCancelamento,
+            })
+
+            if (ins.rec) {
+              const deltaAtual = deltasRecipientes.get(ins.rec.id) || 0
+              deltasRecipientes.set(ins.rec.id, deltaAtual + ins.qtd)
+            }
+          }
+        }
+      }
+
+      if (novasMovimentacoes.length > 0) {
+        const { error: insMovErr } = await (supabase as any)
+          .from("movimentacoes_estoque")
+          .insert(novasMovimentacoes)
+        if (insMovErr) throw insMovErr
+        movimentacoesCriadas = novasMovimentacoes.length
+      }
+
+      // Creditar saldos dos recipientes
+      for (const [recId, delta] of deltasRecipientes.entries()) {
+        await this.atualizarSaldoRecipiente(recId, delta)
+      }
+    }
+
+    // 4. Soft delete na tabela de cargas: cancelada = true, cancelada_em = agora
+    const { error: updErr } = await (supabase as any)
+      .from("cargas")
+      .update({
+        cancelada: true,
+        cancelada_em: agora,
+        motivo_cancelamento: motivoFinal,
+        carga_zerada: true, // Garante que relatórios legados e dashboards que usam carga_zerada também tratem como cancelada
+      })
+      .in("id", cargasIds)
+
+    if (updErr) throw updErr
+
+    return {
+      canceladas: cargas.length,
+      estornadas: movimentacoesCriadas,
+    }
   },
 
   // Exclusão de carga com integridade fiscal e estorno de estoque (Apenas Administrador)

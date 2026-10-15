@@ -230,6 +230,9 @@ export interface Carga {
   consumo_agua?: number
   observacao: string | null
   carga_zerada: boolean
+  cancelada?: boolean
+  cancelada_em?: string | null
+  motivo_cancelamento?: string | null
   silo_cimento?: string | null
   tanque_aditivo?: string | null
   custo?: CustoBreakdown
