@@ -1483,7 +1483,7 @@ export const ConcreteiraService = {
     cargasIds: string[]
     retornarEstoque: boolean
     motivo?: string
-  }): Promise<{ canceladas: number; estornadas: number }> {
+  }): Promise<{ canceladas: number estornadas: number }> {
     const { cargasIds, retornarEstoque, motivo } = payload
     if (!cargasIds || !cargasIds.length) {
       return { canceladas: 0, estornadas: 0 }
