@@ -896,7 +896,9 @@ export default function LancamentoCargas() {
       })
 
       carregarCargasLista()
-      navigate(isBalanceiro ? "/lancamentos" : "/")
+      // Volta para /lancamentos SEM usar a raiz "/" como destino (a raiz é
+      // tela pura de redirecionamento por perfil).
+      navigate("/lancamentos")
     } catch (err: any) {
       console.error("Erro ao atualizar carga:", err)
       toast({
@@ -1016,8 +1018,10 @@ export default function LancamentoCargas() {
       setTentouGravar(false)
 
       carregarCargasLista()
+      // Retorna ao painel gerencial SEM passar pela rota raiz (a raiz é tela
+      // pura de redirecionamento; jamais redirecionar para "/" aqui).
       if (!isBalanceiro) {
-        navigate("/")
+        navigate("/painel")
       }
     } catch (err: any) {
       console.error(err)
@@ -1213,7 +1217,7 @@ export default function LancamentoCargas() {
             size="icon"
             className="h-10 w-10 sm:h-9 sm:w-9 shrink-0 rounded-xl"
           >
-            <Link to={isBalanceiro ? "/lancamentos" : "/"}>
+            <Link to="/lancamentos">
               <ArrowLeft className="h-5 w-5 sm:h-4 sm:w-4" />
             </Link>
           </Button>
@@ -2710,7 +2714,8 @@ export default function LancamentoCargas() {
                 type="button"
                 className="w-full sm:w-auto min-h-[44px] h-11 sm:h-10 text-sm font-semibold rounded-xl"
               >
-                <Link to={isBalanceiro ? "/lancamentos" : "/"}>Cancelar</Link>
+                {/* volta para a listagem; a raiz "/" é tela de redirecionamento e não deve ser destino */}
+                <Link to="/lancamentos">Cancelar</Link>
               </Button>
 
               {/* Botão de Gravação / Alteração em destaque */}

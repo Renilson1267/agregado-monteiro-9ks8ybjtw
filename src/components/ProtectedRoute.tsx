@@ -38,10 +38,12 @@ export function ProtectedRoute({
     }
   }
 
-  // Se a rota for restrita a Administrador e o usuário logado for Balanceiro
+  // Se a rota for restrita a Administrador e o usuário logado for Balanceiro,
+  // vai DIRETO para o dashboard enxuto dele. NUNCA redirecionar para a raiz "/"
+  // (a raiz é uma tela pura de redirecionamento por perfil e mandaria de volta
+  // para cá, criando um loop infinito).
   if (permitirApenasAdmin && isBalanceiro) {
-    // Redireciona para a rota raiz (que para balanceiro já cai no dashboard enxuto /dashboard)
-    return <Navigate to="/" replace />
+    return <Navigate to="/dashboard" replace />
   }
   return <Outlet />
 }

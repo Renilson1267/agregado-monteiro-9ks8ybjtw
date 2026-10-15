@@ -31,8 +31,13 @@ import ImportarCargasPage from "./pages/ImportarCargas"
 import NotFound from "./pages/NotFound"
 
 function RotaRaizRedirect() {
-  const { isBalanceiro, isGestor, isAdministrador, loadingUsuario, usuarioApp } =
-    useUsuario()
+  const {
+    isBalanceiro,
+    isGestor,
+    isAdministrador,
+    loadingUsuario,
+    usuarioApp,
+  } = useUsuario()
   // Enquanto as permissões carregam qualquer redirecionamento seria prematuro
   // e pode disparar loop: espera o estado definitivo do perfil.
   if (loadingUsuario) {
@@ -45,13 +50,16 @@ function RotaRaizRedirect() {
       </div>
     )
   }
-  // Fallback de emergência: usuário autenticado sem cadastro em usuarios_app
-  // tratado como administrador, sem destino propio de redirecionamento.
-  if (!usuarioApp) return <Navigate to="/painel" replace />
-  if (isBalanceiro) return <Navigate to="/dashboard" replace />
-  if (isGestor) return <Navigate to="/painel" replace />
-  if (isAdministrador) return <Navigate to="/painel" replace />
-  return <Navigate to="/painel" replace />
+  // Destino único por perfil. A raiz NUNCA devolve para si mesma nem para
+  // rotas bloqueadas pelo perfil do usuário — qualquer um dos destinos abaixo
+  // existe na árvore de rotas para o perfil em questão, o que elimina o loop.
+  //  - administrador / gestor  -> /painel (ambos liberados no grupo acima)
+  //  - balanceiro / fallback   -> /dashboard (bloqueado para gestor)
+  const destino =
+    usuarioApp && !isAdministrador && !isGestor && isBalanceiro
+      ? "/dashboard"
+      : "/painel"
+  return <Navigate to={destino} replace />
 }
 
 const App = () => (

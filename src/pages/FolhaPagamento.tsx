@@ -36,6 +36,7 @@ import {
   FolhaTabelaOficial,
   FaixaComissaoProgressiva,
   FolhaTerceiro,
+  FolhaAdiantamento,
 } from "@/types/folha"
 import {
   calcularInssProgressivo,
@@ -50,11 +51,30 @@ import {
   calcularMesesProporcionais13,
   calcularLinhaDecimoTerceiro,
 } from "@/lib/folha-calculos"
+
+// Estrutura de item do controle de adiantamento (dentre da aba QUINZENA)
+export interface ItemAdiantamentoColaborador {
+  key: string
+  colaborador_id: string
+  nome: string
+  tipo: "Funcionario" | "Terceiro"
+  funcao: string
+  salario_base: number
+  percentual_quinzena: number
+  valor_quinzena: number
+  valor_extra: number
+  valor_total_adiantamento: number
+  pago: boolean
+  data_pagamento: string | null
+  observacao: string
+  conta?: string
+  pix?: string
+  registro_adiantamento_id?: string
+}
 import { LOGO_GC_MIX_HORIZONTAL } from "@/assets/logos"
 import { AbaTabelasOficiais } from "@/components/AbaTabelasOficiais"
 import { AbaBackupFolha } from "@/components/AbaBackupFolha"
 import { AbaDecimoTerceiro } from "@/components/AbaDecimoTerceiro"
-import { AbaAdiantamentoFolha } from "@/components/AbaAdiantamentoFolha" // agora renderizado DENTRO da aba QUINZENA (sem aba própria)
 import { Gift } from "lucide-react"
 import { Database } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -459,6 +479,321 @@ export function FolhaPagamento() {
     carregarConsolidacao()
   }, [competencia])
 
+  // ==================== CONTROLE DE ADIANTAMENTO (DENTRO DA QUINZENA) ====================
+  // Registros de pagamento da tabela folha_adiantamentos para a competência
+  const [adiantamentosGravados, setAdiantamentosGravados] =
+    useState<FolhaAdiantamento[]>([])
+  const [carregandoAdiantamentos, setCarregandoAdiantamentos] = useState(false)
+  const [buscaAdiantamento, setBuscaAdiantamento] = useState("")
+  const [filtroStatusAdiantamento, setFiltroStatusAdiantamento] =
+    useState<"todos" | "pendente" | "pago">("todos")
+
+  // Diálogo marcar como pago (data + observação) e confirmação
+  const [modalPagoAberto, setModalPagoAberto] = useState(false)
+  const [confirmacaoPagoAberta, setConfirmacaoPagoAberta] = useState(false)
+  const [itemPago, setItemPago] = useState<ItemAdiantamentoColaborador | null>(
+    null,
+  )
+  const [dataPagamentoInput, setDataPagamentoInput] = useState("")
+  const [observacaoPagoInput, setObservacaoPagoInput] = useState("")
+  const [salvandoPago, setSalvandoPago] = useState(false)
+
+  // Confirmação de reversão
+  const [confirmacaoReverterAberta, setConfirmacaoReverterAberta] =
+    useState(false)
+  const [itemReverter, setItemReverter] =
+    useState<ItemAdiantamentoColaborador | null>(null)
+  const [revertendo, setRevertendo] = useState(false)
+
+  // Diálogo de valor extra (+)
+  const [modalExtraAberto, setModalExtraAberto] = useState(false)
+  const [itemExtra, setItemExtra] =
+    useState<ItemAdiantamentoColaborador | null>(null)
+  const [valorExtraInput, setValorExtraInput] = useState("")
+  const [obsExtraInput, setObsExtraInput] = useState("")
+  const [salvandoExtra, setSalvandoExtra] = useState(false)
+
+  useEffect(() => {
+    let ativo = true
+    async function carregarAdiantamentos() {
+      if (!empresaAtiva?.id || !competencia) return
+      try {
+        setCarregandoAdiantamentos(true)
+        const dados = await FolhaService.getAdiantamentos(
+          empresaAtiva.id,
+          competencia,
+        )
+        if (ativo) setAdiantamentosGravados(dados || [])
+      } catch (err) {
+        console.warn("Erro ao carregar registros de adiantamento:", err)
+      } finally {
+        if (ativo) setCarregandoAdiantamentos(false)
+      }
+    }
+    carregarAdiantamentos()
+    return () => {
+      ativo = false
+    }
+  }, [empresaAtiva?.id, competencia])
+
+  const recarregarAdiantamentos = async () => {
+    if (!empresaAtiva?.id || !competencia) return
+    try {
+      const dados = await FolhaService.getAdiantamentos(
+        empresaAtiva.id,
+        competencia,
+      )
+      setAdiantamentosGravados(dados || [])
+    } catch (err) {
+      console.warn("Erro ao recarregar adiantamentos:", err)
+    }
+  }
+
+  const formatarDataBrAdi = (dataIso: string | null | undefined) => {
+    if (!dataIso) return "-"
+    const partes = String(dataIso).split("-")
+    if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`
+    return String(dataIso)
+  }
+
+  // Lista unificada CLT + Terceiros (mesmas pessoas da QUINZENA) com o status pago gravado em folha_adiantamentos
+  const listaAdiantamento = useMemo<ItemAdiantamentoColaborador[]>(() => {
+    const mapaGravados = new Map<string, FolhaAdiantamento>()
+    adiantamentosGravados.forEach((a) => {
+      if (a.colaborador_id) mapaGravados.set(String(a.colaborador_id), a)
+      mapaGravados.set(`NOME:${(a.nome || "").trim().toUpperCase()}`, a)
+    })
+
+    const itens: ItemAdiantamentoColaborador[] = []
+
+    // Funcionários CLT (mesma lista da QUINZENA)
+    linhasGeralProcessadas.forEach((l) => {
+      const chaveNome = `NOME:${(l.nome || "").trim().toUpperCase()}`
+      const gravado = mapaGravados.get(chaveNome)
+      const valorQuinzena = Number(l.quinzenaFinal || 0)
+      const valorExtra = gravado ? Number(gravado.valor_extra || 0) : 0
+      itens.push({
+        key: `func_${l.id}`,
+        colaborador_id: String(l.funcionario_id || l.id),
+        nome: String(l.nome || ""),
+        tipo: "Funcionario",
+        funcao: String(l.funcao || l.cargo || "Geral"),
+        salario_base: Number(l.salario_base || l.bruto || 0),
+        percentual_quinzena: percentualQuinzena,
+        valor_quinzena: valorQuinzena,
+        valor_extra: valorExtra,
+        valor_total_adiantamento: valorQuinzena + valorExtra,
+        pago: gravado ? Boolean(gravado.pago) : false,
+        data_pagamento: gravado?.data_pagamento || null,
+        observacao: gravado?.observacao || "",
+        conta: l.conta || "",
+        pix: l.pix || l.chave_pix || "",
+        registro_adiantamento_id: gravado?.id,
+      })
+    })
+
+    // Terceiros (mesma regra da QUINZENA: fora da unidade Monteiro)
+    if (!isMonteiro && terceirosProcessados.length > 0) {
+      terceirosProcessados.forEach((t) => {
+        const chaveNome = `NOME:${(t.nome || "").trim().toUpperCase()}`
+        const gravado = mapaGravados.get(chaveNome)
+        const valorQuinzena = Number(t.quinzena || 0)
+        const valorExtra = gravado ? Number(gravado.valor_extra || 0) : 0
+        itens.push({
+          key: `terc_${t.id}`,
+          colaborador_id: String(t.id || `terc_${t.nome}`),
+          nome: String(t.nome || ""),
+          tipo: "Terceiro",
+          funcao: "TERCEIRO",
+          salario_base: Number(t.valorMes || t.salario_base || t.bruto || 0),
+          percentual_quinzena: percentualQuinzena,
+          valor_quinzena: valorQuinzena,
+          valor_extra: valorExtra,
+          valor_total_adiantamento: valorQuinzena + valorExtra,
+          pago: gravado ? Boolean(gravado.pago) : false,
+          data_pagamento: gravado?.data_pagamento || null,
+          observacao: gravado?.observacao || "",
+          conta: t.conta || "",
+          pix: t.pix || t.chave_pix || "",
+          registro_adiantamento_id: gravado?.id,
+        })
+      })
+    }
+
+    return itens
+  }, [
+    adiantamentosGravados,
+    linhasGeralProcessadas,
+    terceirosProcessados,
+    isMonteiro,
+    percentualQuinzena,
+  ])
+
+  const listaAdiantamentoFiltrada = useMemo(() => {
+    return listaAdiantamento.filter((item) => {
+      if (filtroStatusAdiantamento === "pago" && !item.pago) return false
+      if (filtroStatusAdiantamento === "pendente" && item.pago) return false
+      if (buscaAdiantamento.trim()) {
+        const termo = buscaAdiantamento.toLowerCase()
+        const nomeOk = item.nome.toLowerCase().includes(termo)
+        const funcaoOk = (item.funcao || "").toLowerCase().includes(termo)
+        const obsOk = (item.observacao || "").toLowerCase().includes(termo)
+        const pixOk = (item.pix || "").toLowerCase().includes(termo)
+        if (!nomeOk && !funcaoOk && !obsOk && !pixOk) return false
+      }
+      return true
+    })
+  }, [listaAdiantamento, buscaAdiantamento, filtroStatusAdiantamento])
+
+  const totaisAdiantamento = useMemo(() => {
+    let totalBase = 0
+    let totalExtra = 0
+    let totalJaPago = 0
+    let totalPendente = 0
+    let qtdPagos = 0
+    let qtdPendentes = 0
+    listaAdiantamento.forEach((item) => {
+      totalBase += item.valor_quinzena
+      totalExtra += item.valor_extra
+      if (item.pago) {
+        totalJaPago += item.valor_total_adiantamento
+        qtdPagos++
+      } else {
+        totalPendente += item.valor_total_adiantamento
+        qtdPendentes++
+      }
+    })
+    return {
+      totalBase,
+      totalExtra,
+      totalGeral: totalBase + totalExtra,
+      totalJaPago,
+      totalPendente,
+      qtdPagos,
+      qtdPendentes,
+      totalColaboradores: listaAdiantamento.length,
+    }
+  }, [listaAdiantamento])
+
+  const abrirModalMarcarPagoAdiantamento = (
+    item: ItemAdiantamentoColaborador,
+  ) => {
+    setItemPago(item)
+    setDataPagamentoInput(new Date().toISOString().split("T")[0]) // padrão: hoje
+    setObservacaoPagoInput(item.observacao || "")
+    setModalPagoAberto(true)
+  }
+
+  const confirmarGravacaoPagoAdiantamento = async () => {
+    if (!itemPago) return
+    setSalvandoPago(true)
+    try {
+      await FolhaService.salvarAdiantamento({
+        empresa_id: empresaAtiva!.id,
+        competencia,
+        colaborador_id: itemPago.colaborador_id,
+        nome: itemPago.nome,
+        tipo: itemPago.tipo,
+        valor_extra: itemPago.valor_extra,
+        pago: true,
+        data_pagamento: dataPagamentoInput,
+        observacao: observacaoPagoInput,
+      })
+      toast({
+        title: "Pagamento registrado",
+        description: `Adiantamento de ${itemPago.nome} marcado como PAGO em ${formatarDataBrAdi(dataPagamentoInput)}.`,
+      })
+      setConfirmacaoPagoAberta(false)
+      setModalPagoAberto(false)
+      setItemPago(null)
+      await recarregarAdiantamentos()
+    } catch (err) {
+      console.error("Erro ao marcar adiantamento pago:", err)
+      toast({
+        title: "Erro ao gravar pagamento",
+        description: "Não foi possível registrar o pagamento do adiantamento.",
+        variant: "destructive",
+      })
+    } finally {
+      setSalvandoPago(false)
+    }
+  }
+
+  const confirmarReverterAdiantamento = async () => {
+    if (!itemReverter) return
+    setRevertendo(true)
+    try {
+      await FolhaService.reverterAdiantamento({
+        empresa_id: empresaAtiva!.id,
+        competencia,
+        colaborador_id: itemReverter.colaborador_id,
+        nome: itemReverter.nome,
+        tipo: itemReverter.tipo,
+      })
+      toast({
+        title: "Pagamento revertido",
+        description: `Adiantamento de ${itemReverter.nome} voltou para status PENDENTE.`,
+      })
+      setConfirmacaoReverterAberta(false)
+      setItemReverter(null)
+      await recarregarAdiantamentos()
+    } catch (err) {
+      console.error("Erro ao reverter pagamento:", err)
+      toast({
+        title: "Erro ao reverter",
+        description: "Não foi possível reverter o status do pagamento.",
+        variant: "destructive",
+      })
+    } finally {
+      setRevertendo(false)
+    }
+  }
+
+  const salvarValorExtraAdiantamento = async () => {
+    if (!itemExtra) return
+    setSalvandoExtra(true)
+    try {
+      const numExtra =
+        parseFloat(valorExtraInput.replace(/\./g, "").replace(",", ".")) || 0
+      if (numExtra < 0) {
+        toast({
+          title: "Valor inválido",
+          description: "O valor extra não pode ser negativo.",
+          variant: "destructive",
+        })
+        return
+      }
+      await FolhaService.salvarAdiantamento({
+        empresa_id: empresaAtiva!.id,
+        competencia,
+        colaborador_id: itemExtra.colaborador_id,
+        nome: itemExtra.nome,
+        tipo: itemExtra.tipo,
+        valor_extra: numExtra,
+        pago: itemExtra.pago,
+        data_pagamento: itemExtra.data_pagamento,
+        observacao: obsExtraInput,
+      })
+      toast({
+        title: "Adiantamento atualizado",
+        description: `Valor extra de ${itemExtra.nome} gravado: ${fmtMoeda(numExtra)}.`,
+      })
+      setModalExtraAberto(false)
+      setItemExtra(null)
+      await recarregarAdiantamentos()
+    } catch (err) {
+      console.error("Erro ao salvar valor extra:", err)
+      toast({
+        title: "Erro ao gravar",
+        description: "Não foi possível salvar o valor extra do adiantamento.",
+        variant: "destructive",
+      })
+    } finally {
+      setSalvandoExtra(false)
+    }
+  }
+
+  // ============================================================================
   // Salvar cabeçalho da competência (% quinzena ou data)
   const salvarConfigCompetencia = async (
     novaData?: string,
@@ -3877,6 +4212,7 @@ export function FolhaPagamento() {
 
         {/* =========================================================================
             ABA 2: QUINZENA (CÁLCULO AUTOMÁTICO 40% SEM VALOR BRUTO + IMPRESSÃO A4)
+            + CONTROLE DE ADIANTAMENTO (status pago, data, obs, valor extra)
         ========================================================================== */}
         <TabsContent value="quinzena" className="space-y-4">
           <Card>
@@ -4061,13 +4397,498 @@ export function FolhaPagamento() {
                   ))}
                 </div>
               </div>
+
+              {/* ================= CONTROLE DE ADIANTAMENTO (DENTRO DA QUINZENA) ================= */}
+              <div className="p-4 border-t bg-amber-50/40 dark:bg-amber-950/10 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300 flex items-center gap-2">
+                    <Gift className="h-4 w-4" />
+                    CONTROLE DE ADIANTAMENTO — PAGAMENTO DA QUINZENA
+                  </h4>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar nome/função/obs/PIX..."
+                        className="pl-7 h-8 w-52 text-xs"
+                        value={buscaAdiantamento}
+                        onChange={(e) => setBuscaAdiantamento(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex items-center rounded-lg border bg-background overflow-hidden">
+                      {(["todos", "pendente", "pago"] as const).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setFiltroStatusAdiantamento(s)}
+                          className={`px-3 py-1.5 text-[11px] font-semibold uppercase transition-colors ${
+                            filtroStatusAdiantamento === s
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* TOTALIZADORES DO ADIANTAMENTO */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                  <div className="rounded-lg border bg-background p-2.5">
+                    <p className="text-[10px] uppercase text-muted-foreground font-semibold">
+                      Colaboradores
+                    </p>
+                    <p className="text-lg font-bold text-foreground">
+                      {totaisAdiantamento.totalColaboradores}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-background p-2.5">
+                    <p className="text-[10px] uppercase text-muted-foreground font-semibold">
+                      Total (quinzena + extra)
+                    </p>
+                    <p className="text-lg font-bold text-foreground font-mono">
+                      {fmtMoeda(totaisAdiantamento.totalGeral)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 p-2.5">
+                    <p className="text-[10px] uppercase text-emerald-700 dark:text-emerald-300 font-semibold">
+                      Já Pago ({totaisAdiantamento.qtdPagos})
+                    </p>
+                    <p className="text-lg font-bold text-emerald-600 font-mono">
+                      {fmtMoeda(totaisAdiantamento.totalJaPago)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/20 p-2.5">
+                    <p className="text-[10px] uppercase text-amber-700 dark:text-amber-300 font-semibold">
+                      Pendente ({totaisAdiantamento.qtdPendentes})
+                    </p>
+                    <p className="text-lg font-bold text-amber-600 font-mono">
+                      {fmtMoeda(totaisAdiantamento.totalPendente)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-background p-2.5">
+                    <p className="text-[10px] uppercase text-muted-foreground font-semibold">
+                      Extras (+)
+                    </p>
+                    <p className="text-lg font-bold text-foreground font-mono">
+                      {fmtMoeda(totaisAdiantamento.totalExtra)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* TABELA DO CONTROLE */}
+                <div className="overflow-x-auto border rounded">
+                  <table className="w-full text-xs text-left border-collapse bg-background">
+                    <thead className="bg-muted/80 text-muted-foreground uppercase font-semibold border-b">
+                      <tr>
+                        <th className="py-2 px-2 text-center w-8">Nº</th>
+                        <th className="py-2 px-3">NOME</th>
+                        <th className="py-2 px-2">FUNÇÃO</th>
+                        <th className="py-2 px-2">TIPO</th>
+                        <th className="py-2 px-2 text-right">
+                          QUINZENA ({Math.round(percentualQuinzena * 100)}%)
+                        </th>
+                        <th className="py-2 px-2 text-right">EXTRA (+)</th>
+                        <th className="py-2 px-2 text-right font-bold">
+                          TOTAL
+                        </th>
+                        <th className="py-2 px-2 text-center">STATUS</th>
+                        <th className="py-2 px-2">DATA PAGTO</th>
+                        <th className="py-2 px-2">OBSERVAÇÃO</th>
+                        <th className="py-2 px-2 text-center">AÇÕES</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {carregandoAdiantamentos ? (
+                        <tr>
+                          <td
+                            colSpan={11}
+                            className="py-6 text-center text-muted-foreground"
+                          >
+                            Carregando controle de adiantamento...
+                          </td>
+                        </tr>
+                      ) : listaAdiantamentoFiltrada.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={11}
+                            className="py-6 text-center text-muted-foreground"
+                          >
+                            Nenhum colaborador encontrado
+                            {buscaAdiantamento ||
+                            filtroStatusAdiantamento !== "todos"
+                              ? " com os filtros aplicados"
+                              : ""}
+                            .
+                          </td>
+                        </tr>
+                      ) : (
+                        listaAdiantamentoFiltrada.map((item, index) => (
+                          <tr key={item.key} className="hover:bg-muted/30">
+                            <td className="py-2 px-2 text-center font-mono text-muted-foreground">
+                              {index + 1}
+                            </td>
+                            <td className="py-2 px-3 font-semibold text-foreground whitespace-nowrap">
+                              {item.nome}
+                            </td>
+                            <td className="py-2 px-2 text-muted-foreground">
+                              {item.funcao}
+                            </td>
+                            <td className="py-2 px-2">
+                              <Badge
+                                variant={
+                                  item.tipo === "Terceiro"
+                                    ? "outline"
+                                    : "secondary"
+                                }
+                                className="text-[10px]"
+                              >
+                                {item.tipo === "Terceiro" ? "Terceiro" : "CLT"}
+                              </Badge>
+                            </td>
+                            <td className="py-2 px-2 text-right font-mono text-blue-600">
+                              {fmtMoeda(item.valor_quinzena)}
+                            </td>
+                            <td className="py-2 px-2 text-right font-mono">
+                              {item.valor_extra > 0
+                                ? `+${fmtMoeda(item.valor_extra)}`
+                                : "-"}
+                            </td>
+                            <td className="py-2 px-2 text-right font-mono font-bold text-foreground">
+                              {fmtMoeda(item.valor_total_adiantamento)}
+                            </td>
+                            <td className="py-2 px-2 text-center">
+                              {item.pago ? (
+                                <Badge className="bg-emerald-600 hover:bg-emerald-700 text-[10px]">
+                                  PAGO
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] border-amber-500 text-amber-600"
+                                >
+                                  PENDENTE
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="py-2 px-2 font-mono text-[11px]">
+                              {item.pago && item.data_pagamento
+                                ? formatarDataBrAdi(item.data_pagamento)
+                                : "-"}
+                            </td>
+                            <td
+                              className="py-2 px-2 text-muted-foreground max-w-[180px] truncate"
+                              title={item.observacao || undefined}
+                            >
+                              {item.observacao || "-"}
+                            </td>
+                            <td className="py-2 px-2">
+                              <div className="flex items-center justify-center gap-1">
+                                {item.pago ? (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      title="Reverter pagamento (voltar para pendente)"
+                                      onClick={() => {
+                                        setItemReverter(item)
+                                        setConfirmacaoReverterAberta(true)
+                                      }}
+                                    >
+                                      <Undo2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      title="Lançar valor extra (+)"
+                                      onClick={() => {
+                                        setItemExtra(item)
+                                        setValorExtraInput(
+                                          item.valor_extra
+                                            ? String(item.valor_extra).replace(
+                                                ".",
+                                                ",",
+                                              )
+                                            : "",
+                                        )
+                                        setObsExtraInput(item.observacao || "")
+                                        setModalExtraAberto(true)
+                                      }}
+                                    >
+                                      <Plus className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 gap-1 text-[11px] border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+                                      onClick={() =>
+                                        abrirModalMarcarPagoAdiantamento(item)
+                                      }
+                                    >
+                                      <CheckCircle2 className="h-3 w-3" />
+                                      Pagar
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      title="Lançar valor extra (+)"
+                                      onClick={() => {
+                                        setItemExtra(item)
+                                        setValorExtraInput(
+                                          item.valor_extra
+                                            ? String(item.valor_extra).replace(
+                                                ".",
+                                                ",",
+                                              )
+                                            : "",
+                                        )
+                                        setObsExtraInput(item.observacao || "")
+                                        setModalExtraAberto(true)
+                                      }}
+                                    >
+                                      <Plus className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  O status de pagamento fica gravado na competência: os dados
+                  não se perdem ao trocar de mês (tabela folha_adiantamentos).
+                </p>
+
+                {/* MODAL: MARCAR COMO PAGO */}
+                <Dialog
+                  open={modalPagoAberto}
+                  onOpenChange={setModalPagoAberto}
+                >
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Marcar adiantamento como pago</DialogTitle>
+                      <DialogDescription className="text-xs">
+                        {itemPago
+                          ? `${itemPago.nome} — ${fmtMoeda(itemPago.valor_total_adiantamento)}`
+                          : ""}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">
+                          Data do pagamento
+                        </Label>
+                        <Input
+                          type="date"
+                          value={dataPagamentoInput}
+                          onChange={(e) =>
+                            setDataPagamentoInput(e.target.value)
+                          }
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                          Padrão: hoje.
+                        </p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">
+                          Observação
+                        </Label>
+                        <Textarea
+                          rows={3}
+                          placeholder="Ex: pago via PIX, comprovante anexado..."
+                          value={observacaoPagoInput}
+                          onChange={(e) =>
+                            setObservacaoPagoInput(e.target.value)
+                          }
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setModalPagoAberto(false)}
+                        disabled={salvandoPago}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="gap-1 bg-emerald-600 hover:bg-emerald-700"
+                        onClick={() => {
+                          if (!dataPagamentoInput) {
+                            toast({
+                              title: "Informe a data",
+                              description: "A data do pagamento é obrigatória.",
+                              variant: "destructive",
+                            })
+                            return
+                          }
+                          setConfirmacaoPagoAberta(true)
+                        }}
+                        disabled={salvandoPago}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Confirmar
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                {/* CONFIRMAÇÃO: MARCAR COMO PAGO */}
+                <Dialog
+                  open={confirmacaoPagoAberta}
+                  onOpenChange={setConfirmacaoPagoAberta}
+                >
+                  <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle>Confirma o pagamento?</DialogTitle>
+                      <DialogDescription className="text-xs">
+                        {itemPago
+                          ? `Marcar ${itemPago.nome} como PAGO em ${formatarDataBrAdi(dataPagamentoInput)} — ${fmtMoeda(itemPago.valor_total_adiantamento)}?`
+                          : ""}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setConfirmacaoPagoAberta(false)}
+                        disabled={salvandoPago}
+                      >
+                        Não
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700"
+                        onClick={confirmarGravacaoPagoAdiantamento}
+                        disabled={salvandoPago}
+                      >
+                        {salvandoPago ? "Gravando..." : "Sim, marcar pago"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                {/* CONFIRMAÇÃO: REVERTER PAGAMENTO */}
+                <Dialog
+                  open={confirmacaoReverterAberta}
+                  onOpenChange={setConfirmacaoReverterAberta}
+                >
+                  <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle>Reverter pagamento?</DialogTitle>
+                      <DialogDescription className="text-xs">
+                        {itemReverter
+                          ? `${itemReverter.nome} voltará para PENDENTE${
+                              itemReverter.data_pagamento
+                                ? ` (pagado em ${formatarDataBrAdi(itemReverter.data_pagamento)})`
+                                : ""
+                            }.`
+                          : ""}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setConfirmacaoReverterAberta(false)}
+                        disabled={revertendo}
+                      >
+                        Não
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={confirmarReverterAdiantamento}
+                        disabled={revertendo}
+                      >
+                        {revertendo ? "Revertendo..." : "Sim, reverter"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                {/* MODAL: VALOR EXTRA (+) */}
+                <Dialog
+                  open={modalExtraAberto}
+                  onOpenChange={setModalExtraAberto}
+                >
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Lançar valor extra (+)</DialogTitle>
+                      <DialogDescription className="text-xs">
+                        {itemExtra
+                          ? `${itemExtra.nome} — quinzena ${fmtMoeda(itemExtra.valor_quinzena)}`
+                          : ""}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">
+                          Valor extra a somar
+                        </Label>
+                        <Input
+                          placeholder="0,00"
+                          value={valorExtraInput}
+                          onChange={(e) => setValorExtraInput(e.target.value)}
+                          inputMode="decimal"
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                          Soma ao valor da quinzena para o total do
+                          adiantamento.
+                        </p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">
+                          Observação
+                        </Label>
+                        <Textarea
+                          rows={3}
+                          value={obsExtraInput}
+                          onChange={(e) => setObsExtraInput(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setModalExtraAberto(false)}
+                        disabled={salvandoExtra}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={salvarValorExtraAdiantamento}
+                        disabled={salvandoExtra}
+                      >
+                        {salvandoExtra ? "Gravando..." : "Gravar"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+              {/* ================= FIM CONTROLE DE ADIANTAMENTO ================= */}
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* =========================================================================
             ABA 3: MENSAL (LÍQUIDO MENSAL + ASSINATURAS + IMPRESSÃO A4)
-            (O CONTROLE DE ADIANTAMENTO FOI MOVIDO PARA DENTRO DA ABA QUINZENA)
         ========================================================================== */}
         <TabsContent value="mensal" className="space-y-4">
           <Card>
@@ -4077,9 +4898,9 @@ export function FolhaPagamento() {
                   Folha de Pagamento — Mensal
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Pagamento mensal com descontos fiscais e adiantamento da
-                  quinzena quitado (produção é pagamento à parte e fica na aba
-                  Geral).
+                  Pagamento mensal com descontos fiscais (produção é pagamento à
+                  parte e fica na aba Geral; o controle de adiantamento da
+                  quinzena agora fica dentro da aba QUINZENA).
                 </CardDescription>
               </div>{" "}
               <Button
