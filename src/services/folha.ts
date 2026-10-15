@@ -4,6 +4,7 @@ import {
   FolhaPagamentoLinha,
   FolhaTotaisCalculados,
   FolhaTabelaOficial,
+  FolhaAdiantamento,
   calcularMensalLiquido,
 } from "@/types/folha"
 import { calcularProducaoTotal } from "@/lib/folha-calculos"
@@ -2258,5 +2259,128 @@ export class FolhaService {
     }
 
     return "\uFEFF" + linhasCsv.join("\r\n")
+  }
+
+  /**
+   * ADIANTAMENTOS: Métodos para gerenciar o controle de adiantamento (quinzena)
+   */
+
+  /**
+   * Lista os adiantamentos de uma empresa e competência
+   */
+  static async getAdiantamentos(
+    empresaId: string,
+    competencia: string,
+  ): Promise<FolhaAdiantamento[]> {
+    const { data, error } = await (supabase as any)
+      .from("folha_adiantamentos")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .eq("competencia", competencia)
+
+    if (error) {
+      console.error("Erro ao buscar adiantamentos:", error)
+      throw error
+    }
+
+    return (data || []).map((a: any) => ({
+      ...a,
+      valor_extra: Number(a.valor_extra || 0),
+      pago: Boolean(a.pago),
+    })) as FolhaAdiantamento[]
+  }
+
+  /**
+   * Salva ou atualiza um adiantamento (upsert por empresa_id + competencia + colaborador_id)
+   */
+  static async salvarAdiantamento(payload: {
+    empresa_id: string
+    competencia: string
+    colaborador_id: string
+    tipo?: string
+    nome: string
+    usuario_app_id?: string | null
+    valor_extra?: number
+    pago?: boolean
+    data_pagamento?: string | null
+    observacao?: string | null
+  }): Promise<FolhaAdiantamento> {
+    const dados = {
+      empresa_id: payload.empresa_id,
+      competencia: payload.competencia,
+      colaborador_id: payload.colaborador_id,
+      tipo: payload.tipo || "Funcionario",
+      nome: payload.nome,
+      usuario_app_id: payload.usuario_app_id || null,
+      valor_extra: Number(payload.valor_extra || 0),
+      pago: Boolean(payload.pago),
+      data_pagamento: payload.data_pagamento || null,
+      observacao: payload.observacao || null,
+      updated_at: new Date().toISOString(),
+    }
+
+    const { data, error } = await (supabase as any)
+      .from("folha_adiantamentos")
+      .upsert(dados, {
+        onConflict: "empresa_id,competencia,colaborador_id",
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Erro ao salvar adiantamento:", error)
+      throw error
+    }
+
+    return {
+      ...data,
+      valor_extra: Number(data.valor_extra || 0),
+      pago: Boolean(data.pago),
+    } as FolhaAdiantamento
+  }
+
+  /**
+   * Marca um adiantamento como PAGO com a data informada
+   */
+  static async marcarAdiantamentoPago(payload: {
+    empresa_id: string
+    competencia: string
+    colaborador_id: string
+    nome: string
+    tipo?: string
+    data_pagamento: string // YYYY-MM-DD
+    observacao?: string | null
+  }): Promise<FolhaAdiantamento> {
+    return this.salvarAdiantamento({
+      empresa_id: payload.empresa_id,
+      competencia: payload.competencia,
+      colaborador_id: payload.colaborador_id,
+      nome: payload.nome,
+      tipo: payload.tipo,
+      pago: true,
+      data_pagamento: payload.data_pagamento,
+      observacao: payload.observacao,
+    })
+  }
+
+  /**
+   * Reverte um adiantamento para PENDENTE (pago = false, limpa data_pagamento)
+   */
+  static async reverterAdiantamento(payload: {
+    empresa_id: string
+    competencia: string
+    colaborador_id: string
+    nome: string
+    tipo?: string
+  }): Promise<FolhaAdiantamento> {
+    return this.salvarAdiantamento({
+      empresa_id: payload.empresa_id,
+      competencia: payload.competencia,
+      colaborador_id: payload.colaborador_id,
+      nome: payload.nome,
+      tipo: payload.tipo,
+      pago: false,
+      data_pagamento: null,
+    })
   }
 }

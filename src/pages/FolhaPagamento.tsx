@@ -54,8 +54,10 @@ import { LOGO_GC_MIX_HORIZONTAL } from "@/assets/logos"
 import { AbaTabelasOficiais } from "@/components/AbaTabelasOficiais"
 import { AbaBackupFolha } from "@/components/AbaBackupFolha"
 import { AbaDecimoTerceiro } from "@/components/AbaDecimoTerceiro"
+import { AbaAdiantamentoFolha } from "@/components/AbaAdiantamentoFolha"
 import { Gift } from "lucide-react"
 import { Database } from "lucide-react"
+import { CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -312,7 +314,7 @@ export function FolhaPagamento() {
 
   // Holerite / Impressão
   const [tipoImpressaoA4, setTipoImpressaoA4] =
-    useState<"geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | "decimo" | null>(
+    useState<"geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | "decimo" | "adiantamento" | null>(
       null,
     )
   const [funcionariosCadastradosEmpresa, setFuncionariosCadastradosEmpresa] =
@@ -1996,7 +1998,7 @@ export function FolhaPagamento() {
 
   // Disparar impressão de aba em A4
   const imprimirAbaA4 = (
-    tipo: "geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | "decimo",
+    tipo: "geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | "decimo" | "adiantamento",
   ) => {
     setTipoImpressaoA4(tipo)
     setTimeout(() => {
@@ -2538,6 +2540,13 @@ export function FolhaPagamento() {
             <TabsTrigger value="quinzena" className="gap-2 font-semibold">
               <Calendar className="h-4 w-4" />
               QUINZENA
+            </TabsTrigger>
+            <TabsTrigger
+              value="adiantamento"
+              className="gap-2 font-semibold text-blue-700 dark:text-blue-400"
+            >
+              <CreditCard className="h-4 w-4" />
+              ADIANTAMENTO
             </TabsTrigger>
             <TabsTrigger value="mensal" className="gap-2 font-semibold">
               <DollarSign className="h-4 w-4" />
@@ -4062,6 +4071,22 @@ export function FolhaPagamento() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* =========================================================================
+            NOVA ABA: ADIANTAMENTO (CONTROLE DE QUINZENA: PENDENTE/PAGO, EXTRA, DATA)
+        ========================================================================== */}
+        <TabsContent value="adiantamento" className="space-y-4">
+          <AbaAdiantamentoFolha
+            empresaId={empresaAtiva?.id || ""}
+            competencia={competencia}
+            rotuloCompetencia={rotuloCompetenciaMesAno}
+            percentualQuinzena={percentualQuinzena}
+            linhasGeralProcessadas={linhasGeralProcessadas}
+            terceirosProcessados={terceirosProcessados}
+            isMonteiro={isMonteiro}
+            imprimirAbaA4={() => imprimirAbaA4("quinzena")}
+          />
         </TabsContent>
 
         {/* =========================================================================

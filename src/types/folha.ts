@@ -165,6 +165,22 @@ export interface LinhaDecimoTerceiro {
   editadoBruto?: boolean
 }
 
+export interface FolhaAdiantamento {
+  id: string
+  empresa_id: string
+  competencia: string // 'YYYY-MM'
+  usuario_app_id?: string | null
+  colaborador_id: string
+  tipo: TipoColaboradorFolha | string
+  nome: string
+  valor_extra: number
+  pago: boolean
+  data_pagamento?: string | null // 'YYYY-MM-DD'
+  observacao?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
 export interface FolhaTotaisCalculados {
   totalRegistros: number
   totalFuncionarios: number
