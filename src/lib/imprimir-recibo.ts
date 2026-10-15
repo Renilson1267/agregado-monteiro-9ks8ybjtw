@@ -7,13 +7,15 @@
  * ou renderizações assíncronas de imagens de cabeçalho.
  */
 
-interface PrintElementOptions {
+export interface PrintElementOptions {
   /** Título do documento no diálogo de impressão/PDF */
   title?: string
   /** Se deve aguardar imagens carregarem antes de imprimir (padrão: true) */
   waitForImages?: boolean
   /** Tempo adicional de segurança em ms antes de window.print() (padrão: 350ms) */
   delayMs?: number
+  /** Orientação da página A4: "portrait" (retrato) ou "landscape" (paisagem) */
+  pageOrientation?: "portrait" | "landscape"
 }
 
 /**
@@ -34,6 +36,7 @@ export async function printElementInIsolatedIframe(
     title = "Recibo de Concreto Usinado — GC MIX",
     waitForImages = true,
     delayMs = 350,
+    pageOrientation = "portrait",
   } = options
 
   // Remove eventuais iframes anteriores que possam ter ficado órfãos
@@ -74,11 +77,14 @@ export async function printElementInIsolatedIframe(
   })
 
   // Estilos de base reforçados para o documento do iframe em A4
+  const pageMargin =
+    pageOrientation === "landscape" ? "5mm 6mm 5mm 6mm" : "3mm 4mm 3mm 4mm"
+
   const resetPrintStyles = `
     <style>
       @page {
-        size: A4 portrait;
-        margin: 3mm 4mm 3mm 4mm;
+        size: A4 ${pageOrientation};
+        margin: ${pageMargin};
       }
       * {
         box-sizing: border-box;

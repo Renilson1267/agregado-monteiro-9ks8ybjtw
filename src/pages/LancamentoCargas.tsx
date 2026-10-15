@@ -53,6 +53,8 @@ import {
 } from "lucide-react"
 import { ReciboImpressao } from "@/components/ReciboImpressao"
 import { ModalEditarCarga } from "@/components/ModalEditarCarga"
+import { ImpressaoCargasLancadas } from "@/components/ImpressaoCargasLancadas"
+import { printElementInIsolatedIframe } from "@/lib/imprimir-recibo"
 import type { OrdemServico } from "@/types/concreteira"
 import { toast } from "@/hooks/use-toast"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
@@ -251,6 +253,8 @@ export default function LancamentoCargas() {
   const [cargaParaEditarModal, setCargaParaEditarModal] =
     useState<Carga | null>(null)
   const [modalEditarCargaAberta, setModalEditarCargaAberta] = useState(false)
+  const [imprimindoTabelaCargas, setImprimindoTabelaCargas] = useState(false)
+  const containerImpressaoTabelaRef = useRef<HTMLDivElement>(null)
 
   // Formulário
   const [dataCarga, setDataCarga] = useState(
@@ -689,6 +693,31 @@ export default function LancamentoCargas() {
 
   // Modo Acumulativo de Patos: ativa SEMPRE que a unidade selecionada for PATOS (inclusive com traço Manual / sem dosagem cadastrada)
   const modoAcumulativoPatos = isPatos
+
+  // Impressão da Tabela de Cargas Lançadas filtradas em A4 (mesmo padrão do Relatório Gerencial: iframe isolado, sem menus)
+  const handleImprimirTabelaCargas = async () => {
+    if (!containerImpressaoTabelaRef.current) return
+    setImprimindoTabelaCargas(true)
+    try {
+      const nomeUnidadeSlug = (
+        empresaAtiva?.slug ||
+        empresaAtiva?.nome ||
+        "unidade"
+      ).replace(/[^a-zA-Z0-9]/g, "_")
+      const dataHojeIso = new Date().toISOString().split("T")[0]
+      await printElementInIsolatedIframe(containerImpressaoTabelaRef.current, {
+        title: `Cargas_Lancadas_${nomeUnidadeSlug}_${dataHojeIso}`,
+        waitForImages: true,
+        delayMs: 300,
+        pageOrientation: "landscape",
+      })
+    } catch (err) {
+      console.error("Erro ao imprimir tabela de cargas:", err)
+      window.print()
+    } finally {
+      setImprimindoTabelaCargas(false)
+    }
+  }
 
   // Consumos REAIS da carga:
   // - Sólidos (cimento, brita12, brita19, areia, pó de pedra) guardam dosagem por m³ e são multiplicados pelo volume efetivo.
@@ -3353,6 +3382,18 @@ export default function LancamentoCargas() {
                   />
                   Atualizar
                 </Button>
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={handleImprimirTabelaCargas}
+                  disabled={imprimindoTabelaCargas || carregandoCargasLista}
+                  className="h-8 gap-1.5 text-xs font-semibold rounded-lg bg-primary text-primary-foreground shadow-xs"
+                  title="Imprimir cargas filtradas em A4"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  {imprimindoTabelaCargas ? "Preparando..." : "IMPRIMIR"}
+                </Button>
               </div>
             </div>
 
@@ -4066,6 +4107,42 @@ export default function LancamentoCargas() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ÁREA OCULTA NO DOM PARA CAPTURA E CLONAGEM DO IFRAME DE IMPRESSÃO A4 (Mesmo mecanismo de /relatorios) */}
+      <div
+        style={{
+          position: "fixed",
+          left: "-9999px",
+          top: "0",
+          width: "1100px",
+          overflow: "hidden",
+          pointerEvents: "none",
+          opacity: 0,
+          zIndex: -1,
+        }}
+        aria-hidden="true"
+      >
+        <div ref={containerImpressaoTabelaRef}>
+          <ImpressaoCargasLancadas
+            cargas={cargasFiltradas}
+            empresaAtiva={empresaAtiva || null}
+            tracosCatalogo={tracos}
+            periodoInicio={filtroDataInicio}
+            periodoFim={filtroDataFim}
+            filtroTracoNome={
+              filtroTracoId !== "ALL"
+                ? formatarDescricaoCompletaTraco(
+                    tracos.find((t) => t.id === filtroTracoId) || {
+                      nome: "Traço",
+                    },
+                  )
+                : undefined
+            }
+            filtroDosagem={filtroDosagem !== "ALL" ? filtroDosagem : undefined}
+            isPatos={isPatos}
+          />
+        </div>
+      </div>
     </div>
   )
 }
