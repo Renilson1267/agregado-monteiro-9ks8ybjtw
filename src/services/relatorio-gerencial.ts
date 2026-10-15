@@ -369,22 +369,28 @@ export const RelatorioGerencialService = {
     const ultimoDiaAntNum = new Date(anoAnt, mesAnt, 0).getDate()
     const ultimoDiaAnt = `${mesAnterior}-${String(ultimoDiaAntNum).padStart(2, "0")}`
 
+    // Se targetEmpresaId estiver definido, a visão é de uma unidade ESPECÍFICA (Monteiro, SJE, Caicó, Patos etc.)
+    // Se for "todas" / sem targetEmpresaId, a visão é CONSOLIDADA (Monteiro + SJE)
+    const isUnidadeEspecifica = Boolean(targetEmpresaId)
+
     // Executa em paralelo
     const [
       dadosPainelAtual,
       cargasMesAnteriorRes,
       osMesAtualRes,
       osMesAnteriorRes,
-      linhasMonteiro,
-      linhasSje,
-      terceirosMonteiro,
-      terceirosSje,
-      tabelaMonteiro,
-      tabelaSje,
-      faixasMonteiro,
-      faixasSje,
-      compObjMonteiro,
-      compObjSje,
+      // Folha da unidade específica OU Monteiro/SJE consolidado
+      linhasAlvo,
+      terceirosAlvo,
+      tabelaAlvo,
+      faixasAlvo,
+      compObjAlvo,
+      // Se visão consolidada, carrega Monteiro e SJE
+      linhasConsolidado,
+      terceirosConsolidado,
+      tabelasConsolidado,
+      faixasConsolidado,
+      compObjConsolidado,
     ] = await Promise.all([
       // Dados completos do mês (produção, insumos, estoque cimento/aditivo)
       PainelService.getDadosPainel({
@@ -431,32 +437,72 @@ export const RelatorioGerencialService = {
         return data || []
       })(),
 
-      // Folha Monteiro
-      FolhaService.getLinhasCompetencia(ID_EMPRESA_MONTEIRO, competencia).catch(
-        () => [],
-      ),
-      // Folha SJE
-      FolhaService.getLinhasCompetencia(ID_EMPRESA_SJE, competencia).catch(
-        () => [],
-      ),
-      // Terceiros Monteiro
-      FolhaService.getTerceiros(ID_EMPRESA_MONTEIRO).catch(() => []),
-      // Terceiros SJE
-      FolhaService.getTerceiros(ID_EMPRESA_SJE).catch(() => []),
+      // 1. Unidade Alvo (quando for unidade específica)
+      isUnidadeEspecifica && targetEmpresaId
+        ? FolhaService.getLinhasCompetencia(targetEmpresaId, competencia).catch(
+            () => [],
+          )
+        : Promise.resolve([]),
+      isUnidadeEspecifica && targetEmpresaId
+        ? FolhaService.getTerceiros(targetEmpresaId).catch(() => [])
+        : Promise.resolve([]),
+      isUnidadeEspecifica && targetEmpresaId
+        ? FolhaService.getTabelaOficial(targetEmpresaId, ano).catch(() => null)
+        : Promise.resolve(null),
+      isUnidadeEspecifica && targetEmpresaId
+        ? FolhaService.getFaixasComissao(targetEmpresaId).catch(() => [])
+        : Promise.resolve([]),
+      isUnidadeEspecifica && targetEmpresaId
+        ? FolhaService.getCompetencia(targetEmpresaId, competencia).catch(
+            () => null,
+          )
+        : Promise.resolve(null),
 
-      // Tabelas Oficiais e Faixas
-      FolhaService.getTabelaOficial(ID_EMPRESA_MONTEIRO, ano).catch(() => null),
-      FolhaService.getTabelaOficial(ID_EMPRESA_SJE, ano).catch(() => null),
-      FolhaService.getFaixasComissao(ID_EMPRESA_MONTEIRO).catch(() => []),
-      FolhaService.getFaixasComissao(ID_EMPRESA_SJE).catch(() => []),
-
-      // Competência Config
-      FolhaService.getCompetencia(ID_EMPRESA_MONTEIRO, competencia).catch(
-        () => null,
-      ),
-      FolhaService.getCompetencia(ID_EMPRESA_SJE, competencia).catch(
-        () => null,
-      ),
+      // 2. Consolidado (Monteiro + SJE) quando NÃO for unidade específica
+      !isUnidadeEspecifica
+        ? Promise.all([
+            FolhaService.getLinhasCompetencia(
+              ID_EMPRESA_MONTEIRO,
+              competencia,
+            ).catch(() => []),
+            FolhaService.getLinhasCompetencia(
+              ID_EMPRESA_SJE,
+              competencia,
+            ).catch(() => []),
+          ])
+        : Promise.resolve([[], []]),
+      !isUnidadeEspecifica
+        ? Promise.all([
+            FolhaService.getTerceiros(ID_EMPRESA_MONTEIRO).catch(() => []),
+            FolhaService.getTerceiros(ID_EMPRESA_SJE).catch(() => []),
+          ])
+        : Promise.resolve([[], []]),
+      !isUnidadeEspecifica
+        ? Promise.all([
+            FolhaService.getTabelaOficial(ID_EMPRESA_MONTEIRO, ano).catch(
+              () => null,
+            ),
+            FolhaService.getTabelaOficial(ID_EMPRESA_SJE, ano).catch(
+              () => null,
+            ),
+          ])
+        : Promise.resolve([null, null]),
+      !isUnidadeEspecifica
+        ? Promise.all([
+            FolhaService.getFaixasComissao(ID_EMPRESA_MONTEIRO).catch(() => []),
+            FolhaService.getFaixasComissao(ID_EMPRESA_SJE).catch(() => []),
+          ])
+        : Promise.resolve([[], []]),
+      !isUnidadeEspecifica
+        ? Promise.all([
+            FolhaService.getCompetencia(ID_EMPRESA_MONTEIRO, competencia).catch(
+              () => null,
+            ),
+            FolhaService.getCompetencia(ID_EMPRESA_SJE, competencia).catch(
+              () => null,
+            ),
+          ])
+        : Promise.resolve([null, null]),
     ])
 
     // --- 1. PRODUÇÃO & COMPARATIVO ---
@@ -499,59 +545,60 @@ export const RelatorioGerencialService = {
     }
 
     // --- 3. FOLHA EM 4 LINHAS (RESUMO OFICIAL) ---
-    const pctQuinzenaMont = compObjMonteiro?.percentual_quinzena ?? 0.4
-    const pctQuinzenaSje = compObjSje?.percentual_quinzena ?? 0.4
-
-    const resumoMont = calcularResumoFolhaUnidade({
-      empresaId: ID_EMPRESA_MONTEIRO,
-      linhas: linhasMonteiro,
-      terceiros: terceirosMonteiro,
-      tabelaOficial: tabelaMonteiro,
-      faixasComissao: faixasMonteiro,
-      percentualQuinzena: pctQuinzenaMont,
-    })
-
-    const resumoSje = calcularResumoFolhaUnidade({
-      empresaId: ID_EMPRESA_SJE,
-      linhas: linhasSje,
-      terceiros: terceirosSje,
-      tabelaOficial: tabelaSje,
-      faixasComissao: faixasSje,
-      percentualQuinzena: pctQuinzenaSje,
-    })
-
     let folha: DadosFolhaGerencial
     let totalVendidoFolha = 0
 
-    const isVisaoMonteiro =
-      empresaFiltro === "monteiro" || targetEmpresaId === ID_EMPRESA_MONTEIRO
-    const isVisaoSje =
-      empresaFiltro === "sje" || targetEmpresaId === ID_EMPRESA_SJE
+    if (isUnidadeEspecifica && targetEmpresaId) {
+      // Unidade ESPECÍFICA (Monteiro, SJE, Caicó, Patos etc.)
+      const pctQuinzenaAlvo = compObjAlvo?.percentual_quinzena ?? 0.4
+      const resumoAlvo = calcularResumoFolhaUnidade({
+        empresaId: targetEmpresaId,
+        linhas: linhasAlvo || [],
+        terceiros: terceirosAlvo || [],
+        tabelaOficial: tabelaAlvo,
+        faixasComissao: faixasAlvo || [],
+        percentualQuinzena: pctQuinzenaAlvo,
+      })
 
-    if (isVisaoMonteiro) {
       folha = {
-        pessoasNaFolha: resumoMont.pessoasNaFolha,
-        salariosQuinzena: resumoMont.salariosQuinzena,
-        salariosMensalLiquido: resumoMont.salariosMensalLiquido,
-        producaoAPagar: resumoMont.producaoAPagar,
-        comissoesVendas: resumoMont.comissoesVendas,
-        totalFolha: resumoMont.totalGeral,
-        terceirosFolha: resumoMont.terceirosFolha,
+        pessoasNaFolha: resumoAlvo.pessoasNaFolha,
+        salariosQuinzena: resumoAlvo.salariosQuinzena,
+        salariosMensalLiquido: resumoAlvo.salariosMensalLiquido,
+        producaoAPagar: resumoAlvo.producaoAPagar,
+        comissoesVendas: resumoAlvo.comissoesVendas,
+        totalFolha: resumoAlvo.totalGeral,
+        terceirosFolha: resumoAlvo.terceirosFolha,
       }
-      totalVendidoFolha = resumoMont.totalVendasBase
-    } else if (isVisaoSje) {
-      folha = {
-        pessoasNaFolha: resumoSje.pessoasNaFolha,
-        salariosQuinzena: resumoSje.salariosQuinzena,
-        salariosMensalLiquido: resumoSje.salariosMensalLiquido,
-        producaoAPagar: resumoSje.producaoAPagar,
-        comissoesVendas: resumoSje.comissoesVendas,
-        totalFolha: resumoSje.totalGeral,
-        terceirosFolha: resumoSje.terceirosFolha,
-      }
-      totalVendidoFolha = resumoSje.totalVendasBase
+      totalVendidoFolha = resumoAlvo.totalVendasBase
     } else {
-      // Consolidado
+      // Consolidado Geral (Monteiro + SJE)
+      const [linhasMont, linhasSje] = linhasConsolidado
+      const [terceirosMont, terceirosSje] = terceirosConsolidado
+      const [tabelaMont, tabelaSje] = tabelasConsolidado
+      const [faixasMont, faixasSje] = faixasConsolidado
+      const [compMont, compSje] = compObjConsolidado
+
+      const pctQuinzenaMont = compMont?.percentual_quinzena ?? 0.4
+      const pctQuinzenaSje = compSje?.percentual_quinzena ?? 0.4
+
+      const resumoMont = calcularResumoFolhaUnidade({
+        empresaId: ID_EMPRESA_MONTEIRO,
+        linhas: linhasMont,
+        terceiros: terceirosMont,
+        tabelaOficial: tabelaMont,
+        faixasComissao: faixasMont,
+        percentualQuinzena: pctQuinzenaMont,
+      })
+
+      const resumoSje = calcularResumoFolhaUnidade({
+        empresaId: ID_EMPRESA_SJE,
+        linhas: linhasSje,
+        terceiros: terceirosSje,
+        tabelaOficial: tabelaSje,
+        faixasComissao: faixasSje,
+        percentualQuinzena: pctQuinzenaSje,
+      })
+
       const salQuinzena =
         Math.round(
           (resumoMont.salariosQuinzena + resumoSje.salariosQuinzena) * 100,

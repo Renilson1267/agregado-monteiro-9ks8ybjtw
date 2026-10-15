@@ -378,18 +378,28 @@ export const PainelService = {
         return comps.length > 0 ? comps : [competencia]
       })(),
 
-      // Folha Monteiro
-      FolhaService.getLinhasCompetencia(ID_EMPRESA_MONTEIRO, competencia).catch(
-        () => [],
-      ),
-      // Folha SJE
-      FolhaService.getLinhasCompetencia(ID_EMPRESA_SJE, competencia).catch(
-        () => [],
-      ),
-      // Terceiros Monteiro
-      FolhaService.getTerceiros(ID_EMPRESA_MONTEIRO).catch(() => []),
-      // Terceiros SJE
-      FolhaService.getTerceiros(ID_EMPRESA_SJE).catch(() => []),
+      // Folha de pagamento: se unidade selecionada específica (Monteiro, SJE, Patos, Caicó etc.),
+      // busca linhas e terceiros apenas dela usando targetEmpresaId.
+      // Se visão Consolidado (todas / sem targetEmpresaId), carrega Monteiro e SJE.
+      targetEmpresaId
+        ? FolhaService.getLinhasCompetencia(targetEmpresaId, competencia).catch(
+            () => [],
+          )
+        : FolhaService.getLinhasCompetencia(
+            ID_EMPRESA_MONTEIRO,
+            competencia,
+          ).catch(() => []),
+      targetEmpresaId
+        ? Promise.resolve([])
+        : FolhaService.getLinhasCompetencia(ID_EMPRESA_SJE, competencia).catch(
+            () => [],
+          ),
+      targetEmpresaId
+        ? FolhaService.getTerceiros(targetEmpresaId).catch(() => [])
+        : FolhaService.getTerceiros(ID_EMPRESA_MONTEIRO).catch(() => []),
+      targetEmpresaId
+        ? Promise.resolve([])
+        : FolhaService.getTerceiros(ID_EMPRESA_SJE).catch(() => []),
 
       // Preços de materiais para cálculo de custo
       ConcreteiraService.getPrecosMaterial(targetEmpresaId).catch(() => []),
@@ -515,35 +525,32 @@ export const PainelService = {
         : 0
 
     // --- CÁLCULO DA FOLHA DO MÊS (REUTILIZANDO LÓGICA OFICIAL DA ABA GERAL) ---
-    const calcMonteiro = calcularValorRealEmpresa(
-      linhasMonteiroRes,
-      terceirosMonteiroRes,
-    )
-    const calcSje = calcularValorRealEmpresa(linhasSjeRes, terceirosSjeRes)
-
     let totalFolhaLiquido = 0
     let folhaFuncionarios = 0
     let folhaTerceiros = 0
     let folhaQtdPessoas = 0
-    const folhaDisponivel =
-      empresaFiltro === "monteiro"
-        ? calcMonteiro.linhasCount > 0
-        : empresaFiltro === "sje"
-          ? calcSje.linhasCount > 0
-          : calcMonteiro.linhasCount > 0 || calcSje.linhasCount > 0
+    let folhaDisponivel = false
 
-    if (empresaFiltro === "monteiro") {
-      totalFolhaLiquido = calcMonteiro.valorReal
-      folhaFuncionarios = calcMonteiro.totalFuncionarios
-      folhaTerceiros = calcMonteiro.totalTerceiros
-      folhaQtdPessoas = calcMonteiro.qtdFuncionarios + calcMonteiro.qtdTerceiros
-    } else if (empresaFiltro === "sje") {
-      totalFolhaLiquido = calcSje.valorReal
-      folhaFuncionarios = calcSje.totalFuncionarios
-      folhaTerceiros = calcSje.totalTerceiros
-      folhaQtdPessoas = calcSje.qtdFuncionarios + calcSje.qtdTerceiros
+    if (targetEmpresaId) {
+      // Unidade ESPECÍFICA (Monteiro, SJE, Patos, Caicó etc.)
+      // linhasMonteiroRes contém as linhas da unidade alvo e terceirosMonteiroRes contém os terceiros da unidade alvo
+      const calcAlvo = calcularValorRealEmpresa(
+        linhasMonteiroRes,
+        terceirosMonteiroRes,
+      )
+      totalFolhaLiquido = calcAlvo.valorReal
+      folhaFuncionarios = calcAlvo.totalFuncionarios
+      folhaTerceiros = calcAlvo.totalTerceiros
+      folhaQtdPessoas = calcAlvo.qtdFuncionarios + calcAlvo.qtdTerceiros
+      folhaDisponivel = calcAlvo.linhasCount > 0
     } else {
       // Consolidado das duas empresas (MONTEIRO + SJE)
+      const calcMonteiro = calcularValorRealEmpresa(
+        linhasMonteiroRes,
+        terceirosMonteiroRes,
+      )
+      const calcSje = calcularValorRealEmpresa(linhasSjeRes, terceirosSjeRes)
+
       totalFolhaLiquido =
         Math.round((calcMonteiro.valorReal + calcSje.valorReal) * 100) / 100
       folhaFuncionarios =
@@ -559,6 +566,7 @@ export const PainelService = {
         calcMonteiro.qtdTerceiros +
         calcSje.qtdFuncionarios +
         calcSje.qtdTerceiros
+      folhaDisponivel = calcMonteiro.linhasCount > 0 || calcSje.linhasCount > 0
     }
 
     // --- EVOLUÇÃO MENSAL (ÚLTIMOS 12 MESES) ---
