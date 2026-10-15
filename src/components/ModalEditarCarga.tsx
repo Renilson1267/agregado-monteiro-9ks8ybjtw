@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react"
-import { Carga, Traco, Veiculo, Motorista, Cidade, RecipienteEstoque } from "@/types/concreteira"
+import {
+  Carga,
+  Traco,
+  Veiculo,
+  Motorista,
+  Cidade,
+  RecipienteEstoque,
+} from "@/types/concreteira"
 import { ConcreteiraService } from "@/services/concreteira"
 import { useToast } from "@/hooks/use-toast"
 import {

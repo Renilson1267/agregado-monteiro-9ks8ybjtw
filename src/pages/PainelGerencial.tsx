@@ -1090,10 +1090,56 @@ export function PainelGerencial() {
       })()}
 
       {/* =========================================================================
-          AVISO DE PEDIDO AUTOMÁTICO DE CIMENTO (QUANDO SALDO > 0 E < 20.000 KG)
-          Válido para as 4 unidades (Monteiro, SJE, Caicó e Patos) apenas quando houver saldo em operação.
+          AVISO DE PEDIDO AUTOMÁTICO DE CIMENTO (QUANDO UM SILO ESPECÍFICO FICAR ABAIXO DO MÍNIMO DELE)
+          Válido para as 4 unidades (Monteiro, SJE, Caicó e Patos).
+          Quando houver recipientes (ex.: Patos), dispara alerta para CADA silo que estiver abaixo do mínimo individual.
       ========================================================================== */}
       {(() => {
+        // Se houver recipientes individuais de cimento (ex.: Patos)
+        const recipientesCimento =
+          dados?.saldosInsumos?.filter(
+            (i) => i.codigo === "cimento" && i.ehRecipienteIndividual,
+          ) || []
+
+        if (recipientesCimento.length > 0) {
+          const silosCriticos = recipientesCimento.filter(
+            (silo) =>
+              silo.abaixoMinimo ||
+              (silo.estoqueMinimo > 0 && silo.saldo < silo.estoqueMinimo) ||
+              (silo.saldo > 0 && silo.saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG),
+          )
+
+          if (silosCriticos.length === 0) return null
+
+          const nomeUnidade =
+            modoVisao === "patos"
+              ? "Patos"
+              : modoVisao === "caico"
+                ? "Caicó"
+                : modoVisao === "sje"
+                  ? "SJE"
+                  : modoVisao === "monteiro"
+                    ? "Monteiro"
+                    : "Patos"
+          const emp = obterEmpresaPorUnidade(modoVisao)
+
+          return (
+            <div className="no-print space-y-3">
+              {silosCriticos.map((silo) => (
+                <AlertaPedidoCimento
+                  key={silo.id}
+                  unidadeNome={nomeUnidade}
+                  siloNome={silo.nome}
+                  saldoAtualKg={silo.saldo}
+                  estoqueMinimoKg={silo.estoqueMinimo || 15000}
+                  empresa={emp}
+                  variante="card"
+                />
+              ))}
+            </div>
+          )
+        }
+
         const itemCimento = dados?.saldosInsumos?.find(
           (i) => i.codigo === "cimento",
         )
@@ -1149,10 +1195,9 @@ export function PainelGerencial() {
           return null
         }
 
-        // Se estiver na visão Caicó ou Patos:
+        // Se estiver na visão Caicó ou Patos sem recipientes mapeados:
         if (modoVisao === "caico" || modoVisao === "patos") {
           const saldo = itemCimento.saldo || 0
-          // Se tiver saldo > 0 e menor que 20.000 kg, mostra
           if (saldo > 0 && saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG) {
             return (
               <div className="no-print">
@@ -1170,7 +1215,6 @@ export function PainelGerencial() {
         }
 
         // Se estiver na visão Consolidada ("todas"):
-        // Verificar Monteiro e SJE individualmente se tiver os saldos discriminados
         const saldoMonteiro = itemCimento.saldoMonteiro ?? 0
         const saldoSje = itemCimento.saldoSje ?? 0
         const criticoMonteiro =
@@ -1179,7 +1223,6 @@ export function PainelGerencial() {
           saldoSje > 0 && saldoSje < LIMITE_AVISO_PEDIDO_CIMENTO_KG
 
         if (!criticoMonteiro && !criticoSje) {
-          // Se nenhum dos dois específicos foi detectado, mas o saldo total for < 20.000 kg (e > 0)
           if (
             itemCimento.saldo > 0 &&
             itemCimento.saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG
@@ -1411,225 +1454,352 @@ export function PainelGerencial() {
 
         <CardContent className="p-4 sm:p-5">
           {dados?.saldosInsumos && dados.saldosInsumos.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {dados.saldosInsumos
-                .filter(
-                  (item) =>
-                    item.codigo === "cimento" || item.codigo === "aditivo",
+            <div className="space-y-4">
+              {/* Se houver recipientes individuais (ex.: Patos), mostra também resumo consolidado informativo */}
+              {(() => {
+                const recipientes = dados.saldosInsumos.filter(
+                  (i) => i.ehRecipienteIndividual,
                 )
-                .map((item) => {
-                  const critico = item.abaixoMinimo
-                  // Âmbar: quando o saldo está na faixa de atenção (próximo do mínimo, até 15% acima ou no limite seguro)
-                  const margem = item.saldo - item.estoqueMinimo
-                  const atencao =
-                    !critico &&
-                    item.controlaEstoque &&
-                    item.estoqueMinimo > 0 &&
-                    margem <= item.estoqueMinimo * 0.15 // ex: 15.623 kg cimento vs mín 15.000 kg (margem 623 kg <= 2.250 kg)
-                  const ehCimento = item.codigo === "cimento"
-                  const ehAditivo = item.codigo === "aditivo"
-                  const saldoTon =
-                    item.unidade === "kg" && item.saldo >= 1000
-                      ? (item.saldo / 1000).toFixed(2)
-                      : null
+                if (recipientes.length === 0) return null
 
-                  return (
-                    <div
-                      key={item.id}
-                      className={cn(
-                        "rounded-xl border p-3.5 flex flex-col justify-between transition-all bg-card/60 shadow-xs relative overflow-hidden",
-                        critico
-                          ? "border-destructive/50 bg-destructive/5 dark:bg-destructive/10"
-                          : atencao
-                            ? "border-amber-500/50 bg-amber-500/5 dark:bg-amber-500/10"
-                            : "border-border/50 hover:border-border",
+                const cimentos = recipientes.filter(
+                  (r) => r.codigo === "cimento",
+                )
+                const aditivos = recipientes.filter(
+                  (r) => r.codigo === "aditivo",
+                )
+
+                const totalCimentoKg = cimentos.reduce(
+                  (acc, cur) => acc + (cur.saldo || 0),
+                  0,
+                )
+                const totalAditivoL = aditivos.reduce(
+                  (acc, cur) => acc + (cur.saldo || 0),
+                  0,
+                )
+
+                return (
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border/40 text-xs flex flex-wrap items-center justify-between gap-3">
+                    <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
+                      <Boxes className="w-3.5 h-3.5 text-primary" />
+                      Total consolidado informativo do pátio:
+                    </span>
+                    <div className="flex items-center gap-4">
+                      {cimentos.length > 0 && (
+                        <span>
+                          Cimento total:{" "}
+                          <strong className="font-mono text-foreground">
+                            {totalCimentoKg.toLocaleString("pt-BR")} kg
+                          </strong>{" "}
+                          <span className="text-[11px] text-muted-foreground">
+                            ({(totalCimentoKg / 1000).toFixed(2)} t em{" "}
+                            {cimentos.length} silos)
+                          </span>
+                        </span>
                       )}
-                    >
+                      {aditivos.length > 0 && (
+                        <span>
+                          Aditivo total:{" "}
+                          <strong className="font-mono text-foreground">
+                            {totalAditivoL.toLocaleString("pt-BR")} L
+                          </strong>{" "}
+                          <span className="text-[11px] text-muted-foreground">
+                            ({aditivos.length} tanques)
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {dados.saldosInsumos
+                  .filter(
+                    (item) =>
+                      item.codigo === "cimento" || item.codigo === "aditivo",
+                  )
+                  .map((item) => {
+                    const critico = item.abaixoMinimo
+                    const noMinimo =
+                      item.statusRecipiente === "NO_MINIMO" ||
+                      (!critico &&
+                        item.estoqueMinimo > 0 &&
+                        item.saldo === item.estoqueMinimo)
+                    // Âmbar: quando o saldo está na faixa de atenção (próximo do mínimo, até 15% acima ou exatamente no limite mínimo)
+                    const margem = item.saldo - item.estoqueMinimo
+                    const atencao =
+                      noMinimo ||
+                      (!critico &&
+                        item.controlaEstoque &&
+                        item.estoqueMinimo > 0 &&
+                        margem <= item.estoqueMinimo * 0.15) // ex: margem pequena ou no mínimo
+                    const ehCimento = item.codigo === "cimento"
+                    const ehAditivo = item.codigo === "aditivo"
+                    const ehSilo =
+                      item.tipoRecipiente === "silo" ||
+                      (item.ehRecipienteIndividual && ehCimento)
+                    const ehTanque =
+                      item.tipoRecipiente === "tanque" ||
+                      (item.ehRecipienteIndividual && ehAditivo)
+                    const saldoTon =
+                      item.unidade === "kg" && item.saldo >= 1000
+                        ? (item.saldo / 1000).toFixed(2)
+                        : null
+
+                    return (
                       <div
+                        key={item.id}
                         className={cn(
-                          "absolute top-0 left-0 right-0 h-1",
+                          "rounded-xl border p-3.5 flex flex-col justify-between transition-all bg-card/60 shadow-xs relative overflow-hidden",
                           critico
-                            ? "bg-destructive"
+                            ? "border-destructive/50 bg-destructive/5 dark:bg-destructive/10"
                             : atencao
-                              ? "bg-amber-500"
-                              : item.controlaEstoque
-                                ? "bg-emerald-500"
-                                : "bg-muted-foreground/30",
+                              ? "border-amber-500/50 bg-amber-500/5 dark:bg-amber-500/10"
+                              : "border-border/50 hover:border-border",
                         )}
-                      />
-
-                      <div>
-                        <div className="flex items-start justify-between gap-2 mb-1.5 pt-0.5">
-                          <div className="min-w-0">
-                            <span
-                              className="font-bold text-sm text-foreground truncate block"
-                              title={item.nome}
-                            >
-                              {item.nome}
-                            </span>
-                            <span className="text-[11px] text-muted-foreground uppercase tracking-wider font-mono">
-                              {ehCimento
-                                ? "Silo de Cimento"
-                                : ehAditivo
-                                  ? "Tanque de Aditivo"
-                                  : item.controlaEstoque
-                                    ? "Insumo Controlado"
-                                    : "Agregado / Consumo"}
-                            </span>
-                          </div>
-                          {critico ? (
-                            <Badge
-                              variant="destructive"
-                              className="text-[10px] shrink-0 font-medium"
-                            >
-                              Abaixo do Mínimo
-                            </Badge>
-                          ) : atencao ? (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] shrink-0 font-semibold border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10"
-                            >
-                              Atenção / Próximo ao Mínimo
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] shrink-0 font-medium text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
-                            >
-                              Estoque Regular
-                            </Badge>
+                      >
+                        <div
+                          className={cn(
+                            "absolute top-0 left-0 right-0 h-1",
+                            critico
+                              ? "bg-destructive"
+                              : atencao
+                                ? "bg-amber-500"
+                                : item.controlaEstoque
+                                  ? "bg-emerald-500"
+                                  : "bg-muted-foreground/30",
                           )}
-                        </div>
+                        />
 
-                        {/* Saldo Principal */}
-                        <div className="my-2">
-                          <div className="flex items-baseline gap-1.5 flex-wrap">
-                            <span
-                              className={cn(
-                                "text-2xl font-black font-mono tracking-tight",
-                                critico
-                                  ? "text-destructive"
-                                  : atencao
-                                    ? "text-amber-600 dark:text-amber-400"
-                                    : "text-foreground",
-                              )}
-                            >
-                              {item.saldo.toLocaleString("pt-BR", {
-                                minimumFractionDigits:
-                                  item.unidade === "litros" ? 0 : 0,
-                                maximumFractionDigits: 2,
-                              })}
-                            </span>
-                            <span className="text-xs font-semibold text-muted-foreground uppercase">
-                              {item.unidade}
-                            </span>
-                            {saldoTon && (
-                              <span className="text-[11px] font-bold px-1.5 py-0.2 bg-muted text-muted-foreground rounded ml-auto">
-                                {saldoTon} t
+                        <div>
+                          <div className="flex items-start justify-between gap-2 mb-1.5 pt-0.5">
+                            <div className="min-w-0">
+                              <span
+                                className="font-bold text-sm text-foreground truncate block"
+                                title={item.nome}
+                              >
+                                {item.nome}
                               </span>
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                {item.ehRecipienteIndividual && (
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "text-[9px] font-mono font-bold tracking-wider px-1.5 py-0 h-4 uppercase",
+                                      ehSilo
+                                        ? "border-blue-500/40 text-blue-700 dark:text-blue-300 bg-blue-500/10"
+                                        : "border-purple-500/40 text-purple-700 dark:text-purple-300 bg-purple-500/10",
+                                    )}
+                                  >
+                                    {ehSilo
+                                      ? "SILO"
+                                      : ehTanque
+                                        ? "TANQUE"
+                                        : "RECIPIENTE"}
+                                  </Badge>
+                                )}
+                                <span className="text-[11px] text-muted-foreground uppercase tracking-wider font-mono">
+                                  {ehSilo
+                                    ? "Silo de Cimento"
+                                    : ehTanque
+                                      ? "Tanque de Aditivo"
+                                      : item.controlaEstoque
+                                        ? "Insumo Controlado"
+                                        : "Agregado / Consumo"}
+                                </span>
+                              </div>
+                            </div>
+                            {item.ehRecipienteIndividual ? (
+                              item.statusRecipiente === "ABAIXO" || critico ? (
+                                <Badge
+                                  variant="destructive"
+                                  className="text-[10px] shrink-0 font-bold"
+                                >
+                                  Abaixo
+                                </Badge>
+                              ) : item.statusRecipiente === "NO_MINIMO" ||
+                                noMinimo ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] shrink-0 font-bold border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10"
+                                >
+                                  No mínimo
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] shrink-0 font-bold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+                                >
+                                  OK
+                                </Badge>
+                              )
+                            ) : critico ? (
+                              <Badge
+                                variant="destructive"
+                                className="text-[10px] shrink-0 font-medium"
+                              >
+                                Abaixo do Mínimo
+                              </Badge>
+                            ) : atencao ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] shrink-0 font-semibold border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10"
+                              >
+                                Atenção / Próximo ao Mínimo
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] shrink-0 font-medium text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+                              >
+                                Estoque Regular
+                              </Badge>
                             )}
                           </div>
+
+                          {/* Saldo Principal */}
+                          <div className="my-2">
+                            <div className="flex items-baseline gap-1.5 flex-wrap">
+                              <span
+                                className={cn(
+                                  "text-2xl font-black font-mono tracking-tight",
+                                  critico
+                                    ? "text-destructive"
+                                    : atencao
+                                      ? "text-amber-600 dark:text-amber-400"
+                                      : "text-foreground",
+                                )}
+                              >
+                                {item.saldo.toLocaleString("pt-BR", {
+                                  minimumFractionDigits:
+                                    item.unidade === "litros" ? 0 : 0,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </span>
+                              <span className="text-xs font-semibold text-muted-foreground uppercase">
+                                {item.unidade}
+                              </span>
+                              {saldoTon && (
+                                <span className="text-[11px] font-bold px-1.5 py-0.2 bg-muted text-muted-foreground rounded ml-auto">
+                                  {saldoTon} t
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Detalhes de Estoque Mínimo e Visão por Empresa */}
+                        <div className="pt-2 border-t border-border/30 text-[11px] space-y-1">
+                          {item.controlaEstoque && item.estoqueMinimo > 0 && (
+                            <div className="flex items-center justify-between text-muted-foreground">
+                              <span>Estoque Mínimo:</span>
+                              <span className="font-mono font-semibold text-foreground">
+                                {item.estoqueMinimo.toLocaleString("pt-BR")}{" "}
+                                {item.unidade}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Discriminação por unidade se for consolidado */}
+                          {modoVisao === "todas" &&
+                            (item.saldoMonteiro !== undefined ||
+                              item.saldoSje !== undefined) && (
+                              <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
+                                <span>
+                                  Monteiro:{" "}
+                                  <strong className="text-foreground font-mono">
+                                    {(item.saldoMonteiro || 0).toLocaleString(
+                                      "pt-BR",
+                                    )}
+                                  </strong>
+                                </span>
+                                <span>
+                                  SJE:{" "}
+                                  <strong className="text-foreground font-mono">
+                                    {(item.saldoSje || 0).toLocaleString(
+                                      "pt-BR",
+                                    )}
+                                  </strong>
+                                </span>
+                              </div>
+                            )}
+
+                          {/* Margem operacional */}
+                          {item.controlaEstoque && item.estoqueMinimo > 0 && (
+                            <div className="flex items-center justify-between pt-0.5">
+                              <span className="text-muted-foreground">
+                                Margem:
+                              </span>
+                              <span
+                                className={cn(
+                                  "font-mono font-bold",
+                                  critico
+                                    ? "text-destructive"
+                                    : atencao
+                                      ? "text-amber-600 dark:text-amber-400"
+                                      : "text-emerald-600 dark:text-emerald-400",
+                                )}
+                              >
+                                {item.saldo - item.estoqueMinimo > 0 ? "+" : ""}
+                                {(
+                                  item.saldo - item.estoqueMinimo
+                                ).toLocaleString("pt-BR")}{" "}
+                                {item.unidade}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Botão de pedido rápido se for cimento e saldo < 20.000 kg */}
+                          {ehCimento &&
+                            item.saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG &&
+                            item.saldo > 0 && (
+                              <div className="pt-2">
+                                <Button
+                                  onClick={() => {
+                                    const unidadeParaPedido =
+                                      modoVisao === "monteiro"
+                                        ? "Monteiro"
+                                        : modoVisao === "sje"
+                                          ? "SJE"
+                                          : modoVisao === "patos"
+                                            ? "Patos"
+                                            : modoVisao === "caico"
+                                              ? "Caicó"
+                                              : "Monteiro / SJE"
+                                    const emp =
+                                      obterEmpresaPorUnidade(modoVisao)
+                                    const link = gerarLinkWhatsAppPedidoCimento(
+                                      {
+                                        unidadeNome: unidadeParaPedido,
+                                        saldoAtualKg: item.saldo,
+                                        estoqueMinimoKg:
+                                          item.estoqueMinimo || 15000,
+                                        empresa: emp,
+                                        siloNome: item.ehRecipienteIndividual
+                                          ? item.nome
+                                          : undefined,
+                                      },
+                                    )
+                                    window.open(
+                                      link,
+                                      "_blank",
+                                      "noopener,noreferrer",
+                                    )
+                                  }}
+                                  size="sm"
+                                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 h-8 shadow-xs"
+                                >
+                                  <Send className="w-3 h-3" />
+                                  Pedir pelo WhatsApp
+                                </Button>
+                              </div>
+                            )}
                         </div>
                       </div>
-
-                      {/* Detalhes de Estoque Mínimo e Visão por Empresa */}
-                      <div className="pt-2 border-t border-border/30 text-[11px] space-y-1">
-                        {item.controlaEstoque && item.estoqueMinimo > 0 && (
-                          <div className="flex items-center justify-between text-muted-foreground">
-                            <span>Estoque Mínimo:</span>
-                            <span className="font-mono font-semibold text-foreground">
-                              {item.estoqueMinimo.toLocaleString("pt-BR")}{" "}
-                              {item.unidade}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Discriminação por unidade se for consolidado */}
-                        {modoVisao === "todas" &&
-                          (item.saldoMonteiro !== undefined ||
-                            item.saldoSje !== undefined) && (
-                            <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
-                              <span>
-                                Monteiro:{" "}
-                                <strong className="text-foreground font-mono">
-                                  {(item.saldoMonteiro || 0).toLocaleString(
-                                    "pt-BR",
-                                  )}
-                                </strong>
-                              </span>
-                              <span>
-                                SJE:{" "}
-                                <strong className="text-foreground font-mono">
-                                  {(item.saldoSje || 0).toLocaleString("pt-BR")}
-                                </strong>
-                              </span>
-                            </div>
-                          )}
-
-                        {/* Margem operacional */}
-                        {item.controlaEstoque && item.estoqueMinimo > 0 && (
-                          <div className="flex items-center justify-between pt-0.5">
-                            <span className="text-muted-foreground">
-                              Margem:
-                            </span>
-                            <span
-                              className={cn(
-                                "font-mono font-bold",
-                                critico
-                                  ? "text-destructive"
-                                  : atencao
-                                    ? "text-amber-600 dark:text-amber-400"
-                                    : "text-emerald-600 dark:text-emerald-400",
-                              )}
-                            >
-                              {item.saldo - item.estoqueMinimo > 0 ? "+" : ""}
-                              {(item.saldo - item.estoqueMinimo).toLocaleString(
-                                "pt-BR",
-                              )}{" "}
-                              {item.unidade}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Botão de pedido rápido se for cimento e saldo < 20.000 kg */}
-                        {ehCimento &&
-                          item.saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG &&
-                          item.saldo > 0 && (
-                            <div className="pt-2">
-                              <Button
-                                onClick={() => {
-                                  const unidadeParaPedido =
-                                    modoVisao === "monteiro"
-                                      ? "Monteiro"
-                                      : modoVisao === "sje"
-                                        ? "SJE"
-                                        : "Monteiro / SJE"
-                                  const emp = obterEmpresaPorUnidade(modoVisao)
-                                  const link = gerarLinkWhatsAppPedidoCimento({
-                                    unidadeNome: unidadeParaPedido,
-                                    saldoAtualKg: item.saldo,
-                                    estoqueMinimoKg:
-                                      item.estoqueMinimo || 15000,
-                                    empresa: emp,
-                                  })
-                                  window.open(
-                                    link,
-                                    "_blank",
-                                    "noopener,noreferrer",
-                                  )
-                                }}
-                                size="sm"
-                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 h-8 shadow-xs"
-                              >
-                                <Send className="w-3 h-3" />
-                                Pedir pelo WhatsApp
-                              </Button>
-                            </div>
-                          )}
-                      </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+              </div>
             </div>
           ) : (
             <div className="py-8 text-center text-xs text-muted-foreground bg-muted/20 rounded-lg">
@@ -2559,22 +2729,38 @@ export function PainelGerencial() {
                         className="p-2.5 rounded-lg bg-background border border-destructive/40 bg-destructive/5 text-xs space-y-1"
                       >
                         <div className="flex items-center justify-between">
-                          <span
-                            className="font-bold text-foreground truncate max-w-[200px]"
-                            title={
-                              item.recipienteNome
-                                ? `${item.recipienteNome} - ${item.material.nome}`
-                                : item.material.nome
-                            }
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {item.tipoRecipiente && (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "text-[9px] font-mono font-bold tracking-wider px-1.5 py-0 h-4 uppercase shrink-0",
+                                  item.tipoRecipiente?.toLowerCase() === "silo"
+                                    ? "border-blue-500/40 text-blue-700 dark:text-blue-300 bg-blue-500/10"
+                                    : "border-purple-500/40 text-purple-700 dark:text-purple-300 bg-purple-500/10",
+                                )}
+                              >
+                                {item.tipoRecipiente.toUpperCase()}
+                              </Badge>
+                            )}
+                            <span
+                              className="font-bold text-foreground truncate max-w-[170px]"
+                              title={
+                                item.recipienteNome
+                                  ? `${item.recipienteNome}`
+                                  : item.material.nome
+                              }
+                            >
+                              {item.recipienteNome
+                                ? `${item.recipienteNome}`
+                                : item.material.nome}
+                            </span>
+                          </div>
+                          <Badge
+                            variant="destructive"
+                            className="text-[9px] font-bold"
                           >
-                            {item.recipienteNome
-                              ? `${item.recipienteNome}`
-                              : item.material.nome}
-                          </span>
-                          <Badge variant="destructive" className="text-[9px]">
-                            {item.tipoRecipiente
-                              ? `${item.tipoRecipiente.toUpperCase()} Abaixo do Mínimo`
-                              : "Abaixo do Mínimo"}
+                            Abaixo
                           </Badge>
                         </div>
                         {item.recipienteNome && (
@@ -2615,6 +2801,7 @@ export function PainelGerencial() {
                                     saldoAtualKg: item.saldo,
                                     estoqueMinimoKg: item.minimo,
                                     empresa: emp,
+                                    siloNome: item.recipienteNome || undefined,
                                   })
                                   window.open(
                                     link,

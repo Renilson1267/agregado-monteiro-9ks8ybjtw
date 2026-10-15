@@ -30,6 +30,7 @@ export interface DadosPedidoCimento {
   estoqueMinimoKg?: number
   empresa?: DadosEmpresaPedidoCimento | null
   dataSolicitacao?: Date
+  siloNome?: string
 }
 
 /**
@@ -130,6 +131,9 @@ export function gerarTextoWhatsAppPedidoCimento(
   }
   if (cidadeUf) {
     linhas.push(cidadeUf)
+  }
+  if (dados.siloNome) {
+    linhas.push(`Destino: ${dados.siloNome}`)
   }
 
   linhas.push("CP V ARI RS - CIF")

@@ -88,6 +88,10 @@ export interface ItemEstoqueInsumo {
   abaixoMinimo: boolean
   defasagem: number
   empresaId?: string
+  tipoRecipiente?: string // "silo" | "tanque"
+  recipienteId?: string
+  ehRecipienteIndividual?: boolean
+  statusRecipiente?: "ABAIXO" | "NO_MINIMO" | "OK"
 }
 
 export interface ItemCustoInsumo {
@@ -819,22 +823,21 @@ export const PainelService = {
       recipientesAlvoRes && recipientesAlvoRes.length > 0
 
     if (temRecipientesEmpresa) {
-      // Quando há recipientes específicos (ex: Patos), alimenta os alertas por recipiente onde saldo_atual < estoque_minimo
+      // Quando há recipientes específicos (ex: Patos), alimenta os alertas por recipiente individual onde saldo_atual < estoque_minimo
       recipientesAlvoRes.forEach((rec: any) => {
         const saldo = Number(rec.saldo_atual || 0)
         const minimo = Number(rec.estoque_minimo || 0)
-        if (saldo < minimo) {
-          const matCorrespondente = todosMateriais.find(
-            (m) =>
-              m.id === rec.material_id ||
-              m.codigo?.toLowerCase() === rec.material_codigo?.toLowerCase(),
-          )
+        if (minimo > 0 && saldo < minimo) {
           const matObj: Material = {
             id: rec.id, // id do recipiente para garantir chave única no React
             empresa_id: rec.empresa_id,
-            nome: `${rec.nome} (${rec.material_nome || rec.material_codigo})`,
+            nome: rec.nome,
             codigo: rec.material_codigo,
-            unidade: rec.unidade || "kg",
+            unidade:
+              rec.unidade ||
+              (rec.material_codigo?.toLowerCase() === "cimento"
+                ? "kg"
+                : "litros"),
             estoque_minimo: minimo,
             controla_estoque: true,
             ordem: rec.ordem || 1,
@@ -846,12 +849,12 @@ export const PainelService = {
             saldo,
             minimo,
             defasagem: Math.round((minimo - saldo) * 100) / 100,
-            unidade:
-              rec.unidade ||
-              (rec.material_codigo === "cimento" ? "kg" : "litros"),
+            unidade: matObj.unidade,
             empresaId: rec.empresa_id,
             recipienteNome: rec.nome,
-            tipoRecipiente: rec.tipo,
+            tipoRecipiente:
+              rec.tipo ||
+              (rec.material_codigo === "cimento" ? "silo" : "tanque"),
           })
         }
       })
@@ -1051,69 +1054,41 @@ export const PainelService = {
       })
     } else {
       // Outra unidade individual (ex.: Caicó ou Patos)
-      // Se houver recipientes_estoque para a unidade (ex.: Patos), consolida os recipientes por material
-      // cimento = silo1 + silo2, aditivo = tanque1 + tanque2, preservando os totais consolidados
+      // Se houver recipientes_estoque para a unidade (ex.: Patos),
+      // cada silo/tanque vira sua PRÓPRIA linha individual de insumo (sem somar para alertas).
+      // Mínimos lidos de estoque_minimo de cada recipiente, com status Abaixo / No mínimo / OK.
       if (temRecipientesEmpresa) {
-        const recipientesPorMaterial = new Map<string, {
-          materialCodigo: string
-          materialNome: string
-          unidade: string
-          saldoTotal: number
-          estoqueMinimoTotal: number
-          recipientes: any[]
-        }>()
-
         recipientesAlvoRes.forEach((rec: any) => {
           const cod = rec.material_codigo?.toLowerCase()
           if (!cod || !ehInsumoSaldoMonitorado(cod)) return
 
-          if (!recipientesPorMaterial.has(cod)) {
-            recipientesPorMaterial.set(cod, {
-              materialCodigo: cod,
-              materialNome:
-                cod === "cimento"
-                  ? "Cimento CP II F-40 / CP V ARI"
-                  : "Aditivo Plastificante",
-              unidade: rec.unidade || (cod === "cimento" ? "kg" : "litros"),
-              saldoTotal: 0,
-              estoqueMinimoTotal: 0,
-              recipientes: [],
-            })
-          }
-          const grupo = recipientesPorMaterial.get(cod)!
-          grupo.saldoTotal =
-            Math.round(
-              (grupo.saldoTotal + Number(rec.saldo_atual || 0)) * 100,
-            ) / 100
-          grupo.estoqueMinimoTotal =
-            Math.round(
-              (grupo.estoqueMinimoTotal + Number(rec.estoque_minimo || 0)) *
-                100,
-            ) / 100
-          grupo.recipientes.push(rec)
-        })
+          const saldo = Number(rec.saldo_atual || 0)
+          const minimo = Number(rec.estoque_minimo || 0)
+          const abaixoMinimo = minimo > 0 && saldo < minimo
+          const noMinimo = !abaixoMinimo && minimo > 0 && saldo === minimo
+          const statusRec: "ABAIXO" | "NO_MINIMO" | "OK" = abaixoMinimo
+            ? "ABAIXO"
+            : noMinimo
+              ? "NO_MINIMO"
+              : "OK"
 
-        // Monta os itens consolidados por material
-        recipientesPorMaterial.forEach((grupo, cod) => {
-          const matCorrespondente = materiaisAlvoRes.find(
-            (m) => m.codigo?.toLowerCase() === cod,
-          )
-          const abaixoMinimo = grupo.saldoTotal < grupo.estoqueMinimoTotal
           saldosInsumos.push({
-            id: matCorrespondente?.id || `recipientes-grupo-${cod}`,
-            nome: matCorrespondente?.nome || grupo.materialNome,
+            id: rec.id,
+            nome: rec.nome,
             codigo: cod,
-            unidade: grupo.unidade,
+            unidade: rec.unidade || (cod === "cimento" ? "kg" : "litros"),
             controlaEstoque: true,
-            estoqueMinimo: grupo.estoqueMinimoTotal,
-            saldo: grupo.saldoTotal,
+            estoqueMinimo: minimo,
+            saldo,
             abaixoMinimo,
             defasagem: abaixoMinimo
-              ? Math.round(
-                  (grupo.estoqueMinimoTotal - grupo.saldoTotal) * 100,
-                ) / 100
+              ? Math.round((minimo - saldo) * 100) / 100
               : 0,
-            empresaId: targetEmpresaId,
+            empresaId: rec.empresa_id || targetEmpresaId,
+            tipoRecipiente: rec.tipo || (cod === "cimento" ? "silo" : "tanque"),
+            recipienteId: rec.id,
+            ehRecipienteIndividual: true,
+            statusRecipiente: statusRec,
           })
         })
       } else {

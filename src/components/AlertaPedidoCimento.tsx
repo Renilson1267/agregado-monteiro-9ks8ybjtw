@@ -22,6 +22,7 @@ interface AlertaPedidoCimentoProps {
   saldoAtualKg: number
   estoqueMinimoKg: number
   empresa?: DadosEmpresaPedidoCimento | null
+  siloNome?: string
   /** Se 'compacto', exibe versão em barra estreita; se 'card', exibe card completo de destaque */
   variante?: "compacto" | "card"
   className?: string
@@ -32,6 +33,7 @@ export const AlertaPedidoCimento: React.FC<AlertaPedidoCimentoProps> = ({
   saldoAtualKg,
   estoqueMinimoKg,
   empresa,
+  siloNome,
   variante = "card",
   className = "",
 }) => {
@@ -68,6 +70,7 @@ export const AlertaPedidoCimento: React.FC<AlertaPedidoCimentoProps> = ({
     saldoAtualKg,
     estoqueMinimoKg,
     empresa: empresaResolvida,
+    siloNome,
   })
 
   const handlePedirWhatsApp = () => {
@@ -93,7 +96,7 @@ export const AlertaPedidoCimento: React.FC<AlertaPedidoCimentoProps> = ({
                 variant="outline"
                 className="text-[10px] bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300 font-semibold"
               >
-                {unidadeNome}
+                {siloNome ? `${unidadeNome} • ${siloNome}` : unidadeNome}
               </Badge>
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -142,7 +145,7 @@ export const AlertaPedidoCimento: React.FC<AlertaPedidoCimentoProps> = ({
               className="text-xs font-bold border-amber-600/40 text-amber-800 dark:text-amber-200 bg-amber-500/10"
             >
               <Building2 className="w-3 h-3 mr-1" />
-              {unidadeNome}
+              {siloNome ? `${unidadeNome} — ${siloNome}` : unidadeNome}
             </Badge>
             <Badge
               variant="outline"
@@ -155,10 +158,15 @@ export const AlertaPedidoCimento: React.FC<AlertaPedidoCimentoProps> = ({
 
           <div>
             <h3 className="text-base sm:text-lg font-black text-foreground tracking-tight flex items-center gap-2 flex-wrap">
-              <span>⚠️ Cimento abaixo de 20.000 kg — fazer pedido</span>
+              <span>
+                ⚠️ Cimento abaixo de 20.000 kg — fazer pedido
+                {siloNome ? ` (${siloNome})` : ""}
+              </span>
             </h3>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              O saldo do silo de cimento atingiu o ponto de ressuprimento.
+              {siloNome
+                ? `O saldo do ${siloNome} atingiu o ponto de ressuprimento crítico.`
+                : "O saldo do silo de cimento atingiu o ponto de ressuprimento."}{" "}
               Dispare o pedido automático com o fornecedor via WhatsApp com 1
               clique.
             </p>
