@@ -24,7 +24,6 @@ export const ImpressaoCargasLancadas: React.FC<ImpressaoCargasLancadasProps> =
     periodoFim,
     filtroTracoNome,
     filtroDosagem,
-    isPatos = false,
     dataEmissao,
   }) => {
     // Totais: apenas cargas normais (ou todas as filtradas, com volume de não-zeradas)
@@ -32,32 +31,6 @@ export const ImpressaoCargasLancadas: React.FC<ImpressaoCargasLancadasProps> =
     const totalVolumeSomado = cargas.reduce((acc, c) => {
       return acc + (c.carga_zerada ? 0 : Number(c.volume_m3) || 0)
     }, 0)
-
-    // Totais de insumos consumidos somados para o rodapé
-    const totalCimento = cargas.reduce(
-      (acc, c) => acc + (Number(c.consumo_cimento) || 0),
-      0,
-    )
-    const totalB12 = cargas.reduce(
-      (acc, c) => acc + (Number(c.consumo_brita12) || 0),
-      0,
-    )
-    const totalB19 = cargas.reduce(
-      (acc, c) => acc + (Number(c.consumo_brita19) || 0),
-      0,
-    )
-    const totalAreia = cargas.reduce(
-      (acc, c) => acc + (Number(c.consumo_areia) || 0),
-      0,
-    )
-    const totalPo = cargas.reduce(
-      (acc, c) => acc + (Number(c.consumo_po_pedra) || 0),
-      0,
-    )
-    const totalAditivo = cargas.reduce(
-      (acc, c) => acc + (Number(c.consumo_aditivo) || 0),
-      0,
-    )
 
     // Formatação do período filtrado
     const formatarDataBr = (iso?: string) => {
@@ -187,24 +160,21 @@ export const ImpressaoCargasLancadas: React.FC<ImpressaoCargasLancadasProps> =
         >
           <thead>
             <tr className="bg-gray-100 text-black border-y-2 border-black font-bold uppercase text-[8px]">
-              <th className="py-1.5 px-1.5 text-left w-16">Data</th>
-              <th className="py-1.5 px-1.5 text-left w-14"># Carga</th>
+              <th className="py-1.5 px-1.5 text-left w-20">Data</th>
+              <th className="py-1.5 px-1.5 text-left w-16"># Carga</th>
               <th className="py-1.5 px-1.5 text-left">Cliente</th>
-              <th className="py-1.5 px-1.5 text-left w-16">Placa</th>
+              <th className="py-1.5 px-1.5 text-left w-20">Placa</th>
               <th className="py-1.5 px-1.5 text-left">Motorista</th>
               <th className="py-1.5 px-1.5 text-left">Cidade</th>
               <th className="py-1.5 px-1.5 text-left">Traço</th>
-              <th className="py-1.5 px-1.5 text-right w-14">Volume</th>
-              <th className="py-1.5 px-1.5 text-right">
-                Insumos (Consumo Real)
-              </th>
+              <th className="py-1.5 px-1.5 text-right w-24">Volume (m³)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-300">
             {cargas.length === 0 ? (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={8}
                   className="py-6 text-center text-gray-500 italic text-[10px]"
                 >
                   Nenhuma carga encontrada para os filtros aplicados.
@@ -213,12 +183,6 @@ export const ImpressaoCargasLancadas: React.FC<ImpressaoCargasLancadasProps> =
             ) : (
               cargas.map((carga) => {
                 const vol = Number(carga.volume_m3) || 0
-                const cim = Number(carga.consumo_cimento) || 0
-                const adt = Number(carga.consumo_aditivo) || 0
-                const b12 = Number(carga.consumo_brita12) || 0
-                const b19 = Number(carga.consumo_brita19) || 0
-                const ar = Number(carga.consumo_areia) || 0
-                const po = Number(carga.consumo_po_pedra) || 0
                 const isZerada = Boolean(carga.carga_zerada)
                 const descricaoTraco = obterDescricaoCompletaCarga(
                   carga,
@@ -242,7 +206,7 @@ export const ImpressaoCargasLancadas: React.FC<ImpressaoCargasLancadasProps> =
                     </td>
 
                     {/* Cliente */}
-                    <td className="py-1 px-1.5 text-black truncate max-w-[120px]">
+                    <td className="py-1 px-1.5 text-black truncate max-w-[180px]">
                       {carga.cliente_nome || "—"}
                     </td>
 
@@ -252,12 +216,12 @@ export const ImpressaoCargasLancadas: React.FC<ImpressaoCargasLancadasProps> =
                     </td>
 
                     {/* Motorista */}
-                    <td className="py-1 px-1.5 text-gray-800 truncate max-w-[100px]">
+                    <td className="py-1 px-1.5 text-gray-800 truncate max-w-[140px]">
                       {carga.motorista_nome || "—"}
                     </td>
 
                     {/* Cidade */}
-                    <td className="py-1 px-1.5 text-gray-800 truncate max-w-[100px]">
+                    <td className="py-1 px-1.5 text-gray-800 truncate max-w-[140px]">
                       {carga.cidade_nome || "—"}
                     </td>
 
@@ -276,29 +240,6 @@ export const ImpressaoCargasLancadas: React.FC<ImpressaoCargasLancadasProps> =
                         `${vol.toFixed(1)} m³`
                       )}
                     </td>
-
-                    {/* Insumos */}
-                    <td className="py-1 px-1.5 text-right font-mono text-[8px] text-gray-800 whitespace-nowrap">
-                      <span className="font-bold text-black">
-                        Cim: {cim.toLocaleString("pt-BR")} kg
-                      </span>
-                      <span className="mx-1 text-gray-400">|</span>
-                      <span>B12: {b12.toLocaleString("pt-BR")}</span>
-                      <span className="mx-1 text-gray-400">|</span>
-                      <span>B19: {b19.toLocaleString("pt-BR")}</span>
-                      <span className="mx-1 text-gray-400">|</span>
-                      <span>Ar: {ar.toLocaleString("pt-BR")}</span>
-                      {(po > 0 || isPatos) && (
-                        <>
-                          <span className="mx-1 text-gray-400">|</span>
-                          <span>Pó: {po.toLocaleString("pt-BR")}</span>
-                        </>
-                      )}
-                      <span className="mx-1 text-gray-400">|</span>
-                      <span className="font-bold text-black">
-                        Adt: {adt.toLocaleString("pt-BR")} L
-                      </span>
-                    </td>
                   </tr>
                 )
               })
@@ -309,27 +250,11 @@ export const ImpressaoCargasLancadas: React.FC<ImpressaoCargasLancadasProps> =
           <tfoot>
             <tr className="bg-gray-100 text-black border-t-2 border-black font-bold uppercase text-[9px]">
               <td colSpan={7} className="py-2 px-1.5 text-left">
-                <strong>TOTAIS GERAIS</strong> ({totalCargas} cargas)
+                <strong>TOTAIS GERAIS</strong> ({totalCargas}{" "}
+                {totalCargas === 1 ? "carga" : "cargas"})
               </td>
               <td className="py-2 px-1.5 text-right font-mono font-black text-[10px] whitespace-nowrap">
                 {totalVolumeSomado.toFixed(1)} m³
-              </td>
-              <td className="py-2 px-1.5 text-right font-mono text-[8.5px] whitespace-nowrap">
-                <span>Cim: {totalCimento.toLocaleString("pt-BR")} kg</span>
-                <span className="mx-1 text-gray-400">|</span>
-                <span>B12: {totalB12.toLocaleString("pt-BR")}</span>
-                <span className="mx-1 text-gray-400">|</span>
-                <span>B19: {totalB19.toLocaleString("pt-BR")}</span>
-                <span className="mx-1 text-gray-400">|</span>
-                <span>Ar: {totalAreia.toLocaleString("pt-BR")}</span>
-                {(totalPo > 0 || isPatos) && (
-                  <>
-                    <span className="mx-1 text-gray-400">|</span>
-                    <span>Pó: {totalPo.toLocaleString("pt-BR")}</span>
-                  </>
-                )}
-                <span className="mx-1 text-gray-400">|</span>
-                <span>Adt: {totalAditivo.toLocaleString("pt-BR")} L</span>
               </td>
             </tr>
           </tfoot>
