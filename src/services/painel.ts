@@ -316,10 +316,8 @@ export const PainelService = {
       terceirosMonteiroRes,
       terceirosSjeRes,
       precosRes,
-      feriasMonteiroRes,
-      feriasSjeRes,
-      examesMonteiroRes,
-      examesSjeRes,
+      feriasRes,
+      examesRes,
       materiaisMonteiroRes,
       materiaisSjeRes,
       materiaisAlvoRes,
@@ -396,23 +394,29 @@ export const PainelService = {
       // Preços de materiais para cálculo de custo
       ConcreteiraService.getPrecosMaterial(targetEmpresaId).catch(() => []),
 
-      // Férias Monteiro e SJE
-      targetEmpresaId === ID_EMPRESA_SJE
-        ? Promise.resolve([])
-        : FeriasService.getControleFerias(ID_EMPRESA_MONTEIRO).catch(() => []),
-      targetEmpresaId === ID_EMPRESA_MONTEIRO
-        ? Promise.resolve([])
-        : FeriasService.getControleFerias(ID_EMPRESA_SJE).catch(() => []),
+      // Férias: se unidade selecionada específica, busca apenas dela (Monteiro, SJE, Patos, Caicó, etc.)
+      // Se visão Consolidado (todas / sem targetEmpresaId), carrega Monteiro e SJE
+      !targetEmpresaId
+        ? Promise.all([
+            FeriasService.getControleFerias(ID_EMPRESA_MONTEIRO).catch(
+              () => [],
+            ),
+            FeriasService.getControleFerias(ID_EMPRESA_SJE).catch(() => []),
+          ]).then(([m, s]) => [...m, ...s])
+        : FeriasService.getControleFerias(targetEmpresaId).catch(() => []),
 
-      // Exames Monteiro e SJE
-      targetEmpresaId === ID_EMPRESA_SJE
-        ? Promise.resolve([])
-        : ExamesService.getFuncionariosComExames(ID_EMPRESA_MONTEIRO).catch(
-            () => [],
-          ),
-      targetEmpresaId === ID_EMPRESA_MONTEIRO
-        ? Promise.resolve([])
-        : ExamesService.getFuncionariosComExames(ID_EMPRESA_SJE).catch(
+      // Exames: se unidade selecionada específica, busca apenas dela (Monteiro, SJE, Patos, Caicó, etc.)
+      // Se visão Consolidado (todas / sem targetEmpresaId), carrega Monteiro e SJE
+      !targetEmpresaId
+        ? Promise.all([
+            ExamesService.getFuncionariosComExames(ID_EMPRESA_MONTEIRO).catch(
+              () => [],
+            ),
+            ExamesService.getFuncionariosComExames(ID_EMPRESA_SJE).catch(
+              () => [],
+            ),
+          ]).then(([m, s]) => [...m, ...s])
+        : ExamesService.getFuncionariosComExames(targetEmpresaId).catch(
             () => [],
           ),
 
@@ -739,7 +743,7 @@ export const PainelService = {
 
     // --- ALERTAS OPERACIONAIS ---
     // 1. FÉRIAS marcadas nos próximos 60 dias (ou atrasadas do ano)
-    const todasFerias = [...feriasMonteiroRes, ...feriasSjeRes]
+    const todasFerias = feriasRes || []
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
     const em60Dias = new Date(hoje.getTime() + 60 * 24 * 60 * 60 * 1000)
@@ -753,10 +757,7 @@ export const PainelService = {
       .sort((a, b) => (a.ferias || "").localeCompare(b.ferias || ""))
 
     // 2. EXAMES ASO VENCIDOS OU A VENCER EM 30 DIAS
-    const todosFuncionariosExames: FuncionarioComExames[] = [
-      ...examesMonteiroRes,
-      ...examesSjeRes,
-    ]
+    const todosFuncionariosExames: FuncionarioComExames[] = examesRes || []
     const examesCriticos: Array<{
       funcionarioNome: string
       funcao: string
