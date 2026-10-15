@@ -85,6 +85,48 @@ export const RelatorioGerencialMes: React.FC<RelatorioGerencialMesProps> = ({
   const estoqueCimento = estoque.find((e) => e.codigo === "cimento")
   const estoqueAditivo = estoque.find((e) => e.codigo === "aditivo")
 
+  // Totais consolidados a partir dos recipientes individuais (quando houver, ex.: Patos)
+  const temRecipientesCimento = recipientesCimento.length > 0
+  const somaCimentoRecipientes = recipientesCimento.reduce(
+    (acc, cur) => acc + (cur.saldo || 0),
+    0,
+  )
+  const somaMinimoCimentoRecipientes = recipientesCimento.reduce(
+    (acc, cur) => acc + (cur.estoqueMinimo || 0),
+    0,
+  )
+  const cimentoAbaixoMinimo = temRecipientesCimento
+    ? recipientesCimento.some((r) => r.status === "ABAIXO")
+    : Boolean(estoqueCimento?.abaixoMinimo)
+
+  const temRecipientesAditivo = recipientesAditivo.length > 0
+  const somaAditivoRecipientes = recipientesAditivo.reduce(
+    (acc, cur) => acc + (cur.saldo || 0),
+    0,
+  )
+  const somaMinimoAditivoRecipientes = recipientesAditivo.reduce(
+    (acc, cur) => acc + (cur.estoqueMinimo || 0),
+    0,
+  )
+  const aditivoAbaixoMinimo = temRecipientesAditivo
+    ? recipientesAditivo.some((r) => r.status === "ABAIXO")
+    : Boolean(estoqueAditivo?.abaixoMinimo)
+
+  // Saldo e mínimo finais para exibição (reusando soma dos recipientes em Patos ou saldo direto da unidade sem recipientes)
+  const saldoCimentoExibir = temRecipientesCimento
+    ? somaCimentoRecipientes
+    : estoqueCimento?.saldo || 0
+  const minimoCimentoExibir = temRecipientesCimento
+    ? somaMinimoCimentoRecipientes
+    : estoqueCimento?.estoqueMinimo || 0
+
+  const saldoAditivoExibir = temRecipientesAditivo
+    ? somaAditivoRecipientes
+    : estoqueAditivo?.saldo || 0
+  const minimoAditivoExibir = temRecipientesAditivo
+    ? somaMinimoAditivoRecipientes
+    : estoqueAditivo?.estoqueMinimo || 0
+
   return (
     <div className="space-y-4">
       {/* Barra de Ações na Tela */}
@@ -548,51 +590,66 @@ export const RelatorioGerencialMes: React.FC<RelatorioGerencialMesProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 {/* Saldo Cimento */}
                 <div
-                  className={`border rounded p-2 bg-white flex flex-col justify-between ${
-                    estoqueCimento?.abaixoMinimo
+                  className={`border rounded p-2.5 bg-white flex flex-col justify-between ${
+                    cimentoAbaixoMinimo
                       ? "border-rose-400 bg-rose-50/50"
                       : "border-gray-200"
                   }`}
                 >
                   <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] uppercase font-bold text-black">
-                        {temRecipientesUnidade
+                    {/* Cabeçalho do Cartão */}
+                    <div className="flex items-center justify-between gap-1 pb-1 border-b border-gray-100">
+                      <span className="text-[10px] uppercase font-black tracking-wide text-black truncate">
+                        {temRecipientesCimento
                           ? "Cimento — Total da Unidade"
                           : "Silo de Cimento (CP II / CP V)"}
                       </span>
-                      {estoqueCimento?.abaixoMinimo ? (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-rose-200 text-rose-950">
+                      {cimentoAbaixoMinimo ? (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-rose-200 text-rose-950 shrink-0">
                           <AlertTriangle className="w-2.5 h-2.5 text-rose-800" />
                           Abaixo do Mínimo
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-semibold bg-emerald-100 text-emerald-900">
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-semibold bg-emerald-100 text-emerald-900 shrink-0">
                           <CheckCircle2 className="w-2.5 h-2.5 text-emerald-700" />
                           Regular
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-baseline justify-between mt-1">
-                      <span
-                        className={`text-lg font-black font-mono ${
-                          estoqueCimento?.abaixoMinimo
-                            ? "text-rose-900"
-                            : "text-black"
-                        }`}
-                      >
-                        {fmtNumero(estoqueCimento?.saldo, 1)} kg
-                        {(estoqueCimento?.saldo || 0) >= 1000 && (
-                          <span className="text-xs text-gray-600 font-normal ml-1">
-                            ({((estoqueCimento?.saldo || 0) / 1000).toFixed(2)}{" "}
-                            t)
+                    {/* Destaque Visual Dominante do Total da Unidade */}
+                    <div className="mt-1.5 mb-1 bg-gradient-to-br from-gray-50 to-white rounded border border-gray-200/80 p-2">
+                      <div className="flex items-center justify-between text-[8px] uppercase tracking-wider text-gray-500 font-bold mb-0.5">
+                        <span>
+                          {temRecipientesCimento
+                            ? `Saldo Consolidado (${recipientesCimento.length} silos)`
+                            : "Saldo Disponível"}
+                        </span>
+                        {minimoCimentoExibir > 0 && (
+                          <span className="font-mono text-gray-600 font-semibold">
+                            Mín: {fmtNumero(minimoCimentoExibir, 0)} kg
                           </span>
                         )}
-                      </span>
-                      <span className="text-[9px] text-gray-600 font-mono">
-                        Mín: {fmtNumero(estoqueCimento?.estoqueMinimo, 0)} kg
-                      </span>
+                      </div>
+
+                      <div className="flex items-baseline justify-between flex-wrap gap-x-2">
+                        <span
+                          className={`text-2xl sm:text-[26px] leading-none font-black font-mono tracking-tight ${
+                            cimentoAbaixoMinimo ? "text-rose-900" : "text-black"
+                          }`}
+                        >
+                          {fmtNumero(saldoCimentoExibir, 0)}
+                          <span className="text-xs sm:text-sm font-bold text-gray-700 ml-1">
+                            kg
+                          </span>
+                        </span>
+
+                        {saldoCimentoExibir >= 1000 && (
+                          <span className="text-[11px] sm:text-xs font-bold text-gray-700 bg-gray-200/70 px-1.5 py-0.5 rounded font-mono">
+                            {(saldoCimentoExibir / 1000).toFixed(2)} t
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {dados.empresaFiltro === "todas" && (
@@ -612,8 +669,8 @@ export const RelatorioGerencialMes: React.FC<RelatorioGerencialMesProps> = ({
                   {recipientesCimento.length > 0 && (
                     <div className="mt-2 pt-1.5 border-t border-gray-200 space-y-1">
                       <div className="flex items-center justify-between text-[8px] text-gray-600 font-semibold uppercase">
-                        <span>Silos Individuais:</span>
-                        <span>{recipientesCimento.length} cadastrados</span>
+                        <span>Detalhamento por Silo:</span>
+                        <span>{recipientesCimento.length} silos</span>
                       </div>
                       <div className="space-y-1">
                         {recipientesCimento.map((rec) => {
@@ -681,45 +738,60 @@ export const RelatorioGerencialMes: React.FC<RelatorioGerencialMesProps> = ({
 
                 {/* Saldo Aditivo */}
                 <div
-                  className={`border rounded p-2 bg-white flex flex-col justify-between ${
-                    estoqueAditivo?.abaixoMinimo
+                  className={`border rounded p-2.5 bg-white flex flex-col justify-between ${
+                    aditivoAbaixoMinimo
                       ? "border-rose-400 bg-rose-50/50"
                       : "border-gray-200"
                   }`}
                 >
                   <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] uppercase font-bold text-black">
-                        {temRecipientesUnidade
+                    {/* Cabeçalho do Cartão */}
+                    <div className="flex items-center justify-between gap-1 pb-1 border-b border-gray-100">
+                      <span className="text-[10px] uppercase font-black tracking-wide text-black truncate">
+                        {temRecipientesAditivo
                           ? "Aditivo — Total da Unidade"
                           : "Tanque de Aditivo Plastificante"}
                       </span>
-                      {estoqueAditivo?.abaixoMinimo ? (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-rose-200 text-rose-950">
+                      {aditivoAbaixoMinimo ? (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-rose-200 text-rose-950 shrink-0">
                           <AlertTriangle className="w-2.5 h-2.5 text-rose-800" />
                           Abaixo do Mínimo
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-semibold bg-emerald-100 text-emerald-900">
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-semibold bg-emerald-100 text-emerald-900 shrink-0">
                           <CheckCircle2 className="w-2.5 h-2.5 text-emerald-700" />
                           Regular
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-baseline justify-between mt-1">
-                      <span
-                        className={`text-lg font-black font-mono ${
-                          estoqueAditivo?.abaixoMinimo
-                            ? "text-rose-900"
-                            : "text-black"
-                        }`}
-                      >
-                        {fmtNumero(estoqueAditivo?.saldo, 1)} L
-                      </span>
-                      <span className="text-[9px] text-gray-600 font-mono">
-                        Mín: {fmtNumero(estoqueAditivo?.estoqueMinimo, 0)} L
-                      </span>
+                    {/* Destaque Visual Dominante do Total da Unidade */}
+                    <div className="mt-1.5 mb-1 bg-gradient-to-br from-gray-50 to-white rounded border border-gray-200/80 p-2">
+                      <div className="flex items-center justify-between text-[8px] uppercase tracking-wider text-gray-500 font-bold mb-0.5">
+                        <span>
+                          {temRecipientesAditivo
+                            ? `Saldo Consolidado (${recipientesAditivo.length} tanques)`
+                            : "Saldo Disponível"}
+                        </span>
+                        {minimoAditivoExibir > 0 && (
+                          <span className="font-mono text-gray-600 font-semibold">
+                            Mín: {fmtNumero(minimoAditivoExibir, 0)} L
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-baseline justify-between flex-wrap gap-x-2">
+                        <span
+                          className={`text-2xl sm:text-[26px] leading-none font-black font-mono tracking-tight ${
+                            aditivoAbaixoMinimo ? "text-rose-900" : "text-black"
+                          }`}
+                        >
+                          {fmtNumero(saldoAditivoExibir, 0)}
+                          <span className="text-xs sm:text-sm font-bold text-gray-700 ml-1">
+                            L
+                          </span>
+                        </span>
+                      </div>
                     </div>
 
                     {dados.empresaFiltro === "todas" && (
@@ -739,8 +811,8 @@ export const RelatorioGerencialMes: React.FC<RelatorioGerencialMesProps> = ({
                   {recipientesAditivo.length > 0 && (
                     <div className="mt-2 pt-1.5 border-t border-gray-200 space-y-1">
                       <div className="flex items-center justify-between text-[8px] text-gray-600 font-semibold uppercase">
-                        <span>Tanques Individuais:</span>
-                        <span>{recipientesAditivo.length} cadastrados</span>
+                        <span>Detalhamento por Tanque:</span>
+                        <span>{recipientesAditivo.length} tanques</span>
                       </div>
                       <div className="space-y-1">
                         {recipientesAditivo.map((rec) => {
