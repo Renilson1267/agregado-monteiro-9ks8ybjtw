@@ -575,7 +575,7 @@ export const ConcreteiraService = {
     empresaId?: string,
   ) {
     if (id) {
-      const { data, error } = await (supabase as any)
+      let query = (supabase as any)
         .from("motoristas")
         .update({
           nome,
@@ -583,8 +583,12 @@ export const ConcreteiraService = {
           ...(empresaId ? { empresa_id: empresaId } : {}),
         })
         .eq("id", id)
-        .select()
-        .single()
+
+      if (empresaId) {
+        query = query.eq("empresa_id", empresaId)
+      }
+
+      const { data, error } = await query.select().single()
       if (error) throw error
       return data
     }
@@ -595,6 +599,14 @@ export const ConcreteiraService = {
       .single()
     if (error) throw error
     return data
+  },
+
+  async atualizarMotorista(
+    id: string,
+    dados: { nome: string ativo?: boolean },
+    empresaId?: string,
+  ) {
+    return this.salvarMotorista(dados.nome, dados.ativo ?? true, id, empresaId)
   },
 
   async getVeiculos(empresaId?: string): Promise<Veiculo[]> {
@@ -617,7 +629,7 @@ export const ConcreteiraService = {
     empresaId?: string,
   ) {
     if (id) {
-      const { data, error } = await (supabase as any)
+      let query = (supabase as any)
         .from("veiculos")
         .update({
           placa,
@@ -626,8 +638,12 @@ export const ConcreteiraService = {
           ...(empresaId ? { empresa_id: empresaId } : {}),
         })
         .eq("id", id)
-        .select()
-        .single()
+
+      if (empresaId) {
+        query = query.eq("empresa_id", empresaId)
+      }
+
+      const { data, error } = await query.select().single()
       if (error) throw error
       return data
     }
@@ -638,6 +654,20 @@ export const ConcreteiraService = {
       .single()
     if (error) throw error
     return data
+  },
+
+  async atualizarVeiculo(
+    id: string,
+    dados: { placa: string modelo?: string ativo?: boolean },
+    empresaId?: string,
+  ) {
+    return this.salvarVeiculo(
+      dados.placa,
+      dados.modelo,
+      dados.ativo ?? true,
+      id,
+      empresaId,
+    )
   },
 
   async getCidades(empresaId?: string): Promise<Cidade[]> {
@@ -654,12 +684,16 @@ export const ConcreteiraService = {
 
   async salvarCidade(nome: string, uf = "PB", id?: string, empresaId?: string) {
     if (id) {
-      const { data, error } = await (supabase as any)
+      let query = (supabase as any)
         .from("cidades")
         .update({ nome, uf, ...(empresaId ? { empresa_id: empresaId } : {}) })
         .eq("id", id)
-        .select()
-        .single()
+
+      if (empresaId) {
+        query = query.eq("empresa_id", empresaId)
+      }
+
+      const { data, error } = await query.select().single()
       if (error) throw error
       return data
     }
@@ -670,6 +704,14 @@ export const ConcreteiraService = {
       .single()
     if (error) throw error
     return data
+  },
+
+  async atualizarCidade(
+    id: string,
+    dados: { nome: string uf?: string },
+    empresaId?: string,
+  ) {
+    return this.salvarCidade(dados.nome, dados.uf || "PB", id, empresaId)
   },
 
   // Cargas com cálculo de custo dos insumos embutido
@@ -968,6 +1010,8 @@ export const ConcreteiraService = {
       veiculo_placa?: string | null
       cidade_id?: string | null
       cidade_nome?: string | null
+      cliente_id?: string | null
+      cliente_nome?: string | null
       consumo_brita12: number
       consumo_brita19: number
       consumo_areia: number
@@ -1003,6 +1047,9 @@ export const ConcreteiraService = {
       veiculo_placa: payload.veiculo_placa || null,
       cidade_id: payload.cidade_id || null,
       cidade_nome: payload.cidade_nome || null,
+      cliente_id: payload.cliente_id !== undefined ? payload.cliente_id : null,
+      cliente_nome:
+        payload.cliente_nome !== undefined ? payload.cliente_nome : null,
       consumo_brita12: payload.consumo_brita12,
       consumo_brita19: payload.consumo_brita19,
       consumo_areia: payload.consumo_areia,
@@ -1251,6 +1298,8 @@ export const ConcreteiraService = {
     veiculo_placa?: string | null
     cidade_id?: string | null
     cidade_nome?: string | null
+    cliente_id?: string | null
+    cliente_nome?: string | null
     consumo_brita12: number
     consumo_brita19: number
     consumo_areia: number
@@ -1292,6 +1341,8 @@ export const ConcreteiraService = {
         veiculo_placa: payload.veiculo_placa || null,
         cidade_id: payload.cidade_id || null,
         cidade_nome: payload.cidade_nome || null,
+        cliente_id: payload.cliente_id || null,
+        cliente_nome: payload.cliente_nome || null,
         consumo_brita12: payload.consumo_brita12,
         consumo_brita19: payload.consumo_brita19,
         consumo_areia: payload.consumo_areia,

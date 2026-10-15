@@ -219,6 +219,8 @@ export interface Carga {
   veiculo_placa: string | null
   cidade_id: string | null
   cidade_nome: string | null
+  cliente_id?: string | null
+  cliente_nome?: string | null
   consumo_brita12: number
   consumo_brita19: number
   consumo_areia: number
