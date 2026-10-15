@@ -63,7 +63,7 @@ export const RelatorioGerencialMes: React.FC<RelatorioGerencialMesProps> = ({
     }
   }
 
-  const { producao, vendas, folha, insumos, estoque } = dados
+  const { producao, vendas, folha, insumos, estoque, recipientes } = dados
 
   // Materiais filtrados para consumo
   const itemCimento = insumos.itens.find((i) => i.codigo === "cimento")
@@ -71,6 +71,15 @@ export const RelatorioGerencialMes: React.FC<RelatorioGerencialMesProps> = ({
   const itemAreia = insumos.itens.find((i) => i.codigo === "areia")
   const itemPoPedra = insumos.itens.find((i) => i.codigo === "po_pedra")
   const somatorioBritas = insumos.somatorioBritas
+
+  // Recipientes por material (quando houver recipientes cadastrados, ex: Patos)
+  const recipientesCimento = (recipientes || []).filter(
+    (r) => r.materialCodigo === "cimento" || r.tipo === "silo",
+  )
+  const recipientesAditivo = (recipientes || []).filter(
+    (r) => r.materialCodigo === "aditivo" || r.tipo === "tanque",
+  )
+  const temRecipientesUnidade = (recipientes || []).length > 0
 
   // Estoque atual vigente (somente cimento e aditivo)
   const estoqueCimento = estoque.find((e) => e.codigo === "cimento")
@@ -539,111 +548,260 @@ export const RelatorioGerencialMes: React.FC<RelatorioGerencialMesProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 {/* Saldo Cimento */}
                 <div
-                  className={`border rounded p-2 bg-white ${
+                  className={`border rounded p-2 bg-white flex flex-col justify-between ${
                     estoqueCimento?.abaixoMinimo
                       ? "border-rose-400 bg-rose-50/50"
                       : "border-gray-200"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] uppercase font-bold text-black">
-                      Silo de Cimento (CP II / CP V)
-                    </span>
-                    {estoqueCimento?.abaixoMinimo ? (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-rose-200 text-rose-950">
-                        <AlertTriangle className="w-2.5 h-2.5 text-rose-800" />
-                        Abaixo do Mínimo
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] uppercase font-bold text-black">
+                        {temRecipientesUnidade
+                          ? "Cimento — Total da Unidade"
+                          : "Silo de Cimento (CP II / CP V)"}
                       </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-semibold bg-emerald-100 text-emerald-900">
-                        <CheckCircle2 className="w-2.5 h-2.5 text-emerald-700" />
-                        Regular
+                      {estoqueCimento?.abaixoMinimo ? (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-rose-200 text-rose-950">
+                          <AlertTriangle className="w-2.5 h-2.5 text-rose-800" />
+                          Abaixo do Mínimo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-semibold bg-emerald-100 text-emerald-900">
+                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-700" />
+                          Regular
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-baseline justify-between mt-1">
+                      <span
+                        className={`text-lg font-black font-mono ${
+                          estoqueCimento?.abaixoMinimo
+                            ? "text-rose-900"
+                            : "text-black"
+                        }`}
+                      >
+                        {fmtNumero(estoqueCimento?.saldo, 1)} kg
+                        {(estoqueCimento?.saldo || 0) >= 1000 && (
+                          <span className="text-xs text-gray-600 font-normal ml-1">
+                            ({((estoqueCimento?.saldo || 0) / 1000).toFixed(2)}{" "}
+                            t)
+                          </span>
+                        )}
                       </span>
+                      <span className="text-[9px] text-gray-600 font-mono">
+                        Mín: {fmtNumero(estoqueCimento?.estoqueMinimo, 0)} kg
+                      </span>
+                    </div>
+
+                    {dados.empresaFiltro === "todas" && (
+                      <div className="mt-1 pt-1 border-t border-gray-200 text-[8px] text-gray-600 flex justify-between font-mono">
+                        <span>
+                          Monteiro:{" "}
+                          {fmtNumero(estoqueCimento?.saldoMonteiro, 0)} kg
+                        </span>
+                        <span>
+                          SJE: {fmtNumero(estoqueCimento?.saldoSje, 0)} kg
+                        </span>
+                      </div>
                     )}
                   </div>
 
-                  <div className="flex items-baseline justify-between mt-1">
-                    <span
-                      className={`text-lg font-black font-mono ${
-                        estoqueCimento?.abaixoMinimo
-                          ? "text-rose-900"
-                          : "text-black"
-                      }`}
-                    >
-                      {fmtNumero(estoqueCimento?.saldo, 1)} kg
-                      {(estoqueCimento?.saldo || 0) >= 1000 && (
-                        <span className="text-xs text-gray-600 font-normal ml-1">
-                          ({((estoqueCimento?.saldo || 0) / 1000).toFixed(2)} t)
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-[9px] text-gray-600 font-mono">
-                      Mín: {fmtNumero(estoqueCimento?.estoqueMinimo, 0)} kg
-                    </span>
-                  </div>
-
-                  {dados.empresaFiltro === "todas" && (
-                    <div className="mt-1 pt-1 border-t border-gray-200 text-[8px] text-gray-600 flex justify-between font-mono">
-                      <span>
-                        Monteiro: {fmtNumero(estoqueCimento?.saldoMonteiro, 0)}{" "}
-                        kg
-                      </span>
-                      <span>
-                        SJE: {fmtNumero(estoqueCimento?.saldoSje, 0)} kg
-                      </span>
+                  {/* SUB-LISTA DE SILOS INDIVIDUAIS (Quando a unidade tiver recipientes, ex: Patos) */}
+                  {recipientesCimento.length > 0 && (
+                    <div className="mt-2 pt-1.5 border-t border-gray-200 space-y-1">
+                      <div className="flex items-center justify-between text-[8px] text-gray-600 font-semibold uppercase">
+                        <span>Silos Individuais:</span>
+                        <span>{recipientesCimento.length} cadastrados</span>
+                      </div>
+                      <div className="space-y-1">
+                        {recipientesCimento.map((rec) => {
+                          const isAbaixo = rec.status === "ABAIXO"
+                          const isNoMinimo = rec.status === "NO_MINIMO"
+                          return (
+                            <div
+                              key={rec.id}
+                              className={`p-1.5 rounded border text-[8.5px] leading-tight ${
+                                isAbaixo
+                                  ? "border-rose-300 bg-rose-50/70"
+                                  : isNoMinimo
+                                    ? "border-amber-300 bg-amber-50/70"
+                                    : "border-gray-200 bg-gray-50/50"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <span
+                                  className="font-bold text-black truncate"
+                                  title={rec.nome}
+                                >
+                                  {rec.nome}
+                                </span>
+                                {isAbaixo ? (
+                                  <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[7.5px] font-black uppercase bg-rose-200 text-rose-950 shrink-0">
+                                    <AlertTriangle className="w-2 h-2 text-rose-800" />
+                                    Abaixo
+                                  </span>
+                                ) : isNoMinimo ? (
+                                  <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[7.5px] font-bold uppercase bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
+                                    <AlertTriangle className="w-2 h-2 text-amber-700" />
+                                    No mínimo
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[7.5px] font-bold uppercase bg-emerald-100 text-emerald-900 shrink-0">
+                                    <CheckCircle2 className="w-2 h-2 text-emerald-700" />
+                                    OK
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-baseline justify-between font-mono mt-0.5 text-gray-800">
+                                <span
+                                  className={`font-black ${
+                                    isAbaixo
+                                      ? "text-rose-900"
+                                      : isNoMinimo
+                                        ? "text-amber-900"
+                                        : "text-black"
+                                  }`}
+                                >
+                                  {fmtNumero(rec.saldo, 0)} {rec.unidade}
+                                </span>
+                                <span className="text-[7.5px] text-gray-600">
+                                  Mín: {fmtNumero(rec.estoqueMinimo, 0)}{" "}
+                                  {rec.unidade}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {/* Saldo Aditivo */}
                 <div
-                  className={`border rounded p-2 bg-white ${
+                  className={`border rounded p-2 bg-white flex flex-col justify-between ${
                     estoqueAditivo?.abaixoMinimo
                       ? "border-rose-400 bg-rose-50/50"
                       : "border-gray-200"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] uppercase font-bold text-black">
-                      Tanque de Aditivo Plastificante
-                    </span>
-                    {estoqueAditivo?.abaixoMinimo ? (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-rose-200 text-rose-950">
-                        <AlertTriangle className="w-2.5 h-2.5 text-rose-800" />
-                        Abaixo do Mínimo
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] uppercase font-bold text-black">
+                        {temRecipientesUnidade
+                          ? "Aditivo — Total da Unidade"
+                          : "Tanque de Aditivo Plastificante"}
                       </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-semibold bg-emerald-100 text-emerald-900">
-                        <CheckCircle2 className="w-2.5 h-2.5 text-emerald-700" />
-                        Regular
+                      {estoqueAditivo?.abaixoMinimo ? (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-rose-200 text-rose-950">
+                          <AlertTriangle className="w-2.5 h-2.5 text-rose-800" />
+                          Abaixo do Mínimo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-semibold bg-emerald-100 text-emerald-900">
+                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-700" />
+                          Regular
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-baseline justify-between mt-1">
+                      <span
+                        className={`text-lg font-black font-mono ${
+                          estoqueAditivo?.abaixoMinimo
+                            ? "text-rose-900"
+                            : "text-black"
+                        }`}
+                      >
+                        {fmtNumero(estoqueAditivo?.saldo, 1)} L
                       </span>
+                      <span className="text-[9px] text-gray-600 font-mono">
+                        Mín: {fmtNumero(estoqueAditivo?.estoqueMinimo, 0)} L
+                      </span>
+                    </div>
+
+                    {dados.empresaFiltro === "todas" && (
+                      <div className="mt-1 pt-1 border-t border-gray-200 text-[8px] text-gray-600 flex justify-between font-mono">
+                        <span>
+                          Monteiro:{" "}
+                          {fmtNumero(estoqueAditivo?.saldoMonteiro, 1)} L
+                        </span>
+                        <span>
+                          SJE: {fmtNumero(estoqueAditivo?.saldoSje, 1)} L
+                        </span>
+                      </div>
                     )}
                   </div>
 
-                  <div className="flex items-baseline justify-between mt-1">
-                    <span
-                      className={`text-lg font-black font-mono ${
-                        estoqueAditivo?.abaixoMinimo
-                          ? "text-rose-900"
-                          : "text-black"
-                      }`}
-                    >
-                      {fmtNumero(estoqueAditivo?.saldo, 1)} L
-                    </span>
-                    <span className="text-[9px] text-gray-600 font-mono">
-                      Mín: {fmtNumero(estoqueAditivo?.estoqueMinimo, 0)} L
-                    </span>
-                  </div>
-
-                  {dados.empresaFiltro === "todas" && (
-                    <div className="mt-1 pt-1 border-t border-gray-200 text-[8px] text-gray-600 flex justify-between font-mono">
-                      <span>
-                        Monteiro: {fmtNumero(estoqueAditivo?.saldoMonteiro, 1)}{" "}
-                        L
-                      </span>
-                      <span>
-                        SJE: {fmtNumero(estoqueAditivo?.saldoSje, 1)} L
-                      </span>
+                  {/* SUB-LISTA DE TANQUES INDIVIDUAIS (Quando a unidade tiver recipientes, ex: Patos) */}
+                  {recipientesAditivo.length > 0 && (
+                    <div className="mt-2 pt-1.5 border-t border-gray-200 space-y-1">
+                      <div className="flex items-center justify-between text-[8px] text-gray-600 font-semibold uppercase">
+                        <span>Tanques Individuais:</span>
+                        <span>{recipientesAditivo.length} cadastrados</span>
+                      </div>
+                      <div className="space-y-1">
+                        {recipientesAditivo.map((rec) => {
+                          const isAbaixo = rec.status === "ABAIXO"
+                          const isNoMinimo = rec.status === "NO_MINIMO"
+                          return (
+                            <div
+                              key={rec.id}
+                              className={`p-1.5 rounded border text-[8.5px] leading-tight ${
+                                isAbaixo
+                                  ? "border-rose-300 bg-rose-50/70"
+                                  : isNoMinimo
+                                    ? "border-amber-300 bg-amber-50/70"
+                                    : "border-gray-200 bg-gray-50/50"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <span
+                                  className="font-bold text-black truncate"
+                                  title={rec.nome}
+                                >
+                                  {rec.nome}
+                                </span>
+                                {isAbaixo ? (
+                                  <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[7.5px] font-black uppercase bg-rose-200 text-rose-950 shrink-0">
+                                    <AlertTriangle className="w-2 h-2 text-rose-800" />
+                                    Abaixo
+                                  </span>
+                                ) : isNoMinimo ? (
+                                  <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[7.5px] font-bold uppercase bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
+                                    <AlertTriangle className="w-2 h-2 text-amber-700" />
+                                    No mínimo
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[7.5px] font-bold uppercase bg-emerald-100 text-emerald-900 shrink-0">
+                                    <CheckCircle2 className="w-2 h-2 text-emerald-700" />
+                                    OK
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-baseline justify-between font-mono mt-0.5 text-gray-800">
+                                <span
+                                  className={`font-black ${
+                                    isAbaixo
+                                      ? "text-rose-900"
+                                      : isNoMinimo
+                                        ? "text-amber-900"
+                                        : "text-black"
+                                  }`}
+                                >
+                                  {fmtNumero(rec.saldo, 0)} {rec.unidade}
+                                </span>
+                                <span className="text-[7.5px] text-gray-600">
+                                  Mín: {fmtNumero(rec.estoqueMinimo, 0)}{" "}
+                                  {rec.unidade}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>

@@ -55,6 +55,19 @@ export interface DadosFolhaGerencial {
   terceirosFolha: number
 }
 
+export interface RecipienteRelatorioGerencial {
+  id: string
+  nome: string
+  tipo: "silo" | "tanque" | string
+  materialCodigo: "cimento" | "aditivo" | string
+  materialNome: string
+  saldo: number
+  estoqueMinimo: number
+  unidade: string
+  status: "ABAIXO" | "NO_MINIMO" | "OK"
+  ordem: number
+}
+
 export interface DadosRelatorioGerencialMes {
   competencia: string // ex: "2026-09"
   rotuloCompetencia: string // ex: "SETEMBRO / 2026"
@@ -65,6 +78,7 @@ export interface DadosRelatorioGerencialMes {
   folha: DadosFolhaGerencial
   insumos: ResumoCustosInsumos
   estoque: ItemEstoqueInsumo[]
+  recipientes?: RecipienteRelatorioGerencial[]
   dataEmissao: string
 }
 
@@ -391,6 +405,7 @@ export const RelatorioGerencialService = {
       tabelasConsolidado,
       faixasConsolidado,
       compObjConsolidado,
+      recipientesUnidadeRes,
     ] = await Promise.all([
       // Dados completos do mês (produção, insumos, estoque cimento/aditivo)
       PainelService.getDadosPainel({
@@ -503,8 +518,30 @@ export const RelatorioGerencialService = {
             ),
           ])
         : Promise.resolve([null, null]),
-    ])
 
+      // 3. Recipientes de estoque da unidade selecionada (caso de Patos)
+      (async () => {
+        if (!targetEmpresaId) return []
+        try {
+          const { data, error } = await (supabase as any)
+            .from("recipientes_estoque")
+            .select("*")
+            .eq("empresa_id", targetEmpresaId)
+            .order("ordem", { ascending: true })
+          if (error) {
+            console.warn(
+              "Erro ao buscar recipientes_estoque no relatório gerencial:",
+              error,
+            )
+            return []
+          }
+          return data || []
+        } catch (err) {
+          console.warn("Falha ao buscar recipientes_estoque:", err)
+          return []
+        }
+      })(),
+    ])
     // --- 1. PRODUÇÃO & COMPARATIVO ---
     const volAtual = dadosPainelAtual.kpis.volumeTotalM3
     const cargasAtual = dadosPainelAtual.kpis.totalCargas
@@ -686,7 +723,40 @@ export const RelatorioGerencialService = {
         i.codigo?.toLowerCase() === "aditivo",
     )
 
-    // Rótulo por extenso
+    // Recipientes de estoque da unidade (caso de Patos)
+    // Listar cada silo/tanque com nome real, saldo, mínimo individual e status Abaixo/No mínimo/OK
+    let recipientes: RecipienteRelatorioGerencial[] | undefined = undefined
+    if (recipientesUnidadeRes && recipientesUnidadeRes.length > 0) {
+      recipientes = (recipientesUnidadeRes as any[]).map((rec: any) => {
+        const saldo = Number(rec.saldo_atual || 0)
+        const estoqueMinimo = Number(rec.estoque_minimo || 0)
+        const abaixoMinimo = estoqueMinimo > 0 && saldo < estoqueMinimo
+        const noMinimo =
+          !abaixoMinimo && estoqueMinimo > 0 && saldo === estoqueMinimo
+        const status: "ABAIXO" | "NO_MINIMO" | "OK" = abaixoMinimo
+          ? "ABAIXO"
+          : noMinimo
+            ? "NO_MINIMO"
+            : "OK"
+
+        const cod = (rec.material_codigo || "").toLowerCase()
+        const unidade = rec.unidade || (cod === "cimento" ? "kg" : "litros")
+
+        return {
+          id: rec.id,
+          nome: rec.nome,
+          tipo: rec.tipo || (cod === "cimento" ? "silo" : "tanque"),
+          materialCodigo: cod,
+          materialNome:
+            rec.material_nome || (cod === "cimento" ? "Cimento" : "Aditivo"),
+          saldo,
+          estoqueMinimo,
+          unidade,
+          status,
+          ordem: Number(rec.ordem || 0),
+        }
+      })
+    }
     const nomesMesesLongos = [
       "JANEIRO",
       "FEVEREIRO",
@@ -718,6 +788,7 @@ export const RelatorioGerencialService = {
       folha,
       insumos,
       estoque,
+      recipientes,
       dataEmissao: new Date().toLocaleDateString("pt-BR"),
     }
   },
