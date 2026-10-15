@@ -21,6 +21,7 @@ import {
   TrendingUp,
   Percent,
   CheckCircle2,
+  Undo2,
   Award,
   Calculator,
   Copy,
@@ -91,10 +92,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import {
   AlertDialog,
   AlertDialogAction,

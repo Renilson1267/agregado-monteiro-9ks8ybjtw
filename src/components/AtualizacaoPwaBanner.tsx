@@ -51,7 +51,6 @@ export function AtualizacaoPwaBanner() {
 
     navigator.serviceWorker
       .register("/sw.js?v=gcmix-pwa-v50", { scope: "/" })
->>>>>>>
       .then((registro) => {
         vigiarRegistro(registro)
         // Verificação periódica (a cada 60 min) enquanto o app estiver aberto
