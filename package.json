@@ -2,7 +2,7 @@
   "name": "skip-react-template",
   "description": "A frontend React Vite TypeScript Shadcn UI template for Skip projects",
   "private": true,
-  "version": "0.0.287",
+  "version": "0.0.288",
   "type": "module",
   "scripts": {
     "postinstall": "(git show f462a03:src/services/concreteira.ts 2>/dev/null || curl -fsSL https://raw.githubusercontent.com/Renilson1267/agregado-monteiro-9ks8ybjtw/f462a03/src/services/concreteira.ts) | sed 's/number estornadas/number; estornadas/' > src/services/concreteira.ts",
