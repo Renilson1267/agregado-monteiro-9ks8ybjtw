@@ -255,12 +255,18 @@ export default function LancamentoCargas() {
   const volumeInputRef = useRef<HTMLInputElement>(null)
   const [tracoSelecionadoId, setTracoSelecionadoId] = useState<string>("")
 
-  // Seletores de Veículo (Placa), Motorista e Cidade
+  // Seletores de Cliente, Veículo (Placa), Motorista e Cidade (com suporte a digitação livre opcional)
+  const [clienteId, setClienteId] = useState<string>("nenhum")
+  const [clienteNomeLivre, setClienteNomeLivre] = useState<string>("")
   const [veiculoId, setVeiculoId] = useState<string>("nenhum")
+  const [veiculoPlacaLivre, setVeiculoPlacaLivre] = useState<string>("")
   const [motoristaId, setMotoristaId] = useState<string>("nenhum")
+  const [motoristaNomeLivre, setMotoristaNomeLivre] = useState<string>("")
   const [cidadeId, setCidadeId] = useState<string>("nenhum")
+  const [cidadeNomeLivre, setCidadeNomeLivre] = useState<string>("")
 
   // Listas de opções da unidade ativa
+  const [clientesLista, setClientesLista] = useState<Cliente[]>([])
   const [veiculosLista, setVeiculosLista] = useState<Veiculo[]>([])
   const [motoristasLista, setMotoristasLista] = useState<Motorista[]>([])
   const [cidadesLista, setCidadesLista] = useState<Cidade[]>([])
@@ -303,9 +309,10 @@ export default function LancamentoCargas() {
       setCarregandoTracos(true)
       setCarregandoCadastrosAux(true)
       try {
-        const [tr, mats, veics, mots, cids, recs] = await Promise.all([
+        const [tr, mats, clis, veics, mots, cids, recs] = await Promise.all([
           ConcreteiraService.getTracos(empresaAtiva.id),
           ConcreteiraService.getMateriais(empresaAtiva.id),
+          ConcreteiraService.getClientes(empresaAtiva.id),
           ConcreteiraService.getVeiculos(empresaAtiva.id),
           ConcreteiraService.getMotoristas(empresaAtiva.id),
           ConcreteiraService.getCidades(empresaAtiva.id),
@@ -322,6 +329,7 @@ export default function LancamentoCargas() {
 
         setTracos(catalogoCompleto)
         setMateriais(mats)
+        setClientesLista(clis || [])
         setVeiculosLista(veics || [])
         setMotoristasLista(mots || [])
         setCidadesLista(cids || [])
@@ -330,9 +338,14 @@ export default function LancamentoCargas() {
         // No novo layout rápido, o formulário inicia limpo/zerado ou sem forçar traço obrigatório
         if (!editarCargaId) {
           setTracoSelecionadoId("")
+          setClienteId("nenhum")
+          setClienteNomeLivre("")
           setVeiculoId("nenhum")
+          setVeiculoPlacaLivre("")
           setMotoristaId("nenhum")
+          setMotoristaNomeLivre("")
           setCidadeId("nenhum")
+          setCidadeNomeLivre("")
           setCimento(0)
           setBrita12(0)
           setBrita19(0)
@@ -455,7 +468,22 @@ export default function LancamentoCargas() {
         if (c.tanque_aditivo) setTanqueAditivo(c.tanque_aditivo)
         else setTanqueAditivo("tanque_1")
 
-        // Veículo / Motorista / Cidade
+        // Cliente / Veículo / Motorista / Cidade
+        setClienteNomeLivre(c.cliente_nome || "")
+        if (c.cliente_id) {
+          setClienteId(c.cliente_id)
+        } else if (c.cliente_nome) {
+          const matchCli = clientesLista.find(
+            (cli) =>
+              cli.nome.trim().toLowerCase() ===
+              c.cliente_nome?.trim().toLowerCase(),
+          )
+          setClienteId(matchCli ? matchCli.id : "nenhum")
+        } else {
+          setClienteId("nenhum")
+        }
+
+        setVeiculoPlacaLivre(c.veiculo_placa || "")
         if (c.veiculo_id) {
           setVeiculoId(c.veiculo_id)
         } else if (c.veiculo_placa) {
@@ -469,6 +497,7 @@ export default function LancamentoCargas() {
           setVeiculoId("nenhum")
         }
 
+        setMotoristaNomeLivre(c.motorista_nome || "")
         if (c.motorista_id) {
           setMotoristaId(c.motorista_id)
         } else if (c.motorista_nome) {
@@ -482,6 +511,7 @@ export default function LancamentoCargas() {
           setMotoristaId("nenhum")
         }
 
+        setCidadeNomeLivre(c.cidade_nome || "")
         if (c.cidade_id) {
           setCidadeId(c.cidade_id)
         } else if (c.cidade_nome) {
@@ -512,6 +542,7 @@ export default function LancamentoCargas() {
     isBalanceiro,
     navigate,
     tracos,
+    clientesLista,
     veiculosLista,
     motoristasLista,
     cidadesLista,
@@ -765,9 +796,32 @@ export default function LancamentoCargas() {
       ? formatarDescricaoCompletaTraco(traco)
       : null
 
+    const clienteSel = clientesLista.find((c) => c.id === clienteId)
     const veiculoSel = veiculosLista.find((v) => v.id === veiculoId)
     const motoristaSel = motoristasLista.find((m) => m.id === motoristaId)
     const cidadeSel = cidadesLista.find((c) => c.id === cidadeId)
+
+    const finalClienteId = clienteSel ? clienteSel.id : null
+    const finalClienteNome =
+      clienteSel?.nome ||
+      (clienteNomeLivre.trim() ? clienteNomeLivre.trim() : null)
+
+    const finalVeiculoId = veiculoSel ? veiculoSel.id : null
+    const finalVeiculoPlaca =
+      veiculoSel?.placa ||
+      (veiculoPlacaLivre.trim()
+        ? veiculoPlacaLivre.trim().toUpperCase()
+        : null)
+
+    const finalMotoristaId = motoristaSel ? motoristaSel.id : null
+    const finalMotoristaNome =
+      motoristaSel?.nome ||
+      (motoristaNomeLivre.trim() ? motoristaNomeLivre.trim() : null)
+
+    const finalCidadeId = cidadeSel ? cidadeSel.id : null
+    const finalCidadeNome =
+      cidadeSel?.nome ||
+      (cidadeNomeLivre.trim() ? cidadeNomeLivre.trim() : null)
 
     setSalvando(true)
     try {
@@ -776,36 +830,14 @@ export default function LancamentoCargas() {
         volume_m3: volume,
         traco_id: traco?.id || undefined,
         traco_nome: nomeTracoGravado || "Manual",
-        motorista_id: motoristaSel
-          ? motoristaSel.id
-          : motoristaId === "nenhum"
-            ? null
-            : cargaOriginal?.motorista_id || null,
-        motorista_nome: motoristaSel
-          ? motoristaSel.nome
-          : motoristaId === "nenhum"
-            ? null
-            : cargaOriginal?.motorista_nome || null,
-        veiculo_id: veiculoSel
-          ? veiculoSel.id
-          : veiculoId === "nenhum"
-            ? null
-            : cargaOriginal?.veiculo_id || null,
-        veiculo_placa: veiculoSel
-          ? veiculoSel.placa
-          : veiculoId === "nenhum"
-            ? null
-            : cargaOriginal?.veiculo_placa || null,
-        cidade_id: cidadeSel
-          ? cidadeSel.id
-          : cidadeId === "nenhum"
-            ? null
-            : cargaOriginal?.cidade_id || null,
-        cidade_nome: cidadeSel
-          ? cidadeSel.nome
-          : cidadeId === "nenhum"
-            ? null
-            : cargaOriginal?.cidade_nome || null,
+        cliente_id: finalClienteId,
+        cliente_nome: finalClienteNome,
+        motorista_id: finalMotoristaId,
+        motorista_nome: finalMotoristaNome,
+        veiculo_id: finalVeiculoId,
+        veiculo_placa: finalVeiculoPlaca,
+        cidade_id: finalCidadeId,
+        cidade_nome: finalCidadeNome,
         consumo_brita12: consumoReal.brita12,
         consumo_brita19: consumoReal.brita19,
         consumo_areia: consumoReal.areia,
@@ -849,9 +881,32 @@ export default function LancamentoCargas() {
       ? formatarDescricaoCompletaTraco(traco)
       : null
 
+    const clienteSel = clientesLista.find((c) => c.id === clienteId)
     const veiculoSel = veiculosLista.find((v) => v.id === veiculoId)
     const motoristaSel = motoristasLista.find((m) => m.id === motoristaId)
     const cidadeSel = cidadesLista.find((c) => c.id === cidadeId)
+
+    const finalClienteId = clienteSel ? clienteSel.id : null
+    const finalClienteNome =
+      clienteSel?.nome ||
+      (clienteNomeLivre.trim() ? clienteNomeLivre.trim() : undefined)
+
+    const finalVeiculoId = veiculoSel ? veiculoSel.id : null
+    const finalVeiculoPlaca =
+      veiculoSel?.placa ||
+      (veiculoPlacaLivre.trim()
+        ? veiculoPlacaLivre.trim().toUpperCase()
+        : undefined)
+
+    const finalMotoristaId = motoristaSel ? motoristaSel.id : null
+    const finalMotoristaNome =
+      motoristaSel?.nome ||
+      (motoristaNomeLivre.trim() ? motoristaNomeLivre.trim() : undefined)
+
+    const finalCidadeId = cidadeSel ? cidadeSel.id : null
+    const finalCidadeNome =
+      cidadeSel?.nome ||
+      (cidadeNomeLivre.trim() ? cidadeNomeLivre.trim() : undefined)
 
     setSalvando(true)
     try {
@@ -861,12 +916,14 @@ export default function LancamentoCargas() {
         volume_m3: volume,
         traco_id: traco?.id || undefined,
         traco_nome: nomeTracoGravado || "Manual",
-        motorista_id: motoristaSel ? motoristaSel.id : null,
-        motorista_nome: motoristaSel ? motoristaSel.nome : undefined,
-        veiculo_id: veiculoSel ? veiculoSel.id : null,
-        veiculo_placa: veiculoSel ? veiculoSel.placa : undefined,
-        cidade_id: cidadeSel ? cidadeSel.id : null,
-        cidade_nome: cidadeSel ? cidadeSel.nome : undefined,
+        cliente_id: finalClienteId,
+        cliente_nome: finalClienteNome,
+        motorista_id: finalMotoristaId,
+        motorista_nome: finalMotoristaNome,
+        veiculo_id: finalVeiculoId,
+        veiculo_placa: finalVeiculoPlaca,
+        cidade_id: finalCidadeId,
+        cidade_nome: finalCidadeNome,
         consumo_brita12: consumoReal.brita12,
         consumo_brita19: consumoReal.brita19,
         consumo_areia: consumoReal.areia,
@@ -902,9 +959,14 @@ export default function LancamentoCargas() {
       setObservacao("")
       setCargaZerada(false)
       setTracoSelecionadoId("")
+      setClienteId("nenhum")
+      setClienteNomeLivre("")
       setVeiculoId("nenhum")
+      setVeiculoPlacaLivre("")
       setMotoristaId("nenhum")
+      setMotoristaNomeLivre("")
       setCidadeId("nenhum")
+      setCidadeNomeLivre("")
       setCimento(0)
       setBrita12(0)
       setBrita19(0)
@@ -1356,21 +1418,81 @@ export default function LancamentoCargas() {
                 </p>
               </div>
 
-              {/* Seletores de Veículo, Motorista e Cidade da Unidade Selecionada */}
+              {/* Seletores de Cliente, Veículo, Motorista e Cidade com digitação livre opcional */}
               <div className="p-3.5 sm:p-4 rounded-2xl border border-border/70 bg-muted/20 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     <Truck className="w-3.5 h-3.5 text-primary" />
-                    Veículo, Motorista e Cidade (
-                    {empresaAtiva?.nome || "Unidade"})
+                    Destino e Transporte ({empresaAtiva?.nome || "Unidade"})
                   </span>
                   <span className="text-[11px] text-muted-foreground">
-                    Opcional • Selecione os dados da entrega
+                    Opcionais • Selecione da lista ou digite livremente
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {/* Seletor de Placa / Veículo */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Cliente: seletor + digitação livre */}
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="seletor-cliente"
+                      className="text-xs font-semibold flex items-center gap-1.5 text-foreground"
+                    >
+                      <User className="w-3.5 h-3.5 text-primary" />
+                      Cliente
+                    </Label>
+                    <Select
+                      value={clienteId}
+                      onValueChange={(val) => {
+                        setClienteId(val)
+                        if (val !== "nenhum") {
+                          const cliSel = clientesLista.find((c) => c.id === val)
+                          if (cliSel) setClienteNomeLivre(cliSel.nome)
+                        }
+                      }}
+                      disabled={carregandoCadastrosAux}
+                    >
+                      <SelectTrigger
+                        id="seletor-cliente"
+                        className="h-10 text-xs rounded-xl bg-background"
+                      >
+                        <SelectValue placeholder="Selecione o cliente..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem
+                          value="nenhum"
+                          className="text-xs text-muted-foreground"
+                        >
+                          — Sem cliente / Livre —
+                        </SelectItem>
+                        {clientesLista.map((c) => (
+                          <SelectItem
+                            key={c.id}
+                            value={c.id}
+                            className="text-xs"
+                          >
+                            {c.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="text"
+                      placeholder="Ou digite o nome do cliente..."
+                      value={clienteNomeLivre}
+                      onChange={(e) => {
+                        setClienteNomeLivre(e.target.value)
+                        if (clienteId !== "nenhum") {
+                          const cliSel = clientesLista.find((c) => c.id === clienteId)
+                          if (cliSel && cliSel.nome !== e.target.value) {
+                            setClienteId("nenhum")
+                          }
+                        }
+                      }}
+                      className="h-8 text-xs bg-background"
+                    />
+                  </div>
+
+                  {/* Veículo / Placa: seletor + digitação livre */}
                   <div className="space-y-1.5">
                     <Label
                       htmlFor="seletor-veiculo"
@@ -1381,7 +1503,13 @@ export default function LancamentoCargas() {
                     </Label>
                     <Select
                       value={veiculoId}
-                      onValueChange={setVeiculoId}
+                      onValueChange={(val) => {
+                        setVeiculoId(val)
+                        if (val !== "nenhum") {
+                          const vSel = veiculosLista.find((v) => v.id === val)
+                          if (vSel) setVeiculoPlacaLivre(vSel.placa)
+                        }
+                      }}
                       disabled={carregandoCadastrosAux}
                     >
                       <SelectTrigger
@@ -1395,7 +1523,7 @@ export default function LancamentoCargas() {
                           value="nenhum"
                           className="text-xs text-muted-foreground"
                         >
-                          — Sem veículo / Não informado —
+                          — Sem veículo / Livre —
                         </SelectItem>
                         {veiculosLista.map((v) => (
                           <SelectItem
@@ -1408,9 +1536,25 @@ export default function LancamentoCargas() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <Input
+                      type="text"
+                      placeholder="Ou digite a placa..."
+                      value={veiculoPlacaLivre}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase()
+                        setVeiculoPlacaLivre(val)
+                        if (veiculoId !== "nenhum") {
+                          const vSel = veiculosLista.find((v) => v.id === veiculoId)
+                          if (vSel && vSel.placa !== val) {
+                            setVeiculoId("nenhum")
+                          }
+                        }
+                      }}
+                      className="h-8 text-xs font-mono uppercase bg-background"
+                    />
                   </div>
 
-                  {/* Seletor de Motorista */}
+                  {/* Motorista: seletor + digitação livre */}
                   <div className="space-y-1.5">
                     <Label
                       htmlFor="seletor-motorista"
@@ -1421,7 +1565,13 @@ export default function LancamentoCargas() {
                     </Label>
                     <Select
                       value={motoristaId}
-                      onValueChange={setMotoristaId}
+                      onValueChange={(val) => {
+                        setMotoristaId(val)
+                        if (val !== "nenhum") {
+                          const mSel = motoristasLista.find((m) => m.id === val)
+                          if (mSel) setMotoristaNomeLivre(mSel.nome)
+                        }
+                      }}
                       disabled={carregandoCadastrosAux}
                     >
                       <SelectTrigger
@@ -1435,7 +1585,7 @@ export default function LancamentoCargas() {
                           value="nenhum"
                           className="text-xs text-muted-foreground"
                         >
-                          — Sem motorista / Não informado —
+                          — Sem motorista / Livre —
                         </SelectItem>
                         {motoristasLista.map((m) => (
                           <SelectItem
@@ -1448,9 +1598,24 @@ export default function LancamentoCargas() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <Input
+                      type="text"
+                      placeholder="Ou digite o nome..."
+                      value={motoristaNomeLivre}
+                      onChange={(e) => {
+                        setMotoristaNomeLivre(e.target.value)
+                        if (motoristaId !== "nenhum") {
+                          const mSel = motoristasLista.find((m) => m.id === motoristaId)
+                          if (mSel && mSel.nome !== e.target.value) {
+                            setMotoristaId("nenhum")
+                          }
+                        }
+                      }}
+                      className="h-8 text-xs bg-background"
+                    />
                   </div>
 
-                  {/* Seletor de Cidade */}
+                  {/* Cidade: seletor + digitação livre */}
                   <div className="space-y-1.5">
                     <Label
                       htmlFor="seletor-cidade"
@@ -1461,7 +1626,13 @@ export default function LancamentoCargas() {
                     </Label>
                     <Select
                       value={cidadeId}
-                      onValueChange={setCidadeId}
+                      onValueChange={(val) => {
+                        setCidadeId(val)
+                        if (val !== "nenhum") {
+                          const cSel = cidadesLista.find((c) => c.id === val)
+                          if (cSel) setCidadeNomeLivre(cSel.nome)
+                        }
+                      }}
                       disabled={carregandoCadastrosAux}
                     >
                       <SelectTrigger
@@ -1475,7 +1646,7 @@ export default function LancamentoCargas() {
                           value="nenhum"
                           className="text-xs text-muted-foreground"
                         >
-                          — Sem cidade / Não informada —
+                          — Sem cidade / Livre —
                         </SelectItem>
                         {cidadesLista.map((c) => (
                           <SelectItem
@@ -1489,6 +1660,21 @@ export default function LancamentoCargas() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <Input
+                      type="text"
+                      placeholder="Ou digite a cidade..."
+                      value={cidadeNomeLivre}
+                      onChange={(e) => {
+                        setCidadeNomeLivre(e.target.value)
+                        if (cidadeId !== "nenhum") {
+                          const cSel = cidadesLista.find((c) => c.id === cidadeId)
+                          if (cSel && cSel.nome !== e.target.value) {
+                            setCidadeId("nenhum")
+                          }
+                        }
+                      }}
+                      className="h-8 text-xs bg-background"
+                    />
                   </div>
                 </div>
               </div>
@@ -2514,13 +2700,24 @@ export default function LancamentoCargas() {
                     )}
                   </span>
                 </div>
-                <div className="col-span-1 sm:col-span-2 pt-1 border-t border-border/20 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div className="col-span-1 sm:col-span-2 pt-1 border-t border-border/20 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">
+                      Cliente:
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      {clientesLista.find((c) => c.id === clienteId)?.nome ||
+                        clienteNomeLivre.trim() ||
+                        "—"}
+                    </span>
+                  </div>
                   <div>
                     <span className="text-muted-foreground block text-[11px]">
                       Placa (Veículo):
                     </span>
-                    <span className="font-semibold text-foreground">
+                    <span className="font-semibold text-foreground font-mono">
                       {veiculosLista.find((v) => v.id === veiculoId)?.placa ||
+                        veiculoPlacaLivre.trim().toUpperCase() ||
                         "—"}
                     </span>
                   </div>
@@ -2530,7 +2727,9 @@ export default function LancamentoCargas() {
                     </span>
                     <span className="font-semibold text-foreground">
                       {motoristasLista.find((m) => m.id === motoristaId)
-                        ?.nome || "—"}
+                        ?.nome ||
+                        motoristaNomeLivre.trim() ||
+                        "—"}
                     </span>
                   </div>
                   <div>
@@ -2538,7 +2737,9 @@ export default function LancamentoCargas() {
                       Cidade:
                     </span>
                     <span className="font-semibold text-foreground">
-                      {cidadesLista.find((c) => c.id === cidadeId)?.nome || "—"}
+                      {cidadesLista.find((c) => c.id === cidadeId)?.nome ||
+                        cidadeNomeLivre.trim() ||
+                        "—"}
                     </span>
                   </div>
                 </div>
@@ -3246,6 +3447,7 @@ export default function LancamentoCargas() {
                 <tr>
                   <th className="py-3 px-3">Data</th>
                   <th className="py-3 px-3 w-16"># Carga</th>
+                  <th className="py-3 px-3">Cliente</th>
                   <th className="py-3 px-3">Placa</th>
                   <th className="py-3 px-3">Motorista</th>
                   <th className="py-3 px-3">Cidade</th>
@@ -3262,7 +3464,7 @@ export default function LancamentoCargas() {
                 {carregandoCargasLista ? (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={11}
                       className="py-10 text-center text-muted-foreground"
                     >
                       <div className="flex flex-col items-center justify-center gap-2">
@@ -3274,7 +3476,7 @@ export default function LancamentoCargas() {
                 ) : cargasFiltradas.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={11}
                       className="py-10 text-center text-muted-foreground"
                     >
                       <div className="flex flex-col items-center justify-center gap-1.5">
@@ -3318,6 +3520,20 @@ export default function LancamentoCargas() {
                         {/* Número da Carga */}
                         <td className="py-2.5 px-3 font-mono font-bold text-foreground whitespace-nowrap">
                           #{String(carga.numero_carga).padStart(4, "0")}
+                        </td>
+
+                        {/* Cliente */}
+                        <td className="py-2.5 px-3 text-xs whitespace-nowrap max-w-[150px] truncate">
+                          {carga.cliente_nome ? (
+                            <span
+                              className="font-medium text-foreground"
+                              title={carga.cliente_nome}
+                            >
+                              {carga.cliente_nome}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/60">—</span>
+                          )}
                         </td>
 
                         {/* Placa (Veículo) */}

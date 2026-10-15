@@ -88,12 +88,18 @@ export function ModalEditarCarga({
   const [poPedra, setPoPedra] = useState<number>(0)
   const [aditivo, setAditivo] = useState<number>(0)
 
-  // Placa (veículo), Motorista e Cidade
+  // Cliente, Placa (veículo), Motorista e Cidade
+  const [clienteId, setClienteId] = useState<string>("nenhum")
+  const [clienteNomeLivre, setClienteNomeLivre] = useState<string>("")
   const [veiculoId, setVeiculoId] = useState<string>("nenhum")
+  const [veiculoPlacaLivre, setVeiculoPlacaLivre] = useState<string>("")
   const [motoristaId, setMotoristaId] = useState<string>("nenhum")
+  const [motoristaNomeLivre, setMotoristaNomeLivre] = useState<string>("")
   const [cidadeId, setCidadeId] = useState<string>("nenhum")
+  const [cidadeNomeLivre, setCidadeNomeLivre] = useState<string>("")
 
   // Listas de opções carregadas da empresa/unidade
+  const [clientesLista, setClientesLista] = useState<Cliente[]>([])
   const [veiculosLista, setVeiculosLista] = useState<Veiculo[]>([])
   const [motoristasLista, setMotoristasLista] = useState<Motorista[]>([])
   const [cidadesLista, setCidadesLista] = useState<Cidade[]>([])
@@ -127,6 +133,7 @@ export function ModalEditarCarga({
     setCarregandoCadastros(true)
 
     Promise.all([
+      ConcreteiraService.getClientes(idEmpresa),
       ConcreteiraService.getVeiculos(idEmpresa),
       ConcreteiraService.getMotoristas(idEmpresa),
       ConcreteiraService.getCidades(idEmpresa),
@@ -134,8 +141,9 @@ export function ModalEditarCarga({
         ? ConcreteiraService.getRecipientesEstoque(idEmpresa)
         : Promise.resolve([]),
     ])
-      .then(([veics, mots, cids, recs]) => {
+      .then(([clis, veics, mots, cids, recs]) => {
         if (!cancelado) {
+          setClientesLista(clis || [])
           setVeiculosLista(veics || [])
           setMotoristasLista(mots || [])
           setCidadesLista(cids || [])
@@ -176,7 +184,23 @@ export function ModalEditarCarga({
       setTracoId(match ? match.id : "manual")
     }
 
+    // Cliente
+    setClienteNomeLivre(carga.cliente_nome || "")
+    if (carga.cliente_id) {
+      setClienteId(carga.cliente_id)
+    } else if (carga.cliente_nome) {
+      const matchCli = clientesLista.find(
+        (c) =>
+          c.nome.trim().toLowerCase() ===
+          carga.cliente_nome?.trim().toLowerCase(),
+      )
+      setClienteId(matchCli ? matchCli.id : "nenhum")
+    } else {
+      setClienteId("nenhum")
+    }
+
     // Veículo / Placa
+    setVeiculoPlacaLivre(carga.veiculo_placa || "")
     if (carga.veiculo_id) {
       setVeiculoId(carga.veiculo_id)
     } else if (carga.veiculo_placa) {
@@ -191,6 +215,7 @@ export function ModalEditarCarga({
     }
 
     // Motorista
+    setMotoristaNomeLivre(carga.motorista_nome || "")
     if (carga.motorista_id) {
       setMotoristaId(carga.motorista_id)
     } else if (carga.motorista_nome) {
@@ -205,6 +230,7 @@ export function ModalEditarCarga({
     }
 
     // Cidade
+    setCidadeNomeLivre(carga.cidade_nome || "")
     if (carga.cidade_id) {
       setCidadeId(carga.cidade_id)
     } else if (carga.cidade_nome) {
@@ -265,6 +291,7 @@ export function ModalEditarCarga({
     carga,
     open,
     tracosCatalogo,
+    clientesLista,
     veiculosLista,
     motoristasLista,
     cidadesLista,
@@ -373,45 +400,46 @@ export function ModalEditarCarga({
           ? "Manual"
           : carga.traco_nome || "Manual"
 
+      const clienteSel = clientesLista.find((c) => c.id === clienteId)
       const veiculoSel = veiculosLista.find((v) => v.id === veiculoId)
       const motoristaSel = motoristasLista.find((m) => m.id === motoristaId)
       const cidadeSel = cidadesLista.find((c) => c.id === cidadeId)
+
+      const finalClienteId = clienteSel ? clienteSel.id : null
+      const finalClienteNome =
+        clienteSel?.nome ||
+        (clienteNomeLivre.trim() ? clienteNomeLivre.trim() : null)
+
+      const finalVeiculoId = veiculoSel ? veiculoSel.id : null
+      const finalVeiculoPlaca =
+        veiculoSel?.placa ||
+        (veiculoPlacaLivre.trim()
+          ? veiculoPlacaLivre.trim().toUpperCase()
+          : null)
+
+      const finalMotoristaId = motoristaSel ? motoristaSel.id : null
+      const finalMotoristaNome =
+        motoristaSel?.nome ||
+        (motoristaNomeLivre.trim() ? motoristaNomeLivre.trim() : null)
+
+      const finalCidadeId = cidadeSel ? cidadeSel.id : null
+      const finalCidadeNome =
+        cidadeSel?.nome ||
+        (cidadeNomeLivre.trim() ? cidadeNomeLivre.trim() : null)
 
       await ConcreteiraService.atualizarCarga(carga.id, {
         data: dataCarga,
         volume_m3: volumeNum,
         traco_id: tracoSelecionado?.id,
         traco_nome: nomeTracoGravado,
-        motorista_id: motoristaSel
-          ? motoristaSel.id
-          : motoristaId === "nenhum"
-            ? null
-            : carga.motorista_id || null,
-        motorista_nome: motoristaSel
-          ? motoristaSel.nome
-          : motoristaId === "nenhum"
-            ? null
-            : carga.motorista_nome || null,
-        veiculo_id: veiculoSel
-          ? veiculoSel.id
-          : veiculoId === "nenhum"
-            ? null
-            : carga.veiculo_id || null,
-        veiculo_placa: veiculoSel
-          ? veiculoSel.placa
-          : veiculoId === "nenhum"
-            ? null
-            : carga.veiculo_placa || null,
-        cidade_id: cidadeSel
-          ? cidadeSel.id
-          : cidadeId === "nenhum"
-            ? null
-            : carga.cidade_id || null,
-        cidade_nome: cidadeSel
-          ? cidadeSel.nome
-          : cidadeId === "nenhum"
-            ? null
-            : carga.cidade_nome || null,
+        cliente_id: finalClienteId,
+        cliente_nome: finalClienteNome,
+        motorista_id: finalMotoristaId,
+        motorista_nome: finalMotoristaNome,
+        veiculo_id: finalVeiculoId,
+        veiculo_placa: finalVeiculoPlaca,
+        cidade_id: finalCidadeId,
+        cidade_nome: finalCidadeNome,
         consumo_brita12: consumoCalculado.brita12,
         consumo_brita19: consumoCalculado.brita19,
         consumo_areia: consumoCalculado.areia,
@@ -537,152 +565,241 @@ export function ModalEditarCarga({
               </div>
             </div>
 
-            {/* Linha 2: Placa (Veículo), Motorista e Cidade */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-xl border border-border/60 bg-muted/20">
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="edit-veiculo"
-                  className="text-xs font-semibold flex items-center gap-1.5 text-foreground"
-                >
-                  <Truck className="w-3.5 h-3.5 text-primary" />
-                  Placa (Veículo)
-                </Label>
-                <Select
-                  value={veiculoId}
-                  onValueChange={setVeiculoId}
-                  disabled={carregandoCadastros}
-                >
-                  <SelectTrigger
-                    id="edit-veiculo"
-                    className="h-9 text-xs rounded-lg bg-background"
-                  >
-                    <SelectValue placeholder="Selecione o veículo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem
-                      value="nenhum"
-                      className="text-xs text-muted-foreground"
-                    >
-                      — Nenhum / Sem placa —
-                    </SelectItem>
-                    {veiculosLista.map((v) => (
-                      <SelectItem key={v.id} value={v.id} className="text-xs">
-                        {v.placa} {v.modelo ? `(${v.modelo})` : ""}
-                      </SelectItem>
-                    ))}
-                    {/* Se a carga tinha placa sem match no cadastro ativo, exibe opção para manter */}
-                    {carga.veiculo_placa &&
-                      !veiculosLista.some(
-                        (v) =>
-                          v.id === carga.veiculo_id ||
-                          v.placa === carga.veiculo_placa,
-                      ) && (
-                        <SelectItem
-                          value={`legado_${carga.veiculo_placa}`}
-                          className="text-xs italic"
-                        >
-                          {carga.veiculo_placa} (Registro atual)
-                        </SelectItem>
-                      )}
-                  </SelectContent>
-                </Select>
+            {/* Linha 2: Cliente, Placa (Veículo), Motorista e Cidade (Seletor + Digitação Livre) */}
+            <div className="space-y-3 p-3 rounded-xl border border-border/60 bg-muted/20">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Destino e Transporte (Opcionais • Seletor ou Digitação Livre)
               </div>
-
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="edit-motorista"
-                  className="text-xs font-semibold flex items-center gap-1.5 text-foreground"
-                >
-                  <User className="w-3.5 h-3.5 text-primary" />
-                  Motorista
-                </Label>
-                <Select
-                  value={motoristaId}
-                  onValueChange={setMotoristaId}
-                  disabled={carregandoCadastros}
-                >
-                  <SelectTrigger
-                    id="edit-motorista"
-                    className="h-9 text-xs rounded-lg bg-background"
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Cliente */}
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="edit-cliente"
+                    className="text-xs font-semibold flex items-center gap-1.5 text-foreground"
                   >
-                    <SelectValue placeholder="Selecione o motorista" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem
-                      value="nenhum"
-                      className="text-xs text-muted-foreground"
-                    >
-                      — Nenhum motorista —
-                    </SelectItem>
-                    {motoristasLista.map((m) => (
-                      <SelectItem key={m.id} value={m.id} className="text-xs">
-                        {m.nome}
-                      </SelectItem>
-                    ))}
-                    {carga.motorista_nome &&
-                      !motoristasLista.some(
-                        (m) =>
-                          m.id === carga.motorista_id ||
-                          m.nome === carga.motorista_nome,
-                      ) && (
-                        <SelectItem
-                          value={`legado_${carga.motorista_nome}`}
-                          className="text-xs italic"
-                        >
-                          {carga.motorista_nome} (Registro atual)
-                        </SelectItem>
-                      )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label
-                  htmlFor="edit-cidade"
-                  className="text-xs font-semibold flex items-center gap-1.5 text-foreground"
-                >
-                  <MapPin className="w-3.5 h-3.5 text-primary" />
-                  Cidade
-                </Label>
-                <Select
-                  value={cidadeId}
-                  onValueChange={setCidadeId}
-                  disabled={carregandoCadastros}
-                >
-                  <SelectTrigger
-                    id="edit-cidade"
-                    className="h-9 text-xs rounded-lg bg-background"
+                    <User className="w-3.5 h-3.5 text-primary" />
+                    Cliente
+                  </Label>
+                  <Select
+                    value={clienteId}
+                    onValueChange={(val) => {
+                      setClienteId(val)
+                      if (val !== "nenhum") {
+                        const sel = clientesLista.find((c) => c.id === val)
+                        if (sel) setClienteNomeLivre(sel.nome)
+                      }
+                    }}
+                    disabled={carregandoCadastros}
                   >
-                    <SelectValue placeholder="Selecione a cidade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem
-                      value="nenhum"
-                      className="text-xs text-muted-foreground"
+                    <SelectTrigger
+                      id="edit-cliente"
+                      className="h-9 text-xs rounded-lg bg-background"
                     >
-                      — Nenhuma cidade —
-                    </SelectItem>
-                    {cidadesLista.map((c) => (
-                      <SelectItem key={c.id} value={c.id} className="text-xs">
-                        {c.nome}
-                        {c.uf ? ` - ${c.uf}` : ""}
+                      <SelectValue placeholder="Selecione o cliente..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        value="nenhum"
+                        className="text-xs text-muted-foreground"
+                      >
+                        — Sem cliente / Livre —
                       </SelectItem>
-                    ))}
-                    {carga.cidade_nome &&
-                      !cidadesLista.some(
-                        (c) =>
-                          c.id === carga.cidade_id ||
-                          c.nome === carga.cidade_nome,
-                      ) && (
-                        <SelectItem
-                          value={`legado_${carga.cidade_nome}`}
-                          className="text-xs italic"
-                        >
-                          {carga.cidade_nome} (Registro atual)
+                      {clientesLista.map((c) => (
+                        <SelectItem key={c.id} value={c.id} className="text-xs">
+                          {c.nome}
                         </SelectItem>
-                      )}
-                  </SelectContent>
-                </Select>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="text"
+                    placeholder="Ou digite o nome do cliente..."
+                    value={clienteNomeLivre}
+                    onChange={(e) => {
+                      setClienteNomeLivre(e.target.value)
+                      if (clienteId !== "nenhum") {
+                        const sel = clientesLista.find((c) => c.id === clienteId)
+                        if (sel && sel.nome !== e.target.value) {
+                          setClienteId("nenhum")
+                        }
+                      }
+                    }}
+                    className="h-8 text-xs bg-background"
+                  />
+                </div>
+
+                {/* Veículo / Placa */}
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="edit-veiculo"
+                    className="text-xs font-semibold flex items-center gap-1.5 text-foreground"
+                  >
+                    <Truck className="w-3.5 h-3.5 text-primary" />
+                    Placa (Veículo)
+                  </Label>
+                  <Select
+                    value={veiculoId}
+                    onValueChange={(val) => {
+                      setVeiculoId(val)
+                      if (val !== "nenhum") {
+                        const sel = veiculosLista.find((v) => v.id === val)
+                        if (sel) setVeiculoPlacaLivre(sel.placa)
+                      }
+                    }}
+                    disabled={carregandoCadastros}
+                  >
+                    <SelectTrigger
+                      id="edit-veiculo"
+                      className="h-9 text-xs rounded-lg bg-background"
+                    >
+                      <SelectValue placeholder="Selecione o veículo..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        value="nenhum"
+                        className="text-xs text-muted-foreground"
+                      >
+                        — Sem veículo / Livre —
+                      </SelectItem>
+                      {veiculosLista.map((v) => (
+                        <SelectItem key={v.id} value={v.id} className="text-xs">
+                          {v.placa} {v.modelo ? `(${v.modelo})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="text"
+                    placeholder="Ou digite a placa..."
+                    value={veiculoPlacaLivre}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase()
+                      setVeiculoPlacaLivre(val)
+                      if (veiculoId !== "nenhum") {
+                        const sel = veiculosLista.find((v) => v.id === veiculoId)
+                        if (sel && sel.placa !== val) {
+                          setVeiculoId("nenhum")
+                        }
+                      }
+                    }}
+                    className="h-8 text-xs font-mono uppercase bg-background"
+                  />
+                </div>
+
+                {/* Motorista */}
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="edit-motorista"
+                    className="text-xs font-semibold flex items-center gap-1.5 text-foreground"
+                  >
+                    <User className="w-3.5 h-3.5 text-primary" />
+                    Motorista
+                  </Label>
+                  <Select
+                    value={motoristaId}
+                    onValueChange={(val) => {
+                      setMotoristaId(val)
+                      if (val !== "nenhum") {
+                        const sel = motoristasLista.find((m) => m.id === val)
+                        if (sel) setMotoristaNomeLivre(sel.nome)
+                      }
+                    }}
+                    disabled={carregandoCadastros}
+                  >
+                    <SelectTrigger
+                      id="edit-motorista"
+                      className="h-9 text-xs rounded-lg bg-background"
+                    >
+                      <SelectValue placeholder="Selecione o motorista..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        value="nenhum"
+                        className="text-xs text-muted-foreground"
+                      >
+                        — Sem motorista / Livre —
+                      </SelectItem>
+                      {motoristasLista.map((m) => (
+                        <SelectItem key={m.id} value={m.id} className="text-xs">
+                          {m.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="text"
+                    placeholder="Ou digite o nome..."
+                    value={motoristaNomeLivre}
+                    onChange={(e) => {
+                      setMotoristaNomeLivre(e.target.value)
+                      if (motoristaId !== "nenhum") {
+                        const sel = motoristasLista.find((m) => m.id === motoristaId)
+                        if (sel && sel.nome !== e.target.value) {
+                          setMotoristaId("nenhum")
+                        }
+                      }
+                    }}
+                    className="h-8 text-xs bg-background"
+                  />
+                </div>
+
+                {/* Cidade */}
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="edit-cidade"
+                    className="text-xs font-semibold flex items-center gap-1.5 text-foreground"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-primary" />
+                    Cidade
+                  </Label>
+                  <Select
+                    value={cidadeId}
+                    onValueChange={(val) => {
+                      setCidadeId(val)
+                      if (val !== "nenhum") {
+                        const sel = cidadesLista.find((c) => c.id === val)
+                        if (sel) setCidadeNomeLivre(sel.nome)
+                      }
+                    }}
+                    disabled={carregandoCadastros}
+                  >
+                    <SelectTrigger
+                      id="edit-cidade"
+                      className="h-9 text-xs rounded-lg bg-background"
+                    >
+                      <SelectValue placeholder="Selecione a cidade..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        value="nenhum"
+                        className="text-xs text-muted-foreground"
+                      >
+                        — Sem cidade / Livre —
+                      </SelectItem>
+                      {cidadesLista.map((c) => (
+                        <SelectItem key={c.id} value={c.id} className="text-xs">
+                          {c.nome}
+                          {c.uf ? ` - ${c.uf}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="text"
+                    placeholder="Ou digite a cidade..."
+                    value={cidadeNomeLivre}
+                    onChange={(e) => {
+                      setCidadeNomeLivre(e.target.value)
+                      if (cidadeId !== "nenhum") {
+                        const sel = cidadesLista.find((c) => c.id === cidadeId)
+                        if (sel && sel.nome !== e.target.value) {
+                          setCidadeId("nenhum")
+                        }
+                      }
+                    }}
+                    className="h-8 text-xs bg-background"
+                  />
+                </div>
               </div>
             </div>
 

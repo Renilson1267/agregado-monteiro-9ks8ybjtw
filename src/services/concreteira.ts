@@ -603,7 +603,10 @@ export const ConcreteiraService = {
 
   async atualizarMotorista(
     id: string,
-    dados: { nome: string ativo?: boolean },
+    dados: {
+      nome: string
+      ativo?: boolean
+    },
     empresaId?: string,
   ) {
     return this.salvarMotorista(dados.nome, dados.ativo ?? true, id, empresaId)
@@ -658,7 +661,11 @@ export const ConcreteiraService = {
 
   async atualizarVeiculo(
     id: string,
-    dados: { placa: string modelo?: string ativo?: boolean },
+    dados: {
+      placa: string
+      modelo?: string
+      ativo?: boolean
+    },
     empresaId?: string,
   ) {
     return this.salvarVeiculo(
@@ -708,7 +715,10 @@ export const ConcreteiraService = {
 
   async atualizarCidade(
     id: string,
-    dados: { nome: string uf?: string },
+    dados: {
+      nome: string
+      uf?: string
+    },
     empresaId?: string,
   ) {
     return this.salvarCidade(dados.nome, dados.uf || "PB", id, empresaId)
