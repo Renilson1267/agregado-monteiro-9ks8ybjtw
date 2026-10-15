@@ -9,6 +9,16 @@ import type { ItemControleFerias } from "@/types/ferias"
 import type { FuncionarioComExames } from "@/types/exames"
 import type { Material } from "@/types/concreteira"
 
+/**
+ * Normaliza qualquer valor para número finito (0 quando null/undefined/NaN).
+ * Garante que nenhum campo numérico do painel chegue undefined ao componente
+ * (que usa .toLocaleString()/.toFixed() e estoura tela branca se receber null).
+ */
+function num(v: unknown): number {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
 export const ID_EMPRESA_MONTEIRO = "11111111-1111-1111-1111-111111111111"
 export const ID_EMPRESA_SJE = "22222222-2222-2222-2222-222222222222"
 
@@ -273,10 +283,13 @@ export const PainelService = {
     // Mapear filtro para UUID
     let targetEmpresaId: string | undefined = undefined
     if (empresaFiltro && empresaFiltro !== "todas") {
+      const filtroLower = empresaFiltro.toLowerCase()
       const encontrada = listaEmpresas.find(
         (e) =>
-          e.slug?.toLowerCase() === empresaFiltro.toLowerCase() ||
+          e.slug?.toLowerCase() === filtroLower ||
           e.id === empresaFiltro ||
+          e.nome?.toLowerCase().trim() === filtroLower ||
+          e.nome?.toLowerCase().includes(filtroLower) ||
           (empresaFiltro === "monteiro" && e.id === ID_EMPRESA_MONTEIRO) ||
           (empresaFiltro === "sje" && e.id === ID_EMPRESA_SJE),
       )
@@ -1429,15 +1442,31 @@ export const PainelService = {
     }
 
     const resumoCustosInsumos: ResumoCustosInsumos = {
-      itens: itensCustosInsumos,
-      custoTotalGeral: Math.round(custoTotalGeralCalculado * 100) / 100,
-      custoMedioPorM3:
+      itens: (itensCustosInsumos || []).map((it) => ({
+        ...it,
+        quantidadeConsumida: num(it.quantidadeConsumida),
+        custoTotal: num(it.custoTotal),
+        custoUnitarioMedio: num(it.custoUnitarioMedio),
+        percentualDoTotal: num(it.percentualDoTotal),
+        densidade: it.densidade !== undefined ? num(it.densidade) : undefined,
+        quantidadeM3:
+          it.quantidadeM3 !== undefined ? num(it.quantidadeM3) : undefined,
+      })),
+      custoTotalGeral: num(Math.round(custoTotalGeralCalculado * 100) / 100),
+      custoMedioPorM3: num(
         volumeTotalM3 > 0
           ? Math.round((custoTotalGeralCalculado / volumeTotalM3) * 100) / 100
           : 0,
-      volumeTotalM3,
-      totalCargasValidas: qtdCargasValidas,
-      somatorioBritas: somatorioBritasInfo,
+      ),
+      volumeTotalM3: num(volumeTotalM3),
+      totalCargasValidas: num(qtdCargasValidas),
+      somatorioBritas: {
+        quantidadeKg: num(somatorioBritasInfo.quantidadeKg),
+        quantidadeM3: num(somatorioBritasInfo.quantidadeM3),
+        custoTotal: num(somatorioBritasInfo.custoTotal),
+        percentualDoTotal: num(somatorioBritasInfo.percentualDoTotal),
+        custoUnitarioMedioM3: num(somatorioBritasInfo.custoUnitarioMedioM3),
+      },
     }
 
     const totalCriticos =
@@ -1452,26 +1481,29 @@ export const PainelService = {
       competenciasDisponiveis: competenciasFolhaRes,
       visaoEmpresa: empresaFiltro,
       kpis: {
-        totalCargas,
-        cargasZeradas,
-        cargasValidas: qtdCargasValidas,
-        volumeTotalM3,
-        mediaPorCargaM3,
-        faturamentoEstimado,
-        custoTotalInsumos: Math.round(custoTotalGeralCalculado * 100) / 100,
-        custoMedioM3:
+        totalCargas: num(totalCargas),
+        cargasZeradas: num(cargasZeradas),
+        cargasValidas: num(qtdCargasValidas),
+        volumeTotalM3: num(volumeTotalM3),
+        mediaPorCargaM3: num(mediaPorCargaM3),
+        faturamentoEstimado: num(faturamentoEstimado),
+        custoTotalInsumos: num(
+          Math.round(custoTotalGeralCalculado * 100) / 100,
+        ),
+        custoMedioM3: num(
           volumeTotalM3 > 0
             ? Math.round((custoTotalGeralCalculado / volumeTotalM3) * 100) / 100
             : 0,
-        numeroObrasAtendidas: obrasSet.size,
-        numeroCidadesAtendidas: cidadesSet.size,
-        numeroClientesAtendidos: clientesSet.size,
-        folhaDisponivel,
-        totalFolhaLiquido,
-        folhaFuncionarios,
-        folhaTerceiros,
-        folhaQtdPessoas,
-        folhaCompetencia: competencia,
+        ),
+        numeroObrasAtendidas: num(obrasSet.size),
+        numeroCidadesAtendidas: num(cidadesSet.size),
+        numeroClientesAtendidos: num(clientesSet.size),
+        folhaDisponivel: Boolean(folhaDisponivel),
+        totalFolhaLiquido: num(totalFolhaLiquido),
+        folhaFuncionarios: num(folhaFuncionarios),
+        folhaTerceiros: num(folhaTerceiros),
+        folhaQtdPessoas: num(folhaQtdPessoas),
+        folhaCompetencia: competencia || "",
       },
       evolucao12Meses,
       topClientesObras,

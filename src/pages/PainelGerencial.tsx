@@ -392,8 +392,9 @@ export function PainelGerencial() {
             <span>
               Volume:{" "}
               <strong>
-                {dados?.custosInsumos?.volumeTotalM3.toLocaleString("pt-BR") ||
-                  0}{" "}
+                {(dados?.custosInsumos?.volumeTotalM3 ?? 0).toLocaleString(
+                  "pt-BR",
+                )}{" "}
                 m³
               </strong>
             </span>
@@ -531,9 +532,10 @@ export function PainelGerencial() {
                 {dados?.custosInsumos?.totalCargasValidas || 0} viagens
               </td>
               <td className="py-1.5 px-2 text-right font-mono text-slate-700">
-                {dados?.custosInsumos?.volumeTotalM3.toLocaleString("pt-BR", {
-                  maximumFractionDigits: 2,
-                })}{" "}
+                {(dados?.custosInsumos?.volumeTotalM3 ?? 0).toLocaleString(
+                  "pt-BR",
+                  { maximumFractionDigits: 2 },
+                )}{" "}
                 m³ concreto
               </td>
               <td className="py-1.5 px-2 text-right font-mono text-slate-700">
