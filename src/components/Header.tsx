@@ -12,6 +12,7 @@ import {
   Moon,
   Menu,
   KeyRound,
+  Users,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
