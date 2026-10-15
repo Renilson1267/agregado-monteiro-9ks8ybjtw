@@ -1485,7 +1485,7 @@ export const ConcreteiraService = {
     motivo?: string
   }): Promise<{ canceladas: number; estornadas: number }> {
     const { cargasIds, retornarEstoque, motivo } = payload
-    if (!cargasIds || cargasIds.length === 0) {
+    if (!cargasIds || !cargasIds.length) {
       return { canceladas: 0, estornadas: 0 }
     }
 

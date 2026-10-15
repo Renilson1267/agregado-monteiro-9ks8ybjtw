@@ -270,4 +270,5 @@ export const ImpressaoCargasLancadas: React.FC<ImpressaoCargasLancadasProps> =
       </div>
     )
   }
+
 export default ImpressaoCargasLancadas
