@@ -24,6 +24,7 @@ import type {
   Traco,
   Material,
   Carga,
+  Cliente,
   Veiculo,
   Motorista,
   Cidade,
@@ -809,9 +810,7 @@ export default function LancamentoCargas() {
     const finalVeiculoId = veiculoSel ? veiculoSel.id : null
     const finalVeiculoPlaca =
       veiculoSel?.placa ||
-      (veiculoPlacaLivre.trim()
-        ? veiculoPlacaLivre.trim().toUpperCase()
-        : null)
+      (veiculoPlacaLivre.trim() ? veiculoPlacaLivre.trim().toUpperCase() : null)
 
     const finalMotoristaId = motoristaSel ? motoristaSel.id : null
     const finalMotoristaNome =
@@ -1482,7 +1481,9 @@ export default function LancamentoCargas() {
                       onChange={(e) => {
                         setClienteNomeLivre(e.target.value)
                         if (clienteId !== "nenhum") {
-                          const cliSel = clientesLista.find((c) => c.id === clienteId)
+                          const cliSel = clientesLista.find(
+                            (c) => c.id === clienteId,
+                          )
                           if (cliSel && cliSel.nome !== e.target.value) {
                             setClienteId("nenhum")
                           }
@@ -1544,7 +1545,9 @@ export default function LancamentoCargas() {
                         const val = e.target.value.toUpperCase()
                         setVeiculoPlacaLivre(val)
                         if (veiculoId !== "nenhum") {
-                          const vSel = veiculosLista.find((v) => v.id === veiculoId)
+                          const vSel = veiculosLista.find(
+                            (v) => v.id === veiculoId,
+                          )
                           if (vSel && vSel.placa !== val) {
                             setVeiculoId("nenhum")
                           }
@@ -1605,7 +1608,9 @@ export default function LancamentoCargas() {
                       onChange={(e) => {
                         setMotoristaNomeLivre(e.target.value)
                         if (motoristaId !== "nenhum") {
-                          const mSel = motoristasLista.find((m) => m.id === motoristaId)
+                          const mSel = motoristasLista.find(
+                            (m) => m.id === motoristaId,
+                          )
                           if (mSel && mSel.nome !== e.target.value) {
                             setMotoristaId("nenhum")
                           }
@@ -1667,7 +1672,9 @@ export default function LancamentoCargas() {
                       onChange={(e) => {
                         setCidadeNomeLivre(e.target.value)
                         if (cidadeId !== "nenhum") {
-                          const cSel = cidadesLista.find((c) => c.id === cidadeId)
+                          const cSel = cidadesLista.find(
+                            (c) => c.id === cidadeId,
+                          )
                           if (cSel && cSel.nome !== e.target.value) {
                             setCidadeId("nenhum")
                           }

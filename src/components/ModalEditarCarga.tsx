@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import {
   Carga,
+  Cliente,
   Traco,
   Veiculo,
   Motorista,
@@ -618,7 +619,9 @@ export function ModalEditarCarga({
                     onChange={(e) => {
                       setClienteNomeLivre(e.target.value)
                       if (clienteId !== "nenhum") {
-                        const sel = clientesLista.find((c) => c.id === clienteId)
+                        const sel = clientesLista.find(
+                          (c) => c.id === clienteId,
+                        )
                         if (sel && sel.nome !== e.target.value) {
                           setClienteId("nenhum")
                         }
@@ -676,7 +679,9 @@ export function ModalEditarCarga({
                       const val = e.target.value.toUpperCase()
                       setVeiculoPlacaLivre(val)
                       if (veiculoId !== "nenhum") {
-                        const sel = veiculosLista.find((v) => v.id === veiculoId)
+                        const sel = veiculosLista.find(
+                          (v) => v.id === veiculoId,
+                        )
                         if (sel && sel.placa !== val) {
                           setVeiculoId("nenhum")
                         }
@@ -733,7 +738,9 @@ export function ModalEditarCarga({
                     onChange={(e) => {
                       setMotoristaNomeLivre(e.target.value)
                       if (motoristaId !== "nenhum") {
-                        const sel = motoristasLista.find((m) => m.id === motoristaId)
+                        const sel = motoristasLista.find(
+                          (m) => m.id === motoristaId,
+                        )
                         if (sel && sel.nome !== e.target.value) {
                           setMotoristaId("nenhum")
                         }

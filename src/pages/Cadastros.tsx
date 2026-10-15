@@ -42,7 +42,7 @@ import {
   Boxes,
   Scale,
   DollarSign,
-  Edit2,
+  Pencil,
   Calculator,
   FileCode,
   Upload,
@@ -1412,9 +1412,9 @@ export default function Cadastros() {
                                 size="sm"
                                 className="h-7 w-7 p-0"
                                 onClick={() => handleEditarCliente(cli)}
-                                title="Editar Cliente"
+                                title={`Editar Cliente ${cli.nome}`}
                               >
-                                <Edit2 className="w-3.5 h-3.5 text-foreground" />
+                                <Pencil className="w-3.5 h-3.5 text-foreground" />
                               </Button>
                               {isAdministrador && (
                                 <Button
@@ -1714,7 +1714,7 @@ export default function Cadastros() {
                             setOpenMaterial(true)
                           }}
                         >
-                          <Edit2 className="w-3 h-3" />
+                          <Pencil className="w-3 h-3" />
                           Editar Compra
                         </Button>
                       </div>
@@ -1774,9 +1774,9 @@ export default function Cadastros() {
                         size="sm"
                         className="h-7 w-7 p-0 hover:bg-muted"
                         onClick={() => handleEditarMotorista(m)}
-                        title="Editar Motorista"
+                        title={`Editar Motorista ${m.nome}`}
                       >
-                        <Edit2 className="w-3.5 h-3.5 text-foreground" />
+                        <Pencil className="w-3.5 h-3.5 text-foreground" />
                       </Button>
                       {isAdministrador && (
                         <Button
@@ -1853,9 +1853,9 @@ export default function Cadastros() {
                         size="sm"
                         className="h-7 w-7 p-0 hover:bg-muted"
                         onClick={() => handleEditarVeiculo(v)}
-                        title="Editar Veículo"
+                        title={`Editar Veículo ${v.placa}`}
                       >
-                        <Edit2 className="w-3.5 h-3.5 text-foreground" />
+                        <Pencil className="w-3.5 h-3.5 text-foreground" />
                       </Button>
                       {isAdministrador && (
                         <Button
@@ -1930,9 +1930,9 @@ export default function Cadastros() {
                         size="sm"
                         className="h-7 w-7 p-0 hover:bg-muted"
                         onClick={() => handleEditarCidade(c)}
-                        title="Editar Cidade"
+                        title={`Editar Cidade ${c.nome}`}
                       >
-                        <Edit2 className="w-3.5 h-3.5 text-foreground" />
+                        <Pencil className="w-3.5 h-3.5 text-foreground" />
                       </Button>
                       {isAdministrador && (
                         <Button
