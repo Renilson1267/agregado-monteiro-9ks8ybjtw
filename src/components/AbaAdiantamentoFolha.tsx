@@ -311,9 +311,9 @@ export const AbaAdiantamentoFolha: React.FC<AbaAdiantamentoFolhaProps> = ({
   // Ações de pagamento
   const abrirModalMarcarPago = (item: ItemAdiantamentoColaborador) => {
     setItemSelecionado(item)
-    // Data padrão: hoje em YYYY-MM-DD
+    // Data padrão: SEMPRE hoje em YYYY-MM-DD (independente de pagamento anterior)
     const hojeIso = new Date().toISOString().split("T")[0]
-    setDataPagamentoInput(item.data_pagamento || hojeIso)
+    setDataPagamentoInput(hojeIso)
     setObservacaoInput(item.observacao || "")
     setModalPagoAberto(true)
   }
@@ -476,6 +476,7 @@ export const AbaAdiantamentoFolha: React.FC<AbaAdiantamentoFolhaProps> = ({
                 size="sm"
                 className="gap-1.5 text-xs h-8"
                 onClick={() => imprimirAbaA4("adiantamento")}
+                title="Imprimir a folha de Quinzena em A4 (inclui o controle de adiantamento)"
               >
                 <Printer className="h-4 w-4" />
                 Imprimir Adiantamento A4

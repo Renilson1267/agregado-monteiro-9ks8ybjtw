@@ -47,7 +47,7 @@ const App = () => (
                 <Route path="/login" element={<Login />} />
 
                 {/* Rotas Protegidas Globais (Requer estar logado) */}
-                <Route element={<ProtectedRoute />}>
+                <Route element={<ProtectedRoute permitirGestor={true} />}>
                   <Route element={<Layout />}>
                     {/* Rota Raiz: redireciona conforme o perfil (Balanceiro -> /lancamentos, Admin -> /painel) */}
                     <Route path="/" element={<RotaRaizRedirect />} />

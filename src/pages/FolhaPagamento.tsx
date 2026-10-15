@@ -54,10 +54,9 @@ import { LOGO_GC_MIX_HORIZONTAL } from "@/assets/logos"
 import { AbaTabelasOficiais } from "@/components/AbaTabelasOficiais"
 import { AbaBackupFolha } from "@/components/AbaBackupFolha"
 import { AbaDecimoTerceiro } from "@/components/AbaDecimoTerceiro"
-import { AbaAdiantamentoFolha } from "@/components/AbaAdiantamentoFolha"
+import { AbaAdiantamentoFolha } from "@/components/AbaAdiantamentoFolha" // agora renderizado DENTRO da aba QUINZENA (sem aba própria)
 import { Gift } from "lucide-react"
 import { Database } from "lucide-react"
-import { CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -314,7 +313,7 @@ export function FolhaPagamento() {
 
   // Holerite / Impressão
   const [tipoImpressaoA4, setTipoImpressaoA4] =
-    useState<"geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | "decimo" | "adiantamento" | null>(
+    useState<"geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | "decimo" | null>(
       null,
     )
   const [funcionariosCadastradosEmpresa, setFuncionariosCadastradosEmpresa] =
@@ -1998,7 +1997,7 @@ export function FolhaPagamento() {
 
   // Disparar impressão de aba em A4
   const imprimirAbaA4 = (
-    tipo: "geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | "decimo" | "adiantamento",
+    tipo: "geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | "decimo",
   ) => {
     setTipoImpressaoA4(tipo)
     setTimeout(() => {
@@ -2540,13 +2539,6 @@ export function FolhaPagamento() {
             <TabsTrigger value="quinzena" className="gap-2 font-semibold">
               <Calendar className="h-4 w-4" />
               QUINZENA
-            </TabsTrigger>
-            <TabsTrigger
-              value="adiantamento"
-              className="gap-2 font-semibold text-blue-700 dark:text-blue-400"
-            >
-              <CreditCard className="h-4 w-4" />
-              ADIANTAMENTO
             </TabsTrigger>
             <TabsTrigger value="mensal" className="gap-2 font-semibold">
               <DollarSign className="h-4 w-4" />
@@ -4074,23 +4066,8 @@ export function FolhaPagamento() {
         </TabsContent>
 
         {/* =========================================================================
-            NOVA ABA: ADIANTAMENTO (CONTROLE DE QUINZENA: PENDENTE/PAGO, EXTRA, DATA)
-        ========================================================================== */}
-        <TabsContent value="adiantamento" className="space-y-4">
-          <AbaAdiantamentoFolha
-            empresaId={empresaAtiva?.id || ""}
-            competencia={competencia}
-            rotuloCompetencia={rotuloCompetenciaMesAno}
-            percentualQuinzena={percentualQuinzena}
-            linhasGeralProcessadas={linhasGeralProcessadas}
-            terceirosProcessados={terceirosProcessados}
-            isMonteiro={isMonteiro}
-            imprimirAbaA4={() => imprimirAbaA4("quinzena")}
-          />
-        </TabsContent>
-
-        {/* =========================================================================
             ABA 3: MENSAL (LÍQUIDO MENSAL + ASSINATURAS + IMPRESSÃO A4)
+            (O CONTROLE DE ADIANTAMENTO FOI MOVIDO PARA DENTRO DA ABA QUINZENA)
         ========================================================================== */}
         <TabsContent value="mensal" className="space-y-4">
           <Card>
