@@ -181,7 +181,7 @@ export default function Relatorios() {
     () => {
       if (empresaAtiva?.slug) return empresaAtiva.slug.toLowerCase()
       if (empresaAtiva?.id) return empresaAtiva.id
-      return "todas"
+      return "monteiro"
     },
   )
   const [dadosGerencial, setDadosGerencial] =
@@ -903,15 +903,15 @@ export default function Relatorios() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todas">
-                      Consolidado (Todas as Unidades)
-                    </SelectItem>
                     <SelectItem value="monteiro">Unidade Monteiro</SelectItem>
                     <SelectItem value="sje">
                       Unidade São José do Egito
                     </SelectItem>
                     <SelectItem value="caico">Unidade Caicó</SelectItem>
                     <SelectItem value="patos">Unidade Patos</SelectItem>
+                    <SelectItem value="todas">
+                      Consolidado (Todas as Unidades)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
 

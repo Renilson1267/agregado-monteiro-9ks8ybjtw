@@ -1227,11 +1227,17 @@ export default function LancamentoCargas() {
                                 r.tipo === "silo" ||
                                 r.material_codigo === "cimento",
                             )
-                            .map((r) => (
-                              <SelectItem key={r.id} value={r.identificador}>
-                                {r.nome}
-                              </SelectItem>
-                            ))}
+                            .map((r) => {
+                              const unidadeFmt =
+                                r.unidade === "litros" || r.unidade === "l"
+                                  ? "L"
+                                  : r.unidade || "kg"
+                              return (
+                                <SelectItem key={r.id} value={r.identificador}>
+                                  {`${r.nome} — ${Number(r.saldo_atual || 0).toLocaleString("pt-BR")} ${unidadeFmt}`}
+                                </SelectItem>
+                              )
+                            })}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1265,11 +1271,17 @@ export default function LancamentoCargas() {
                                 r.tipo === "tanque" ||
                                 r.material_codigo === "aditivo",
                             )
-                            .map((r) => (
-                              <SelectItem key={r.id} value={r.identificador}>
-                                {r.nome}
-                              </SelectItem>
-                            ))}
+                            .map((r) => {
+                              const unidadeFmt =
+                                r.unidade === "litros" || r.unidade === "l"
+                                  ? "L"
+                                  : r.unidade || "kg"
+                              return (
+                                <SelectItem key={r.id} value={r.identificador}>
+                                  {`${r.nome} — ${Number(r.saldo_atual || 0).toLocaleString("pt-BR")} ${unidadeFmt}`}
+                                </SelectItem>
+                              )
+                            })}
                         </SelectContent>
                       </Select>
                     </div>
@@ -2894,11 +2906,20 @@ export default function LancamentoCargas() {
                                   r.tipo === "silo" ||
                                   r.material_codigo === "cimento",
                               )
-                              .map((r) => (
-                                <SelectItem key={r.id} value={r.identificador}>
-                                  {r.nome}
-                                </SelectItem>
-                              ))}
+                              .map((r) => {
+                                const unidadeFmt =
+                                  r.unidade === "litros" || r.unidade === "l"
+                                    ? "L"
+                                    : r.unidade || "kg"
+                                return (
+                                  <SelectItem
+                                    key={r.id}
+                                    value={r.identificador}
+                                  >
+                                    {`${r.nome} — ${Number(r.saldo_atual || 0).toLocaleString("pt-BR")} ${unidadeFmt}`}
+                                  </SelectItem>
+                                )
+                              })}
                           </SelectContent>
                         </Select>
                       </div>
@@ -2925,11 +2946,20 @@ export default function LancamentoCargas() {
                                   r.tipo === "tanque" ||
                                   r.material_codigo === "aditivo",
                               )
-                              .map((r) => (
-                                <SelectItem key={r.id} value={r.identificador}>
-                                  {r.nome}
-                                </SelectItem>
-                              ))}
+                              .map((r) => {
+                                const unidadeFmt =
+                                  r.unidade === "litros" || r.unidade === "l"
+                                    ? "L"
+                                    : r.unidade || "kg"
+                                return (
+                                  <SelectItem
+                                    key={r.id}
+                                    value={r.identificador}
+                                  >
+                                    {`${r.nome} — ${Number(r.saldo_atual || 0).toLocaleString("pt-BR")} ${unidadeFmt}`}
+                                  </SelectItem>
+                                )
+                              })}
                           </SelectContent>
                         </Select>
                       </div>
