@@ -715,17 +715,23 @@ export function FolhaPagamento() {
     const producaoCompletaCalc = calcularProducaoTotal(l) + gratificacaoTotal
     const producaoGeralMais = isValdercleiton ? 0 : producaoCompletaCalc
 
-    // A PAGAR da tabela de produção: producaoTotal + gratificacaoTotal - adiantamentoTotal
+    // Destino do adiantamento: 'quinzena' | 'producao' | 'mensal' (padrão: 'producao')
+    const destinoAdiantamento = (l.adiantamento_destino ||
+      "producao") as "quinzena" | "producao" | "mensal"
+
+    // A PAGAR da tabela de produção:
+    // Se destino === 'producao' (padrão): desconta adiantamentoTotal da produção.
+    // Se destino === 'quinzena' ou 'mensal': PRODUÇÃO sem desconto (aPagarProducao = producaoGeralMais).
     const aPagarProducao = isValdercleiton
       ? 0
-      : Math.round((producaoGeralMais - adiantamentoTotal) * 100) / 100
+      : destinoAdiantamento === "producao"
+        ? Math.round((producaoGeralMais - adiantamentoTotal) * 100) / 100
+        : Math.round(producaoGeralMais * 100) / 100
 
     // Cálculo do MENSAL LÍQUIDO:
     // REGRA OFICIAL GC MIX (para TODOS os funcionários):
-    // MENSAL (LÍQUIDO) = Salário Bruto − INSS − IRRF − Quinzena − Quinzena 2 (se houver)
-    // Sem adicionais (Gratificação, Limpeza, Sábado, Feriado, Férias, Ajuda, Comissão, Vendas/Ajuda).
-    // Adiantamento desconta exclusivamente no Líquido Total.
-    // Aplica a fórmula pura SEMPRE e PARA TODOS (inclusive linhas em modo Digitado).
+    // Mensal puro = Salário Bruto − INSS − IRRF − Quinzena − Quinzena 2 (se houver)
+    // Se destino === 'mensal': mensalFinal desconta também o adiantamentoTotal uma única vez.
     const quinzena2Final = Number(l.quinzena_2 || 0)
     const mensalCalculadoSemProd = calcularMensalSemProducao(
       bruto,
@@ -738,15 +744,28 @@ export function FolhaPagamento() {
       },
     )
 
-    // Exibição do mensal deve usar SEMPRE a fórmula pura recalculada para todos
-    const mensalFinal = mensalCalculadoSemProd
-    const mensalCalc = mensalCalculadoSemProd
+    const mensalPuro = mensalCalculadoSemProd
+    const mensalFinal =
+      destinoAdiantamento === "mensal"
+        ? Math.round((mensalPuro - adiantamentoTotal) * 100) / 100
+        : mensalPuro
+    const mensalCalc = mensalFinal
 
-    // Líquido completo para a aba GERAL:
-    // LÍQUIDO GERAL = mensalFinal (puro) + PRODUÇÃO(+) − adiantamento
+    // Líquido completo para a aba GERAL (desconto ÚNICO conforme destino):
+    // - 'quinzena': quinzena já quitou (quinzenaFinal - adiantamentoTotal); producaoGeralMais sem desconto;
+    //   liquidoGeral = mensalPuro + producaoGeralMais (sem desconto extra na GERAL).
+    // - 'producao' (padrão): aPagarProducao = producaoGeralMais - adiantamentoTotal;
+    //   liquidoGeral = mensalPuro + (producaoGeralMais - adiantamentoTotal).
+    // - 'mensal': mensalFinal = mensalPuro - adiantamentoTotal; producaoGeralMais sem desconto;
+    //   liquidoGeral = mensalFinal + producaoGeralMais.
     const liquidoGeral =
-      Math.round((mensalFinal + producaoGeralMais - adiantamentoTotal) * 100) /
-      100
+      destinoAdiantamento === "quinzena"
+        ? Math.round((mensalPuro + producaoGeralMais) * 100) / 100
+        : destinoAdiantamento === "mensal"
+          ? Math.round((mensalFinal + producaoGeralMais) * 100) / 100
+          : Math.round(
+              (mensalPuro + (producaoGeralMais - adiantamentoTotal)) * 100,
+            ) / 100
     const liquidoComposto = liquidoGeral
 
     const isInssSobrescrito =
@@ -1342,6 +1361,15 @@ export function FolhaPagamento() {
         acc.familia += l.familiaFinal
         acc.irrf += l.irrfFinal
         acc.quinzena += l.quinzenaFinal
+        const adiantamentoValor = Number(
+          l.adiantamentoTotal || l.adiantamento || 0,
+        )
+        const destino = l.adiantamento_destino || "producao"
+        const aReceber =
+          destino === "quinzena"
+            ? Math.round((l.quinzenaFinal - adiantamentoValor) * 100) / 100
+            : l.quinzenaFinal
+        acc.aReceberQuinzena += aReceber
         acc.producao += l.producaoTotal
         acc.limpeza += l.limpezaTotal
         acc.sabado += l.sabadoTotal
@@ -1364,6 +1392,7 @@ export function FolhaPagamento() {
         familia: 0,
         irrf: 0,
         quinzena: 0,
+        aReceberQuinzena: 0,
         producao: 0,
         limpeza: 0,
         sabado: 0,
@@ -1384,13 +1413,29 @@ export function FolhaPagamento() {
   // TOTAIS TERCEIROS
   const totaisTerceiros = useMemo(() => {
     return terceirosProcessados.reduce(
-      (acc, t) => {
+      (acc, t: any) => {
         acc.valorMes += t.valorMes
         acc.quinzena += t.quinzena
         acc.mensal += t.mensal
+        const adiantamentoValor = Number(
+          t.adiantamentoTotal || t.adiantamento || 0,
+        )
+        const destino = t.adiantamento_destino || "producao"
+        const aReceber =
+          destino === "quinzena"
+            ? Math.round((t.quinzena - adiantamentoValor) * 100) / 100
+            : t.quinzena
+        acc.adiantamento += adiantamentoValor
+        acc.aReceberQuinzena += aReceber
         return acc
       },
-      { valorMes: 0, quinzena: 0, mensal: 0 },
+      {
+        valorMes: 0,
+        quinzena: 0,
+        mensal: 0,
+        adiantamento: 0,
+        aReceberQuinzena: 0,
+      },
     )
   }, [terceirosProcessados])
 
@@ -2489,6 +2534,105 @@ export function FolhaPagamento() {
     }
   }
 
+  const alterarDestinoAdiantamento = async (
+    linhaId: string,
+    novoDestino: "quinzena" | "producao" | "mensal",
+  ) => {
+    if (!empresaAtiva?.id) return
+
+    const linhaAtual = linhas.find((l) => l.id === linhaId)
+    if (!linhaAtual) return
+
+    const destinoAntigo = linhaAtual.adiantamento_destino || "producao"
+    if (destinoAntigo === novoDestino) return
+
+    // Atualização otimista imediata
+    setLinhas((prev) => {
+      const index = prev.findIndex((l) => l.id === linhaId)
+      const novaLinha: FolhaPagamentoLinha = {
+        ...linhaAtual,
+        adiantamento_destino: novoDestino,
+        updated_at: new Date().toISOString(),
+      }
+      if (index >= 0) {
+        const copia = [...prev]
+        copia[index] = novaLinha
+        return copia
+      }
+      return [...prev, novaLinha]
+    })
+
+    try {
+      const existeNoBanco = linhas.some((l) => l.id === linhaId)
+      if (existeNoBanco) {
+        const linhaGravada = await FolhaService.atualizarCamposProducaoLinha(
+          linhaId,
+          empresaAtiva.id,
+          competencia,
+          { adiantamento_destino: novoDestino },
+        )
+        setLinhas((prev) =>
+          prev.map((l) => (l.id === linhaId ? { ...l, ...linhaGravada } : l)),
+        )
+      } else {
+        const novaLinhaCompleta = {
+          ...linhaAtual,
+          adiantamento_destino: novoDestino,
+        }
+        const linhaGravada = await FolhaService.salvarLinha(
+          novaLinhaCompleta as any,
+        )
+        setLinhas((prev) => {
+          const filtered = prev.filter((l) => l.id !== linhaId)
+          return [...filtered, linhaGravada]
+        })
+      }
+
+      // Espelho / sincronização em folha_adiantamentos
+      try {
+        await FolhaService.salvarAdiantamento({
+          empresa_id: empresaAtiva.id,
+          competencia,
+          colaborador_id: linhaAtual.funcionario_id || linhaAtual.id,
+          tipo: linhaAtual.tipo || "Funcionario",
+          nome: linhaAtual.nome,
+          valor_extra: Number(linhaAtual.adiantamento || 0),
+          pago: false,
+        })
+      } catch (errSync) {
+        console.warn("Aviso ao espelhar em folha_adiantamentos:", errSync)
+      }
+
+      const rotuloDestino =
+        novoDestino === "quinzena"
+          ? "QUINZENA"
+          : novoDestino === "mensal"
+            ? "MENSAL"
+            : "PRODUÇÃO"
+
+      toast({
+        title: "Destino atualizado",
+        description: `Destino do adiantamento de ${linhaAtual.nome} alterado para ${rotuloDestino}.`,
+      })
+    } catch (err: any) {
+      setLinhas((prev) =>
+        prev.map((l) => {
+          if (l.id !== linhaId) return l
+          return {
+            ...l,
+            adiantamento_destino: destinoAntigo,
+            updated_at: new Date().toISOString(),
+          }
+        }),
+      )
+      toast({
+        title: "Erro ao alterar destino",
+        description: err.message || "Falha ao gravar destino do adiantamento.",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Formatação moeda BRL
   const fmtMoeda = (val: number | undefined | null) => {
     if (val === null || val === undefined) return "-"
@@ -3335,7 +3479,15 @@ export function FolhaPagamento() {
                                       {l.adiantamentoTotal > 0 && (
                                         <span className="text-red-600 dark:text-red-400 font-semibold">
                                           − {fmtMoeda(l.adiantamentoTotal)}{" "}
-                                          (Adiantamento)
+                                          (Adiantamento) [Destino:{" "}
+                                          {(l.adiantamento_destino ||
+                                            "producao") === "quinzena"
+                                            ? "QUINZENA"
+                                            : (l.adiantamento_destino ||
+                                                  "producao") === "mensal"
+                                              ? "MENSAL"
+                                              : "PRODUÇÃO"}
+                                          ]
                                         </span>
                                       )}
                                       <span className="font-bold text-primary ml-1 text-xs">
@@ -4054,85 +4206,150 @@ export function FolhaPagamento() {
                       <th className="py-2.5 px-2 text-right font-mono">
                         ADIANTAMENTO
                       </th>
+                      <th className="py-2.5 px-2 text-right font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/20">
+                        A RECEBER
+                      </th>
                       <th className="py-2.5 px-3">AGÊNCIA / C/C</th>
                       <th className="py-2.5 px-3">PIX</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {linhasGeralProcessadas.map((l, index) => (
-                      <tr key={l.id} className="hover:bg-muted/30">
-                        <td className="py-2 px-2 text-center font-mono text-muted-foreground">
-                          {index + 1}
-                        </td>
-                        <td className="py-2 px-3 font-semibold text-foreground sticky left-0 bg-background z-10 border-r">
-                          {l.nome}
-                        </td>
-                        <td className="py-2 px-2 text-muted-foreground">
-                          {l.funcao}
-                        </td>
-                        <td className="py-2 px-2 text-right font-mono font-bold text-blue-600 bg-blue-50/30 dark:bg-blue-950/10">
-                          {fmtMoeda(l.quinzenaFinal)}
-                        </td>
-                        <td
-                          className="py-1 px-1 text-right font-mono cursor-pointer hover:bg-muted/60 transition-colors"
-                          onClick={() => {
-                            if (celulaAtivaQuinzena !== l.id) {
-                              iniciarEdicaoCelulaQuinzena(
-                                l.id,
-                                l.adiantamentoTotal || l.adiantamento,
-                              )
-                            }
-                          }}
-                          title="Clique para digitar o adiantamento"
-                        >
-                          {celulaAtivaQuinzena === l.id ? (
-                            <Input
-                              autoFocus
-                              className="h-7 w-24 text-right font-mono text-xs px-1.5 py-0 bg-background border-primary focus-visible:ring-1 inline-block"
-                              value={valorTempQuinzena}
-                              onChange={(e) =>
-                                setValorTempQuinzena(e.target.value)
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault()
-                                  salvarEdicaoCelulaQuinzena(l.id)
-                                } else if (e.key === "Escape") {
-                                  e.preventDefault()
-                                  cancelarEdicaoCelulaQuinzena()
-                                }
-                              }}
-                              onBlur={() => salvarEdicaoCelulaQuinzena(l.id)}
-                              placeholder="0,00"
-                            />
-                          ) : (
-                            <div className="flex items-center justify-end gap-1 px-1 py-1 rounded">
-                              {salvandoCelulaQuinzena ===
-                              `${l.id}-adiantamento` ? (
-                                <RefreshCw className="h-3 w-3 animate-spin text-primary" />
-                              ) : null}
-                              <span
-                                className={
-                                  l.adiantamentoTotal > 0
-                                    ? "font-semibold text-foreground"
-                                    : "text-muted-foreground"
-                                }
+                    {linhasGeralProcessadas.map((l, index) => {
+                      const destino = (l.adiantamento_destino ||
+                        "producao") as "quinzena" | "producao" | "mensal"
+                      const adiantamentoValor = Number(
+                        l.adiantamentoTotal || l.adiantamento || 0,
+                      )
+                      const aReceber =
+                        destino === "quinzena"
+                          ? Math.round(
+                              (l.quinzenaFinal - adiantamentoValor) * 100,
+                            ) / 100
+                          : l.quinzenaFinal
+
+                      return (
+                        <tr key={l.id} className="hover:bg-muted/30">
+                          <td className="py-2 px-2 text-center font-mono text-muted-foreground">
+                            {index + 1}
+                          </td>
+                          <td className="py-2 px-3 font-semibold text-foreground sticky left-0 bg-background z-10 border-r">
+                            {l.nome}
+                          </td>
+                          <td className="py-2 px-2 text-muted-foreground">
+                            {l.funcao}
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono font-bold text-blue-600 bg-blue-50/30 dark:bg-blue-950/10">
+                            {fmtMoeda(l.quinzenaFinal)}
+                          </td>
+                          <td
+                            className="py-1 px-1 text-right font-mono transition-colors"
+                            title="Adiantamento e destino do desconto"
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              {celulaAtivaQuinzena === l.id ? (
+                                <Input
+                                  autoFocus
+                                  className="h-7 w-20 text-right font-mono text-xs px-1.5 py-0 bg-background border-primary focus-visible:ring-1 inline-block"
+                                  value={valorTempQuinzena}
+                                  onChange={(e) =>
+                                    setValorTempQuinzena(e.target.value)
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault()
+                                      salvarEdicaoCelulaQuinzena(l.id)
+                                    } else if (e.key === "Escape") {
+                                      e.preventDefault()
+                                      cancelarEdicaoCelulaQuinzena()
+                                    }
+                                  }}
+                                  onBlur={() =>
+                                    salvarEdicaoCelulaQuinzena(l.id)
+                                  }
+                                  placeholder="0,00"
+                                />
+                              ) : (
+                                <div
+                                  className="flex items-center justify-end gap-1 px-1 py-1 rounded cursor-pointer hover:bg-muted/60"
+                                  onClick={() => {
+                                    if (celulaAtivaQuinzena !== l.id) {
+                                      iniciarEdicaoCelulaQuinzena(
+                                        l.id,
+                                        l.adiantamentoTotal || l.adiantamento,
+                                      )
+                                    }
+                                  }}
+                                >
+                                  {salvandoCelulaQuinzena ===
+                                  `${l.id}-adiantamento` ? (
+                                    <RefreshCw className="h-3 w-3 animate-spin text-primary" />
+                                  ) : null}
+                                  <span
+                                    className={
+                                      l.adiantamentoTotal > 0
+                                        ? "font-semibold text-foreground"
+                                        : "text-muted-foreground"
+                                    }
+                                  >
+                                    {l.adiantamentoTotal > 0
+                                      ? fmtMoeda(l.adiantamentoTotal)
+                                      : "-"}
+                                  </span>
+                                </div>
+                              )}
+                              <Select
+                                value={destino}
+                                onValueChange={(
+                                  val: "quinzena" | "producao" | "mensal",
+                                ) => alterarDestinoAdiantamento(l.id, val)}
                               >
-                                {l.adiantamentoTotal > 0
-                                  ? fmtMoeda(l.adiantamentoTotal)
-                                  : "-"}
-                              </span>
+                                <SelectTrigger
+                                  className="h-6 w-[86px] text-[10px] px-1 py-0 border-muted-foreground/30 font-semibold uppercase"
+                                  title="Destino do adiantamento (onde desconta)"
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem
+                                    value="quinzena"
+                                    className="text-xs"
+                                  >
+                                    QUINZENA
+                                  </SelectItem>
+                                  <SelectItem
+                                    value="producao"
+                                    className="text-xs"
+                                  >
+                                    PRODUÇÃO
+                                  </SelectItem>
+                                  <SelectItem
+                                    value="mensal"
+                                    className="text-xs"
+                                  >
+                                    MENSAL
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
-                          )}
-                        </td>
-                        <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
-                          {l.conta || "-"}
-                        </td>
-                        <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
-                          {l.pix || l.chave_pix || "-"}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td
+                            className={`py-2 px-2 text-right font-mono font-bold whitespace-nowrap bg-emerald-50/20 dark:bg-emerald-950/10 ${
+                              aReceber < 0
+                                ? "text-red-600 dark:text-red-400"
+                                : "text-emerald-700 dark:text-emerald-400"
+                            }`}
+                          >
+                            {aReceber === 0 ? "R$ 0,00" : fmtMoeda(aReceber)}
+                          </td>
+                          <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
+                            {l.conta || "-"}
+                          </td>
+                          <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
+                            {l.pix || l.chave_pix || "-"}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                   <tfoot className="bg-muted font-bold text-foreground border-t-2 border-border">
                     <tr>
@@ -4148,6 +4365,17 @@ export function FolhaPagamento() {
                         {totaisGeral.adiantamento > 0
                           ? fmtMoeda(totaisGeral.adiantamento)
                           : "-"}
+                      </td>
+                      <td
+                        className={`py-2.5 px-2 text-right font-mono font-bold bg-emerald-100/50 dark:bg-emerald-950/30 ${
+                          totaisGeral.aReceberQuinzena < 0
+                            ? "text-red-600 dark:text-red-400"
+                            : "text-emerald-700 dark:text-emerald-400"
+                        }`}
+                      >
+                        {totaisGeral.aReceberQuinzena === 0
+                          ? "R$ 0,00"
+                          : fmtMoeda(totaisGeral.aReceberQuinzena)}
                       </td>
                       <td className="py-2.5 px-3" colSpan={2}></td>
                     </tr>
@@ -4168,9 +4396,32 @@ export function FolhaPagamento() {
                           )}
                         </td>
                         <td className="py-2.5 px-2 text-right font-mono">
-                          {totaisGeral.adiantamento > 0
-                            ? fmtMoeda(totaisGeral.adiantamento)
+                          {totaisGeral.adiantamento +
+                            totaisTerceiros.adiantamento >
+                          0
+                            ? fmtMoeda(
+                                totaisGeral.adiantamento +
+                                  totaisTerceiros.adiantamento,
+                              )
                             : "-"}
+                        </td>
+                        <td
+                          className={`py-2.5 px-2 text-right font-mono font-bold bg-emerald-100/70 dark:bg-emerald-950/50 ${
+                            totaisGeral.aReceberQuinzena +
+                              totaisTerceiros.aReceberQuinzena <
+                            0
+                              ? "text-red-600 dark:text-red-400"
+                              : "text-emerald-700 dark:text-emerald-400"
+                          }`}
+                        >
+                          {totaisGeral.aReceberQuinzena +
+                            totaisTerceiros.aReceberQuinzena ===
+                          0
+                            ? "R$ 0,00"
+                            : fmtMoeda(
+                                totaisGeral.aReceberQuinzena +
+                                  totaisTerceiros.aReceberQuinzena,
+                              )}
                         </td>
                         <td className="py-2.5 px-3" colSpan={2}></td>
                       </tr>
@@ -4198,30 +4449,65 @@ export function FolhaPagamento() {
                           <th className="py-2 px-2 text-right font-bold text-blue-600">
                             QUINZENA ({Math.round(percentualQuinzena * 100)}%)
                           </th>
+                          <th className="py-2 px-2 text-right font-mono">
+                            ADIANTAMENTO
+                          </th>
+                          <th className="py-2 px-2 text-right font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/20">
+                            A RECEBER
+                          </th>
                           <th className="py-2 px-3">PIX</th>
                           <th className="py-2 px-3">OBS</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
-                        {terceirosProcessados.map((t, idx) => (
-                          <tr key={t.id} className="hover:bg-muted/30">
-                            <td className="py-2 px-2 text-center font-mono text-muted-foreground">
-                              {idx + 1}
-                            </td>
-                            <td className="py-2 px-3 font-semibold text-foreground">
-                              {t.nome}
-                            </td>
-                            <td className="py-2 px-2 text-right font-mono font-bold text-blue-600">
-                              {fmtMoeda(t.quinzena)}
-                            </td>
-                            <td className="py-2 px-3 font-mono text-muted-foreground text-[11px]">
-                              {t.pix || t.chave_pix || "-"}
-                            </td>
-                            <td className="py-2 px-3 text-muted-foreground text-[11px]">
-                              {t.observacao_linha || "-"}
-                            </td>
-                          </tr>
-                        ))}
+                        {terceirosProcessados.map((t: any, idx) => {
+                          const adiantamentoValor = Number(
+                            t.adiantamentoTotal || t.adiantamento || 0,
+                          )
+                          const destino = t.adiantamento_destino || "producao"
+                          const aReceber =
+                            destino === "quinzena"
+                              ? Math.round(
+                                  (t.quinzena - adiantamentoValor) * 100,
+                                ) / 100
+                              : t.quinzena
+
+                          return (
+                            <tr key={t.id} className="hover:bg-muted/30">
+                              <td className="py-2 px-2 text-center font-mono text-muted-foreground">
+                                {idx + 1}
+                              </td>
+                              <td className="py-2 px-3 font-semibold text-foreground">
+                                {t.nome}
+                              </td>
+                              <td className="py-2 px-2 text-right font-mono font-bold text-blue-600">
+                                {fmtMoeda(t.quinzena)}
+                              </td>
+                              <td className="py-2 px-2 text-right font-mono text-muted-foreground">
+                                {adiantamentoValor > 0
+                                  ? fmtMoeda(adiantamentoValor)
+                                  : "-"}
+                              </td>
+                              <td
+                                className={`py-2 px-2 text-right font-mono font-bold whitespace-nowrap bg-emerald-50/20 dark:bg-emerald-950/10 ${
+                                  aReceber < 0
+                                    ? "text-red-600 dark:text-red-400"
+                                    : "text-emerald-700 dark:text-emerald-400"
+                                }`}
+                              >
+                                {aReceber === 0
+                                  ? "R$ 0,00"
+                                  : fmtMoeda(aReceber)}
+                              </td>
+                              <td className="py-2 px-3 font-mono text-muted-foreground text-[11px]">
+                                {t.pix || t.chave_pix || "-"}
+                              </td>
+                              <td className="py-2 px-3 text-muted-foreground text-[11px]">
+                                {t.observacao_linha || "-"}
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                       <tfoot className="bg-purple-100/50 dark:bg-purple-950/40 font-bold border-t">
                         <tr>
@@ -4231,6 +4517,22 @@ export function FolhaPagamento() {
                           </td>
                           <td className="py-2 px-2 text-right font-mono text-blue-600">
                             {fmtMoeda(totaisTerceiros.quinzena)}
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono">
+                            {totaisTerceiros.adiantamento > 0
+                              ? fmtMoeda(totaisTerceiros.adiantamento)
+                              : "-"}
+                          </td>
+                          <td
+                            className={`py-2 px-2 text-right font-mono font-bold bg-emerald-100/50 dark:bg-emerald-950/30 ${
+                              totaisTerceiros.aReceberQuinzena < 0
+                                ? "text-red-600 dark:text-red-400"
+                                : "text-emerald-700 dark:text-emerald-400"
+                            }`}
+                          >
+                            {totaisTerceiros.aReceberQuinzena === 0
+                              ? "R$ 0,00"
+                              : fmtMoeda(totaisTerceiros.aReceberQuinzena)}
                           </td>
                           <td className="py-2 px-3" colSpan={2}></td>
                         </tr>
@@ -6926,31 +7228,63 @@ export function FolhaPagamento() {
                   <th className="border p-1.5 text-right font-bold">
                     QUINZENA ({Math.round(percentualQuinzena * 100)}%)
                   </th>
+                  <th className="border p-1.5 text-right font-mono">
+                    ADIANTAMENTO
+                  </th>
+                  <th className="border p-1.5 text-right font-bold">
+                    A RECEBER
+                  </th>
                   <th className="border p-1.5 text-left">AGÊNCIA / C/C</th>
                   <th className="border p-1.5 text-left">PIX</th>
                   <th className="border p-1.5 text-center w-36">ASSINATURA</th>
                 </tr>
               </thead>
               <tbody>
-                {linhasGeralProcessadas.map((l, idx) => (
-                  <tr key={l.id}>
-                    <td className="border p-1 text-center font-mono">
-                      {idx + 1}
-                    </td>
-                    <td className="border p-1 font-semibold">{l.nome}</td>
-                    <td className="border p-1">{l.funcao}</td>
-                    <td className="border p-1 text-right font-mono font-bold">
-                      {fmtMoeda(l.quinzenaFinal)}
-                    </td>
-                    <td className="border p-1 font-mono text-[9px]">
-                      {l.conta || "-"}
-                    </td>
-                    <td className="border p-1 font-mono text-[9px]">
-                      {l.pix || l.chave_pix || "-"}
-                    </td>
-                    <td className="border p-1"></td>
-                  </tr>
-                ))}
+                {linhasGeralProcessadas.map((l, idx) => {
+                  const destino = (l.adiantamento_destino ||
+                    "producao") as "quinzena" | "producao" | "mensal"
+                  const adiantamentoValor = Number(
+                    l.adiantamentoTotal || l.adiantamento || 0,
+                  )
+                  const aReceber =
+                    destino === "quinzena"
+                      ? Math.round(
+                          (l.quinzenaFinal - adiantamentoValor) * 100,
+                        ) / 100
+                      : l.quinzenaFinal
+
+                  return (
+                    <tr key={l.id}>
+                      <td className="border p-1 text-center font-mono">
+                        {idx + 1}
+                      </td>
+                      <td className="border p-1 font-semibold">{l.nome}</td>
+                      <td className="border p-1">{l.funcao}</td>
+                      <td className="border p-1 text-right font-mono font-bold">
+                        {fmtMoeda(l.quinzenaFinal)}
+                      </td>
+                      <td className="border p-1 text-right font-mono">
+                        {adiantamentoValor > 0
+                          ? fmtMoeda(adiantamentoValor)
+                          : "-"}
+                      </td>
+                      <td
+                        className={`border p-1 text-right font-mono font-bold ${
+                          aReceber < 0 ? "text-red-600" : ""
+                        }`}
+                      >
+                        {aReceber === 0 ? "R$ 0,00" : fmtMoeda(aReceber)}
+                      </td>
+                      <td className="border p-1 font-mono text-[9px]">
+                        {l.conta || "-"}
+                      </td>
+                      <td className="border p-1 font-mono text-[9px]">
+                        {l.pix || l.chave_pix || "-"}
+                      </td>
+                      <td className="border p-1"></td>
+                    </tr>
+                  )
+                })}
               </tbody>
               <tfoot className="bg-gray-100 font-bold">
                 <tr>
@@ -6961,6 +7295,20 @@ export function FolhaPagamento() {
                   <td className="border p-1.5">-</td>
                   <td className="border p-1.5 text-right font-mono">
                     {fmtMoeda(totaisGeral.quinzena)}
+                  </td>
+                  <td className="border p-1.5 text-right font-mono">
+                    {totaisGeral.adiantamento > 0
+                      ? fmtMoeda(totaisGeral.adiantamento)
+                      : "-"}
+                  </td>
+                  <td
+                    className={`border p-1.5 text-right font-mono font-bold ${
+                      totaisGeral.aReceberQuinzena < 0 ? "text-red-600" : ""
+                    }`}
+                  >
+                    {totaisGeral.aReceberQuinzena === 0
+                      ? "R$ 0,00"
+                      : fmtMoeda(totaisGeral.aReceberQuinzena)}
                   </td>
                   <td className="border p-1.5" colSpan={3}></td>
                 </tr>
@@ -6980,6 +7328,12 @@ export function FolhaPagamento() {
                       <th className="border p-1.5 text-right font-bold">
                         QUINZENA ({Math.round(percentualQuinzena * 100)}%)
                       </th>
+                      <th className="border p-1.5 text-right font-mono">
+                        ADIANTAMENTO
+                      </th>
+                      <th className="border p-1.5 text-right font-bold">
+                        A RECEBER
+                      </th>
                       <th className="border p-1.5 text-left">PIX</th>
                       <th className="border p-1.5 text-left">OBS</th>
                       <th className="border p-1.5 text-center w-36">
@@ -6988,24 +7342,48 @@ export function FolhaPagamento() {
                     </tr>
                   </thead>
                   <tbody>
-                    {terceirosProcessados.map((t, idx) => (
-                      <tr key={t.id}>
-                        <td className="border p-1 text-center font-mono">
-                          {idx + 1}
-                        </td>
-                        <td className="border p-1 font-semibold">{t.nome}</td>
-                        <td className="border p-1 text-right font-mono font-bold">
-                          {fmtMoeda(t.quinzena)}
-                        </td>
-                        <td className="border p-1 font-mono text-[9px]">
-                          {t.pix || t.chave_pix || "-"}
-                        </td>
-                        <td className="border p-1 text-[9px]">
-                          {t.observacao_linha || "-"}
-                        </td>
-                        <td className="border p-1"></td>
-                      </tr>
-                    ))}
+                    {terceirosProcessados.map((t: any, idx) => {
+                      const adiantamentoValor = Number(
+                        t.adiantamentoTotal || t.adiantamento || 0,
+                      )
+                      const destino = t.adiantamento_destino || "producao"
+                      const aReceber =
+                        destino === "quinzena"
+                          ? Math.round((t.quinzena - adiantamentoValor) * 100) /
+                            100
+                          : t.quinzena
+
+                      return (
+                        <tr key={t.id}>
+                          <td className="border p-1 text-center font-mono">
+                            {idx + 1}
+                          </td>
+                          <td className="border p-1 font-semibold">{t.nome}</td>
+                          <td className="border p-1 text-right font-mono font-bold">
+                            {fmtMoeda(t.quinzena)}
+                          </td>
+                          <td className="border p-1 text-right font-mono">
+                            {adiantamentoValor > 0
+                              ? fmtMoeda(adiantamentoValor)
+                              : "-"}
+                          </td>
+                          <td
+                            className={`border p-1 text-right font-mono font-bold ${
+                              aReceber < 0 ? "text-red-600" : ""
+                            }`}
+                          >
+                            {aReceber === 0 ? "R$ 0,00" : fmtMoeda(aReceber)}
+                          </td>
+                          <td className="border p-1 font-mono text-[9px]">
+                            {t.pix || t.chave_pix || "-"}
+                          </td>
+                          <td className="border p-1 text-[9px]">
+                            {t.observacao_linha || "-"}
+                          </td>
+                          <td className="border p-1"></td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                   <tfoot className="bg-gray-100 font-bold">
                     <tr>
@@ -7015,6 +7393,22 @@ export function FolhaPagamento() {
                       </td>
                       <td className="border p-1.5 text-right font-mono">
                         {fmtMoeda(totaisTerceiros.quinzena)}
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {totaisTerceiros.adiantamento > 0
+                          ? fmtMoeda(totaisTerceiros.adiantamento)
+                          : "-"}
+                      </td>
+                      <td
+                        className={`border p-1.5 text-right font-mono font-bold ${
+                          totaisTerceiros.aReceberQuinzena < 0
+                            ? "text-red-600"
+                            : ""
+                        }`}
+                      >
+                        {totaisTerceiros.aReceberQuinzena === 0
+                          ? "R$ 0,00"
+                          : fmtMoeda(totaisTerceiros.aReceberQuinzena)}
                       </td>
                       <td className="border p-1.5" colSpan={3}></td>
                     </tr>
