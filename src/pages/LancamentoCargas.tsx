@@ -1289,7 +1289,9 @@ export default function LancamentoCargas() {
       setPoPedra(cPo)
 
       // Preenche os acumulados para Patos (brita 0+1, areia acum, pó acum)
-      setPatosAcumBrita01(cB0 + cB1)
+      // Se cB1 = 0, patosAcumBrita01 = cB0 (Brita 0 considerada acumulativa)
+      const acum01 = cB1 === 0 ? cB0 : cB0 + cB1
+      setPatosAcumBrita01(acum01)
       setPatosAcumAreia(cB0 + cB1 + cAr)
       setPatosAcumPo(cB0 + cB1 + cAr + cPo)
 
@@ -2212,10 +2214,23 @@ export default function LancamentoCargas() {
                                       : Number(e.target.value)
                                   const nB0 = isNaN(b0Val) ? 0 : b0Val
                                   setBrita12(nB0)
-                                  // Recalcula brita19 real = patosAcumBrita01 - nB0
-                                  setBrita19(
-                                    Math.max(0, patosAcumBrita01 - nB0),
-                                  )
+
+                                  // Quando Brita 1 for zero (patosAcumBrita01 <= nB0 ou o traço selecionado tem consumo_brita19 = 0),
+                                  // considerar a Brita 0 como acumulativa: ajustar automaticamente patosAcumBrita01 = nB0 e Brita 1 = 0
+                                  const tracoB1Zero = tracoAtual
+                                    ? (Number(tracoAtual.consumo_brita19) ||
+                                        0) === 0
+                                    : false
+
+                                  if (patosAcumBrita01 <= nB0 || tracoB1Zero) {
+                                    setPatosAcumBrita01(nB0)
+                                    setBrita19(0)
+                                  } else {
+                                    // Recalcula brita19 real = patosAcumBrita01 - nB0
+                                    setBrita19(
+                                      Math.max(0, patosAcumBrita01 - nB0),
+                                    )
+                                  }
                                 }}
                                 disabled={cargaZerada}
                                 placeholder="0"

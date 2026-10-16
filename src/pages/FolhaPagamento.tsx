@@ -1146,8 +1146,6 @@ export function FolhaPagamento() {
     }
   }
 
-
-
   // Helper: identifica se o colaborador é lançador/responsável de vendas (ex: VALDERCLEITON FREIRE DE OLIVEIRA)
   // que deve ser retirado da produção principal e ter seção própria em VENDAS
   const isLancadorVendas = (nome: string | undefined | null) =>

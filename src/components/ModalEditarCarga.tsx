@@ -944,8 +944,14 @@ export function ModalEditarCarga({
                       onChange={(e) => {
                         const nB0 = Number(e.target.value) || 0
                         setBrita12(nB0)
-                        // Ajusta brita 19 mantendo o acumulado digitado
-                        setBrita19(Math.max(0, patosAcumBrita01 - nB0))
+                        // Quando Brita 1 for zero ou acumulado <= nB0, Brita 0 vira acumulativa
+                        if (patosAcumBrita01 <= nB0) {
+                          setPatosAcumBrita01(nB0)
+                          setBrita19(0)
+                        } else {
+                          // Ajusta brita 19 mantendo o acumulado digitado
+                          setBrita19(Math.max(0, patosAcumBrita01 - nB0))
+                        }
                       }}
                       placeholder="0"
                       className="h-8 text-xs font-mono"
