@@ -560,18 +560,61 @@ export function FolhaPagamento() {
     return String(dataIso)
   }
 
-  // Linhas processadas para exibição visual (respeita toggle mostrarOcultos)
-  const linhasGeralProcessadas = useMemo<LinhaGeralProcessada[]>(() => {
-    return funcionariosFiltrados.map((l) => processarFuncionarioLinha(l))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [funcionariosFiltrados, tabelaOficial, percentualQuinzena])
+  // Separação de funcionários e terceiros
+  const funcionariosLinhas = useMemo(() => {
+    return linhas.filter((l) => l.tipo !== "Terceiro")
+  }, [linhas])
 
-  // Linhas processadas PARA TOTAIS (inclui oculto=true, ex: Renilson)
-  const linhasGeralProcessadasParaTotais =
-    useMemo<LinhaGeralProcessada[]>(() => {
-      return funcionariosParaTotais.map((l) => processarFuncionarioLinha(l))
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [funcionariosParaTotais, tabelaOficial, percentualQuinzena])
+  const terceirosLinhas = useMemo(() => {
+    return linhas.filter((l) => l.tipo === "Terceiro")
+  }, [linhas])
+
+  // LISTAS BASE:
+  // 1. linhasParaTotais: MANTÉM ocultos (oculto=true, ex: Renilson), aplicando apenas o filtro de busca textual
+  // 2. linhasParaExibicao: EXCLUI ocultos quando o toggle mostrarOcultos está desligado (comportamento visual atual)
+  const funcionariosParaTotais = useMemo(() => {
+    return funcionariosLinhas.filter((l) => {
+      if (busca.trim()) {
+        const termo = busca.toLowerCase()
+        const nomeOk = l.nome?.toLowerCase().includes(termo)
+        const funcaoOk = l.funcao?.toLowerCase().includes(termo)
+        const pixOk = (l.pix || l.chave_pix || "").toLowerCase().includes(termo)
+        if (!nomeOk && !funcaoOk && !pixOk) return false
+      }
+      return true
+    })
+  }, [funcionariosLinhas, busca])
+
+  const terceirosParaTotais = useMemo(() => {
+    return terceirosLinhas.filter((l) => {
+      if (busca.trim()) {
+        const termo = busca.toLowerCase()
+        const nomeOk = l.nome?.toLowerCase().includes(termo)
+        const obsOk = (l.observacao_linha || "").toLowerCase().includes(termo)
+        const pixOk = (l.pix || l.chave_pix || "").toLowerCase().includes(termo)
+        if (!nomeOk && !obsOk && !pixOk) return false
+      }
+      return true
+    })
+  }, [terceirosLinhas, busca])
+
+  // Filtragem de funcionários na tela (exibição nas tabelas)
+  const funcionariosFiltrados = useMemo(() => {
+    return funcionariosParaTotais.filter((l) => {
+      if (!mostrarOcultos && l.oculto) return false
+      return true
+    })
+  }, [funcionariosParaTotais, mostrarOcultos])
+
+  // Filtragem de terceiros na tela (exibição nas tabelas)
+  const terceirosFiltrados = useMemo(() => {
+    return terceirosParaTotais.filter((l) => {
+      if (!mostrarOcultos && l.oculto) return false
+      return true
+    })
+  }, [terceirosParaTotais, mostrarOcultos])
+
+
 
   // Função auxiliar para processar linha de terceiro
   const processarTerceiroLinha = (t: FolhaPagamentoLinha) => {
@@ -626,243 +669,6 @@ export function FolhaPagamento() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [terceirosParaTotais, terceirosCadastrados, percentualQuinzena])
 
-  // Lista unificada CLT + Terceiros (mesmas pessoas da QUINZENA) com o status pago gravado em folha_adiantamentos
-  const listaAdiantamento = useMemo<ItemAdiantamentoColaborador[]>(() => {
-    const mapaGravados = new Map<string, FolhaAdiantamento>()
-    adiantamentosGravados.forEach((a) => {
-      if (a.colaborador_id) mapaGravados.set(String(a.colaborador_id), a)
-      mapaGravados.set(`NOME:${(a.nome || "").trim().toUpperCase()}`, a)
-    })
-
-    const itens: ItemAdiantamentoColaborador[] = []
-
-    // Funcionários CLT (mesma lista da QUINZENA)
-    linhasGeralProcessadas.forEach((l) => {
-      const chaveNome = `NOME:${(l.nome || "").trim().toUpperCase()}`
-      const gravado = mapaGravados.get(chaveNome)
-      const valorQuinzena = Number(l.quinzenaFinal || 0)
-      const valorExtra = gravado ? Number(gravado.valor_extra || 0) : 0
-      itens.push({
-        key: `func_${l.id}`,
-        colaborador_id: String(l.funcionario_id || l.id),
-        nome: String(l.nome || ""),
-        tipo: "Funcionario",
-        funcao: String(l.funcao || l.cargo || "Geral"),
-        salario_base: Number(l.salario_base || l.bruto || 0),
-        percentual_quinzena: percentualQuinzena,
-        valor_quinzena: valorQuinzena,
-        valor_extra: valorExtra,
-        valor_total_adiantamento: valorQuinzena + valorExtra,
-        pago: gravado ? Boolean(gravado.pago) : false,
-        data_pagamento: gravado?.data_pagamento || null,
-        observacao: gravado?.observacao || "",
-        conta: l.conta || "",
-        pix: l.pix || l.chave_pix || "",
-        registro_adiantamento_id: gravado?.id,
-      })
-    })
-
-    // Terceiros (mesma regra da QUINZENA: fora da unidade Monteiro)
-    if (!isMonteiro && terceirosProcessados.length > 0) {
-      terceirosProcessados.forEach((t) => {
-        const chaveNome = `NOME:${(t.nome || "").trim().toUpperCase()}`
-        const gravado = mapaGravados.get(chaveNome)
-        const valorQuinzena = Number(t.quinzena || 0)
-        const valorExtra = gravado ? Number(gravado.valor_extra || 0) : 0
-        itens.push({
-          key: `terc_${t.id}`,
-          colaborador_id: String(t.id || `terc_${t.nome}`),
-          nome: String(t.nome || ""),
-          tipo: "Terceiro",
-          funcao: "TERCEIRO",
-          salario_base: Number(t.valorMes || t.salario_base || t.bruto || 0),
-          percentual_quinzena: percentualQuinzena,
-          valor_quinzena: valorQuinzena,
-          valor_extra: valorExtra,
-          valor_total_adiantamento: valorQuinzena + valorExtra,
-          pago: gravado ? Boolean(gravado.pago) : false,
-          data_pagamento: gravado?.data_pagamento || null,
-          observacao: gravado?.observacao || "",
-          conta: t.conta || "",
-          pix: t.pix || t.chave_pix || "",
-          registro_adiantamento_id: gravado?.id,
-        })
-      })
-    }
-
-    return itens
-  }, [
-    adiantamentosGravados,
-    linhasGeralProcessadas,
-    terceirosProcessados,
-    isMonteiro,
-    percentualQuinzena,
-  ])
-
-  const listaAdiantamentoFiltrada = useMemo(() => {
-    return listaAdiantamento.filter((item) => {
-      if (filtroStatusAdiantamento === "pago" && !item.pago) return false
-      if (filtroStatusAdiantamento === "pendente" && item.pago) return false
-      if (buscaAdiantamento.trim()) {
-        const termo = buscaAdiantamento.toLowerCase()
-        const nomeOk = item.nome.toLowerCase().includes(termo)
-        const funcaoOk = (item.funcao || "").toLowerCase().includes(termo)
-        const obsOk = (item.observacao || "").toLowerCase().includes(termo)
-        const pixOk = (item.pix || "").toLowerCase().includes(termo)
-        if (!nomeOk && !funcaoOk && !obsOk && !pixOk) return false
-      }
-      return true
-    })
-  }, [listaAdiantamento, buscaAdiantamento, filtroStatusAdiantamento])
-
-  const totaisAdiantamento = useMemo(() => {
-    let totalBase = 0
-    let totalExtra = 0
-    let totalJaPago = 0
-    let totalPendente = 0
-    let qtdPagos = 0
-    let qtdPendentes = 0
-    listaAdiantamento.forEach((item) => {
-      totalBase += item.valor_quinzena
-      totalExtra += item.valor_extra
-      if (item.pago) {
-        totalJaPago += item.valor_total_adiantamento
-        qtdPagos++
-      } else {
-        totalPendente += item.valor_total_adiantamento
-        qtdPendentes++
-      }
-    })
-    return {
-      totalBase,
-      totalExtra,
-      totalGeral: totalBase + totalExtra,
-      totalJaPago,
-      totalPendente,
-      qtdPagos,
-      qtdPendentes,
-      totalColaboradores: listaAdiantamento.length,
-    }
-  }, [listaAdiantamento])
-
-  const abrirModalMarcarPagoAdiantamento = (
-    item: ItemAdiantamentoColaborador,
-  ) => {
-    setItemPago(item)
-    setDataPagamentoInput(new Date().toISOString().split("T")[0]) // padrão: hoje
-    setObservacaoPagoInput(item.observacao || "")
-    setModalPagoAberto(true)
-  }
-
-  const confirmarGravacaoPagoAdiantamento = async () => {
-    if (!itemPago) return
-    setSalvandoPago(true)
-    try {
-      await FolhaService.salvarAdiantamento({
-        empresa_id: empresaAtiva!.id,
-        competencia,
-        colaborador_id: itemPago.colaborador_id,
-        nome: itemPago.nome,
-        tipo: itemPago.tipo,
-        valor_extra: itemPago.valor_extra,
-        pago: true,
-        data_pagamento: dataPagamentoInput,
-        observacao: observacaoPagoInput,
-      })
-      toast({
-        title: "Pagamento registrado",
-        description: `Adiantamento de ${itemPago.nome} marcado como PAGO em ${formatarDataBrAdi(dataPagamentoInput)}.`,
-      })
-      setConfirmacaoPagoAberta(false)
-      setModalPagoAberto(false)
-      setItemPago(null)
-      await recarregarAdiantamentos()
-    } catch (err) {
-      console.error("Erro ao marcar adiantamento pago:", err)
-      toast({
-        title: "Erro ao gravar pagamento",
-        description: "Não foi possível registrar o pagamento do adiantamento.",
-        variant: "destructive",
-      })
-    } finally {
-      setSalvandoPago(false)
-    }
-  }
-
-  const confirmarReverterAdiantamento = async () => {
-    if (!itemReverter) return
-    setRevertendo(true)
-    try {
-      await FolhaService.reverterAdiantamento({
-        empresa_id: empresaAtiva!.id,
-        competencia,
-        colaborador_id: itemReverter.colaborador_id,
-        nome: itemReverter.nome,
-        tipo: itemReverter.tipo,
-      })
-      toast({
-        title: "Pagamento revertido",
-        description: `Adiantamento de ${itemReverter.nome} voltou para status PENDENTE.`,
-      })
-      setConfirmacaoReverterAberta(false)
-      setItemReverter(null)
-      await recarregarAdiantamentos()
-    } catch (err) {
-      console.error("Erro ao reverter pagamento:", err)
-      toast({
-        title: "Erro ao reverter",
-        description: "Não foi possível reverter o status do pagamento.",
-        variant: "destructive",
-      })
-    } finally {
-      setRevertendo(false)
-    }
-  }
-
-  const salvarValorExtraAdiantamento = async () => {
-    if (!itemExtra) return
-    setSalvandoExtra(true)
-    try {
-      const numExtra =
-        parseFloat(valorExtraInput.replace(/\./g, "").replace(",", ".")) || 0
-      if (numExtra < 0) {
-        toast({
-          title: "Valor inválido",
-          description: "O valor extra não pode ser negativo.",
-          variant: "destructive",
-        })
-        return
-      }
-      await FolhaService.salvarAdiantamento({
-        empresa_id: empresaAtiva!.id,
-        competencia,
-        colaborador_id: itemExtra.colaborador_id,
-        nome: itemExtra.nome,
-        tipo: itemExtra.tipo,
-        valor_extra: numExtra,
-        pago: itemExtra.pago,
-        data_pagamento: itemExtra.data_pagamento,
-        observacao: obsExtraInput,
-      })
-      toast({
-        title: "Adiantamento atualizado",
-        description: `Valor extra de ${itemExtra.nome} gravado: ${fmtMoeda(numExtra)}.`,
-      })
-      setModalExtraAberto(false)
-      setItemExtra(null)
-      await recarregarAdiantamentos()
-    } catch (err) {
-      console.error("Erro ao salvar valor extra:", err)
-      toast({
-        title: "Erro ao gravar",
-        description: "Não foi possível salvar o valor extra do adiantamento.",
-        variant: "destructive",
-      })
-    } finally {
-      setSalvandoExtra(false)
-    }
-  }
-
   // ============================================================================
   // Salvar cabeçalho da competência (% quinzena ou data)
   const salvarConfigCompetencia = async (
@@ -915,60 +721,6 @@ export function FolhaPagamento() {
     const novoMes = String(data.getMonth() + 1).padStart(2, "0")
     setCompetencia(`${novoAno}-${novoMes}`)
   }
-
-  // Separação de funcionários e terceiros
-  const funcionariosLinhas = useMemo(() => {
-    return linhas.filter((l) => l.tipo !== "Terceiro")
-  }, [linhas])
-
-  const terceirosLinhas = useMemo(() => {
-    return linhas.filter((l) => l.tipo === "Terceiro")
-  }, [linhas])
-
-  // LISTAS BASE:
-  // 1. linhasParaTotais: MANTÉM ocultos (oculto=true, ex: Renilson), aplicando apenas o filtro de busca textual
-  // 2. linhasParaExibicao: EXCLUI ocultos quando o toggle mostrarOcultos está desligado (comportamento visual atual)
-  const funcionariosParaTotais = useMemo(() => {
-    return funcionariosLinhas.filter((l) => {
-      if (busca.trim()) {
-        const termo = busca.toLowerCase()
-        const nomeOk = l.nome?.toLowerCase().includes(termo)
-        const funcaoOk = l.funcao?.toLowerCase().includes(termo)
-        const pixOk = (l.pix || l.chave_pix || "").toLowerCase().includes(termo)
-        if (!nomeOk && !funcaoOk && !pixOk) return false
-      }
-      return true
-    })
-  }, [funcionariosLinhas, busca])
-
-  const terceirosParaTotais = useMemo(() => {
-    return terceirosLinhas.filter((l) => {
-      if (busca.trim()) {
-        const termo = busca.toLowerCase()
-        const nomeOk = l.nome?.toLowerCase().includes(termo)
-        const obsOk = (l.observacao_linha || "").toLowerCase().includes(termo)
-        const pixOk = (l.pix || l.chave_pix || "").toLowerCase().includes(termo)
-        if (!nomeOk && !obsOk && !pixOk) return false
-      }
-      return true
-    })
-  }, [terceirosLinhas, busca])
-
-  // Filtragem de funcionários na tela (exibição nas tabelas)
-  const funcionariosFiltrados = useMemo(() => {
-    return funcionariosParaTotais.filter((l) => {
-      if (!mostrarOcultos && l.oculto) return false
-      return true
-    })
-  }, [funcionariosParaTotais, mostrarOcultos])
-
-  // Filtragem de terceiros na tela (exibição nas tabelas)
-  const terceirosFiltrados = useMemo(() => {
-    return terceirosParaTotais.filter((l) => {
-      if (!mostrarOcultos && l.oculto) return false
-      return true
-    })
-  }, [terceirosParaTotais, mostrarOcultos])
 
   // CÁLCULOS DINÂMICOS PARA CADA FUNCIONÁRIO (seguindo as regras da planilha modelo)
   // Se houver tabela oficial, calcula os valores recomendados; senão, mantém null ou digitado
@@ -1145,6 +897,19 @@ export function FolhaPagamento() {
       liquidoComposto,
     }
   }
+
+  // Linhas processadas para exibição visual (respeita toggle mostrarOcultos)
+  const linhasGeralProcessadas = useMemo<LinhaGeralProcessada[]>(() => {
+    return funcionariosFiltrados.map((l) => processarFuncionarioLinha(l))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [funcionariosFiltrados, tabelaOficial, percentualQuinzena])
+
+  // Linhas processadas PARA TOTAIS (inclui oculto=true, ex: Renilson)
+  const linhasGeralProcessadasParaTotais =
+    useMemo<LinhaGeralProcessada[]>(() => {
+      return funcionariosParaTotais.map((l) => processarFuncionarioLinha(l))
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [funcionariosParaTotais, tabelaOficial, percentualQuinzena])
 
   // Helper: identifica se o colaborador é lançador/responsável de vendas (ex: VALDERCLEITON FREIRE DE OLIVEIRA)
   // que deve ser retirado da produção principal e ter seção própria em VENDAS
