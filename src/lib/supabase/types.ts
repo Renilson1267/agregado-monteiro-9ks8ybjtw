@@ -1,4 +1,3 @@
-// AVOID UPDATING THIS FILE DIRECTLY. It is automatically generated.
 export type Json =
   | string
   | number
@@ -8,18 +7,17 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  // Allows to automatically instantiate createClient with Database type
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
       cargas: {
         Row: {
-          cancelada: boolean
+          cancelada: boolean | null
           cancelada_em: string | null
-          carga_zerada: boolean
+          carga_zerada: boolean | null
           cidade_id: string | null
           cidade_nome: string | null
           cliente_id: string | null
@@ -49,9 +47,9 @@ export type Database = {
           volume_m3: number
         }
         Insert: {
-          cancelada?: boolean
+          cancelada?: boolean | null
           cancelada_em?: string | null
-          carga_zerada?: boolean
+          carga_zerada?: boolean | null
           cidade_id?: string | null
           cidade_nome?: string | null
           cliente_id?: string | null
@@ -70,7 +68,7 @@ export type Database = {
           motivo_cancelamento?: string | null
           motorista_id?: string | null
           motorista_nome?: string | null
-          numero_carga?: number
+          numero_carga: number
           observacao?: string | null
           silo_cimento?: string | null
           tanque_aditivo?: string | null
@@ -81,9 +79,9 @@ export type Database = {
           volume_m3?: number
         }
         Update: {
-          cancelada?: boolean
+          cancelada?: boolean | null
           cancelada_em?: string | null
-          carga_zerada?: boolean
+          carga_zerada?: boolean | null
           cidade_id?: string | null
           cidade_nome?: string | null
           cliente_id?: string | null
@@ -160,24 +158,30 @@ export type Database = {
       cidades: {
         Row: {
           created_at: string
+          distancia_km: number | null
           empresa_id: string | null
           id: string
           nome: string
-          uf: string
+          preco_bombeamento: number | null
+          preco_frete: number | null
         }
         Insert: {
           created_at?: string
+          distancia_km?: number | null
           empresa_id?: string | null
           id?: string
           nome: string
-          uf?: string
+          preco_bombeamento?: number | null
+          preco_frete?: number | null
         }
         Update: {
           created_at?: string
+          distancia_km?: number | null
           empresa_id?: string | null
           id?: string
           nome?: string
-          uf?: string
+          preco_bombeamento?: number | null
+          preco_frete?: number | null
         }
         Relationships: [
           {
@@ -191,67 +195,52 @@ export type Database = {
       }
       clientes: {
         Row: {
-          ativo: boolean
-          bairro: string | null
           cep: string | null
           cidade: string | null
-          complemento: string | null
-          cpf_cnpj: string
+          cnpj_cpf: string | null
           created_at: string
           email: string | null
-          empresa_id: string
-          exibir_insumos_os: boolean
+          empresa_id: string | null
+          endereco: string | null
+          estado: string | null
           id: string
-          logradouro: string | null
+          inscricao_estadual: string | null
           nome: string
-          nome_fantasia: string | null
-          numero: string | null
-          observacoes: string | null
+          razao_social: string | null
           telefone: string | null
-          tipo: string
-          uf: string | null
+          updated_at: string
         }
         Insert: {
-          ativo?: boolean
-          bairro?: string | null
           cep?: string | null
           cidade?: string | null
-          complemento?: string | null
-          cpf_cnpj: string
+          cnpj_cpf?: string | null
           created_at?: string
           email?: string | null
-          empresa_id: string
-          exibir_insumos_os?: boolean
+          empresa_id?: string | null
+          endereco?: string | null
+          estado?: string | null
           id?: string
-          logradouro?: string | null
+          inscricao_estadual?: string | null
           nome: string
-          nome_fantasia?: string | null
-          numero?: string | null
-          observacoes?: string | null
+          razao_social?: string | null
           telefone?: string | null
-          tipo?: string
-          uf?: string | null
+          updated_at?: string
         }
         Update: {
-          ativo?: boolean
-          bairro?: string | null
           cep?: string | null
           cidade?: string | null
-          complemento?: string | null
-          cpf_cnpj?: string
+          cnpj_cpf?: string | null
           created_at?: string
           email?: string | null
-          empresa_id?: string
-          exibir_insumos_os?: boolean
+          empresa_id?: string | null
+          endereco?: string | null
+          estado?: string | null
           id?: string
-          logradouro?: string | null
+          inscricao_estadual?: string | null
           nome?: string
-          nome_fantasia?: string | null
-          numero?: string | null
-          observacoes?: string | null
+          razao_social?: string | null
           telefone?: string | null
-          tipo?: string
-          uf?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -263,170 +252,92 @@ export type Database = {
           },
         ]
       }
-      controle_ferias: {
-        Row: {
-          admissao: string | null
-          agencia: string | null
-          calca: string | null
-          camisa: string | null
-          conta_corrente: string | null
-          cpf: string | null
-          created_at: string
-          empresa_id: string
-          ferias: string | null
-          funcao: string | null
-          funcionario_id: string | null
-          id: string
-          nome: string
-          observacoes: string | null
-          ordem: number | null
-          salario_2025: number | null
-          updated_at: string
-        }
-        Insert: {
-          admissao?: string | null
-          agencia?: string | null
-          calca?: string | null
-          camisa?: string | null
-          conta_corrente?: string | null
-          cpf?: string | null
-          created_at?: string
-          empresa_id: string
-          ferias?: string | null
-          funcao?: string | null
-          funcionario_id?: string | null
-          id?: string
-          nome: string
-          observacoes?: string | null
-          ordem?: number | null
-          salario_2025?: number | null
-          updated_at?: string
-        }
-        Update: {
-          admissao?: string | null
-          agencia?: string | null
-          calca?: string | null
-          camisa?: string | null
-          conta_corrente?: string | null
-          cpf?: string | null
-          created_at?: string
-          empresa_id?: string
-          ferias?: string | null
-          funcao?: string | null
-          funcionario_id?: string | null
-          id?: string
-          nome?: string
-          observacoes?: string | null
-          ordem?: number | null
-          salario_2025?: number | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "controle_ferias_empresa_id_fkey"
-            columns: ["empresa_id"]
-            isOneToOne: false
-            referencedRelation: "empresas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "controle_ferias_funcionario_id_fkey"
-            columns: ["funcionario_id"]
-            isOneToOne: false
-            referencedRelation: "funcionarios"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       empresas: {
         Row: {
-          ativo: boolean
-          cidade: string | null
+          ativa: boolean | null
           cnpj: string | null
           created_at: string
-          endereco: string | null
           id: string
           nome: string
-          razao_social: string | null
-          slug: string
-          telefone: string | null
-          uf: string | null
         }
         Insert: {
-          ativo?: boolean
-          cidade?: string | null
+          ativa?: boolean | null
           cnpj?: string | null
           created_at?: string
-          endereco?: string | null
           id?: string
           nome: string
-          razao_social?: string | null
-          slug: string
-          telefone?: string | null
-          uf?: string | null
         }
         Update: {
-          ativo?: boolean
-          cidade?: string | null
+          ativa?: boolean | null
           cnpj?: string | null
           created_at?: string
-          endereco?: string | null
           id?: string
           nome?: string
-          razao_social?: string | null
-          slug?: string
-          telefone?: string | null
-          uf?: string | null
         }
         Relationships: []
       }
-      exames_funcionario: {
+      exames_funcionarios: {
         Row: {
+          clinica: string | null
           created_at: string
-          data_realizacao: string | null
+          data_realizacao: string
+          data_validade: string | null
+          dias_aviso_previo: number | null
           empresa_id: string | null
           funcionario_id: string
           id: string
-          nome_exame: string
-          observacao: string | null
+          laboratorio: string | null
+          medico_crm: string | null
+          medico_nome: string | null
+          observacoes: string | null
+          status: string
           tipo_exame: string
           updated_at: string
-          validade_meses: number
         }
         Insert: {
+          clinica?: string | null
           created_at?: string
-          data_realizacao?: string | null
+          data_realizacao: string
+          data_validade?: string | null
+          dias_aviso_previo?: number | null
           empresa_id?: string | null
           funcionario_id: string
           id?: string
-          nome_exame: string
-          observacao?: string | null
+          laboratorio?: string | null
+          medico_crm?: string | null
+          medico_nome?: string | null
+          observacoes?: string | null
+          status?: string
           tipo_exame: string
           updated_at?: string
-          validade_meses?: number
         }
         Update: {
+          clinica?: string | null
           created_at?: string
-          data_realizacao?: string | null
+          data_realizacao?: string
+          data_validade?: string | null
+          dias_aviso_previo?: number | null
           empresa_id?: string | null
           funcionario_id?: string
           id?: string
-          nome_exame?: string
-          observacao?: string | null
+          laboratorio?: string | null
+          medico_crm?: string | null
+          medico_nome?: string | null
+          observacoes?: string | null
+          status?: string
           tipo_exame?: string
           updated_at?: string
-          validade_meses?: number
         }
         Relationships: [
           {
-            foreignKeyName: "exames_funcionario_empresa_id_fkey"
+            foreignKeyName: "exames_funcionarios_empresa_id_fkey"
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "exames_funcionario_funcionario_id_fkey"
+            foreignKeyName: "exames_funcionarios_funcionario_id_fkey"
             columns: ["funcionario_id"]
             isOneToOne: false
             referencedRelation: "funcionarios"
@@ -436,49 +347,43 @@ export type Database = {
       }
       folha_adiantamentos: {
         Row: {
-          colaborador_id: string
           competencia: string
           created_at: string
-          data_pagamento: string | null
+          data_adiantamento: string | null
           empresa_id: string
+          funcionario_id: string
           id: string
-          nome: string
           observacao: string | null
-          pago: boolean
-          tipo: string
+          status: string
+          tipo_colaborador: string
           updated_at: string
-          usuario_app_id: string | null
-          valor_extra: number
+          valor: number
         }
         Insert: {
-          colaborador_id: string
           competencia: string
           created_at?: string
-          data_pagamento?: string | null
+          data_adiantamento?: string | null
           empresa_id: string
+          funcionario_id: string
           id?: string
-          nome: string
           observacao?: string | null
-          pago?: boolean
-          tipo?: string
+          status?: string
+          tipo_colaborador?: string
           updated_at?: string
-          usuario_app_id?: string | null
-          valor_extra?: number
+          valor?: number
         }
         Update: {
-          colaborador_id?: string
           competencia?: string
           created_at?: string
-          data_pagamento?: string | null
+          data_adiantamento?: string | null
           empresa_id?: string
+          funcionario_id?: string
           id?: string
-          nome?: string
           observacao?: string | null
-          pago?: boolean
-          tipo?: string
+          status?: string
+          tipo_colaborador?: string
           updated_at?: string
-          usuario_app_id?: string | null
-          valor_extra?: number
+          valor?: number
         }
         Relationships: [
           {
@@ -488,45 +393,42 @@ export type Database = {
             referencedRelation: "empresas"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "folha_adiantamentos_usuario_app_id_fkey"
-            columns: ["usuario_app_id"]
-            isOneToOne: false
-            referencedRelation: "usuarios_app"
-            referencedColumns: ["id"]
-          },
         ]
       }
       folha_comissao_faixas: {
         Row: {
-          ate_valor: number
+          aliquota_percentual: number
+          competencia: string | null
           created_at: string
-          de_valor: number
-          empresa_id: string
+          empresa_id: string | null
+          faixa_ordem: number
           id: string
-          ordem: number
-          percentual: number
+          terceiro_id: string | null
           updated_at: string
+          valor_ate: number | null
+          valor_de: number
         }
         Insert: {
-          ate_valor?: number
-          created_at?: string
-          de_valor?: number
-          empresa_id: string
+          aliquota_percentual?: number
+          competencia?: string | null
+          empresa_id?: string | null
+          faixa_ordem: number
           id?: string
-          ordem?: number
-          percentual?: number
+          terceiro_id?: string | null
           updated_at?: string
+          valor_ate?: number | null
+          valor_de?: number
         }
         Update: {
-          ate_valor?: number
-          created_at?: string
-          de_valor?: number
-          empresa_id?: string
+          aliquota_percentual?: number
+          competencia?: string | null
+          empresa_id?: string | null
+          faixa_ordem?: number
           id?: string
-          ordem?: number
-          percentual?: number
+          terceiro_id?: string | null
           updated_at?: string
+          valor_ate?: number | null
+          valor_de?: number
         }
         Relationships: [
           {
@@ -536,69 +438,159 @@ export type Database = {
             referencedRelation: "empresas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "folha_comissao_faixas_terceiro_id_fkey"
+            columns: ["terceiro_id"]
+            isOneToOne: false
+            referencedRelation: "folha_terceiros"
+            referencedColumns: ["id"]
+          },
         ]
       }
       folha_competencias: {
         Row: {
           ano: number
+          bloqueada: boolean | null
           competencia: string
           created_at: string
-          data_competencia: string | null
-          empresa_id: string
           id: string
           mes: number
-          observacoes: string | null
-          percentual_quinzena: number
-          status: string
-          total_colaboradores: number
-          total_descontos: number
-          total_fgts: number
-          total_inss_empresa: number
-          total_liquido: number
-          total_proventos: number
-          updated_at: string
         }
         Insert: {
           ano: number
+          bloqueada?: boolean | null
           competencia: string
           created_at?: string
-          data_competencia?: string | null
-          empresa_id: string
           id?: string
           mes: number
-          observacoes?: string | null
-          percentual_quinzena?: number
-          status?: string
-          total_colaboradores?: number
-          total_descontos?: number
-          total_fgts?: number
-          total_inss_empresa?: number
-          total_liquido?: number
-          total_proventos?: number
-          updated_at?: string
         }
         Update: {
           ano?: number
+          bloqueada?: boolean | null
           competencia?: string
           created_at?: string
-          data_competencia?: string | null
-          empresa_id?: string
           id?: string
           mes?: number
+        }
+        Relationships: []
+      }
+      folha_controle_ferias: {
+        Row: {
+          abono_pecuniario_dias: number | null
+          adiantamento_13: boolean | null
+          colaborador_id: string
+          colaborador_nome: string
+          created_at: string
+          data_fim_ferias: string | null
+          data_inicio_ferias: string | null
+          data_limite_concessao: string
+          dias_direito: number | null
+          dias_gozados: number | null
+          dias_saldo: number | null
+          empresa_id: string
+          id: string
+          observacoes: string | null
+          periodo_aquisitivo_fim: string
+          periodo_aquisitivo_inicio: string
+          status: string
+          tipo_colaborador: string
+          updated_at: string
+        }
+        Insert: {
+          abono_pecuniario_dias?: number | null
+          adiantamento_13?: boolean | null
+          colaborador_id: string
+          colaborador_nome: string
+          created_at?: string
+          data_fim_ferias?: string | null
+          data_inicio_ferias?: string | null
+          data_limite_concessao: string
+          dias_direito?: number | null
+          dias_gozados?: number | null
+          dias_saldo?: number | null
+          empresa_id: string
+          id?: string
           observacoes?: string | null
-          percentual_quinzena?: number
+          periodo_aquisitivo_fim: string
+          periodo_aquisitivo_inicio: string
           status?: string
-          total_colaboradores?: number
-          total_descontos?: number
-          total_fgts?: number
-          total_inss_empresa?: number
-          total_liquido?: number
-          total_proventos?: number
+          tipo_colaborador?: string
+          updated_at?: string
+        }
+        Update: {
+          abono_pecuniario_dias?: number | null
+          adiantamento_13?: boolean | null
+          colaborador_id?: string
+          colaborador_nome?: string
+          created_at?: string
+          data_fim_ferias?: string | null
+          data_inicio_ferias?: string | null
+          data_limite_concessao?: string
+          dias_direito?: number | null
+          dias_gozados?: number | null
+          dias_saldo?: number | null
+          empresa_id?: string
+          id?: string
+          observacoes?: string | null
+          periodo_aquisitivo_fim?: string
+          periodo_aquisitivo_inicio?: string
+          status?: string
+          tipo_colaborador?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "folha_competencias_empresa_id_fkey"
+            foreignKeyName: "folha_controle_ferias_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      folha_pagamento_backups: {
+        Row: {
+          autor: string | null
+          competencia: string
+          created_at: string
+          dados_linhas: Json
+          descricao: string | null
+          empresa_id: string
+          id: string
+          linhas_count: number | null
+          tabelas_snapshot: Json | null
+          tipo: string | null
+          valor_total_liquido: number | null
+        }
+        Insert: {
+          autor?: string | null
+          competencia: string
+          created_at?: string
+          dados_linhas: Json
+          descricao?: string | null
+          empresa_id: string
+          id?: string
+          linhas_count?: number | null
+          tabelas_snapshot?: Json | null
+          tipo?: string | null
+          valor_total_liquido?: number | null
+        }
+        Update: {
+          autor?: string | null
+          competencia?: string
+          created_at?: string
+          dados_linhas?: Json
+          descricao?: string | null
+          empresa_id?: string
+          id?: string
+          linhas_count?: number | null
+          tabelas_snapshot?: Json | null
+          tipo?: string | null
+          valor_total_liquido?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folha_pagamento_backups_empresa_id_fkey"
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
@@ -608,241 +600,180 @@ export type Database = {
       }
       folha_pagamento_linhas: {
         Row: {
-          adiantamento: number
-          adicional_insalubridade: number
-          adicional_noturno: number
-          adicional_periculosidade: number
-          agencia: string | null
-          ajuda_custo: number
-          backup_id: string | null
-          banco: string | null
-          base_fgts: number
-          base_inss: number
-          base_irrf: number
-          bruto: number
-          cargo: string
-          chave_pix: string | null
-          comissao: number
-          comissoes: number
+          adiantamento: number | null
+          ajuda: number | null
+          a_pagar_producao: number | null
+          base_irrf: number | null
+          base_irrf_13: number | null
+          cargo: string | null
+          comissao_vendas: number | null
           competencia: string
-          competencia_id: string
-          conta: string | null
           cpf: string | null
           created_at: string
-          data_admissao: string | null
-          departamento: string | null
-          dsr: number
+          dependentes_irrf: number | null
           empresa_id: string
-          faltas_atrasos: number
-          familia: number
-          feriado: number
-          ferias: number
-          fgts_mes: number
-          filhos: number
-          funcao: string
+          ferias: number | null
           funcionario_id: string | null
-          gratificacao: number
-          gratificacoes: number
-          horas_extras: number
-          horas_normais: number
+          gratificacao: number | null
           id: string
-          inativo: boolean
-          inss: number
-          inss_retido: number
-          ir: number
-          irrf_retido: number
-          itens_discriminados: Json | null
-          limpeza: number
-          matricula: string | null
-          mensal_liquido: number
-          modo_calculo: string
+          inss: number | null
+          inss_13: number | null
+          irrf: number | null
+          irrf_13: number | null
+          limpeza: number | null
+          liquido_total: number | null
+          mensal_bruto: number | null
+          mensal_geral: number | null
+          mensal_liquido: number | null
+          mensal_sem_producao: number | null
+          meses_trabalhados_13: number | null
+          modo_calculo: string | null
           nome: string
-          obras: number
-          observacao_linha: string | null
-          observacoes: string | null
-          oculto: boolean
-          outros_descontos: number
-          outros_proventos: number
-          pix: string
-          plano_saude: number
-          producao: number
-          quinzena: number
-          quinzena_2: number
-          sabado: number
-          salario_base: number
-          salario_liquido: number
-          tipo: string
-          total_descontos: number
-          total_proventos: number
-          unidade: string
+          num_dependentes_sal_familia: number | null
+          obras_quantidade: number | null
+          obras_valor_unitario: number | null
+          oculto: boolean | null
+          ordenacao: number | null
+          outros_descontos: number | null
+          primeira_parcela_13: number | null
+          producao_bruto: number | null
+          producao_liquido: number | null
+          producao_total: number | null
+          quinzena: number | null
+          quinzena_2: number | null
+          quinzena_fixa: number | null
+          quinzena_percentual: number | null
+          quinzena_total: number | null
+          sabado_feriado: number | null
+          salario_bruto: number | null
+          salario_familia: number | null
+          segunda_parcela_13: number | null
+          status_linha: string | null
+          terceiro_id: string | null
+          tipo_colaborador: string
+          total_13: number | null
+          total_13_liquido: number | null
           updated_at: string
-          vale_refeicao: number
-          vale_transporte: number
-          valor_horas_extras: number
-          valor_obra: number
-          vendas_ajuda: number
-          vendas_obra: number
+          valor_quinzena: number | null
+          vendas: number | null
         }
         Insert: {
-          adiantamento?: number
-          adicional_insalubridade?: number
-          adicional_noturno?: number
-          adicional_periculosidade?: number
-          agencia?: string | null
-          ajuda_custo?: number
-          backup_id?: string | null
-          banco?: string | null
-          base_fgts?: number
-          base_inss?: number
-          base_irrf?: number
-          bruto?: number
-          cargo?: string
-          chave_pix?: string | null
-          comissao?: number
-          comissoes?: number
+          adiantamento?: number | null
+          ajuda?: number | null
+          a_pagar_producao?: number | null
+          base_irrf?: number | null
+          base_irrf_13?: number | null
+          cargo?: string | null
+          comissao_vendas?: number | null
           competencia: string
-          competencia_id: string
-          conta?: string | null
           cpf?: string | null
           created_at?: string
-          data_admissao?: string | null
-          departamento?: string | null
-          dsr?: number
+          dependentes_irrf?: number | null
           empresa_id: string
-          faltas_atrasos?: number
-          familia?: number
-          feriado?: number
-          ferias?: number
-          fgts_mes?: number
-          filhos?: number
-          funcao?: string
+          ferias?: number | null
           funcionario_id?: string | null
-          gratificacao?: number
-          gratificacoes?: number
-          horas_extras?: number
-          horas_normais?: number
+          gratificacao?: number | null
           id?: string
-          inativo?: boolean
-          inss?: number
-          inss_retido?: number
-          ir?: number
-          irrf_retido?: number
-          itens_discriminados?: Json | null
-          limpeza?: number
-          matricula?: string | null
-          mensal_liquido?: number
-          modo_calculo?: string
+          inss?: number | null
+          inss_13?: number | null
+          irrf?: number | null
+          irrf_13?: number | null
+          limpeza?: number | null
+          liquido_total?: number | null
+          mensal_bruto?: number | null
+          mensal_geral?: number | null
+          mensal_liquido?: number | null
+          mensal_sem_producao?: number | null
+          meses_trabalhados_13?: number | null
+          modo_calculo?: string | null
           nome: string
-          obras?: number
-          observacao_linha?: string | null
-          observacoes?: string | null
-          oculto?: boolean
-          outros_descontos?: number
-          outros_proventos?: number
-          pix?: string
-          plano_saude?: number
-          producao?: number
-          quinzena?: number
-          quinzena_2?: number
-          sabado?: number
-          salario_base?: number
-          salario_liquido?: number
-          tipo?: string
-          total_descontos?: number
-          total_proventos?: number
-          unidade?: string
+          num_dependentes_sal_familia?: number | null
+          obras_quantidade?: number | null
+          obras_valor_unitario?: number | null
+          oculto?: boolean | null
+          ordenacao?: number | null
+          outros_descontos?: number | null
+          primeira_parcela_13?: number | null
+          producao_bruto?: number | null
+          producao_liquido?: number | null
+          producao_total?: number | null
+          quinzena?: number | null
+          quinzena_2?: number | null
+          quinzena_fixa?: number | null
+          quinzena_percentual?: number | null
+          quinzena_total?: number | null
+          sabado_feriado?: number | null
+          salario_bruto?: number | null
+          salario_familia?: number | null
+          segunda_parcela_13?: number | null
+          status_linha?: string | null
+          terceiro_id?: string | null
+          tipo_colaborador?: string
+          total_13?: number | null
+          total_13_liquido?: number | null
           updated_at?: string
-          vale_refeicao?: number
-          vale_transporte?: number
-          valor_horas_extras?: number
-          valor_obra?: number
-          vendas_ajuda?: number
-          vendas_obra?: number
+          valor_quinzena?: number | null
+          vendas?: number | null
         }
         Update: {
-          adiantamento?: number
-          adicional_insalubridade?: number
-          adicional_noturno?: number
-          adicional_periculosidade?: number
-          agencia?: string | null
-          ajuda_custo?: number
-          backup_id?: string | null
-          banco?: string | null
-          base_fgts?: number
-          base_inss?: number
-          base_irrf?: number
-          bruto?: number
-          cargo?: string
-          chave_pix?: string | null
-          comissao?: number
-          comissoes?: number
+          adiantamento?: number | null
+          ajuda?: number | null
+          a_pagar_producao?: number | null
+          base_irrf?: number | null
+          base_irrf_13?: number | null
+          cargo?: string | null
+          comissao_vendas?: number | null
           competencia?: string
-          competencia_id?: string
-          conta?: string | null
           cpf?: string | null
           created_at?: string
-          data_admissao?: string | null
-          departamento?: string | null
-          dsr?: number
+          dependentes_irrf?: number | null
           empresa_id?: string
-          faltas_atrasos?: number
-          familia?: number
-          feriado?: number
-          ferias?: number
-          fgts_mes?: number
-          filhos?: number
-          funcao?: string
+          ferias?: number | null
           funcionario_id?: string | null
-          gratificacao?: number
-          gratificacoes?: number
-          horas_extras?: number
-          horas_normais?: number
+          gratificacao?: number | null
           id?: string
-          inativo?: boolean
-          inss?: number
-          inss_retido?: number
-          ir?: number
-          irrf_retido?: number
-          itens_discriminados?: Json | null
-          limpeza?: number
-          matricula?: string | null
-          mensal_liquido?: number
-          modo_calculo?: string
+          inss?: number | null
+          inss_13?: number | null
+          irrf?: number | null
+          irrf_13?: number | null
+          limpeza?: number | null
+          liquido_total?: number | null
+          mensal_bruto?: number | null
+          mensal_geral?: number | null
+          mensal_liquido?: number | null
+          mensal_sem_producao?: number | null
+          meses_trabalhados_13?: number | null
+          modo_calculo?: string | null
           nome?: string
-          obras?: number
-          observacao_linha?: string | null
-          observacoes?: string | null
-          oculto?: boolean
-          outros_descontos?: number
-          outros_proventos?: number
-          pix?: string
-          plano_saude?: number
-          producao?: number
-          quinzena?: number
-          quinzena_2?: number
-          sabado?: number
-          salario_base?: number
-          salario_liquido?: number
-          tipo?: string
-          total_descontos?: number
-          total_proventos?: number
-          unidade?: string
+          num_dependentes_sal_familia?: number | null
+          obras_quantidade?: number | null
+          obras_valor_unitario?: number | null
+          oculto?: boolean | null
+          ordenacao?: number | null
+          outros_descontos?: number | null
+          primeira_parcela_13?: number | null
+          producao_bruto?: number | null
+          producao_liquido?: number | null
+          producao_total?: number | null
+          quinzena?: number | null
+          quinzena_2?: number | null
+          quinzena_fixa?: number | null
+          quinzena_percentual?: number | null
+          quinzena_total?: number | null
+          sabado_feriado?: number | null
+          salario_bruto?: number | null
+          salario_familia?: number | null
+          segunda_parcela_13?: number | null
+          status_linha?: string | null
+          terceiro_id?: string | null
+          tipo_colaborador?: string
+          total_13?: number | null
+          total_13_liquido?: number | null
           updated_at?: string
-          vale_refeicao?: number
-          vale_transporte?: number
-          valor_horas_extras?: number
-          valor_obra?: number
-          vendas_ajuda?: number
-          vendas_obra?: number
+          valor_quinzena?: number | null
+          vendas?: number | null
         }
         Relationships: [
-          {
-            foreignKeyName: "folha_pagamento_linhas_competencia_id_fkey"
-            columns: ["competencia_id"]
-            isOneToOne: false
-            referencedRelation: "folha_competencias"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "folha_pagamento_linhas_empresa_id_fkey"
             columns: ["empresa_id"]
@@ -850,125 +781,92 @@ export type Database = {
             referencedRelation: "empresas"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "folha_pagamento_linhas_funcionario_id_fkey"
-            columns: ["funcionario_id"]
-            isOneToOne: false
-            referencedRelation: "funcionarios"
-            referencedColumns: ["id"]
-          },
         ]
       }
       folha_tabelas_oficiais: {
         Row: {
-          ano: number
-          ativo: boolean
+          ano_vigencia: number
+          ativo: boolean | null
           created_at: string
-          descricao: string
-          empresa_id: string | null
-          familia_cota_por_filho: number
-          familia_teto_salario: number
+          descricao: string | null
+          faixas: Json
           id: string
-          inss_faixas: Json
-          ir_coeficiente_reducao: number
-          ir_desconto_gradual_ate: number
-          ir_isento_ate: number
-          ir_parcela_fixa_reducao: number
-          irrf_faixas: Json
-          salario_minimo: number
-          teto_inss: number
+          tipo_tabela: string
           updated_at: string
         }
         Insert: {
-          ano?: number
-          ativo?: boolean
+          ano_vigencia: number
+          ativo?: boolean | null
           created_at?: string
-          descricao?: string
-          empresa_id?: string | null
-          familia_cota_por_filho?: number
-          familia_teto_salario?: number
+          descricao?: string | null
+          faixas: Json
           id?: string
-          inss_faixas?: Json
-          ir_coeficiente_reducao?: number
-          ir_desconto_gradual_ate?: number
-          ir_isento_ate?: number
-          ir_parcela_fixa_reducao?: number
-          irrf_faixas?: Json
-          salario_minimo?: number
-          teto_inss?: number
+          tipo_tabela: string
           updated_at?: string
         }
         Update: {
-          ano?: number
-          ativo?: boolean
+          ano_vigencia?: number
+          ativo?: boolean | null
           created_at?: string
-          descricao?: string
-          empresa_id?: string | null
-          familia_cota_por_filho?: number
-          familia_teto_salario?: number
+          descricao?: string | null
+          faixas?: Json
           id?: string
-          inss_faixas?: Json
-          ir_coeficiente_reducao?: number
-          ir_desconto_gradual_ate?: number
-          ir_isento_ate?: number
-          ir_parcela_fixa_reducao?: number
-          irrf_faixas?: Json
-          salario_minimo?: number
-          teto_inss?: number
+          tipo_tabela?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "folha_tabelas_oficiais_empresa_id_fkey"
-            columns: ["empresa_id"]
-            isOneToOne: false
-            referencedRelation: "empresas"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       folha_terceiros: {
         Row: {
-          ativo: boolean
-          bruto: number
-          conta: string | null
+          ativo: boolean | null
+          chave_pix: string | null
+          cnpj_cpf: string | null
+          comissao_padrao_percentual: number | null
           created_at: string
-          eh_vendedor: boolean
+          eh_vendedor: boolean | null
           empresa_id: string
+          funcao: string | null
           id: string
           nome: string
-          obs: string | null
-          pix: string | null
-          unidade: string
+          observacoes: string | null
+          percentual_quinzena: number | null
+          tipo_pagamento: string | null
           updated_at: string
+          valor_fixo_mensal: number | null
         }
         Insert: {
-          ativo?: boolean
-          bruto?: number
-          conta?: string | null
+          ativo?: boolean | null
+          chave_pix?: string | null
+          cnpj_cpf?: string | null
+          comissao_padrao_percentual?: number | null
           created_at?: string
-          eh_vendedor?: boolean
+          eh_vendedor?: boolean | null
           empresa_id: string
+          funcao?: string | null
           id?: string
           nome: string
-          obs?: string | null
-          pix?: string | null
-          unidade?: string
+          observacoes?: string | null
+          percentual_quinzena?: number | null
+          tipo_pagamento?: string | null
           updated_at?: string
+          valor_fixo_mensal?: number | null
         }
         Update: {
-          ativo?: boolean
-          bruto?: number
-          conta?: string | null
+          ativo?: boolean | null
+          chave_pix?: string | null
+          cnpj_cpf?: string | null
+          comissao_padrao_percentual?: number | null
           created_at?: string
-          eh_vendedor?: boolean
+          eh_vendedor?: boolean | null
           empresa_id?: string
+          funcao?: string | null
           id?: string
           nome?: string
-          obs?: string | null
-          pix?: string | null
-          unidade?: string
+          observacoes?: string | null
+          percentual_quinzena?: number | null
+          tipo_pagamento?: string | null
           updated_at?: string
+          valor_fixo_mensal?: number | null
         }
         Relationships: [
           {
@@ -982,75 +880,72 @@ export type Database = {
       }
       funcionarios: {
         Row: {
-          agencia: string | null
-          ativo: boolean
-          bruto: number
-          calca: string | null
-          camisa: string | null
-          conta: string | null
+          ativo: boolean | null
+          cargo: string | null
+          chave_pix: string | null
           cpf: string | null
           created_at: string
           data_admissao: string | null
+          data_demissao: string | null
+          data_nascimento: string | null
+          dependentes_irrf: number | null
           email: string | null
-          empresa_id: string | null
-          filhos: number
-          funcao: string
+          empresa_id: string
           id: string
-          inativo: boolean
+          modo_calculo: string | null
           nome: string
-          observacoes: string | null
-          oculto: boolean
-          pix: string | null
+          num_dependentes_sal_familia: number | null
+          percentual_quinzena: number | null
+          salario_bruto: number | null
+          status: string | null
           telefone: string | null
-          unidade: string
+          tipo_colaborador: string | null
           updated_at: string
         }
         Insert: {
-          agencia?: string | null
-          ativo?: boolean
-          bruto?: number
-          calca?: string | null
-          camisa?: string | null
-          conta?: string | null
+          ativo?: boolean | null
+          cargo?: string | null
+          chave_pix?: string | null
           cpf?: string | null
           created_at?: string
           data_admissao?: string | null
+          data_demissao?: string | null
+          data_nascimento?: string | null
+          dependentes_irrf?: number | null
           email?: string | null
-          empresa_id?: string | null
-          filhos?: number
-          funcao?: string
+          empresa_id: string
           id?: string
-          inativo?: boolean
+          modo_calculo?: string | null
           nome: string
-          observacoes?: string | null
-          oculto?: boolean
-          pix?: string | null
+          num_dependentes_sal_familia?: number | null
+          percentual_quinzena?: number | null
+          salario_bruto?: number | null
+          status?: string | null
           telefone?: string | null
-          unidade?: string
+          tipo_colaborador?: string | null
           updated_at?: string
         }
         Update: {
-          agencia?: string | null
-          ativo?: boolean
-          bruto?: number
-          calca?: string | null
-          camisa?: string | null
-          conta?: string | null
+          ativo?: boolean | null
+          cargo?: string | null
+          chave_pix?: string | null
           cpf?: string | null
           created_at?: string
           data_admissao?: string | null
+          data_demissao?: string | null
+          data_nascimento?: string | null
+          dependentes_irrf?: number | null
           email?: string | null
-          empresa_id?: string | null
-          filhos?: number
-          funcao?: string
+          empresa_id?: string
           id?: string
-          inativo?: boolean
+          modo_calculo?: string | null
           nome?: string
-          observacoes?: string | null
-          oculto?: boolean
-          pix?: string | null
+          num_dependentes_sal_familia?: number | null
+          percentual_quinzena?: number | null
+          salario_bruto?: number | null
+          status?: string | null
           telefone?: string | null
-          unidade?: string
+          tipo_colaborador?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1065,46 +960,43 @@ export type Database = {
       }
       materiais: {
         Row: {
+          ativo: boolean | null
           codigo: string
-          controla_estoque: boolean
+          controla_estoque: boolean | null
           created_at: string
           densidade: number | null
           empresa_id: string | null
-          estoque_minimo: number
+          estoque_minimo: number | null
           id: string
           nome: string
-          ordem: number
-          preco_compra: number | null
+          preco_unitario: number | null
           unidade: string
-          unidade_compra: string | null
         }
         Insert: {
+          ativo?: boolean | null
           codigo: string
-          controla_estoque?: boolean
+          controla_estoque?: boolean | null
           created_at?: string
           densidade?: number | null
           empresa_id?: string | null
-          estoque_minimo?: number
+          estoque_minimo?: number | null
           id?: string
           nome: string
-          ordem?: number
-          preco_compra?: number | null
-          unidade?: string
-          unidade_compra?: string | null
+          preco_unitario?: number | null
+          unidade: string
         }
         Update: {
+          ativo?: boolean | null
           codigo?: string
-          controla_estoque?: boolean
+          controla_estoque?: boolean | null
           created_at?: string
           densidade?: number | null
           empresa_id?: string | null
-          estoque_minimo?: number
+          estoque_minimo?: number | null
           id?: string
           nome?: string
-          ordem?: number
-          preco_compra?: number | null
+          preco_unitario?: number | null
           unidade?: string
-          unidade_compra?: string | null
         }
         Relationships: [
           {
@@ -1118,37 +1010,34 @@ export type Database = {
       }
       metas_producao: {
         Row: {
+          ano: number
           created_at: string
-          empresa_id: string
+          empresa_id: string | null
           id: string
-          meta_diaria_m3: number
-          meta_mensal_m3: number
-          observacao: string | null
-          updated_at: string
+          mes: number
+          meta_m3: number
         }
         Insert: {
+          ano: number
           created_at?: string
-          empresa_id: string
+          empresa_id?: string | null
           id?: string
-          meta_diaria_m3?: number
-          meta_mensal_m3?: number
-          observacao?: string | null
-          updated_at?: string
+          mes: number
+          meta_m3: number
         }
         Update: {
+          ano?: number
           created_at?: string
-          empresa_id?: string
+          empresa_id?: string | null
           id?: string
-          meta_diaria_m3?: number
-          meta_mensal_m3?: number
-          observacao?: string | null
-          updated_at?: string
+          mes?: number
+          meta_m3?: number
         }
         Relationships: [
           {
             foreignKeyName: "metas_producao_empresa_id_fkey"
             columns: ["empresa_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "empresas"
             referencedColumns: ["id"]
           },
@@ -1156,21 +1045,21 @@ export type Database = {
       }
       motoristas: {
         Row: {
-          ativo: boolean
+          ativo: boolean | null
           created_at: string
           empresa_id: string | null
           id: string
           nome: string
         }
         Insert: {
-          ativo?: boolean
+          ativo?: boolean | null
           created_at?: string
           empresa_id?: string | null
           id?: string
           nome: string
         }
         Update: {
-          ativo?: boolean
+          ativo?: boolean | null
           created_at?: string
           empresa_id?: string | null
           id?: string
@@ -1261,157 +1150,85 @@ export type Database = {
       }
       ordens_servico: {
         Row: {
-          agua_adic_central: number | null
-          agua_adic_peca: number | null
-          agua_adicional_termo: number | null
-          bomba_estacionaria: string | null
+          bairro: string | null
           carga_id: string | null
+          cep: string | null
+          cidade: string | null
+          cliente_cnpj_cpf: string | null
           cliente_id: string | null
+          cliente_nome: string
           created_at: string
+          dados_adicionais: string | null
           data_emissao: string
-          destinatario_bairro: string | null
-          destinatario_cep: string | null
-          destinatario_cidade: string | null
-          destinatario_cpf_cnpj: string | null
-          destinatario_endereco: string | null
-          destinatario_nome: string
-          destinatario_telefone: string | null
-          destinatario_uf: string | null
-          empresa_id: string
-          exibir_insumos_os: boolean
-          hora_carga: string | null
-          hora_chegada_central: string | null
-          hora_chegada_obra: string | null
-          hora_fim_descarga: string | null
-          hora_inicio_descarga: string | null
-          hora_saida_central: string | null
-          hora_saida_obra: string | null
+          empresa_id: string | null
+          endereco_obra: string | null
+          exibir_insumos: boolean | null
+          hora_saida: string | null
           id: string
           insumos_detalhados: Json | null
           itens: Json
-          km_final: number | null
-          km_inicial: number | null
-          lacre: string | null
-          local_descarga: string | null
-          moldagem_central: string | null
           motorista_nome: string | null
-          nome_obra: string | null
-          nome_responsavel_termo: string | null
+          natureza_operacao: string | null
           numero_os: number
           observacoes: string | null
-          peca_concretada: string | null
-          slump_central_medido: string | null
-          slump_central_saida: string | null
-          slump_peca_medido: string | null
-          slump_peca_saida: string | null
-          slump_tolerancia: string | null
+          tipo_entrega: string | null
+          updated_at: string
+          valor_total: number | null
           veiculo_placa: string | null
-          vendedor_nome: string | null
-          visto_motorista_central: string | null
-          visto_motorista_peca: string | null
-          visto_obra: string | null
         }
         Insert: {
-          agua_adic_central?: number | null
-          agua_adic_peca?: number | null
-          agua_adicional_termo?: number | null
-          bomba_estacionaria?: string | null
+          bairro?: string | null
           carga_id?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cliente_cnpj_cpf?: string | null
           cliente_id?: string | null
+          cliente_nome: string
           created_at?: string
+          dados_adicionais?: string | null
           data_emissao?: string
-          destinatario_bairro?: string | null
-          destinatario_cep?: string | null
-          destinatario_cidade?: string | null
-          destinatario_cpf_cnpj?: string | null
-          destinatario_endereco?: string | null
-          destinatario_nome: string
-          destinatario_telefone?: string | null
-          destinatario_uf?: string | null
-          empresa_id: string
-          exibir_insumos_os?: boolean
-          hora_carga?: string | null
-          hora_chegada_central?: string | null
-          hora_chegada_obra?: string | null
-          hora_fim_descarga?: string | null
-          hora_inicio_descarga?: string | null
-          hora_saida_central?: string | null
-          hora_saida_obra?: string | null
+          empresa_id?: string | null
+          endereco_obra?: string | null
+          exibir_insumos?: boolean | null
+          hora_saida?: string | null
           id?: string
           insumos_detalhados?: Json | null
           itens?: Json
-          km_final?: number | null
-          km_inicial?: number | null
-          lacre?: string | null
-          local_descarga?: string | null
-          moldagem_central?: string | null
           motorista_nome?: string | null
-          nome_obra?: string | null
-          nome_responsavel_termo?: string | null
+          natureza_operacao?: string | null
           numero_os: number
           observacoes?: string | null
-          peca_concretada?: string | null
-          slump_central_medido?: string | null
-          slump_central_saida?: string | null
-          slump_peca_medido?: string | null
-          slump_peca_saida?: string | null
-          slump_tolerancia?: string | null
+          tipo_entrega?: string | null
+          updated_at?: string
+          valor_total?: number | null
           veiculo_placa?: string | null
-          vendedor_nome?: string | null
-          visto_motorista_central?: string | null
-          visto_motorista_peca?: string | null
-          visto_obra?: string | null
         }
         Update: {
-          agua_adic_central?: number | null
-          agua_adic_peca?: number | null
-          agua_adicional_termo?: number | null
-          bomba_estacionaria?: string | null
+          bairro?: string | null
           carga_id?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cliente_cnpj_cpf?: string | null
           cliente_id?: string | null
+          cliente_nome?: string
           created_at?: string
+          dados_adicionais?: string | null
           data_emissao?: string
-          destinatario_bairro?: string | null
-          destinatario_cep?: string | null
-          destinatario_cidade?: string | null
-          destinatario_cpf_cnpj?: string | null
-          destinatario_endereco?: string | null
-          destinatario_nome?: string
-          destinatario_telefone?: string | null
-          destinatario_uf?: string | null
-          empresa_id?: string
-          exibir_insumos_os?: boolean
-          hora_carga?: string | null
-          hora_chegada_central?: string | null
-          hora_chegada_obra?: string | null
-          hora_fim_descarga?: string | null
-          hora_inicio_descarga?: string | null
-          hora_saida_central?: string | null
-          hora_saida_obra?: string | null
+          empresa_id?: string | null
+          endereco_obra?: string | null
+          exibir_insumos?: boolean | null
+          hora_saida?: string | null
           id?: string
           insumos_detalhados?: Json | null
           itens?: Json
-          km_final?: number | null
-          km_inicial?: number | null
-          lacre?: string | null
-          local_descarga?: string | null
-          moldagem_central?: string | null
           motorista_nome?: string | null
-          nome_obra?: string | null
-          nome_responsavel_termo?: string | null
+          natureza_operacao?: string | null
           numero_os?: number
           observacoes?: string | null
-          peca_concretada?: string | null
-          slump_central_medido?: string | null
-          slump_central_saida?: string | null
-          slump_peca_medido?: string | null
-          slump_peca_saida?: string | null
-          slump_tolerancia?: string | null
+          tipo_entrega?: string | null
+          updated_at?: string
+          valor_total?: number | null
           veiculo_placa?: string | null
-          vendedor_nome?: string | null
-          visto_motorista_central?: string | null
-          visto_motorista_peca?: string | null
-          visto_obra?: string | null
         }
         Relationships: [
           {
@@ -1437,81 +1254,43 @@ export type Database = {
           },
         ]
       }
-      prazos_exame_por_empresa: {
+      prazos_exame_empresa: {
         Row: {
+          aviso_previo_dias: number
           created_at: string
-          descricao_norma: string | null
+          descricao: string | null
           empresa_id: string
           id: string
-          nome_exame: string
-          norma_referencia: string | null
+          obrigatorio: boolean
+          periodicidade_meses: number
           tipo_exame: string
           updated_at: string
-          validade_padrao_meses: number
         }
         Insert: {
+          aviso_previo_dias?: number
           created_at?: string
-          descricao_norma?: string | null
+          descricao?: string | null
           empresa_id: string
           id?: string
-          nome_exame: string
-          norma_referencia?: string | null
+          obrigatorio?: boolean
+          periodicidade_meses?: number
           tipo_exame: string
           updated_at?: string
-          validade_padrao_meses: number
         }
         Update: {
+          aviso_previo_dias?: number
           created_at?: string
-          descricao_norma?: string | null
+          descricao?: string | null
           empresa_id?: string
           id?: string
-          nome_exame?: string
-          norma_referencia?: string | null
+          obrigatorio?: boolean
+          periodicidade_meses?: number
           tipo_exame?: string
           updated_at?: string
-          validade_padrao_meses?: number
         }
         Relationships: [
           {
-            foreignKeyName: "prazos_exame_por_empresa_empresa_id_fkey"
-            columns: ["empresa_id"]
-            isOneToOne: false
-            referencedRelation: "empresas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      precos_material: {
-        Row: {
-          created_at: string
-          empresa_id: string | null
-          id: string
-          material_codigo: string
-          mes_ano: string
-          preco_unitario: number
-          unidade: string
-        }
-        Insert: {
-          created_at?: string
-          empresa_id?: string | null
-          id?: string
-          material_codigo: string
-          mes_ano: string
-          preco_unitario?: number
-          unidade?: string
-        }
-        Update: {
-          created_at?: string
-          empresa_id?: string | null
-          id?: string
-          material_codigo?: string
-          mes_ano?: string
-          preco_unitario?: number
-          unidade?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "precos_material_empresa_id_fkey"
+            foreignKeyName: "prazos_exame_empresa_empresa_id_fkey"
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
@@ -1521,48 +1300,48 @@ export type Database = {
       }
       recipientes_estoque: {
         Row: {
+          ativo: boolean | null
+          capacidade_maxima: number
           created_at: string
           empresa_id: string
-          estoque_minimo: number
           id: string
           identificador: string
           material_codigo: string
-          material_id: string | null
-          material_nome: string
           nome: string
-          ordem: number
+          observacoes: string | null
+          ponto_pedido: number | null
           saldo_atual: number
           tipo: string
           unidade: string
           updated_at: string
         }
         Insert: {
+          ativo?: boolean | null
+          capacidade_maxima?: number
           created_at?: string
           empresa_id: string
-          estoque_minimo?: number
           id?: string
           identificador: string
           material_codigo: string
-          material_id?: string | null
-          material_nome: string
           nome: string
-          ordem?: number
+          observacoes?: string | null
+          ponto_pedido?: number | null
           saldo_atual?: number
           tipo: string
-          unidade: string
+          unidade?: string
           updated_at?: string
         }
         Update: {
+          ativo?: boolean | null
+          capacidade_maxima?: number
           created_at?: string
           empresa_id?: string
-          estoque_minimo?: number
           id?: string
           identificador?: string
           material_codigo?: string
-          material_id?: string | null
-          material_nome?: string
           nome?: string
-          ordem?: number
+          observacoes?: string | null
+          ponto_pedido?: number | null
           saldo_atual?: number
           tipo?: string
           unidade?: string
@@ -1576,63 +1355,62 @@ export type Database = {
             referencedRelation: "empresas"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "recipientes_estoque_material_id_fkey"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "materiais"
-            referencedColumns: ["id"]
-          },
         ]
       }
       tracos: {
         Row: {
-          ativo: boolean
-          consumo_aditivo: number
-          consumo_agua: number | null
-          consumo_areia: number
-          consumo_brita12: number
-          consumo_brita19: number
-          consumo_cimento: number
-          consumo_po_pedra: number
+          ativo: boolean | null
           created_at: string
           descricao: string | null
           empresa_id: string | null
-          fck_mpa: number | null
+          fck: number | null
           id: string
           nome: string
+          preco_m3: number | null
+          quant_aditivo: number | null
+          quant_agua: number | null
+          quant_areia: number | null
+          quant_brita12: number | null
+          quant_brita19: number | null
+          quant_cimento: number | null
+          quant_po_pedra: number | null
+          slump: string | null
         }
         Insert: {
-          ativo?: boolean
-          consumo_aditivo?: number
-          consumo_agua?: number | null
-          consumo_areia?: number
-          consumo_brita12?: number
-          consumo_brita19?: number
-          consumo_cimento?: number
-          consumo_po_pedra?: number
+          ativo?: boolean | null
           created_at?: string
           descricao?: string | null
           empresa_id?: string | null
-          fck_mpa?: number | null
+          fck?: number | null
           id?: string
           nome: string
+          preco_m3?: number | null
+          quant_aditivo?: number | null
+          quant_agua?: number | null
+          quant_areia?: number | null
+          quant_brita12?: number | null
+          quant_brita19?: number | null
+          quant_cimento?: number | null
+          quant_po_pedra?: number | null
+          slump?: string | null
         }
         Update: {
-          ativo?: boolean
-          consumo_aditivo?: number
-          consumo_agua?: number | null
-          consumo_areia?: number
-          consumo_brita12?: number
-          consumo_brita19?: number
-          consumo_cimento?: number
-          consumo_po_pedra?: number
+          ativo?: boolean | null
           created_at?: string
           descricao?: string | null
           empresa_id?: string | null
-          fck_mpa?: number | null
+          fck?: number | null
           id?: string
           nome?: string
+          preco_m3?: number | null
+          quant_aditivo?: number | null
+          quant_agua?: number | null
+          quant_areia?: number | null
+          quant_brita12?: number | null
+          quant_brita19?: number | null
+          quant_cimento?: number | null
+          quant_po_pedra?: number | null
+          slump?: string | null
         }
         Relationships: [
           {
@@ -1646,36 +1424,33 @@ export type Database = {
       }
       usuarios_app: {
         Row: {
-          ativo: boolean
+          ativo: boolean | null
           created_at: string
           email: string
           empresa_id: string | null
           id: string
           nome: string
           perfil: string
-          updated_at: string
           user_id: string | null
         }
         Insert: {
-          ativo?: boolean
+          ativo?: boolean | null
           created_at?: string
           email: string
           empresa_id?: string | null
           id?: string
           nome: string
-          perfil: string
-          updated_at?: string
+          perfil?: string
           user_id?: string | null
         }
         Update: {
-          ativo?: boolean
+          ativo?: boolean | null
           created_at?: string
           email?: string
           empresa_id?: string | null
           id?: string
           nome?: string
           perfil?: string
-          updated_at?: string
           user_id?: string | null
         }
         Relationships: [
@@ -1690,7 +1465,8 @@ export type Database = {
       }
       veiculos: {
         Row: {
-          ativo: boolean
+          ativo: boolean | null
+          capacidade_m3: number | null
           created_at: string
           empresa_id: string | null
           id: string
@@ -1698,7 +1474,8 @@ export type Database = {
           placa: string
         }
         Insert: {
-          ativo?: boolean
+          ativo?: boolean | null
+          capacidade_m3?: number | null
           created_at?: string
           empresa_id?: string | null
           id?: string
@@ -1706,7 +1483,8 @@ export type Database = {
           placa: string
         }
         Update: {
-          ativo?: boolean
+          ativo?: boolean | null
+          capacidade_m3?: number | null
           created_at?: string
           empresa_id?: string | null
           id?: string
@@ -1724,9 +1502,7 @@ export type Database = {
         ]
       }
     }
-    Views: {
-      [_ in never]: never
-    }
+    Views: { [_ in never]: never }
     Functions: {
       atualizar_email_usuario:
         | {
@@ -1745,28 +1521,21 @@ export type Database = {
         }[]
       }
       confirmar_email_auth_usuario:
-        | { Args: { p_user_id: string }; Returns: Json }
-        | { Args: { p_usuario_id: string }; Returns: boolean }
-      proximo_numero_os:
         | {
-            Args: { p_empresa_id: string }
-            Returns: {
-              error: true
-            } & "Could not choose the best candidate function between: public.proximo_numero_os(p_empresa_id => text), public.proximo_numero_os(p_empresa_id => uuid). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+            Args: { p_user_id: string }
+            Returns: Json
           }
         | {
-            Args: { p_empresa_id: string }
-            Returns: {
-              error: true
-            } & "Could not choose the best candidate function between: public.proximo_numero_os(p_empresa_id => text), public.proximo_numero_os(p_empresa_id => uuid). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+            Args: { p_usuario_id: string }
+            Returns: boolean
           }
+      proximo_numero_os: {
+        Args: { p_empresa_id: string }
+        Returns: number
+      }
     }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+    Enums: { [_ in never]: never }
+    CompositeTypes: { [_ in never]: never }
   }
 }
 
@@ -1774,95 +1543,83 @@ type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
-export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
-> = DefaultSchemaTableNameOrOptions extends {
+export type Tables<DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"] & DefaultSchema["Views"] | {
+  schema: keyof DatabaseWithoutInternals
+},
+TableName extends DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] & DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"]
+  : never = never,> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] & DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"][TableName] extends {
+    Row: infer R
+  }
+  ? R
+  : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"] & DefaultSchema["Views"]
+    ? DefaultSchema["Tables"] & DefaultSchema["Views"][DefaultSchemaTableNameOrOptions] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
     : never
 
-export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
-> = DefaultSchemaTableNameOrOptions extends {
+export type TablesInsert<DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"] | {
+  schema: keyof DatabaseWithoutInternals
+},
+TableName extends DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  : never = never,> = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+    Insert: infer I
+  }
+  ? I
+  : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
       Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
     : never
 
-export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
-> = DefaultSchemaTableNameOrOptions extends {
+export type TablesUpdate<DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"] | {
+  schema: keyof DatabaseWithoutInternals
+},
+TableName extends DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  : never = never,> = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+    Update: infer U
+  }
+  ? U
+  : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
       Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
     : never
 
-export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
-> = DefaultSchemaEnumNameOrOptions extends {
+export type Enums<DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"] | {
+  schema: keyof DatabaseWithoutInternals
+},
+EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+  : never = never,> = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
@@ -1870,16 +1627,14 @@ export type Enums<
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
-> = PublicCompositeTypeNameOrOptions extends {
+export type CompositeTypes<PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"] | {
+  schema: keyof DatabaseWithoutInternals
+},
+CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+  : never = never,> = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
@@ -1892,4 +1647,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
