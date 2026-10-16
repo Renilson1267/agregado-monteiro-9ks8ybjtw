@@ -343,6 +343,8 @@ export default function LancamentoCargas() {
   // Estado que rastreia tentativa de submissão para destacar campos obrigatórios faltantes
   const [tentouGravar, setTentouGravar] = useState<boolean>(false)
 
+  const tracoAtual = tracos.find((t) => t.id === tracoSelecionadoId)
+
   useEffect(() => {
     async function init() {
       if (!empresaAtiva) return
@@ -587,6 +589,37 @@ export default function LancamentoCargas() {
     veiculosLista,
     motoristasLista,
     cidadesLista,
+  ])
+
+  // Recalcula o Aditivo sugerido quando o traço tem consumo_aditivo e o aditivo NÃO foi editado manualmente
+  useEffect(() => {
+    // Se estiver em modo de edição de carga existente e ainda carregando ou já preenchido como editado, respeita
+    if (editarCargaId && aditivoEditadoManualmente) return
+    if (aditivoEditadoManualmente) return
+
+    const cAdt = Number(tracoAtual?.consumo_aditivo) || 0
+    if (cAdt > 0) {
+      // Prioriza volumeTexto se preenchido, com fallback para o estado volume
+      const parsedTexto = parseFloat(
+        String(volumeTexto).replace(",", ".").trim(),
+      )
+      const volParaCalculo =
+        !isNaN(parsedTexto) && parsedTexto > 0
+          ? parsedTexto
+          : Number(volume) || 0
+
+      const adtRecalculado =
+        volParaCalculo > 0 ? Math.round(cAdt * volParaCalculo) : 0
+      setAditivo(adtRecalculado)
+      setAditivoInput(adtRecalculado > 0 ? String(adtRecalculado) : "")
+      setAditivoBruto(adtRecalculado)
+    }
+  }, [
+    volume,
+    volumeTexto,
+    tracoAtual?.consumo_aditivo,
+    aditivoEditadoManualmente,
+    editarCargaId,
   ])
 
   // Carregar lista de cargas da empresa ativa
@@ -1188,8 +1221,6 @@ export default function LancamentoCargas() {
     // Gravação nova regular: abre o modal de confirmação com resumo
     setModalConfirmarGravacaoAberta(true)
   }
-
-  const tracoAtual = tracos.find((t) => t.id === tracoSelecionadoId)
 
   // Catálogo dinâmico de traços ATIVOS da unidade ativa (ordenados por fck_mpa depois nome)
   const tracosAtivos = useMemo(() => {
@@ -2655,9 +2686,15 @@ export default function LancamentoCargas() {
                                   Estoque
                                 </span>
                               </span>
-                              <span className="text-[11px] text-muted-foreground">
-                                Digite o volume total em litros
-                              </span>
+                              {tracoAtual?.consumo_aditivo ? (
+                                <span className="text-[11px] text-muted-foreground font-mono">
+                                  Cadastro: {tracoAtual.consumo_aditivo} L/m³
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-muted-foreground">
+                                  Digite o volume total em litros
+                                </span>
+                              )}
                             </Label>
                             <div className="relative">
                               <Input
