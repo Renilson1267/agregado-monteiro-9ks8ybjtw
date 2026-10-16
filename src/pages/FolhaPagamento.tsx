@@ -2029,6 +2029,14 @@ export function FolhaPagamento() {
   const [salvandoCelulaVendas, setSalvandoCelulaVendas] =
     useState<string | null>(null)
 
+  // Estado de edição inline da aba QUINZENA (adiantamento)
+  const [celulaAtivaQuinzena, setCelulaAtivaQuinzena] = useState<string | null>(
+    null,
+  )
+  const [valorTempQuinzena, setValorTempQuinzena] = useState<string>("")
+  const [salvandoCelulaQuinzena, setSalvandoCelulaQuinzena] =
+    useState<string | null>(null)
+
   const parseValorInline = (valStr: string): number => {
     const raw = valStr.trim()
     if (!raw || raw === "-" || raw === "—") return 0
@@ -2170,6 +2178,130 @@ export function FolhaPagamento() {
       })
     } finally {
       setSalvandoCelulaProducao(null)
+    }
+  }
+
+  const iniciarEdicaoCelulaQuinzena = (
+    linhaId: string,
+    valorAtual: number | undefined | null,
+  ) => {
+    const v = Number(valorAtual || 0)
+    setCelulaAtivaQuinzena(linhaId)
+    setValorTempQuinzena(v > 0 ? String(v).replace(".", ",") : "")
+  }
+
+  const cancelarEdicaoCelulaQuinzena = () => {
+    setCelulaAtivaQuinzena(null)
+    setValorTempQuinzena("")
+  }
+
+  const salvarEdicaoCelulaQuinzena = async (
+    linhaId: string,
+    novoValorTexto?: string,
+  ) => {
+    if (!empresaAtiva?.id) return
+    const textoParaSalvar =
+      novoValorTexto !== undefined ? novoValorTexto : valorTempQuinzena
+    const numNovo = parseValorInline(textoParaSalvar)
+    const chaveSalvando = `${linhaId}-adiantamento`
+
+    const linhaAtual = linhas.find((l) => l.id === linhaId)
+    if (!linhaAtual) {
+      cancelarEdicaoCelulaQuinzena()
+      return
+    }
+
+    const valorAntigo = Number(linhaAtual.adiantamento || 0)
+    if (numNovo === valorAntigo) {
+      cancelarEdicaoCelulaQuinzena()
+      return
+    }
+
+    setCelulaAtivaQuinzena(null)
+    setSalvandoCelulaQuinzena(chaveSalvando)
+
+    // Atualização otimista imediata na lista de linhas
+    setLinhas((prev) => {
+      const index = prev.findIndex((l) => l.id === linhaId)
+      const novaLinha = {
+        ...linhaAtual,
+        adiantamento: numNovo,
+        updated_at: new Date().toISOString(),
+      }
+      if (index >= 0) {
+        const copia = [...prev]
+        copia[index] = novaLinha
+        return copia
+      }
+      return [...prev, novaLinha]
+    })
+
+    try {
+      const existeNoBanco = linhas.some((l) => l.id === linhaId)
+      if (existeNoBanco) {
+        const linhaGravada = await FolhaService.atualizarCamposProducaoLinha(
+          linhaId,
+          empresaAtiva.id,
+          competencia,
+          { adiantamento: numNovo },
+        )
+        setLinhas((prev) =>
+          prev.map((l) => (l.id === linhaId ? { ...l, ...linhaGravada } : l)),
+        )
+      } else {
+        const novaLinhaCompleta = {
+          ...linhaAtual,
+          adiantamento: numNovo,
+        }
+        const linhaGravada = await FolhaService.salvarLinha(
+          novaLinhaCompleta as any,
+        )
+        setLinhas((prev) => {
+          const filtered = prev.filter((l) => l.id !== linhaId)
+          return [...filtered, linhaGravada]
+        })
+      }
+
+      // Salva / sincroniza também na tabela folha_adiantamentos
+      try {
+        await FolhaService.salvarAdiantamento({
+          empresa_id: empresaAtiva.id,
+          competencia,
+          colaborador_id: linhaAtual.funcionario_id || linhaAtual.id,
+          tipo: linhaAtual.tipo || "Funcionario",
+          nome: linhaAtual.nome,
+          valor_extra: numNovo,
+          pago: false,
+        })
+      } catch (errAdiantamento) {
+        console.warn(
+          "Aviso ao sincronizar folha_adiantamentos:",
+          errAdiantamento,
+        )
+      }
+
+      toast({
+        title: "Adiantamento salvo",
+        description: `Adiantamento de ${linhaAtual.nome} atualizado para ${fmtMoeda(numNovo)}.`,
+      })
+    } catch (err: any) {
+      setLinhas((prev) =>
+        prev.map((l) => {
+          if (l.id !== linhaId) return l
+          return {
+            ...l,
+            adiantamento: valorAntigo,
+            updated_at: new Date().toISOString(),
+          }
+        }),
+      )
+      toast({
+        title: "Erro ao salvar",
+        description: err.message || "Falha ao gravar adiantamento da quinzena.",
+        variant: "destructive",
+      })
+    } finally {
+      setSalvandoCelulaQuinzena(null)
     }
   }
 
@@ -3941,10 +4073,57 @@ export function FolhaPagamento() {
                         <td className="py-2 px-2 text-right font-mono font-bold text-blue-600 bg-blue-50/30 dark:bg-blue-950/10">
                           {fmtMoeda(l.quinzenaFinal)}
                         </td>
-                        <td className="py-2 px-2 text-right font-mono">
-                          {l.adiantamentoTotal > 0
-                            ? fmtMoeda(l.adiantamentoTotal)
-                            : "-"}
+                        <td
+                          className="py-1 px-1 text-right font-mono cursor-pointer hover:bg-muted/60 transition-colors"
+                          onClick={() => {
+                            if (celulaAtivaQuinzena !== l.id) {
+                              iniciarEdicaoCelulaQuinzena(
+                                l.id,
+                                l.adiantamentoTotal || l.adiantamento,
+                              )
+                            }
+                          }}
+                          title="Clique para digitar o adiantamento"
+                        >
+                          {celulaAtivaQuinzena === l.id ? (
+                            <Input
+                              autoFocus
+                              className="h-7 w-24 text-right font-mono text-xs px-1.5 py-0 bg-background border-primary focus-visible:ring-1 inline-block"
+                              value={valorTempQuinzena}
+                              onChange={(e) =>
+                                setValorTempQuinzena(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault()
+                                  salvarEdicaoCelulaQuinzena(l.id)
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault()
+                                  cancelarEdicaoCelulaQuinzena()
+                                }
+                              }}
+                              onBlur={() => salvarEdicaoCelulaQuinzena(l.id)}
+                              placeholder="0,00"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-end gap-1 px-1 py-1 rounded">
+                              {salvandoCelulaQuinzena ===
+                              `${l.id}-adiantamento` ? (
+                                <RefreshCw className="h-3 w-3 animate-spin text-primary" />
+                              ) : null}
+                              <span
+                                className={
+                                  l.adiantamentoTotal > 0
+                                    ? "font-semibold text-foreground"
+                                    : "text-muted-foreground"
+                                }
+                              >
+                                {l.adiantamentoTotal > 0
+                                  ? fmtMoeda(l.adiantamentoTotal)
+                                  : "-"}
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
                           {l.conta || "-"}
