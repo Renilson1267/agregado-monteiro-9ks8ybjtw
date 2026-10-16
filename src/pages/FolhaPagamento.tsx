@@ -2456,6 +2456,283 @@ export function FolhaPagamento() {
     }
   }
 
+  // ==================== LISTA E TOTAIS DO CONTROLE DE ADIANTAMENTO ====================
+  // Construído sobre colaboradores (linhasGeralProcessadas + terceirosProcessados) cruzados com adiantamentosGravados
+  const listaAdiantamento = useMemo<ItemAdiantamentoColaborador[]>(() => {
+    const mapaGravados = new Map<string, FolhaAdiantamento>()
+    adiantamentosGravados.forEach((adi) => {
+      if (adi.colaborador_id) {
+        mapaGravados.set(String(adi.colaborador_id), adi)
+      }
+      if (adi.nome) {
+        mapaGravados.set(`nome:${adi.nome.trim().toUpperCase()}`, adi)
+      }
+    })
+
+    const itens: ItemAdiantamentoColaborador[] = []
+
+    // 1. Funcionários CLT da folha
+    linhasGeralProcessadas.forEach((l) => {
+      const gravado =
+        mapaGravados.get(String(l.id)) ||
+        (l.funcionario_id
+          ? mapaGravados.get(String(l.funcionario_id))
+          : undefined) ||
+        (l.nome
+          ? mapaGravados.get(`nome:${l.nome.trim().toUpperCase()}`)
+          : undefined)
+
+      const valorQuinzena = Math.round(Number(l.quinzenaFinal || 0) * 100) / 100
+      const valorExtra =
+        Math.round(Number(gravado?.valor_extra || 0) * 100) / 100
+      const valorTotal = Math.round((valorQuinzena + valorExtra) * 100) / 100
+
+      itens.push({
+        key: `func-${l.id}`,
+        colaborador_id: l.funcionario_id || l.id,
+        nome: l.nome,
+        tipo: "Funcionario",
+        funcao: l.funcao || l.cargo || "COLABORADOR",
+        salario_base: Number(l.bruto || 0),
+        percentual_quinzena: percentualQuinzena,
+        valor_quinzena: valorQuinzena,
+        valor_extra: valorExtra,
+        valor_total_adiantamento: valorTotal,
+        pago: Boolean(gravado?.pago),
+        data_pagamento: gravado?.data_pagamento || null,
+        observacao: gravado?.observacao || "",
+        conta: l.conta || "",
+        pix: l.pix || l.chave_pix || "",
+        registro_adiantamento_id: gravado?.id,
+      })
+    })
+
+    // 2. Terceiros da folha (exceto vendedores de comissão pura sem quinzena se não tiverem quinzena)
+    terceirosProcessados.forEach((t) => {
+      const gravado =
+        mapaGravados.get(String(t.id)) ||
+        (t.nome
+          ? mapaGravados.get(`nome:${t.nome.trim().toUpperCase()}`)
+          : undefined)
+
+      const valorQuinzena = Math.round(Number(t.quinzena || 0) * 100) / 100
+      const valorExtra =
+        Math.round(Number(gravado?.valor_extra || 0) * 100) / 100
+      const valorTotal = Math.round((valorQuinzena + valorExtra) * 100) / 100
+
+      itens.push({
+        key: `terc-${t.id}`,
+        colaborador_id: t.id,
+        nome: t.nome,
+        tipo: "Terceiro",
+        funcao: t.funcao || "TERCEIRO",
+        salario_base: Number(t.valorMes || t.bruto || 0),
+        percentual_quinzena: percentualQuinzena,
+        valor_quinzena: valorQuinzena,
+        valor_extra: valorExtra,
+        valor_total_adiantamento: valorTotal,
+        pago: Boolean(gravado?.pago),
+        data_pagamento: gravado?.data_pagamento || null,
+        observacao: gravado?.observacao || t.observacao_linha || "",
+        conta: t.conta || "",
+        pix: t.pix || t.chave_pix || "",
+        registro_adiantamento_id: gravado?.id,
+      })
+    })
+
+    return itens
+  }, [
+    linhasGeralProcessadas,
+    terceirosProcessados,
+    adiantamentosGravados,
+    percentualQuinzena,
+  ])
+
+  // Filtragem do adiantamento por busca e status
+  const listaAdiantamentoFiltrada =
+    useMemo<ItemAdiantamentoColaborador[]>(() => {
+      return listaAdiantamento.filter((item) => {
+        if (filtroStatusAdiantamento === "pago" && !item.pago) return false
+        if (filtroStatusAdiantamento === "pendente" && item.pago) return false
+
+        if (buscaAdiantamento.trim()) {
+          const termo = buscaAdiantamento.toLowerCase()
+          const nomeOk = item.nome?.toLowerCase().includes(termo)
+          const funcaoOk = item.funcao?.toLowerCase().includes(termo)
+          const obsOk = (item.observacao || "").toLowerCase().includes(termo)
+          const pixOk = (item.pix || "").toLowerCase().includes(termo)
+          if (!nomeOk && !funcaoOk && !obsOk && !pixOk) return false
+        }
+
+        return true
+      })
+    }, [listaAdiantamento, filtroStatusAdiantamento, buscaAdiantamento])
+
+  // Totais do adiantamento (useMemo sobre listaAdiantamento)
+  const totaisAdiantamento = useMemo(() => {
+    let totalColaboradores = 0
+    let totalGeral = 0
+    let totalExtra = 0
+    let qtdPagos = 0
+    let totalJaPago = 0
+    let qtdPendentes = 0
+    let totalPendente = 0
+
+    listaAdiantamento.forEach((item) => {
+      totalColaboradores += 1
+      totalGeral += Number(item.valor_total_adiantamento || 0)
+      totalExtra += Number(item.valor_extra || 0)
+
+      if (item.pago) {
+        qtdPagos += 1
+        totalJaPago += Number(item.valor_total_adiantamento || 0)
+      } else {
+        qtdPendentes += 1
+        totalPendente += Number(item.valor_total_adiantamento || 0)
+      }
+    })
+
+    return {
+      totalColaboradores,
+      totalGeral: Math.round(totalGeral * 100) / 100,
+      totalExtra: Math.round(totalExtra * 100) / 100,
+      qtdPagos,
+      totalJaPago: Math.round(totalJaPago * 100) / 100,
+      qtdPendentes,
+      totalPendente: Math.round(totalPendente * 100) / 100,
+    }
+  }, [listaAdiantamento])
+
+  // Handlers do Controle de Adiantamento
+  const abrirModalMarcarPagoAdiantamento = (
+    item: ItemAdiantamentoColaborador,
+  ) => {
+    setItemPago(item)
+    const hojeIso = new Date().toISOString().split("T")[0]
+    setDataPagamentoInput(hojeIso)
+    setObservacaoPagoInput(item.observacao || "")
+    setModalPagoAberto(true)
+  }
+
+  const confirmarGravacaoPagoAdiantamento = async () => {
+    if (!itemPago || !empresaAtiva?.id || !competencia) return
+    if (!dataPagamentoInput) {
+      toast({
+        title: "Informe a data",
+        description: "A data do pagamento é obrigatória.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSalvandoPago(true)
+    try {
+      await FolhaService.marcarAdiantamentoPago({
+        empresa_id: empresaAtiva.id,
+        competencia,
+        colaborador_id: itemPago.colaborador_id,
+        nome: itemPago.nome,
+        tipo: itemPago.tipo,
+        data_pagamento: dataPagamentoInput,
+        observacao: observacaoPagoInput || null,
+      })
+
+      await recarregarAdiantamentos()
+      setConfirmacaoPagoAberta(false)
+      setModalPagoAberto(false)
+      setItemPago(null)
+
+      toast({
+        title: "Pagamento registrado",
+        description: `Adiantamento de ${itemPago.nome} marcado como PAGO.`,
+      })
+    } catch (err: any) {
+      console.error("Erro ao marcar adiantamento como pago:", err)
+      toast({
+        title: "Erro ao gravar pagamento",
+        description:
+          err.message || "Falha ao registrar pagamento do adiantamento.",
+        variant: "destructive",
+      })
+    } finally {
+      setSalvandoPago(false)
+    }
+  }
+
+  const confirmarReverterAdiantamento = async () => {
+    if (!itemReverter || !empresaAtiva?.id || !competencia) return
+
+    setRevertendo(true)
+    try {
+      await FolhaService.reverterAdiantamento({
+        empresa_id: empresaAtiva.id,
+        competencia,
+        colaborador_id: itemReverter.colaborador_id,
+        nome: itemReverter.nome,
+        tipo: itemReverter.tipo,
+      })
+
+      await recarregarAdiantamentos()
+      setConfirmacaoReverterAberta(false)
+      const nomeColab = itemReverter.nome
+      setItemReverter(null)
+
+      toast({
+        title: "Pagamento revertido",
+        description: `Adiantamento de ${nomeColab} voltou para PENDENTE.`,
+      })
+    } catch (err: any) {
+      console.error("Erro ao reverter adiantamento:", err)
+      toast({
+        title: "Erro ao reverter pagamento",
+        description: err.message || "Falha ao reverter adiantamento.",
+        variant: "destructive",
+      })
+    } finally {
+      setRevertendo(false)
+    }
+  }
+
+  const salvarValorExtraAdiantamento = async () => {
+    if (!itemExtra || !empresaAtiva?.id || !competencia) return
+
+    setSalvandoExtra(true)
+    try {
+      const extraNum = parseValorInline(valorExtraInput)
+
+      await FolhaService.salvarAdiantamento({
+        empresa_id: empresaAtiva.id,
+        competencia,
+        colaborador_id: itemExtra.colaborador_id,
+        nome: itemExtra.nome,
+        tipo: itemExtra.tipo,
+        valor_extra: extraNum,
+        pago: itemExtra.pago,
+        data_pagamento: itemExtra.data_pagamento,
+        observacao: obsExtraInput || null,
+      })
+
+      await recarregarAdiantamentos()
+      setModalExtraAberto(false)
+      const nomeColab = itemExtra.nome
+      setItemExtra(null)
+
+      toast({
+        title: "Valor extra gravado",
+        description: `Adiantamento de ${nomeColab} atualizado com sucesso.`,
+      })
+    } catch (err: any) {
+      console.error("Erro ao salvar valor extra:", err)
+      toast({
+        title: "Erro ao gravar extra",
+        description: err.message || "Falha ao salvar valor extra.",
+        variant: "destructive",
+      })
+    } finally {
+      setSalvandoExtra(false)
+    }
+  }
+
   // Formatação moeda BRL
   const fmtMoeda = (val: number | undefined | null) => {
     if (val === null || val === undefined) return "-"
