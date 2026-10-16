@@ -483,7 +483,7 @@ export function ModalEditarCarga({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="w-[95vw] max-w-3xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-foreground">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-foreground flex-wrap">
               <Pencil className="w-5 h-5 text-amber-500" />
               <span>Editar Carga #{numeroFormatado}</span>
               <Badge
@@ -492,6 +492,14 @@ export function ModalEditarCarga({
               >
                 {nomeUnidade}
               </Badge>
+              {carga.cancelada && (
+                <Badge
+                  variant="destructive"
+                  className="text-[10px] font-bold uppercase bg-rose-600 text-white"
+                >
+                  Carga Cancelada
+                </Badge>
+              )}
               {isPatos && (
                 <Badge
                   variant="outline"
@@ -502,9 +510,9 @@ export function ModalEditarCarga({
               )}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Ajuste as informações da carga. As movimentações de estoque de
-              cimento e aditivo serão estornadas e recalculadas com os novos
-              valores.
+              {carga.cancelada
+                ? "Edição de super usuário para carga cancelada. Permite corrigir data, volume, cliente, placa, motorista e cidade."
+                : "Ajuste as informações da carga. As movimentações de estoque de cimento e aditivo serão estornadas e recalculadas com os novos valores."}
             </DialogDescription>
           </DialogHeader>
 

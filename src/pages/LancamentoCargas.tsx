@@ -50,6 +50,9 @@ import {
   User,
   MapPin,
   Ban,
+  RotateCcw,
+  Trash2,
+  ShieldAlert,
 } from "lucide-react"
 import { ReciboImpressao } from "@/components/ReciboImpressao"
 import { ModalEditarCarga } from "@/components/ModalEditarCarga"
@@ -223,7 +226,7 @@ export default function LancamentoCargas() {
   const [searchParams] = useSearchParams()
   const editarCargaId = searchParams.get("editar")
   const { empresaAtiva } = useEmpresa()
-  const { isBalanceiro } = useUsuario()
+  const { isBalanceiro, isAdministrador, usuario } = useUsuario()
   const [tracos, setTracos] = useState<Traco[]>([])
   const [materiais, setMateriais] = useState<Material[]>([])
   const [salvando, setSalvando] = useState(false)
@@ -253,6 +256,31 @@ export default function LancamentoCargas() {
   const [cargaParaEditarModal, setCargaParaEditarModal] =
     useState<Carga | null>(null)
   const [modalEditarCargaAberta, setModalEditarCargaAberta] = useState(false)
+
+  // Estados dos modais de Super Usuário (Apenas Administrador)
+  const [cargaParaCancelarAdmin, setCargaParaCancelarAdmin] =
+    useState<Carga | null>(null)
+  const [modalCancelarAdminAberta, setModalCancelarAdminAberta] =
+    useState(false)
+  const [retornarEstoqueAdmin, setRetornarEstoqueAdmin] =
+    useState<boolean>(true)
+  const [motivoCancelamentoAdmin, setMotivoCancelamentoAdmin] =
+    useState<string>("")
+  const [processandoCancelarAdmin, setProcessandoCancelarAdmin] =
+    useState(false)
+
+  const [cargaParaReabrirAdmin, setCargaParaReabrirAdmin] =
+    useState<Carga | null>(null)
+  const [modalReabrirAdminAberta, setModalReabrirAdminAberta] = useState(false)
+  const [processandoReabrirAdmin, setProcessandoReabrirAdmin] = useState(false)
+
+  const [cargaParaExcluirAdmin, setCargaParaExcluirAdmin] =
+    useState<Carga | null>(null)
+  const [modalExcluirAdminAberta, setModalExcluirAdminAberta] = useState(false)
+  const [textoConfirmarExclusao, setTextoConfirmarExclusao] =
+    useState<string>("")
+  const [processandoExcluirAdmin, setProcessandoExcluirAdmin] = useState(false)
+
   const [imprimindoTabelaCargas, setImprimindoTabelaCargas] = useState(false)
   const containerImpressaoTabelaRef = useRef<HTMLDivElement>(null)
 
@@ -649,6 +677,107 @@ export default function LancamentoCargas() {
   })
 
   // Impressão da OS no recibo
+  // Ações de Super Usuário (Administrador) na Tabela de Cargas Lançadas
+  const handleExecutarCancelarAdmin = async () => {
+    if (!cargaParaCancelarAdmin) return
+    setProcessandoCancelarAdmin(true)
+    try {
+      const res = await ConcreteiraService.cancelarCargas({
+        cargasIds: [cargaParaCancelarAdmin.id],
+        retornarEstoque: retornarEstoqueAdmin,
+        motivo:
+          motivoCancelamentoAdmin.trim() ||
+          `Cancelamento direto pelo Admin ${usuario?.nome || ""}`.trim(),
+      })
+
+      toast({
+        title: "Carga cancelada com sucesso!",
+        description: `Carga #${String(cargaParaCancelarAdmin.numero_carga).padStart(4, "0")} foi cancelada. ${
+          retornarEstoqueAdmin
+            ? `${res.estornadas} movimentação(ões) de entrada gerada(s) para estorno no estoque.`
+            : "Insumos NÃO foram retornados ao estoque conforme sua escolha."
+        }`,
+      })
+
+      setModalCancelarAdminAberta(false)
+      setCargaParaCancelarAdmin(null)
+      setMotivoCancelamentoAdmin("")
+      setRetornarEstoqueAdmin(true)
+      await carregarCargasLista()
+    } catch (err: any) {
+      console.error("Erro ao cancelar carga via admin:", err)
+      toast({
+        title: "Erro no cancelamento",
+        description: err.message || "Falha ao processar cancelamento.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessandoCancelarAdmin(false)
+    }
+  }
+
+  const handleExecutarReabrirAdmin = async () => {
+    if (!cargaParaReabrirAdmin) return
+    setProcessandoReabrirAdmin(true)
+    try {
+      await ConcreteiraService.reabrirCarga(cargaParaReabrirAdmin.id)
+      toast({
+        title: "Carga reaberta com sucesso!",
+        description: `A carga #${String(cargaParaReabrirAdmin.numero_carga).padStart(4, "0")} voltou ao status normal e o estoque foi recalculado.`,
+      })
+      setModalReabrirAdminAberta(false)
+      setCargaParaReabrirAdmin(null)
+      await carregarCargasLista()
+    } catch (err: any) {
+      console.error("Erro ao reabrir carga via admin:", err)
+      toast({
+        title: "Erro ao reabrir carga",
+        description: err.message || "Falha ao processar reabertura.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessandoReabrirAdmin(false)
+    }
+  }
+
+  const handleExecutarExcluirAdmin = async () => {
+    if (!cargaParaExcluirAdmin) return
+    if (textoConfirmarExclusao.trim() !== "EXCLUIR") {
+      toast({
+        title: "Confirmação incorreta",
+        description:
+          'Digite exatamente "EXCLUIR" em maiúsculas para confirmar.',
+        variant: "destructive",
+      })
+      return
+    }
+
+    setProcessandoExcluirAdmin(true)
+    try {
+      await ConcreteiraService.excluirCargaDefinitivo(
+        cargaParaExcluirAdmin.id,
+        usuario?.nome || "Admin",
+      )
+      toast({
+        title: "Carga excluída definitivamente!",
+        description: `Carga #${String(cargaParaExcluirAdmin.numero_carga).padStart(4, "0")} foi removida do sistema com auditoria nas movimentações.`,
+      })
+      setModalExcluirAdminAberta(false)
+      setCargaParaExcluirAdmin(null)
+      setTextoConfirmarExclusao("")
+      await carregarCargasLista()
+    } catch (err: any) {
+      console.error("Erro ao excluir carga definitivamente via admin:", err)
+      toast({
+        title: "Erro na exclusão",
+        description: err.message || "Falha ao excluir carga.",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessandoExcluirAdmin(false)
+    }
+  }
+
   const handleImprimirReciboOS = () => {
     const conteudo = document.getElementById(
       "recibo-impressao-modal-lancamentos",
@@ -3640,9 +3769,15 @@ export default function LancamentoCargas() {
                       <th className="py-3 px-2 md:px-3 hidden md:table-cell md:w-[9%] text-center">
                         Status
                       </th>
-                      <th className="py-3 px-2 md:px-3 w-[13%] md:w-[7%] text-right">
-                        Ações
-                      </th>
+                      {isAdministrador ? (
+                        <th className="py-3 px-2 md:px-3 w-[22%] md:w-[13%] text-right text-amber-500 font-bold">
+                          Ações Admin
+                        </th>
+                      ) : (
+                        <th className="py-3 px-2 md:px-3 w-[13%] md:w-[7%] text-right">
+                          Ações
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/30">
@@ -3860,26 +3995,83 @@ export default function LancamentoCargas() {
                               )}
                             </td>
 
-                            {/* Ações: Editar e Imprimir */}
+                            {/* Ações: Super Usuário (Apenas Administrador) + Imprimir OS */}
                             <td className="py-2.5 px-2 md:px-3 text-right whitespace-nowrap">
                               <div className="flex items-center justify-end gap-0.5 md:gap-1">
-                                {!isBalanceiro && (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setCargaParaEditarModal(carga)
-                                      setModalEditarCargaAberta(true)
-                                    }}
-                                    className="h-7 w-7 md:h-8 md:w-8 p-0 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 rounded-lg"
-                                    title="Editar esta carga diretamente"
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </Button>
+                                {isAdministrador && (
+                                  <>
+                                    {/* (1) LÁPIS de edição: abre ModalEditarCarga para QUALQUER carga, inclusive cancelada */}
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setCargaParaEditarModal(carga)
+                                        setModalEditarCargaAberta(true)
+                                      }}
+                                      className="h-7 w-7 md:h-8 md:w-8 p-0 text-amber-500 hover:text-amber-400 hover:bg-amber-500/15 rounded-lg"
+                                      title={
+                                        carga.cancelada
+                                          ? "Editar carga cancelada (Admin)"
+                                          : "Editar esta carga (Admin)"
+                                      }
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </Button>
+
+                                    {/* (2) ou (3): Cancelar se ativa; Reabrir se cancelada */}
+                                    {carga.cancelada || carga.carga_zerada ? (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          setCargaParaReabrirAdmin(carga)
+                                          setModalReabrirAdminAberta(true)
+                                        }}
+                                        className="h-7 w-7 md:h-8 md:w-8 p-0 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/15 rounded-lg"
+                                        title="Reabrir carga cancelada (Admin)"
+                                      >
+                                        <RotateCcw className="w-3.5 h-3.5" />
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          setCargaParaCancelarAdmin(carga)
+                                          setRetornarEstoqueAdmin(true)
+                                          setMotivoCancelamentoAdmin("")
+                                          setModalCancelarAdminAberta(true)
+                                        }}
+                                        className="h-7 w-7 md:h-8 md:w-8 p-0 text-rose-500 hover:text-rose-400 hover:bg-rose-500/15 rounded-lg"
+                                        title="Cancelar esta carga (Admin)"
+                                      >
+                                        <Ban className="w-3.5 h-3.5" />
+                                      </Button>
+                                    )}
+
+                                    {/* (4) EXCLUIR definitivamente com confirmação dupla */}
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setCargaParaExcluirAdmin(carga)
+                                        setTextoConfirmarExclusao("")
+                                        setModalExcluirAdminAberta(true)
+                                      }}
+                                      className="h-7 w-7 md:h-8 md:w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/15 rounded-lg"
+                                      title="Excluir carga definitivamente (Admin)"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </>
                                 )}
 
-                                {carga.ordem_servico_id && (
+                                {/* Botão Imprimir Recibo da OS (permanece para todos com OS vinculada) */}
+                                {carga.ordem_servico_id ? (
                                   <Button
                                     type="button"
                                     variant="ghost"
@@ -3914,6 +4106,12 @@ export default function LancamentoCargas() {
                                   >
                                     <Printer className="w-3.5 h-3.5" />
                                   </Button>
+                                ) : (
+                                  !isAdministrador && (
+                                    <span className="text-muted-foreground/40 text-[11px] px-1">
+                                      —
+                                    </span>
+                                  )
                                 )}
                               </div>
                             </td>
@@ -3957,6 +4155,354 @@ export default function LancamentoCargas() {
         isPatos={isPatos}
         empresaId={empresaAtiva?.id}
       />
+
+      {/* (2) Modal de Cancelamento de Carga pelo Administrador */}
+      <Dialog
+        open={modalCancelarAdminAberta}
+        onOpenChange={(aberto) => {
+          setModalCancelarAdminAberta(aberto)
+          if (!aberto) setCargaParaCancelarAdmin(null)
+        }}
+      >
+        <DialogContent className="w-[95vw] max-w-lg p-5 sm:p-6 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-destructive">
+              <Ban className="w-5 h-5 text-destructive shrink-0" />
+              <span>
+                Cancelar Carga #
+                {String(cargaParaCancelarAdmin?.numero_carga || "").padStart(
+                  4,
+                  "0",
+                )}
+              </span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Ação de Super Usuário. Defina se os insumos retornam ao estoque e
+              confirme o cancelamento desta carga.
+            </DialogDescription>
+          </DialogHeader>
+
+          {cargaParaCancelarAdmin && (
+            <div className="space-y-4 py-2 text-xs">
+              <div className="p-3.5 rounded-xl border border-border/60 bg-muted/20 space-y-1.5 font-mono">
+                <div className="flex justify-between text-foreground">
+                  <span>Data da Carga:</span>
+                  <strong>
+                    {cargaParaCancelarAdmin.data.split("-").reverse().join("/")}
+                  </strong>
+                </div>
+                <div className="flex justify-between text-foreground">
+                  <span>Volume:</span>
+                  <strong>
+                    {Number(cargaParaCancelarAdmin.volume_m3).toFixed(1)} m³
+                  </strong>
+                </div>
+                <div className="flex justify-between text-foreground">
+                  <span>Cliente:</span>
+                  <span className="truncate max-w-[240px]">
+                    {cargaParaCancelarAdmin.cliente_nome || "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-muted-foreground pt-1 border-t border-border/40">
+                  <span>Cimento / Aditivo:</span>
+                  <span>
+                    {Number(
+                      cargaParaCancelarAdmin.consumo_cimento || 0,
+                    ).toLocaleString("pt-BR")}{" "}
+                    kg cim •{" "}
+                    {Number(
+                      cargaParaCancelarAdmin.consumo_aditivo || 0,
+                    ).toLocaleString("pt-BR")}{" "}
+                    L adt
+                  </span>
+                </div>
+              </div>
+
+              {/* Opção Retornar ao Estoque */}
+              <div className="flex items-start gap-3 p-3 rounded-xl border border-border/60 bg-background">
+                <Checkbox
+                  id="admin-chk-retornar"
+                  checked={retornarEstoqueAdmin}
+                  onCheckedChange={(ch) => setRetornarEstoqueAdmin(!!ch)}
+                  className="mt-0.5"
+                />
+                <div className="space-y-0.5">
+                  <Label
+                    htmlFor="admin-chk-retornar"
+                    className="text-xs font-bold cursor-pointer flex items-center gap-1.5 text-foreground"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-primary" />
+                    Retornar insumos ao estoque (Estorno de Entrada)
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Se marcado, gera movimentações de entrada para cimento e
+                    aditivo e recompõe o saldo dos recipientes/silos. Se
+                    desmarcado, registra cancelamento sem retorno de estoque.
+                  </p>
+                </div>
+              </div>
+
+              {/* Motivo opcional */}
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="admin-motivo-cancel"
+                  className="text-xs font-semibold text-foreground"
+                >
+                  Motivo do Cancelamento (opcional):
+                </Label>
+                <Input
+                  id="admin-motivo-cancel"
+                  placeholder="Ex: Erro de digitação pelo balanceiro, cancelado pelo cliente na obra..."
+                  value={motivoCancelamentoAdmin}
+                  onChange={(e) => setMotivoCancelamentoAdmin(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={processandoCancelarAdmin}
+              onClick={() => setModalCancelarAdminAberta(false)}
+              className="w-full sm:w-auto text-xs rounded-xl"
+            >
+              Voltar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={processandoCancelarAdmin}
+              onClick={handleExecutarCancelarAdmin}
+              className="w-full sm:w-auto gap-1.5 font-bold text-xs rounded-xl"
+            >
+              <Ban className="w-4 h-4" />
+              {processandoCancelarAdmin
+                ? "Cancelando..."
+                : "Confirmar Cancelamento"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* (3) Modal de Reabertura de Carga Cancelada */}
+      <Dialog
+        open={modalReabrirAdminAberta}
+        onOpenChange={(aberto) => {
+          setModalReabrirAdminAberta(aberto)
+          if (!aberto) setCargaParaReabrirAdmin(null)
+        }}
+      >
+        <DialogContent className="w-[95vw] max-w-lg p-5 sm:p-6 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-foreground">
+              <RotateCcw className="w-5 h-5 text-emerald-500 shrink-0" />
+              <span>
+                Reabrir Carga #
+                {String(cargaParaReabrirAdmin?.numero_carga || "").padStart(
+                  4,
+                  "0",
+                )}
+              </span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              A carga voltará ao status ativo normal. Se houve retorno de
+              estoque no cancelamento, os insumos serão debitados novamente sem
+              duplicar movimentações.
+            </DialogDescription>
+          </DialogHeader>
+
+          {cargaParaReabrirAdmin && (
+            <div className="space-y-3 py-2 text-xs">
+              <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-1.5 font-mono text-xs">
+                <div className="flex justify-between text-foreground">
+                  <span>Data:</span>
+                  <strong>
+                    {cargaParaReabrirAdmin.data.split("-").reverse().join("/")}
+                  </strong>
+                </div>
+                <div className="flex justify-between text-foreground">
+                  <span>Volume:</span>
+                  <strong>
+                    {Number(cargaParaReabrirAdmin.volume_m3).toFixed(1)} m³
+                  </strong>
+                </div>
+                <div className="flex justify-between text-foreground">
+                  <span>Cliente:</span>
+                  <span className="truncate max-w-[240px]">
+                    {cargaParaReabrirAdmin.cliente_nome || "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-muted-foreground pt-1 border-t border-emerald-500/20">
+                  <span>Insumos:</span>
+                  <span>
+                    {Number(
+                      cargaParaReabrirAdmin.consumo_cimento || 0,
+                    ).toLocaleString("pt-BR")}{" "}
+                    kg cim •{" "}
+                    {Number(
+                      cargaParaReabrirAdmin.consumo_aditivo || 0,
+                    ).toLocaleString("pt-BR")}{" "}
+                    L adt
+                  </span>
+                </div>
+              </div>
+
+              {cargaParaReabrirAdmin.motivo_cancelamento && (
+                <div className="p-2.5 rounded-lg border border-border/60 bg-muted/30 text-[11px] text-muted-foreground">
+                  <strong>Motivo do cancelamento anterior:</strong>{" "}
+                  {cargaParaReabrirAdmin.motivo_cancelamento}
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={processandoReabrirAdmin}
+              onClick={() => setModalReabrirAdminAberta(false)}
+              className="w-full sm:w-auto text-xs rounded-xl"
+            >
+              Voltar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={processandoReabrirAdmin}
+              onClick={handleExecutarReabrirAdmin}
+              className="w-full sm:w-auto gap-1.5 font-bold text-xs rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <RotateCcw className="w-4 h-4" />
+              {processandoReabrirAdmin ? "Reabrindo..." : "Sim, Reabrir Carga"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* (4) Modal de Exclusão Definitiva (Dupla Confirmação: digitar EXCLUIR) */}
+      <Dialog
+        open={modalExcluirAdminAberta}
+        onOpenChange={(aberto) => {
+          setModalExcluirAdminAberta(aberto)
+          if (!aberto) {
+            setCargaParaExcluirAdmin(null)
+            setTextoConfirmarExclusao("")
+          }
+        }}
+      >
+        <DialogContent className="w-[95vw] max-w-lg p-5 sm:p-6 rounded-2xl border-destructive/50">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-destructive">
+              <ShieldAlert className="w-5 h-5 text-destructive shrink-0" />
+              <span>
+                Exclusão Definitiva — Carga #
+                {String(cargaParaExcluirAdmin?.numero_carga || "").padStart(
+                  4,
+                  "0",
+                )}
+              </span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Esta ação é IRREVERSÍVEL. A carga será apagada do banco de dados e
+              será registrado nas movimentações de estoque que foi uma exclusão
+              manual do administrador.
+            </DialogDescription>
+          </DialogHeader>
+
+          {cargaParaExcluirAdmin && (
+            <div className="space-y-4 py-2 text-xs">
+              <div className="p-3.5 rounded-xl border border-destructive/30 bg-destructive/10 space-y-1.5 font-mono text-xs">
+                <div className="flex justify-between text-foreground">
+                  <span>Carga:</span>
+                  <strong>
+                    #
+                    {String(cargaParaExcluirAdmin.numero_carga).padStart(
+                      4,
+                      "0",
+                    )}{" "}
+                    ({cargaParaExcluirAdmin.data.split("-").reverse().join("/")}
+                    )
+                  </strong>
+                </div>
+                <div className="flex justify-between text-foreground">
+                  <span>Volume:</span>
+                  <strong>
+                    {Number(cargaParaExcluirAdmin.volume_m3).toFixed(1)} m³
+                  </strong>
+                </div>
+                <div className="flex justify-between text-foreground">
+                  <span>Cliente:</span>
+                  <span className="truncate max-w-[240px]">
+                    {cargaParaExcluirAdmin.cliente_nome || "—"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2 p-3.5 rounded-xl border border-destructive/40 bg-muted/20">
+                <Label
+                  htmlFor="input-confirmar-exclusao"
+                  className="text-xs font-bold text-destructive flex items-center gap-1.5"
+                >
+                  <AlertTriangle className="w-4 h-4 text-destructive" />
+                  Confirmação de Segurança:
+                </Label>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Para evitar exclusões acidentais, digite a palavra{" "}
+                  <strong className="text-destructive font-mono uppercase bg-destructive/15 px-1 py-0.5 rounded">
+                    EXCLUIR
+                  </strong>{" "}
+                  no campo abaixo para liberar o botão:
+                </p>
+                <Input
+                  id="input-confirmar-exclusao"
+                  type="text"
+                  placeholder="Digite EXCLUIR"
+                  value={textoConfirmarExclusao}
+                  onChange={(e) => setTextoConfirmarExclusao(e.target.value)}
+                  className="h-10 text-xs font-mono font-bold tracking-wider uppercase border-destructive/50 focus-visible:ring-destructive"
+                  autoFocus
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={processandoExcluirAdmin}
+              onClick={() => setModalExcluirAdminAberta(false)}
+              className="w-full sm:w-auto text-xs rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={
+                processandoExcluirAdmin ||
+                textoConfirmarExclusao.trim() !== "EXCLUIR"
+              }
+              onClick={handleExecutarExcluirAdmin}
+              className="w-full sm:w-auto gap-1.5 font-bold text-xs rounded-xl shadow-xs"
+            >
+              <Trash2 className="w-4 h-4" />
+              {processandoExcluirAdmin
+                ? "Excluindo..."
+                : "Confirmar Exclusão Definitiva"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Reimpressão do Recibo da Carga/OS */}
       <Dialog

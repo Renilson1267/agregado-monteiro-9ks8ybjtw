@@ -1674,6 +1674,269 @@ export const ConcreteiraService = {
     }
   },
 
+  // Reabertura de carga cancelada (Apenas Administrador)
+  // Retorna ao status normal (cancelada: false, cancelada_em: null, carga_zerada: false).
+  // Se foi cancelada COM retorno de estoque (havia movimentação de entrada/estorno gerada),
+  // debita de volta na reabertura sem duplicar movimentação.
+  async reabrirCarga(cargaId: string): Promise<Carga> {
+    // 1. Buscar a carga
+    const { data: carga, error: cargaErr } = await (supabase as any)
+      .from("cargas")
+      .select("*")
+      .eq("id", cargaId)
+      .single()
+
+    if (cargaErr) throw cargaErr
+    if (!carga) {
+      throw new Error("Carga não encontrada para reabertura.")
+    }
+
+    if (!carga.cancelada) {
+      throw new Error("Esta carga já está ativa e não se encontra cancelada.")
+    }
+
+    const agora = new Date().toISOString()
+    const docCancel = `CANCEL-CARGA-${String(carga.numero_carga).padStart(5, "0")}`
+    const docCancelOld = `CANCELAMENTO-${carga.numero_carga}`
+    const dataMov = carga.data || agora.slice(0, 10)
+
+    // 2. Verificar se houve retorno de estoque no cancelamento
+    // Critérios:
+    // a) Movimentações de ENTRADA vinculadas diretamente a carga_id
+    // b) Movimentações de ENTRADA com documento do cancelamento desta carga
+    const { data: movsEstorno } = await (supabase as any)
+      .from("movimentacoes_estoque")
+      .select("*")
+      .eq("tipo", "ENTRADA")
+      .or(
+        `carga_id.eq.${cargaId},documento.eq.${docCancel},documento.eq.${docCancelOld}`,
+      )
+
+    const houveEstornoEstoque =
+      (movsEstorno && movsEstorno.length > 0) ||
+      (typeof carga.motivo_cancelamento === "string" &&
+        carga.motivo_cancelamento.toLowerCase().includes("retorno dos insumos"))
+
+    // 3. Se houve estorno no cancelamento (insumos voltaram para o estoque):
+    // Na reabertura, a carga volta a consumir estoque.
+    // Para não duplicar nem perder histórico, removemos os estornos de entrada (ou debitamos se não puder remover)
+    // e garantimos que exista a saída normal de estoque (CARGA-XXXXX) vinculada a ela.
+    if (houveEstornoEstoque) {
+      // Se encontramos as movimentações de ENTRADA de estorno, apagamos as entradas do estorno
+      // e ajustamos os saldos dos recipientes para baixo
+      if (movsEstorno && movsEstorno.length > 0) {
+        for (const mov of movsEstorno) {
+          if (mov.recipiente_id && Number(mov.quantidade) > 0) {
+            await this.atualizarSaldoRecipiente(
+              mov.recipiente_id,
+              -Number(mov.quantidade),
+            )
+          }
+        }
+        const idsParaDeletar = movsEstorno.map((m: any) => m.id)
+        await (supabase as any)
+          .from("movimentacoes_estoque")
+          .delete()
+          .in("id", idsParaDeletar)
+      } else {
+        // Se as entradas não foram encontradas como linhas separadas, verifica se existem saídas ativas
+        const { data: saídasExistentes } = await (supabase as any)
+          .from("movimentacoes_estoque")
+          .select("id")
+          .eq("carga_id", cargaId)
+          .eq("tipo", "SAIDA")
+
+        if (!saídasExistentes || saídasExistentes.length === 0) {
+          // Gerar a saída de consumo correspondente
+          const empresaId = carga.empresa_id
+          const materiais = await this.getMateriais(empresaId)
+          const matCimento = materiais.find((m) => m.codigo === "cimento")
+          const matAditivo = materiais.find((m) => m.codigo === "aditivo")
+          const docName = `CARGA-${String(carga.numero_carga).padStart(5, "0")}`
+          const saídas: any[] = []
+
+          let recipientesPatos: RecipienteEstoque[] = []
+          if (empresaId && (carga.silo_cimento || carga.tanque_aditivo)) {
+            recipientesPatos = await this.getRecipientesEstoque(empresaId)
+          }
+
+          const recSilo = carga.silo_cimento
+            ? recipientesPatos.find(
+                (r) =>
+                  r.identificador === carga.silo_cimento ||
+                  r.nome
+                    .toLowerCase()
+                    .includes(carga.silo_cimento.toLowerCase()),
+              )
+            : null
+          const recTanque = carga.tanque_aditivo
+            ? recipientesPatos.find(
+                (r) =>
+                  r.identificador === carga.tanque_aditivo ||
+                  r.nome
+                    .toLowerCase()
+                    .includes(carga.tanque_aditivo.toLowerCase()),
+              )
+            : null
+
+          const consumoCimento = Number(carga.consumo_cimento) || 0
+          const consumoAditivo = Number(carga.consumo_aditivo) || 0
+
+          if (consumoCimento > 0 && matCimento) {
+            saídas.push({
+              empresa_id: empresaId || null,
+              material_id: matCimento.id,
+              recipiente_id: recSilo?.id || null,
+              recipiente_nome: recSilo?.nome || null,
+              tipo: "SAIDA",
+              quantidade: consumoCimento,
+              data: dataMov,
+              carga_id: carga.id,
+              documento: docName,
+              observacao: `Consumo na carga de ${carga.volume_m3}m³ (reaberta pelo admin)`,
+            })
+            if (recSilo) {
+              await this.atualizarSaldoRecipiente(recSilo.id, -consumoCimento)
+            }
+          }
+
+          if (consumoAditivo > 0 && matAditivo) {
+            saídas.push({
+              empresa_id: empresaId || null,
+              material_id: matAditivo.id,
+              recipiente_id: recTanque?.id || null,
+              recipiente_nome: recTanque?.nome || null,
+              tipo: "SAIDA",
+              quantidade: consumoAditivo,
+              data: dataMov,
+              carga_id: carga.id,
+              documento: docName,
+              observacao: `Consumo na carga de ${carga.volume_m3}m³ (reaberta pelo admin)`,
+            })
+            if (recTanque) {
+              await this.atualizarSaldoRecipiente(recTanque.id, -consumoAditivo)
+            }
+          }
+
+          if (saídas.length > 0) {
+            await (supabase as any).from("movimentacoes_estoque").insert(saídas)
+          }
+        }
+      }
+    }
+
+    // 4. Limpar flags de cancelamento na carga
+    const obsAtual = carga.observacao || ""
+    const obsLimpa = obsAtual
+      .replace(/\[PERDA OPERACIONAL\]/gi, "")
+      .replace(/\[CANCELADA\]/gi, "")
+      .trim()
+
+    const { data: cargaReaberta, error: updErr } = await (supabase as any)
+      .from("cargas")
+      .update({
+        cancelada: false,
+        cancelada_em: null,
+        motivo_cancelamento: null,
+        carga_zerada: false,
+        observacao: obsLimpa || null,
+      })
+      .eq("id", cargaId)
+      .select()
+      .single()
+
+    if (updErr) throw updErr
+
+    return cargaReaberta as Carga
+  },
+
+  // Exclusão definitiva de carga com integridade e registro na movimentação (Apenas Administrador)
+  // Registra nas movimentações de estoque que foi exclusão manual do admin antes de desvincular/remover.
+  async excluirCargaDefinitivo(
+    cargaId: string,
+    usuarioAdminNome?: string,
+  ): Promise<void> {
+    // 1. Buscar dados da carga antes de excluir
+    const { data: carga, error: cargaErr } = await (supabase as any)
+      .from("cargas")
+      .select("*")
+      .eq("id", cargaId)
+      .single()
+
+    if (cargaErr) throw cargaErr
+    if (!carga) {
+      throw new Error("Carga não encontrada para exclusão.")
+    }
+
+    // 2. Se houver Recibo/OS vinculado, desvincular ou deletar com aviso
+    const { data: osVinculada } = await (supabase as any)
+      .from("ordens_servico")
+      .select("id, numero_os")
+      .eq("carga_id", cargaId)
+      .maybeSingle()
+
+    if (osVinculada) {
+      // Desvincular carga_id da OS para preservar o registro sequencial do recibo sem violar FK
+      await (supabase as any)
+        .from("ordens_servico")
+        .update({
+          carga_id: null,
+          observacoes: `[Carga #${carga.numero_carga} excluída definitivamente pelo Admin ${usuarioAdminNome || ""}]`,
+        })
+        .eq("id", osVinculada.id)
+    }
+
+    // 3. Buscar movimentações existentes vinculadas à carga
+    const { data: movs } = await (supabase as any)
+      .from("movimentacoes_estoque")
+      .select("*")
+      .eq("carga_id", cargaId)
+
+    // Se houver recipientes afetados por saídas da carga, repor o saldo (estornar saída)
+    if (movs && movs.length > 0) {
+      for (const m of movs) {
+        if (m.recipiente_id && Number(m.quantidade) > 0) {
+          const delta =
+            m.tipo === "SAIDA" ? Number(m.quantidade) : -Number(m.quantidade)
+          await this.atualizarSaldoRecipiente(m.recipiente_id, delta)
+        }
+      }
+
+      // Inserir registro de auditoria na movimentação informando que foi exclusão manual do admin
+      const agora = new Date().toISOString()
+      const dataHoje = carga.data || agora.slice(0, 10)
+      const matCimentoId = movs.find((m: any) => m.tipo === "SAIDA")
+        ?.material_id
+
+      if (matCimentoId) {
+        await (supabase as any).from("movimentacoes_estoque").insert({
+          empresa_id: carga.empresa_id || null,
+          material_id: matCimentoId,
+          tipo: "AJUSTE",
+          quantidade: 0,
+          data: dataHoje,
+          carga_id: null,
+          documento: `EXCLUSAO-CARGA-${String(carga.numero_carga).padStart(5, "0")}`,
+          observacao: `Exclusão manual definitiva da carga #${carga.numero_carga} (${carga.volume_m3}m³) realizada pelo administrador ${usuarioAdminNome || "Admin"}`,
+        })
+      }
+
+      // Deletar as movimentações vinculadas à carga
+      await (supabase as any)
+        .from("movimentacoes_estoque")
+        .delete()
+        .eq("carga_id", cargaId)
+    }
+
+    // 4. Deletar a carga do banco de dados definitivamente
+    const { error: delErr } = await (supabase as any)
+      .from("cargas")
+      .delete()
+      .eq("id", cargaId)
+
+    if (delErr) throw delErr
+  },
+
   // Exclusão de carga com integridade fiscal e estorno de estoque (Apenas Administrador)
   async excluirCarga(cargaId: string): Promise<void> {
     // 1. Verifica se existe Ordem de Serviço / Recibo vinculado a esta carga
