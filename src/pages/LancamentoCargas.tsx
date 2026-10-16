@@ -3604,25 +3604,45 @@ export default function LancamentoCargas() {
               </CardContent>
             </Card>
 
-            {/* Tabela Responsiva de Cargas */}
+            {/* Tabela Responsiva de Cargas — table-fixed: sempre cabe nas margens, sem rolagem horizontal */}
             <Card className="border border-border/60 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+                <table className="w-full table-fixed text-left text-xs border-collapse">
                   <thead className="bg-muted/50 border-b border-border/60 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                     <tr>
-                      <th className="py-3 px-3">Data</th>
-                      <th className="py-3 px-3 w-16"># Carga</th>
-                      <th className="py-3 px-3">Cliente</th>
-                      <th className="py-3 px-3">Placa</th>
-                      <th className="py-3 px-3">Motorista</th>
-                      <th className="py-3 px-3">Cidade</th>
-                      <th className="py-3 px-3">Traço</th>
-                      <th className="py-3 px-3 text-right">Volume</th>
-                      <th className="py-3 px-3 text-right">
+                      <th className="py-3 px-2 md:px-3 w-[20%] md:w-[9%]">
+                        Data
+                      </th>
+                      <th className="py-3 px-2 md:px-3 w-[14%] md:w-[7%]">
+                        # Carga
+                      </th>
+                      <th className="py-3 px-2 md:px-3 w-[20%] md:w-[9%]">
+                        Cliente
+                      </th>
+                      <th className="py-3 px-2 md:px-3 hidden md:table-cell md:w-[8%]">
+                        Placa
+                      </th>
+                      <th className="py-3 px-2 md:px-3 hidden md:table-cell md:w-[7%]">
+                        Motorista
+                      </th>
+                      <th className="py-3 px-2 md:px-3 hidden md:table-cell md:w-[6%]">
+                        Cidade
+                      </th>
+                      <th className="py-3 px-2 md:px-3 w-[18%] md:w-[12%]">
+                        Traço
+                      </th>
+                      <th className="py-3 px-2 md:px-3 w-[15%] md:w-[8%] text-right">
+                        Volume
+                      </th>
+                      <th className="py-3 px-2 md:px-3 hidden md:table-cell md:w-[18%] text-right">
                         Insumos (Consumo Real)
                       </th>
-                      <th className="py-3 px-3 text-center">Status</th>
-                      <th className="py-3 px-3 text-right">Ações</th>
+                      <th className="py-3 px-2 md:px-3 hidden md:table-cell md:w-[9%] text-center">
+                        Status
+                      </th>
+                      <th className="py-3 px-2 md:px-3 w-[13%] md:w-[7%] text-right">
+                        Ações
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/30">
@@ -3679,20 +3699,20 @@ export default function LancamentoCargas() {
                             className="hover:bg-muted/30 transition-colors"
                           >
                             {/* Data */}
-                            <td className="py-2.5 px-3 font-mono text-muted-foreground whitespace-nowrap">
+                            <td className="py-2.5 px-2 md:px-3 font-mono text-[11px] md:text-xs text-muted-foreground whitespace-nowrap">
                               {carga.data.split("-").reverse().join("/")}
                             </td>
 
                             {/* Número da Carga */}
-                            <td className="py-2.5 px-3 font-mono font-bold text-foreground whitespace-nowrap">
+                            <td className="py-2.5 px-2 md:px-3 font-mono font-bold text-[11px] md:text-xs text-foreground whitespace-nowrap">
                               #{String(carga.numero_carga).padStart(4, "0")}
                             </td>
 
                             {/* Cliente */}
-                            <td className="py-2.5 px-3 text-xs whitespace-nowrap max-w-[150px] truncate">
+                            <td className="py-2.5 px-2 md:px-3 text-[11px] md:text-xs">
                               {carga.cliente_nome ? (
                                 <span
-                                  className="font-medium text-foreground"
+                                  className="font-medium text-foreground block truncate"
                                   title={carga.cliente_nome}
                                 >
                                   {carga.cliente_nome}
@@ -3704,8 +3724,8 @@ export default function LancamentoCargas() {
                               )}
                             </td>
 
-                            {/* Placa (Veículo) */}
-                            <td className="py-2.5 px-3 font-mono text-xs whitespace-nowrap">
+                            {/* Placa (Veículo) — oculta em telas pequenas */}
+                            <td className="py-2.5 px-2 md:px-3 font-mono text-[11px] md:text-xs whitespace-nowrap hidden md:table-cell">
                               {carga.veiculo_placa ? (
                                 <span className="font-semibold text-foreground">
                                   {carga.veiculo_placa}
@@ -3717,11 +3737,11 @@ export default function LancamentoCargas() {
                               )}
                             </td>
 
-                            {/* Motorista */}
-                            <td className="py-2.5 px-3 text-xs whitespace-nowrap max-w-[140px] truncate">
+                            {/* Motorista — oculto em telas pequenas */}
+                            <td className="py-2.5 px-2 md:px-3 text-[11px] md:text-xs hidden md:table-cell">
                               {carga.motorista_nome ? (
                                 <span
-                                  className="text-foreground"
+                                  className="text-foreground block truncate"
                                   title={carga.motorista_nome}
                                 >
                                   {carga.motorista_nome}
@@ -3733,11 +3753,11 @@ export default function LancamentoCargas() {
                               )}
                             </td>
 
-                            {/* Cidade */}
-                            <td className="py-2.5 px-3 text-xs whitespace-nowrap max-w-[140px] truncate">
+                            {/* Cidade — oculta em telas pequenas */}
+                            <td className="py-2.5 px-2 md:px-3 text-[11px] md:text-xs hidden md:table-cell">
                               {carga.cidade_nome ? (
                                 <span
-                                  className="text-foreground"
+                                  className="text-foreground block truncate"
                                   title={carga.cidade_nome}
                                 >
                                   {carga.cidade_nome}
@@ -3750,9 +3770,9 @@ export default function LancamentoCargas() {
                             </td>
 
                             {/* Traço */}
-                            <td className="py-2.5 px-3 max-w-[280px]">
+                            <td className="py-2.5 px-2 md:px-3">
                               <span
-                                className={`font-semibold ${
+                                className={`font-semibold block text-[11px] md:text-xs leading-tight ${
                                   descricaoTraco === "—" ||
                                   descricaoTraco === "Manual"
                                     ? "text-muted-foreground italic"
@@ -3764,13 +3784,13 @@ export default function LancamentoCargas() {
                             </td>
 
                             {/* Volume */}
-                            <td className="py-2.5 px-3 text-right font-mono font-bold text-foreground whitespace-nowrap">
+                            <td className="py-2.5 px-2 md:px-3 text-right font-mono font-bold text-[11px] md:text-xs text-foreground whitespace-nowrap">
                               {vol.toFixed(1)} m³
                             </td>
 
-                            {/* Insumos detalhados */}
-                            <td className="py-2.5 px-3 text-right font-mono text-xs whitespace-nowrap">
-                              <div className="flex items-center justify-end gap-2 text-[11px]">
+                            {/* Insumos detalhados — quebram linha em vez de empurrar a tabela */}
+                            <td className="py-2.5 px-2 md:px-3 text-right font-mono text-[11px] md:text-xs hidden md:table-cell">
+                              <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5 text-[11px] leading-tight">
                                 <span
                                   className="font-bold text-primary"
                                   title="Cimento"
@@ -3817,8 +3837,8 @@ export default function LancamentoCargas() {
                               </div>
                             </td>
 
-                            {/* Status */}
-                            <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                            {/* Status — oculto em telas pequenas */}
+                            <td className="py-2.5 px-2 md:px-3 text-center whitespace-nowrap hidden md:table-cell">
                               {isZerada ? (
                                 <Badge
                                   variant="destructive"
@@ -3841,8 +3861,8 @@ export default function LancamentoCargas() {
                             </td>
 
                             {/* Ações: Editar e Imprimir */}
-                            <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                              <div className="flex items-center justify-end gap-1">
+                            <td className="py-2.5 px-2 md:px-3 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-0.5 md:gap-1">
                                 {!isBalanceiro && (
                                   <Button
                                     type="button"
@@ -3852,7 +3872,7 @@ export default function LancamentoCargas() {
                                       setCargaParaEditarModal(carga)
                                       setModalEditarCargaAberta(true)
                                     }}
-                                    className="h-8 w-8 p-0 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 rounded-lg"
+                                    className="h-7 w-7 md:h-8 md:w-8 p-0 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 rounded-lg"
                                     title="Editar esta carga diretamente"
                                   >
                                     <Pencil className="w-3.5 h-3.5" />
@@ -3889,7 +3909,7 @@ export default function LancamentoCargas() {
                                         })
                                       }
                                     }}
-                                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg"
+                                    className="h-7 w-7 md:h-8 md:w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg"
                                     title="Imprimir Recibo da OS"
                                   >
                                     <Printer className="w-3.5 h-3.5" />
