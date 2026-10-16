@@ -1170,28 +1170,32 @@ export const ConcreteiraService = {
         if (m.recipiente_id) {
           const delta =
             m.tipo === "SAIDA" ? Number(m.quantidade) : -Number(m.quantidade)
-          await (supabase as any)
-            .rpc("executar_delta_recipiente", {
-              p_recipiente_id: m.recipiente_id,
-              p_delta: delta,
-            })
-            .catch(async () => {
-              // Fallback sem RPC se não existir: busca e faz update direto
-              const { data: rec } = await (supabase as any)
+          try {
+            const { error: rpcErr } = await (supabase as any).rpc(
+              "executar_delta_recipiente",
+              {
+                p_recipiente_id: m.recipiente_id,
+                p_delta: delta,
+              },
+            )
+            if (rpcErr) throw rpcErr
+          } catch {
+            // Fallback sem RPC se não existir: busca saldo_atual do recipiente e faz update direto
+            const { data: rec } = await (supabase as any)
+              .from("recipientes_estoque")
+              .select("saldo_atual")
+              .eq("id", m.recipiente_id)
+              .single()
+            if (rec) {
+              await (supabase as any)
                 .from("recipientes_estoque")
-                .select("saldo_atual")
+                .update({
+                  saldo_atual: Number(rec.saldo_atual) + delta,
+                  updated_at: new Date().toISOString(),
+                })
                 .eq("id", m.recipiente_id)
-                .single()
-              if (rec) {
-                await (supabase as any)
-                  .from("recipientes_estoque")
-                  .update({
-                    saldo_atual: Number(rec.saldo_atual) + delta,
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("id", m.recipiente_id)
-              }
-            })
+            }
+          }
         }
       }
     }
