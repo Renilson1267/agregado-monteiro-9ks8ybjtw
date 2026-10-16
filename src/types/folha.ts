@@ -94,6 +94,7 @@ export interface FolhaPagamentoLinha {
   quinzena: number // 1ª quinzena
   quinzena_2?: number // 2ª quinzena
   adiantamento: number
+  adiantamento_destino?: "quinzena" | "producao" | "mensal" | string
   gratificacao: number
   mensal_liquido: number // Líquido mensal
   salario_liquido?: number
