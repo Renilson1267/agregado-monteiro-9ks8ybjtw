@@ -3919,6 +3919,9 @@ export function FolhaPagamento() {
                         QUINZENA ({Math.round(percentualQuinzena * 100)}%
                         AUTOMÁTICO)
                       </th>
+                      <th className="py-2.5 px-2 text-right font-mono">
+                        ADIANTAMENTO
+                      </th>
                       <th className="py-2.5 px-3">AGÊNCIA / C/C</th>
                       <th className="py-2.5 px-3">PIX</th>
                     </tr>
@@ -3937,6 +3940,11 @@ export function FolhaPagamento() {
                         </td>
                         <td className="py-2 px-2 text-right font-mono font-bold text-blue-600 bg-blue-50/30 dark:bg-blue-950/10">
                           {fmtMoeda(l.quinzenaFinal)}
+                        </td>
+                        <td className="py-2 px-2 text-right font-mono">
+                          {l.adiantamentoTotal > 0
+                            ? fmtMoeda(l.adiantamentoTotal)
+                            : "-"}
                         </td>
                         <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
                           {l.conta || "-"}
@@ -3957,6 +3965,11 @@ export function FolhaPagamento() {
                       <td className="py-2.5 px-2 text-right font-mono text-blue-600 bg-blue-50/50 dark:bg-blue-950/20">
                         {fmtMoeda(totaisGeral.quinzena)}
                       </td>
+                      <td className="py-2.5 px-2 text-right font-mono">
+                        {totaisGeral.adiantamento > 0
+                          ? fmtMoeda(totaisGeral.adiantamento)
+                          : "-"}
+                      </td>
                       <td className="py-2.5 px-3" colSpan={2}></td>
                     </tr>
                     {!isMonteiro && terceirosProcessados.length > 0 && (
@@ -3975,7 +3988,12 @@ export function FolhaPagamento() {
                             totaisGeral.quinzena + totaisTerceiros.quinzena,
                           )}
                         </td>
-                        <td className="py-2 px-3" colSpan={2}></td>
+                        <td className="py-2.5 px-2 text-right font-mono">
+                          {totaisGeral.adiantamento > 0
+                            ? fmtMoeda(totaisGeral.adiantamento)
+                            : "-"}
+                        </td>
+                        <td className="py-2.5 px-3" colSpan={2}></td>
                       </tr>
                     )}
                   </tfoot>
