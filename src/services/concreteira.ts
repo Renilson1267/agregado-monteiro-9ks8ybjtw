@@ -263,6 +263,72 @@ export const ConcreteiraService = {
     return result
   },
 
+  async getMovimentacoesParaAcoes(filtros: {
+    empresaId?: string
+    dataInicio?: string
+    dataFim?: string
+    tipo?: string
+    materialId?: string
+    limite?: number
+  }): Promise<MovimentacaoEstoque[]> {
+    let query = (supabase as any)
+      .from("movimentacoes_estoque")
+      .select("*, material:materiais(*)")
+      .order("data", { ascending: false })
+      .order("created_at", { ascending: false })
+
+    if (filtros.empresaId) {
+      query = query.eq("empresa_id", filtros.empresaId)
+    }
+
+    if (filtros.dataInicio) {
+      query = query.gte("data", filtros.dataInicio)
+    }
+
+    if (filtros.dataFim) {
+      query = query.lte("data", filtros.dataFim)
+    }
+
+    if (filtros.tipo && filtros.tipo !== "ALL") {
+      query = query.eq("tipo", filtros.tipo)
+    }
+
+    if (filtros.materialId && filtros.materialId !== "ALL") {
+      query = query.eq("material_id", filtros.materialId)
+    }
+
+    query = query.limit(filtros.limite || 200)
+
+    const { data, error } = await query
+    if (error) throw error
+    return (data || []) as MovimentacaoEstoque[]
+  },
+
+  async atualizarValoresMovimentacao(payload: {
+    movimentacaoId: string
+    preco_unitario: number
+    valor_total: number
+    observacao?: string
+  }): Promise<MovimentacaoEstoque> {
+    const updateData: any = {
+      preco_unitario: payload.preco_unitario,
+      valor_total: payload.valor_total,
+    }
+    if (payload.observacao !== undefined) {
+      updateData.observacao = payload.observacao
+    }
+
+    const { data, error } = await (supabase as any)
+      .from("movimentacoes_estoque")
+      .update(updateData)
+      .eq("id", payload.movimentacaoId)
+      .select("*, material:materiais(*)")
+      .single()
+
+    if (error) throw error
+    return data as MovimentacaoEstoque
+  },
+
   async registrarEntradaEstoque(payload: {
     empresa_id?: string
     material_id: string

@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { ConcreteiraService } from "@/services/concreteira"
 import { useEmpresa } from "@/hooks/use-empresa"
 import { useUsuario } from "@/hooks/use-usuario"
@@ -57,10 +58,12 @@ import {
   RefreshCw,
   FileSpreadsheet,
   Send,
+  Wrench,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Link } from "react-router-dom"
 import { AlertaPedidoCimento } from "@/components/AlertaPedidoCimento"
+import { AbaAcoesEstoque } from "@/components/AbaAcoesEstoque"
 import {
   LIMITE_AVISO_PEDIDO_CIMENTO_KG,
   gerarLinkWhatsAppPedidoCimento,
@@ -68,7 +71,9 @@ import {
 
 export default function Estoque() {
   const { empresaAtiva } = useEmpresa()
-  const { isBalanceiro } = useUsuario()
+  const { isBalanceiro, isAdministrador, isGestor } = useUsuario()
+  const podeAcessarAcoes = isAdministrador || isGestor
+  const [abaAtiva, setAbaAtiva] = useState<string>("visao-geral")
   const [materiais, setMateriais] = useState<Material[]>([])
   const [recipientes, setRecipientes] = useState<RecipienteEstoque[]>([])
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([])
@@ -573,772 +578,840 @@ export default function Estoque() {
         </div>
       </div>
 
-      {/* Alerta de Pedido Automático de Cimento (quando saldo > 0 e saldo < 20.000 kg) */}
-      {(() => {
-        const matCimento = materiais.find((m) => m.codigo === "cimento")
-        if (!matCimento) return null
-        const saldo = matCimento.saldo || 0
-        // Unidades com saldo zerado não disparam alerta (somente quando há saldo em operação < 20.000 kg)
-        if (saldo <= 0) return null
+      {/* Abas Principais de Estoque: Visão Geral vs Ações (Correção de Movimentações) */}
+      <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="space-y-4">
+        <TabsList className="bg-muted/60 p-1 border border-border/40">
+          <TabsTrigger
+            value="visao-geral"
+            className="text-xs gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground font-medium"
+          >
+            <Boxes className="w-4 h-4 text-primary" />
+            <span>Visão Geral do Estoque</span>
+          </TabsTrigger>
 
-        if (saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG) {
-          return (
-            <AlertaPedidoCimento
-              unidadeNome={empresaAtiva?.nome || "Unidade"}
-              saldoAtualKg={saldo}
-              estoqueMinimoKg={matCimento.estoque_minimo || 15000}
-              empresa={empresaAtiva}
-              variante="card"
-            />
-          )
-        }
-        return null
-      })()}
-
-      {/* Grid de Materiais Controlados (Cimento e Aditivo) */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-            Insumos com Controle de Estoque
-            <Badge
-              variant="outline"
-              className="text-xs text-primary border-primary/30"
+          {podeAcessarAcoes && (
+            <TabsTrigger
+              value="acoes"
+              className="text-xs gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground font-medium"
             >
-              Silo & Tanque
-            </Badge>
-          </h2>
-          <span className="text-xs text-muted-foreground">
-            Baixa automática nas cargas com alerta de estoque mínimo
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {materiais
-            .filter((m) => m.codigo === "cimento" || m.codigo === "aditivo")
-            .map((mat) => {
-              const saldo = mat.saldo || 0
-              const critico =
-                mat.estoque_minimo > 0 && saldo < mat.estoque_minimo
-              const margem = saldo - mat.estoque_minimo
-              // Âmbar quando próximo ao mínimo (margem positiva até 15% do mínimo)
-              const atencao =
-                !critico &&
-                mat.estoque_minimo > 0 &&
-                margem <= mat.estoque_minimo * 0.15
-
-              return (
-                <Card
-                  key={mat.id}
-                  className={`border-border/40 bg-card/70 relative overflow-hidden shadow-sm ${
-                    critico
-                      ? "border-destructive/40"
-                      : atencao
-                        ? "border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/10"
-                        : ""
-                  }`}
-                >
-                  <div
-                    className={`h-1.5 w-full ${
-                      critico
-                        ? "bg-destructive"
-                        : atencao
-                          ? "bg-amber-500"
-                          : "bg-emerald-500"
-                    }`}
-                  />
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg font-semibold">
-                          {mat.nome}
-                        </CardTitle>
-                        <CardDescription className="text-xs uppercase tracking-wider font-mono">
-                          {mat.codigo === "cimento"
-                            ? `Silo de ${mat.nome}`
-                            : "Tanque de Aditivo Químico"}
-                        </CardDescription>
-                      </div>
-                      {critico ? (
-                        <Badge variant="destructive" className="text-xs">
-                          Reposição Urgente
-                        </Badge>
-                      ) : atencao ? (
-                        <Badge
-                          variant="outline"
-                          className="text-xs border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 font-semibold"
-                        >
-                          Atenção (Âmbar)
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 font-medium"
-                        >
-                          Estoque Regular (Verde)
-                        </Badge>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-baseline justify-between">
-                      <div>
-                        <span
-                          className={`text-3xl font-extrabold ${
-                            critico
-                              ? "text-destructive"
-                              : atencao
-                                ? "text-amber-600 dark:text-amber-400"
-                                : "text-foreground"
-                          }`}
-                        >
-                          {saldo.toLocaleString("pt-BR")}
-                        </span>{" "}
-                        <span className="text-sm font-medium text-muted-foreground">
-                          {mat.unidade}
-                        </span>
-                      </div>
-                      {saldo >= 1000 && mat.unidade === "kg" && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                          {(saldo / 1000).toFixed(2)} t
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="p-2.5 rounded-lg bg-background/50 border border-border/30 text-xs space-y-1">
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Estoque Mínimo (Alerta):</span>
-                        <span className="font-semibold text-foreground">
-                          {mat.estoque_minimo.toLocaleString("pt-BR")}{" "}
-                          {mat.unidade}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Margem Operacional:</span>
-                        <span
-                          className={
-                            critico
-                              ? "text-destructive font-bold"
-                              : atencao
-                                ? "text-amber-600 dark:text-amber-400 font-bold"
-                                : "text-emerald-500 font-medium"
-                          }
-                        >
-                          {margem > 0 ? "+" : ""}
-                          {margem.toLocaleString("pt-BR")} {mat.unidade}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1">
-                      {!isBalanceiro ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs h-8 text-muted-foreground hover:text-foreground gap-1 px-2"
-                          onClick={() => {
-                            setMaterialEditando(mat)
-                            setNovoMinimo(mat.estoque_minimo)
-                            setOpenMinimo(true)
-                          }}
-                        >
-                          <Settings2 className="w-3.5 h-3.5" />
-                          Alterar Mínimo
-                        </Button>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground">
-                          Mínimo: {mat.estoque_minimo.toLocaleString("pt-BR")}{" "}
-                          {mat.unidade}
-                        </span>
-                      )}
-
-                      <div className="flex items-center gap-1.5">
-                        {mat.codigo === "cimento" &&
-                          saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG && (
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className="text-xs h-8 gap-1 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                              onClick={() => {
-                                const link = gerarLinkWhatsAppPedidoCimento({
-                                  unidadeNome: empresaAtiva?.nome || "Unidade",
-                                  saldoAtualKg: saldo,
-                                  estoqueMinimoKg: mat.estoque_minimo || 15000,
-                                  empresa: empresaAtiva,
-                                })
-                                window.open(
-                                  link,
-                                  "_blank",
-                                  "noopener,noreferrer",
-                                )
-                              }}
-                            >
-                              <Send className="w-3.5 h-3.5" />
-                              Pedir WhatsApp
-                            </Button>
-                          )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs h-8 gap-1 px-2 text-primary hover:text-primary"
-                          onClick={() => {
-                            setMaterialEntradaId(mat.id)
-                            setOpenEntrada(true)
-                          }}
-                        >
-                          <PlusCircle className="w-3.5 h-3.5" />
-                          Repor Estoque
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* SUB-LISTA DE RECIPIENTES (Silos e Tanques individuais de Patos) */}
-                    {(() => {
-                      const recsDoMaterial = recipientes.filter((r) => {
-                        if (r.material_id && r.material_id === mat.id)
-                          return true
-                        if (mat.codigo === "cimento")
-                          return (
-                            r.tipo === "silo" || r.material_codigo === "cimento"
-                          )
-                        if (mat.codigo === "aditivo")
-                          return (
-                            r.tipo === "tanque" ||
-                            r.material_codigo === "aditivo"
-                          )
-                        return false
-                      })
-
-                      if (recsDoMaterial.length === 0) return null
-
-                      return (
-                        <div className="pt-3 mt-3 border-t border-border/40 space-y-2">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-semibold text-foreground flex items-center gap-1.5">
-                              <Cylinder className="w-3.5 h-3.5 text-primary" />
-                              Saldos Individuais (
-                              {mat.codigo === "cimento" ? "Silos" : "Tanques"}):
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {recsDoMaterial.length} cadastrados
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {recsDoMaterial.map((rec) => {
-                              const recCritico =
-                                rec.estoque_minimo > 0 &&
-                                rec.saldo_atual < rec.estoque_minimo
-                              const recMargem =
-                                rec.saldo_atual - rec.estoque_minimo
-                              const recAtencao =
-                                !recCritico &&
-                                rec.estoque_minimo > 0 &&
-                                rec.saldo_atual === rec.estoque_minimo
-
-                              return (
-                                <div
-                                  key={rec.id}
-                                  className={`p-2.5 rounded-lg border text-xs bg-background/70 space-y-1.5 ${
-                                    recCritico
-                                      ? "border-destructive/40 bg-destructive/5"
-                                      : recAtencao
-                                        ? "border-amber-500/40 bg-amber-500/5"
-                                        : "border-border/40"
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between gap-1">
-                                    <span
-                                      className="font-semibold text-foreground truncate"
-                                      title={rec.nome}
-                                    >
-                                      {rec.nome}
-                                    </span>
-                                    {recCritico ? (
-                                      <Badge
-                                        variant="destructive"
-                                        className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-red-500/10 text-red-600 border-red-500/30 font-bold"
-                                      >
-                                        <AlertTriangle className="w-2.5 h-2.5" />
-                                        Abaixo
-                                      </Badge>
-                                    ) : recAtencao ? (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-amber-500/10 text-amber-600 border-amber-500/30 font-semibold"
-                                      >
-                                        <AlertTriangle className="w-2.5 h-2.5" />
-                                        No mínimo
-                                      </Badge>
-                                    ) : (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold"
-                                      >
-                                        <CheckCircle2 className="w-2.5 h-2.5" />
-                                        OK
-                                      </Badge>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-baseline justify-between font-mono">
-                                    <div>
-                                      <span
-                                        className={`text-sm font-bold ${
-                                          recCritico
-                                            ? "text-red-600 dark:text-red-400"
-                                            : "text-foreground"
-                                        }`}
-                                      >
-                                        {rec.saldo_atual.toLocaleString(
-                                          "pt-BR",
-                                        )}
-                                      </span>{" "}
-                                      <span className="text-[10px] text-muted-foreground font-normal">
-                                        {rec.unidade}
-                                      </span>
-                                    </div>
-                                    <span className="text-[10px] text-muted-foreground">
-                                      Mín:{" "}
-                                      {rec.estoque_minimo.toLocaleString(
-                                        "pt-BR",
-                                      )}{" "}
-                                      {rec.unidade}
-                                    </span>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    })()}
-                  </CardContent>
-                </Card>
-              )
-            })}
-        </div>
-      </div>
-
-      {/* Seção Informativa: Materiais Apenas Consumo */}
-      <Card className="border-border/30 bg-muted/20">
-        <CardHeader className="py-3 px-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-            <div>
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Boxes className="w-4 h-4 text-muted-foreground" />
-                Agregados e Materiais em Modo Apenas Consumo
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Brita 12, Brita 19, Areia e Pó de Pedra são registrados
-                diretamente no consumo das cargas (sem saldo de estoque, baixa
-                ou alerta mínimo).
-              </CardDescription>
-            </div>
-            <div className="flex gap-1.5 flex-wrap">
-              {materiais
-                .filter((m) => m.codigo !== "cimento" && m.codigo !== "aditivo")
-                .map((m) => (
-                  <Badge
-                    key={m.id}
-                    variant="secondary"
-                    className="text-xs font-normal"
-                  >
-                    {m.nome}
-                  </Badge>
-                ))}
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
-      {/* Dialog Editar Estoque Mínimo */}
-      <Dialog open={openMinimo} onOpenChange={setOpenMinimo}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ajustar Margem Mínima de Segurança</DialogTitle>
-            <DialogDescription>
-              Defina o valor mínimo de estoque para disparo de alertas visuais
-              no dashboard.
-            </DialogDescription>
-          </DialogHeader>
-          {materialEditando && (
-            <form onSubmit={handleSalvarMinimo} className="space-y-4 py-2">
-              <div className="space-y-1">
-                <span className="text-sm font-semibold">
-                  {materialEditando.nome}
-                </span>
-                <p className="text-xs text-muted-foreground">
-                  Unidade: {materialEditando.unidade} | Saldo Atual:{" "}
-                  {materialEditando.saldo?.toLocaleString("pt-BR")}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="novoMinimo">
-                  Novo Estoque Mínimo ({materialEditando.unidade})
-                </Label>
-                <Input
-                  id="novoMinimo"
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={novoMinimo}
-                  onChange={(e) => setNovoMinimo(Number(e.target.value))}
-                  required
-                />
-              </div>
-
-              <DialogFooter className="pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setOpenMinimo(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={salvandoMinimo}
-                  className="bg-primary text-primary-foreground"
-                >
-                  {salvandoMinimo ? "Salvando..." : "Salvar Alteração"}
-                </Button>
-              </DialogFooter>
-            </form>
+              <Wrench className="w-4 h-4 text-amber-500" />
+              <span>Ações</span>
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1 py-0 h-4 border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10 font-mono"
+              >
+                Admin/Gestor
+              </Badge>
+            </TabsTrigger>
           )}
-        </DialogContent>
-      </Dialog>
+        </TabsList>
 
-      {/* Histórico de Movimentações */}
-      <Card className="border-border/40 bg-card/70">
-        <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <TabsContent value="visao-geral" className="space-y-6 mt-0">
+          {/* Alerta de Pedido Automático de Cimento (quando saldo > 0 e saldo < 20.000 kg) */}
+          {(() => {
+            const matCimento = materiais.find((m) => m.codigo === "cimento")
+            if (!matCimento) return null
+            const saldo = matCimento.saldo || 0
+            // Unidades com saldo zerado não disparam alerta (somente quando há saldo em operação < 20.000 kg)
+            if (saldo <= 0) return null
+
+            if (saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG) {
+              return (
+                <AlertaPedidoCimento
+                  unidadeNome={empresaAtiva?.nome || "Unidade"}
+                  saldoAtualKg={saldo}
+                  estoqueMinimoKg={matCimento.estoque_minimo || 15000}
+                  empresa={empresaAtiva}
+                  variante="card"
+                />
+              )
+            }
+            return null
+          })()}
+
+          {/* Grid de Materiais Controlados (Cimento e Aditivo) */}
           <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <History className="w-4 h-4 text-primary" />
-              Histórico de Movimentações de Estoque
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Extrato completo de entradas (compras/abertura) e baixas por
-              produção de concreto
-            </CardDescription>
-          </div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                Insumos com Controle de Estoque
+                <Badge
+                  variant="outline"
+                  className="text-xs text-primary border-primary/30"
+                >
+                  Silo & Tanque
+                </Badge>
+              </h2>
+              <span className="text-xs text-muted-foreground">
+                Baixa automática nas cargas com alerta de estoque mínimo
+              </span>
+            </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-xs text-muted-foreground shrink-0">
-              Filtrar Material:
-            </span>
-            <Select value={filtroMaterial} onValueChange={setFiltroMaterial}>
-              <SelectTrigger className="w-[190px] h-8 text-xs">
-                <SelectValue placeholder="Materiais Controlados" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Cimento e Aditivo</SelectItem>
-                {materiais
-                  .filter(
-                    (m) => m.codigo === "cimento" || m.codigo === "aditivo",
-                  )
-                  .map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.nome}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto max-h-[500px]">
-            <table className="w-full text-xs text-left">
-              <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 sticky top-0 border-b border-border/40 backdrop-blur">
-                <tr>
-                  <th className="py-2.5 px-3">Data</th>
-                  <th className="py-2.5 px-3">Tipo</th>
-                  <th className="py-2.5 px-3">Material</th>
-                  <th className="py-2.5 px-3">Recipiente</th>
-                  <th className="py-2.5 px-3">Quantidade</th>
-                  <th className="py-2.5 px-3 text-right">Preço Unit.</th>
-                  <th className="py-2.5 px-3 text-right">Valor Total</th>
-                  <th className="py-2.5 px-3">Documento / Ref</th>
-                  <th className="py-2.5 px-3">Observação</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/20">
-                {movimentacoes.map((mov) => {
-                  const isEntrada =
-                    mov.tipo === "ENTRADA" || mov.tipo === "ABERTURA"
-                  const mat =
-                    materiais.find((m) => m.id === mov.material_id) ||
-                    mov.material
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {materiais
+                .filter((m) => m.codigo === "cimento" || m.codigo === "aditivo")
+                .map((mat) => {
+                  const saldo = mat.saldo || 0
+                  const critico =
+                    mat.estoque_minimo > 0 && saldo < mat.estoque_minimo
+                  const margem = saldo - mat.estoque_minimo
+                  // Âmbar quando próximo ao mínimo (margem positiva até 15% do mínimo)
+                  const atencao =
+                    !critico &&
+                    mat.estoque_minimo > 0 &&
+                    margem <= mat.estoque_minimo * 0.15
 
                   return (
-                    <tr
-                      key={mov.id}
-                      className="hover:bg-muted/20 transition-colors"
+                    <Card
+                      key={mat.id}
+                      className={`border-border/40 bg-card/70 relative overflow-hidden shadow-sm ${
+                        critico
+                          ? "border-destructive/40"
+                          : atencao
+                            ? "border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/10"
+                            : ""
+                      }`}
                     >
-                      <td className="py-2.5 px-3 text-muted-foreground font-mono">
-                        {mov.data.split("-").reverse().join("/")}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        {isEntrada ? (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] text-emerald-500 border-emerald-500/30 bg-emerald-500/10 gap-1 font-semibold"
-                          >
-                            <TrendingUp className="w-3 h-3" />
-                            {mov.tipo}
-                          </Badge>
-                        ) : (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] text-rose-500 border-rose-500/30 bg-rose-500/10 gap-1 font-semibold"
-                          >
-                            <TrendingDown className="w-3 h-3" />
-                            SAÍDA (CARGA)
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 font-medium text-foreground">
-                        {mat?.nome || "—"}
-                      </td>
-                      <td className="py-2.5 px-3 text-muted-foreground text-xs">
-                        {(mov as any).recipiente_nome ||
-                          (mov as any).recipiente_id ||
-                          "—"}
-                      </td>
-                      <td className="py-2.5 px-3 font-mono font-bold">
-                        <span
-                          className={
-                            isEntrada ? "text-emerald-500" : "text-rose-500"
-                          }
-                        >
-                          {isEntrada ? "+" : "-"}{" "}
-                          {Number(mov.quantidade).toLocaleString("pt-BR")}{" "}
-                          {mat?.unidade || ""}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-muted-foreground">
-                        {isEntrada && mov.preco_unitario != null
-                          ? Number(mov.preco_unitario).toLocaleString("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            })
-                          : "—"}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-medium text-foreground">
-                        {isEntrada && mov.valor_total != null
-                          ? Number(mov.valor_total).toLocaleString("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            })
-                          : "—"}
-                      </td>
-                      <td className="py-2.5 px-3 text-muted-foreground font-mono text-[11px]">
-                        {mov.documento || "—"}
-                      </td>
-                      <td
-                        className="py-2.5 px-3 text-muted-foreground max-w-[250px] truncate"
-                        title={mov.observacao || ""}
-                      >
-                        {mov.observacao || "—"}
-                      </td>
-                    </tr>
+                      <div
+                        className={`h-1.5 w-full ${
+                          critico
+                            ? "bg-destructive"
+                            : atencao
+                              ? "bg-amber-500"
+                              : "bg-emerald-500"
+                        }`}
+                      />
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <CardTitle className="text-lg font-semibold">
+                              {mat.nome}
+                            </CardTitle>
+                            <CardDescription className="text-xs uppercase tracking-wider font-mono">
+                              {mat.codigo === "cimento"
+                                ? `Silo de ${mat.nome}`
+                                : "Tanque de Aditivo Químico"}
+                            </CardDescription>
+                          </div>
+                          {critico ? (
+                            <Badge variant="destructive" className="text-xs">
+                              Reposição Urgente
+                            </Badge>
+                          ) : atencao ? (
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 font-semibold"
+                            >
+                              Atenção (Âmbar)
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 font-medium"
+                            >
+                              Estoque Regular (Verde)
+                            </Badge>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex items-baseline justify-between">
+                          <div>
+                            <span
+                              className={`text-3xl font-extrabold ${
+                                critico
+                                  ? "text-destructive"
+                                  : atencao
+                                    ? "text-amber-600 dark:text-amber-400"
+                                    : "text-foreground"
+                              }`}
+                            >
+                              {saldo.toLocaleString("pt-BR")}
+                            </span>{" "}
+                            <span className="text-sm font-medium text-muted-foreground">
+                              {mat.unidade}
+                            </span>
+                          </div>
+                          {saldo >= 1000 && mat.unidade === "kg" && (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                              {(saldo / 1000).toFixed(2)} t
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="p-2.5 rounded-lg bg-background/50 border border-border/30 text-xs space-y-1">
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>Estoque Mínimo (Alerta):</span>
+                            <span className="font-semibold text-foreground">
+                              {mat.estoque_minimo.toLocaleString("pt-BR")}{" "}
+                              {mat.unidade}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>Margem Operacional:</span>
+                            <span
+                              className={
+                                critico
+                                  ? "text-destructive font-bold"
+                                  : atencao
+                                    ? "text-amber-600 dark:text-amber-400 font-bold"
+                                    : "text-emerald-500 font-medium"
+                              }
+                            >
+                              {margem > 0 ? "+" : ""}
+                              {margem.toLocaleString("pt-BR")} {mat.unidade}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          {!isBalanceiro ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs h-8 text-muted-foreground hover:text-foreground gap-1 px-2"
+                              onClick={() => {
+                                setMaterialEditando(mat)
+                                setNovoMinimo(mat.estoque_minimo)
+                                setOpenMinimo(true)
+                              }}
+                            >
+                              <Settings2 className="w-3.5 h-3.5" />
+                              Alterar Mínimo
+                            </Button>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground">
+                              Mínimo:{" "}
+                              {mat.estoque_minimo.toLocaleString("pt-BR")}{" "}
+                              {mat.unidade}
+                            </span>
+                          )}
+
+                          <div className="flex items-center gap-1.5">
+                            {mat.codigo === "cimento" &&
+                              saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG && (
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  className="text-xs h-8 gap-1 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                                  onClick={() => {
+                                    const link = gerarLinkWhatsAppPedidoCimento(
+                                      {
+                                        unidadeNome:
+                                          empresaAtiva?.nome || "Unidade",
+                                        saldoAtualKg: saldo,
+                                        estoqueMinimoKg:
+                                          mat.estoque_minimo || 15000,
+                                        empresa: empresaAtiva,
+                                      },
+                                    )
+                                    window.open(
+                                      link,
+                                      "_blank",
+                                      "noopener,noreferrer",
+                                    )
+                                  }}
+                                >
+                                  <Send className="w-3.5 h-3.5" />
+                                  Pedir WhatsApp
+                                </Button>
+                              )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-8 gap-1 px-2 text-primary hover:text-primary"
+                              onClick={() => {
+                                setMaterialEntradaId(mat.id)
+                                setOpenEntrada(true)
+                              }}
+                            >
+                              <PlusCircle className="w-3.5 h-3.5" />
+                              Repor Estoque
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* SUB-LISTA DE RECIPIENTES (Silos e Tanques individuais de Patos) */}
+                        {(() => {
+                          const recsDoMaterial = recipientes.filter((r) => {
+                            if (r.material_id && r.material_id === mat.id)
+                              return true
+                            if (mat.codigo === "cimento")
+                              return (
+                                r.tipo === "silo" ||
+                                r.material_codigo === "cimento"
+                              )
+                            if (mat.codigo === "aditivo")
+                              return (
+                                r.tipo === "tanque" ||
+                                r.material_codigo === "aditivo"
+                              )
+                            return false
+                          })
+
+                          if (recsDoMaterial.length === 0) return null
+
+                          return (
+                            <div className="pt-3 mt-3 border-t border-border/40 space-y-2">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                                  <Cylinder className="w-3.5 h-3.5 text-primary" />
+                                  Saldos Individuais (
+                                  {mat.codigo === "cimento"
+                                    ? "Silos"
+                                    : "Tanques"}
+                                  ):
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  {recsDoMaterial.length} cadastrados
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {recsDoMaterial.map((rec) => {
+                                  const recCritico =
+                                    rec.estoque_minimo > 0 &&
+                                    rec.saldo_atual < rec.estoque_minimo
+                                  const recMargem =
+                                    rec.saldo_atual - rec.estoque_minimo
+                                  const recAtencao =
+                                    !recCritico &&
+                                    rec.estoque_minimo > 0 &&
+                                    rec.saldo_atual === rec.estoque_minimo
+
+                                  return (
+                                    <div
+                                      key={rec.id}
+                                      className={`p-2.5 rounded-lg border text-xs bg-background/70 space-y-1.5 ${
+                                        recCritico
+                                          ? "border-destructive/40 bg-destructive/5"
+                                          : recAtencao
+                                            ? "border-amber-500/40 bg-amber-500/5"
+                                            : "border-border/40"
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between gap-1">
+                                        <span
+                                          className="font-semibold text-foreground truncate"
+                                          title={rec.nome}
+                                        >
+                                          {rec.nome}
+                                        </span>
+                                        {recCritico ? (
+                                          <Badge
+                                            variant="destructive"
+                                            className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-red-500/10 text-red-600 border-red-500/30 font-bold"
+                                          >
+                                            <AlertTriangle className="w-2.5 h-2.5" />
+                                            Abaixo
+                                          </Badge>
+                                        ) : recAtencao ? (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-amber-500/10 text-amber-600 border-amber-500/30 font-semibold"
+                                          >
+                                            <AlertTriangle className="w-2.5 h-2.5" />
+                                            No mínimo
+                                          </Badge>
+                                        ) : (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold"
+                                          >
+                                            <CheckCircle2 className="w-2.5 h-2.5" />
+                                            OK
+                                          </Badge>
+                                        )}
+                                      </div>
+
+                                      <div className="flex items-baseline justify-between font-mono">
+                                        <div>
+                                          <span
+                                            className={`text-sm font-bold ${
+                                              recCritico
+                                                ? "text-red-600 dark:text-red-400"
+                                                : "text-foreground"
+                                            }`}
+                                          >
+                                            {rec.saldo_atual.toLocaleString(
+                                              "pt-BR",
+                                            )}
+                                          </span>{" "}
+                                          <span className="text-[10px] text-muted-foreground font-normal">
+                                            {rec.unidade}
+                                          </span>
+                                        </div>
+                                        <span className="text-[10px] text-muted-foreground">
+                                          Mín:{" "}
+                                          {rec.estoque_minimo.toLocaleString(
+                                            "pt-BR",
+                                          )}{" "}
+                                          {rec.unidade}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </CardContent>
+                    </Card>
                   )
                 })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-      {/* AlertDialog de Confirmação com Resumo Antes de Gravar Entrada */}
-      <AlertDialog
-        open={modalConfirmarEntradaAberta}
-        onOpenChange={setModalConfirmarEntradaAberta}
-      >
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
-              <PlusCircle className="w-5 h-5 text-primary" />
-              Confirmar Entrada de Insumo no Estoque
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">
-              Confira os dados da movimentação antes de confirmar a reposição.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <div className="space-y-2 py-2 text-xs">
-            <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5 font-mono">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-sans">Insumo:</span>
-                <span className="font-bold text-foreground">
-                  {materiais.find((m) => m.id === materialEntradaId)?.nome ||
-                    "—"}
-                </span>
-              </div>
-              {precisaRecipienteDestino && recipienteDestinoId && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground font-sans">
-                    Destino:
-                  </span>
-                  <span className="font-bold text-primary">
-                    {recipientes.find((r) => r.id === recipienteDestinoId)
-                      ?.nome || "—"}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-sans">
-                  Tipo de Movimentação:
-                </span>
-                <span className="font-semibold text-emerald-600">
-                  ENTRADA / REPOSIÇÃO
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-sans">
-                  Quantidade:
-                </span>
-                <span className="font-bold text-primary">
-                  {Number(quantidadeEntrada).toLocaleString("pt-BR")}{" "}
-                  {materiais.find((m) => m.id === materialEntradaId)?.unidade ||
-                    ""}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-sans">
-                  Preço Unitário:
-                </span>
-                <span className="font-semibold">
-                  {precoUnitarioNum.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </span>
-              </div>
-              <div className="flex justify-between border-t border-border/40 pt-1">
-                <span className="text-muted-foreground font-sans">
-                  Valor Total:
-                </span>
-                <span className="font-bold text-emerald-600">
-                  {valorTotalCalculado.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-sans">
-                  Data da Entrada:
-                </span>
-                <span>{dataEntrada.split("-").reverse().join("/")}</span>
-              </div>
-              {documentoEntrada && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground font-sans">
-                    Documento / NF:
-                  </span>
-                  <span>{documentoEntrada}</span>
-                </div>
-              )}
-              {obsEntrada && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground font-sans">
-                    Observação:
-                  </span>
-                  <span className="text-right max-w-[200px] truncate">
-                    {obsEntrada}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
 
-          <AlertDialogFooter className="gap-2 sm:gap-0">
-            <AlertDialogCancel disabled={salvandoEntrada}>
-              Voltar e Revisar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={salvandoEntrada}
-              onClick={executarSalvarEntrada}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-            >
-              {salvandoEntrada ? "Gravando..." : "Sim, Confirmar Entrada"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          {/* Seção Informativa: Materiais Apenas Consumo */}
+          <Card className="border-border/30 bg-muted/20">
+            <CardHeader className="py-3 px-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <div>
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Boxes className="w-4 h-4 text-muted-foreground" />
+                    Agregados e Materiais em Modo Apenas Consumo
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Brita 12, Brita 19, Areia e Pó de Pedra são registrados
+                    diretamente no consumo das cargas (sem saldo de estoque,
+                    baixa ou alerta mínimo).
+                  </CardDescription>
+                </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {materiais
+                    .filter(
+                      (m) => m.codigo !== "cimento" && m.codigo !== "aditivo",
+                    )
+                    .map((m) => (
+                      <Badge
+                        key={m.id}
+                        variant="secondary"
+                        className="text-xs font-normal"
+                      >
+                        {m.nome}
+                      </Badge>
+                    ))}
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
 
-      {/* AlertDialog de Confirmação com Resumo Antes de Gravar Novo Mínimo */}
-      <AlertDialog
-        open={modalConfirmarMinimoAberta}
-        onOpenChange={setModalConfirmarMinimoAberta}
-      >
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
-              <Settings2 className="w-5 h-5 text-primary" />
-              Confirmar Alteração de Estoque Mínimo
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">
-              Confira os parâmetros de alerta de estoque para o insumo.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+          {/* Dialog Editar Estoque Mínimo */}
+          <Dialog open={openMinimo} onOpenChange={setOpenMinimo}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Ajustar Margem Mínima de Segurança</DialogTitle>
+                <DialogDescription>
+                  Defina o valor mínimo de estoque para disparo de alertas
+                  visuais no dashboard.
+                </DialogDescription>
+              </DialogHeader>
+              {materialEditando && (
+                <form onSubmit={handleSalvarMinimo} className="space-y-4 py-2">
+                  <div className="space-y-1">
+                    <span className="text-sm font-semibold">
+                      {materialEditando.nome}
+                    </span>
+                    <p className="text-xs text-muted-foreground">
+                      Unidade: {materialEditando.unidade} | Saldo Atual:{" "}
+                      {materialEditando.saldo?.toLocaleString("pt-BR")}
+                    </p>
+                  </div>
 
-          <div className="space-y-2 py-2 text-xs">
-            <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5 font-mono">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-sans">Insumo:</span>
-                <span className="font-bold text-foreground">
-                  {materialEditando?.nome}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-sans">Tipo:</span>
-                <span className="font-semibold">AJUSTE DE PARÂMETRO</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-sans">
-                  Mínimo Anterior:
-                </span>
-                <span>
-                  {materialEditando?.estoque_minimo.toLocaleString("pt-BR")}{" "}
-                  {materialEditando?.unidade}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-sans">
-                  Novo Mínimo:
-                </span>
-                <span className="font-bold text-primary">
-                  {Number(novoMinimo).toLocaleString("pt-BR")}{" "}
-                  {materialEditando?.unidade}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-sans">
-                  Saldo Atual:
-                </span>
-                <span>
-                  {materialEditando?.saldo?.toLocaleString("pt-BR")}{" "}
-                  {materialEditando?.unidade}
-                </span>
-              </div>
-            </div>
-          </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="novoMinimo">
+                      Novo Estoque Mínimo ({materialEditando.unidade})
+                    </Label>
+                    <Input
+                      id="novoMinimo"
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={novoMinimo}
+                      onChange={(e) => setNovoMinimo(Number(e.target.value))}
+                      required
+                    />
+                  </div>
 
-          <AlertDialogFooter className="gap-2 sm:gap-0">
-            <AlertDialogCancel disabled={salvandoMinimo}>
-              Voltar e Revisar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={salvandoMinimo}
-              onClick={executarSalvarMinimo}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-            >
-              {salvandoMinimo ? "Salvando..." : "Sim, Atualizar Mínimo"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+                  <DialogFooter className="pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setOpenMinimo(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={salvandoMinimo}
+                      className="bg-primary text-primary-foreground"
+                    >
+                      {salvandoMinimo ? "Salvando..." : "Salvar Alteração"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Histórico de Movimentações */}
+          <Card className="border-border/40 bg-card/70">
+            <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <History className="w-4 h-4 text-primary" />
+                  Histórico de Movimentações de Estoque
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Extrato completo de entradas (compras/abertura) e baixas por
+                  produção de concreto
+                </CardDescription>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-xs text-muted-foreground shrink-0">
+                  Filtrar Material:
+                </span>
+                <Select
+                  value={filtroMaterial}
+                  onValueChange={setFiltroMaterial}
+                >
+                  <SelectTrigger className="w-[190px] h-8 text-xs">
+                    <SelectValue placeholder="Materiais Controlados" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Cimento e Aditivo</SelectItem>
+                    {materiais
+                      .filter(
+                        (m) => m.codigo === "cimento" || m.codigo === "aditivo",
+                      )
+                      .map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.nome}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto max-h-[500px]">
+                <table className="w-full text-xs text-left">
+                  <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 sticky top-0 border-b border-border/40 backdrop-blur">
+                    <tr>
+                      <th className="py-2.5 px-3">Data</th>
+                      <th className="py-2.5 px-3">Tipo</th>
+                      <th className="py-2.5 px-3">Material</th>
+                      <th className="py-2.5 px-3">Recipiente</th>
+                      <th className="py-2.5 px-3">Quantidade</th>
+                      <th className="py-2.5 px-3 text-right">Preço Unit.</th>
+                      <th className="py-2.5 px-3 text-right">Valor Total</th>
+                      <th className="py-2.5 px-3">Documento / Ref</th>
+                      <th className="py-2.5 px-3">Observação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/20">
+                    {movimentacoes.map((mov) => {
+                      const isEntrada =
+                        mov.tipo === "ENTRADA" || mov.tipo === "ABERTURA"
+                      const mat =
+                        materiais.find((m) => m.id === mov.material_id) ||
+                        mov.material
+
+                      return (
+                        <tr
+                          key={mov.id}
+                          className="hover:bg-muted/20 transition-colors"
+                        >
+                          <td className="py-2.5 px-3 text-muted-foreground font-mono">
+                            {mov.data.split("-").reverse().join("/")}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            {isEntrada ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] text-emerald-500 border-emerald-500/30 bg-emerald-500/10 gap-1 font-semibold"
+                              >
+                                <TrendingUp className="w-3 h-3" />
+                                {mov.tipo}
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] text-rose-500 border-rose-500/30 bg-rose-500/10 gap-1 font-semibold"
+                              >
+                                <TrendingDown className="w-3 h-3" />
+                                SAÍDA (CARGA)
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 font-medium text-foreground">
+                            {mat?.nome || "—"}
+                          </td>
+                          <td className="py-2.5 px-3 text-muted-foreground text-xs">
+                            {(mov as any).recipiente_nome ||
+                              (mov as any).recipiente_id ||
+                              "—"}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono font-bold">
+                            <span
+                              className={
+                                isEntrada ? "text-emerald-500" : "text-rose-500"
+                              }
+                            >
+                              {isEntrada ? "+" : "-"}{" "}
+                              {Number(mov.quantidade).toLocaleString("pt-BR")}{" "}
+                              {mat?.unidade || ""}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-muted-foreground">
+                            {isEntrada && mov.preco_unitario != null
+                              ? Number(mov.preco_unitario).toLocaleString(
+                                  "pt-BR",
+                                  {
+                                    style: "currency",
+                                    currency: "BRL",
+                                  },
+                                )
+                              : "—"}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-medium text-foreground">
+                            {isEntrada && mov.valor_total != null
+                              ? Number(mov.valor_total).toLocaleString(
+                                  "pt-BR",
+                                  {
+                                    style: "currency",
+                                    currency: "BRL",
+                                  },
+                                )
+                              : "—"}
+                          </td>
+                          <td className="py-2.5 px-3 text-muted-foreground font-mono text-[11px]">
+                            {mov.documento || "—"}
+                          </td>
+                          <td
+                            className="py-2.5 px-3 text-muted-foreground max-w-[250px] truncate"
+                            title={mov.observacao || ""}
+                          >
+                            {mov.observacao || "—"}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+          {/* AlertDialog de Confirmação com Resumo Antes de Gravar Entrada */}
+          <AlertDialog
+            open={modalConfirmarEntradaAberta}
+            onOpenChange={setModalConfirmarEntradaAberta}
+          >
+            <AlertDialogContent className="max-w-md">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                  <PlusCircle className="w-5 h-5 text-primary" />
+                  Confirmar Entrada de Insumo no Estoque
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-xs">
+                  Confira os dados da movimentação antes de confirmar a
+                  reposição.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+
+              <div className="space-y-2 py-2 text-xs">
+                <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5 font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">
+                      Insumo:
+                    </span>
+                    <span className="font-bold text-foreground">
+                      {materiais.find((m) => m.id === materialEntradaId)
+                        ?.nome || "—"}
+                    </span>
+                  </div>
+                  {precisaRecipienteDestino && recipienteDestinoId && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground font-sans">
+                        Destino:
+                      </span>
+                      <span className="font-bold text-primary">
+                        {recipientes.find((r) => r.id === recipienteDestinoId)
+                          ?.nome || "—"}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">
+                      Tipo de Movimentação:
+                    </span>
+                    <span className="font-semibold text-emerald-600">
+                      ENTRADA / REPOSIÇÃO
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">
+                      Quantidade:
+                    </span>
+                    <span className="font-bold text-primary">
+                      {Number(quantidadeEntrada).toLocaleString("pt-BR")}{" "}
+                      {materiais.find((m) => m.id === materialEntradaId)
+                        ?.unidade || ""}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">
+                      Preço Unitário:
+                    </span>
+                    <span className="font-semibold">
+                      {precoUnitarioNum.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t border-border/40 pt-1">
+                    <span className="text-muted-foreground font-sans">
+                      Valor Total:
+                    </span>
+                    <span className="font-bold text-emerald-600">
+                      {valorTotalCalculado.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">
+                      Data da Entrada:
+                    </span>
+                    <span>{dataEntrada.split("-").reverse().join("/")}</span>
+                  </div>
+                  {documentoEntrada && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground font-sans">
+                        Documento / NF:
+                      </span>
+                      <span>{documentoEntrada}</span>
+                    </div>
+                  )}
+                  {obsEntrada && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground font-sans">
+                        Observação:
+                      </span>
+                      <span className="text-right max-w-[200px] truncate">
+                        {obsEntrada}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <AlertDialogFooter className="gap-2 sm:gap-0">
+                <AlertDialogCancel disabled={salvandoEntrada}>
+                  Voltar e Revisar
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={salvandoEntrada}
+                  onClick={executarSalvarEntrada}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                >
+                  {salvandoEntrada ? "Gravando..." : "Sim, Confirmar Entrada"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* AlertDialog de Confirmação com Resumo Antes de Gravar Novo Mínimo */}
+          <AlertDialog
+            open={modalConfirmarMinimoAberta}
+            onOpenChange={setModalConfirmarMinimoAberta}
+          >
+            <AlertDialogContent className="max-w-md">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                  <Settings2 className="w-5 h-5 text-primary" />
+                  Confirmar Alteração de Estoque Mínimo
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-xs">
+                  Confira os parâmetros de alerta de estoque para o insumo.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+
+              <div className="space-y-2 py-2 text-xs">
+                <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5 font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">
+                      Insumo:
+                    </span>
+                    <span className="font-bold text-foreground">
+                      {materialEditando?.nome}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">
+                      Tipo:
+                    </span>
+                    <span className="font-semibold">AJUSTE DE PARÂMETRO</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">
+                      Mínimo Anterior:
+                    </span>
+                    <span>
+                      {materialEditando?.estoque_minimo.toLocaleString("pt-BR")}{" "}
+                      {materialEditando?.unidade}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">
+                      Novo Mínimo:
+                    </span>
+                    <span className="font-bold text-primary">
+                      {Number(novoMinimo).toLocaleString("pt-BR")}{" "}
+                      {materialEditando?.unidade}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-sans">
+                      Saldo Atual:
+                    </span>
+                    <span>
+                      {materialEditando?.saldo?.toLocaleString("pt-BR")}{" "}
+                      {materialEditando?.unidade}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <AlertDialogFooter className="gap-2 sm:gap-0">
+                <AlertDialogCancel disabled={salvandoMinimo}>
+                  Voltar e Revisar
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={salvandoMinimo}
+                  onClick={executarSalvarMinimo}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                >
+                  {salvandoMinimo ? "Salvando..." : "Sim, Atualizar Mínimo"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </TabsContent>
+
+        {podeAcessarAcoes && (
+          <TabsContent value="acoes" className="space-y-4 mt-0">
+            <AbaAcoesEstoque
+              empresaAtiva={empresaAtiva}
+              materiais={materiais}
+              onAtualizacao={carregarDados}
+            />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   )
 }
