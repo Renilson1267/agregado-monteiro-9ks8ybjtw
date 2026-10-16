@@ -282,8 +282,9 @@ export function ModalEditarCarga({
     else setTanqueAditivo("tanque_1")
 
     // Recompor acumulados de Patos
-    const acum01 = dosB0 + dosB19
-    const acumAr = acum01 + dosAreia
+    // Se Brita 19 for 0, Brita 0 é acumulativa e Brita 0+1 acum fica 0
+    const acum01 = dosB19 === 0 ? 0 : dosB0 + dosB19
+    const acumAr = dosB0 + dosB19 + dosAreia
     const acumPo = acumAr + dosPo
     setPatosAcumBrita01(acum01)
     setPatosAcumAreia(acumAr)
@@ -320,8 +321,9 @@ export function ModalEditarCarga({
         setAreia(cAr)
         setPoPedra(cPo)
 
-        const acum01 = cB0 + cB1
-        const acumAr = acum01 + cAr
+        // Se cB1 === 0, Brita 0 passa a ser o acumulativo; acum01 fica 0
+        const acum01 = cB1 === 0 ? 0 : cB0 + cB1
+        const acumAr = cB0 + cB1 + cAr
         const acumPo = acumAr + cPo
         setPatosAcumBrita01(acum01)
         setPatosAcumAreia(acumAr)
@@ -944,12 +946,19 @@ export function ModalEditarCarga({
                       onChange={(e) => {
                         const nB0 = Number(e.target.value) || 0
                         setBrita12(nB0)
-                        // Quando Brita 1 for zero ou acumulado <= nB0, Brita 0 vira acumulativa
-                        if (patosAcumBrita01 <= nB0) {
-                          setPatosAcumBrita01(nB0)
+
+                        const tracoSelecionado = tracosCatalogo.find(
+                          (t) => t.id === tracoId,
+                        )
+                        const semBrita1 = tracoSelecionado
+                          ? (Number(tracoSelecionado.consumo_brita19) || 0) ===
+                            0
+                          : patosAcumBrita01 === 0
+
+                        if (semBrita1) {
                           setBrita19(0)
+                          setAreia(Math.max(0, patosAcumAreia - nB0))
                         } else {
-                          // Ajusta brita 19 mantendo o acumulado digitado
                           setBrita19(Math.max(0, patosAcumBrita01 - nB0))
                         }
                       }}
@@ -973,8 +982,13 @@ export function ModalEditarCarga({
                       onChange={(e) => {
                         const nAcum01 = Number(e.target.value) || 0
                         setPatosAcumBrita01(nAcum01)
-                        setBrita19(Math.max(0, nAcum01 - brita12))
-                        setAreia(Math.max(0, patosAcumAreia - nAcum01))
+                        if (nAcum01 === 0) {
+                          setBrita19(0)
+                          setAreia(Math.max(0, patosAcumAreia - brita12))
+                        } else {
+                          setBrita19(Math.max(0, nAcum01 - brita12))
+                          setAreia(Math.max(0, patosAcumAreia - nAcum01))
+                        }
                       }}
                       placeholder="0"
                       className="h-8 text-xs font-mono font-bold border-amber-500/50"
@@ -996,7 +1010,9 @@ export function ModalEditarCarga({
                       onChange={(e) => {
                         const nAcumAr = Number(e.target.value) || 0
                         setPatosAcumAreia(nAcumAr)
-                        setAreia(Math.max(0, nAcumAr - patosAcumBrita01))
+                        const subtratorAreia =
+                          patosAcumBrita01 > 0 ? patosAcumBrita01 : brita12
+                        setAreia(Math.max(0, nAcumAr - subtratorAreia))
                         setPoPedra(Math.max(0, patosAcumPo - nAcumAr))
                       }}
                       placeholder="0"

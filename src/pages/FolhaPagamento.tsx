@@ -614,8 +614,6 @@ export function FolhaPagamento() {
     })
   }, [terceirosParaTotais, mostrarOcultos])
 
-
-
   // Função auxiliar para processar linha de terceiro
   const processarTerceiroLinha = (t: FolhaPagamentoLinha) => {
     const cadastrado = terceirosCadastrados.find(

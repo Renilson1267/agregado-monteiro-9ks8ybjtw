@@ -490,7 +490,8 @@ export default function LancamentoCargas() {
         setBrita19(dosBrita19)
         setAreia(dosAreia)
         setPoPedra(dosPoPedra)
-        setPatosAcumBrita01(dosBrita12 + dosBrita19)
+        // Se dosBrita19 for 0, Brita 0 é acumulativa e Brita 0+1 acum fica 0
+        setPatosAcumBrita01(dosBrita19 === 0 ? 0 : dosBrita12 + dosBrita19)
         setPatosAcumAreia(dosBrita12 + dosBrita19 + dosAreia)
         setPatosAcumPo(dosBrita12 + dosBrita19 + dosAreia + dosPoPedra)
         setAgua(Number(c.consumo_agua || 0))
@@ -1289,8 +1290,8 @@ export default function LancamentoCargas() {
       setPoPedra(cPo)
 
       // Preenche os acumulados para Patos (brita 0+1, areia acum, pó acum)
-      // Se cB1 = 0, patosAcumBrita01 = cB0 (Brita 0 considerada acumulativa)
-      const acum01 = cB1 === 0 ? cB0 : cB0 + cB1
+      // Se o traço não tem Brita 1 (cB1 === 0), Brita 0 passa a ser o valor acumulativo
+      const acum01 = cB1 === 0 ? 0 : cB0 + cB1
       setPatosAcumBrita01(acum01)
       setPatosAcumAreia(cB0 + cB1 + cAr)
       setPatosAcumPo(cB0 + cB1 + cAr + cPo)
@@ -2215,18 +2216,19 @@ export default function LancamentoCargas() {
                                   const nB0 = isNaN(b0Val) ? 0 : b0Val
                                   setBrita12(nB0)
 
-                                  // Quando Brita 1 for zero (patosAcumBrita01 <= nB0 ou o traço selecionado tem consumo_brita19 = 0),
-                                  // considerar a Brita 0 como acumulativa: ajustar automaticamente patosAcumBrita01 = nB0 e Brita 1 = 0
-                                  const tracoB1Zero = tracoAtual
+                                  // Verifica se o traço selecionado NÃO tem Brita 1
+                                  const semBrita1 = tracoAtual
                                     ? (Number(tracoAtual.consumo_brita19) ||
                                         0) === 0
-                                    : false
+                                    : patosAcumBrita01 === 0
 
-                                  if (patosAcumBrita01 <= nB0 || tracoB1Zero) {
-                                    setPatosAcumBrita01(nB0)
+                                  if (semBrita1) {
+                                    // Traço sem Brita 1: Brita 0 passa a ser o acumulativo; Brita 1 real fica 0
                                     setBrita19(0)
+                                    // Areia real = Areia acum - Brita 0 (acumulativo)
+                                    setAreia(Math.max(0, patosAcumAreia - nB0))
                                   } else {
-                                    // Recalcula brita19 real = patosAcumBrita01 - nB0
+                                    // Traço com Brita 1: recalcula Brita 1 real = Brita 0+1 acum - Brita 0
                                     setBrita19(
                                       Math.max(0, patosAcumBrita01 - nB0),
                                     )
@@ -2271,12 +2273,19 @@ export default function LancamentoCargas() {
                                       : Number(e.target.value)
                                   const nAcum01 = isNaN(v) ? 0 : v
                                   setPatosAcumBrita01(nAcum01)
-                                  // brita19 = acum_brita01 - brita0
-                                  setBrita19(Math.max(0, nAcum01 - brita12))
-                                  // areia = acum_areia - acum_brita01
-                                  setAreia(
-                                    Math.max(0, patosAcumAreia - nAcum01),
-                                  )
+                                  if (nAcum01 === 0) {
+                                    setBrita19(0)
+                                    setAreia(
+                                      Math.max(0, patosAcumAreia - brita12),
+                                    )
+                                  } else {
+                                    // brita19 = acum_brita01 - brita0
+                                    setBrita19(Math.max(0, nAcum01 - brita12))
+                                    // areia = acum_areia - acum_brita01
+                                    setAreia(
+                                      Math.max(0, patosAcumAreia - nAcum01),
+                                    )
+                                  }
                                 }}
                                 disabled={cargaZerada}
                                 placeholder="0"
@@ -2317,9 +2326,13 @@ export default function LancamentoCargas() {
                                       : Number(e.target.value)
                                   const nAcumAr = isNaN(v) ? 0 : v
                                   setPatosAcumAreia(nAcumAr)
-                                  // areia = acum_areia - acum_brita01
+                                  // Se sem Brita 1, subtrai Brita 0 (que é o acumulado anterior)
+                                  const subtratorAreia =
+                                    patosAcumBrita01 > 0
+                                      ? patosAcumBrita01
+                                      : brita12
                                   setAreia(
-                                    Math.max(0, nAcumAr - patosAcumBrita01),
+                                    Math.max(0, nAcumAr - subtratorAreia),
                                   )
                                   // po = acum_po - acum_areia
                                   setPoPedra(Math.max(0, patosAcumPo - nAcumAr))
