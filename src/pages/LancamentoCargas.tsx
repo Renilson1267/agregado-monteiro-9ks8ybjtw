@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import {
   Card,
   CardContent,
@@ -1191,141 +1191,63 @@ export default function LancamentoCargas() {
 
   const tracoAtual = tracos.find((t) => t.id === tracoSelecionadoId)
 
-  // Lista dos botões de atalho rápido de traço: F10 a F45
-  // (Sequência de atalhos rápidos de volume: 3, 4, 5, 6, 7, 8, 9, 10 m³ no template)
-  const ATALHOS_TRACO = [
-    { label: "F10", fck: 10 },
-    { label: "F15", fck: 15 },
-    { label: "F20", fck: 20 },
-    { label: "F25", fck: 25 },
-    { label: "F30", fck: 30 },
-    { label: "F35", fck: 35 },
-    { label: "F40", fck: 40 },
-    { label: "F45", fck: 45 },
-  ]
+  // Catálogo dinâmico de traços ATIVOS da unidade ativa (ordenados por fck_mpa depois nome)
+  const tracosAtivos = useMemo(() => {
+    return (tracos || [])
+      .filter((t) => t.ativo !== false)
+      .sort((a, b) => {
+        const fckA = a.fck_mpa ?? 0
+        const fckB = b.fck_mpa ?? 0
+        if (fckA !== fckB) return fckA - fckB
+        return (a.nome || "").localeCompare(b.nome || "")
+      })
+  }, [tracos])
 
-  // Encontra o traço correspondente no catálogo informado para o FCK fornecido
-  const encontrarTracoPorFckEmLista = (
-    fck: number,
-    lista: Traco[],
-  ): Traco | undefined => {
-    if (!lista || lista.length === 0) return undefined
+  // Ao tocar em um botão de traço rápido: pré-preenche os insumos exatamente com as dosagens cadastradas
+  const selecionarTracoObjeto = (traco: Traco) => {
+    if (!traco) return
 
-    // 1. Prioriza pelo campo fck_mpa exato (caso o nome siga o padrão oficial FxxB01S12 CP II F 40)
-    const tracoPadraoFck = lista.find(
-      (t) =>
-        Number(t.fck_mpa) === fck && /^F\d{1,2}B/i.test(t.nome?.trim() || ""),
-    )
-    if (tracoPadraoFck) return tracoPadraoFck
+    setTracoSelecionadoId(traco.id)
+    const cCim = Number(traco.consumo_cimento) || 0
+    const cB0 = Number(traco.consumo_brita12) || 0
+    const cB1 = Number(traco.consumo_brita19) || 0
+    const cAr = Number(traco.consumo_areia) || 0
+    const cPo = Number(traco.consumo_po_pedra) || 0
 
-    // 2. Qualquer traço com o mesmo fck_mpa numérico exato
-    const tracoFck = lista.find((t) => Number(t.fck_mpa) === fck)
-    if (tracoFck) return tracoFck
+    setCimento(cCim)
+    setBrita12(cB0)
+    setBrita19(cB1)
+    setAreia(cAr)
+    setPoPedra(cPo)
 
-    // 3. Match pelo prefixo oficial real: "F25B", "F25 ", "F25-", "F25/"
-    const prefixos = [`F${fck}B`, `F${fck} `, `F${fck}-`, `F${fck}/`]
-    const tracoPrefixo = lista.find((t) => {
-      const nomeUpper = (t.nome || "").trim().toUpperCase()
-      return prefixos.some((p) => nomeUpper.startsWith(p.toUpperCase()))
+    // Preenche os acumulados para Patos (brita 0+1, areia acum, pó acum)
+    // Se o traço não tem Brita 1 (cB1 === 0), Brita 0 passa a ser o valor acumulativo
+    const acum01 = cB1 === 0 ? 0 : cB0 + cB1
+    setPatosAcumBrita01(acum01)
+    setPatosAcumAreia(cB0 + cB1 + cAr)
+    setPatosAcumPo(cB0 + cB1 + cAr + cPo)
+
+    // Sincroniza o volume se necessário e preserva volumeTexto
+    if (!volume || volume <= 0) {
+      setVolume(8.0)
+      setVolumeTexto("8")
+      if (volumeInputRef.current) volumeInputRef.current.value = "8"
+    }
+    const volAtual = volume && volume > 0 ? volume : 8.0
+
+    // Aditivo sugerido: calcula total em litros (consumo_aditivo_m3 × volume)
+    const adtBase = Number(traco.consumo_aditivo) || 0
+    const adtTotal = adtBase > 0 ? Math.round(adtBase * volAtual) : 0
+    setAditivo(adtTotal)
+    setAditivoInput(adtTotal > 0 ? String(adtTotal) : "")
+    setAditivoBruto(adtTotal)
+    setAditivoEditadoManualmente(false)
+
+    toast({
+      title: `Traço ${formatarDescricaoCompletaTraco(traco)} selecionado`,
+      description:
+        "Insumos pré-preenchidos. Você pode ajustar qualquer valor livremente.",
     })
-    if (tracoPrefixo) return tracoPrefixo
-
-    // 4. Regex flexível para Fxx seguido de caractere não dígito ou fim de string (ex: F25B01, F25, F25-A)
-    const regexFlexivel = new RegExp(`^F0*${fck}(?:[^0-9]|$)`, "i")
-    const tracoRegex = lista.find((t) =>
-      regexFlexivel.test((t.nome || "").trim()),
-    )
-    if (tracoRegex) return tracoRegex
-
-    // 5. Inclusão de Fxx isolado ou em parênteses: "(25 MPa)" ou "FCK 25"
-    const regexFckTexto = new RegExp(
-      `(?:FCK\\s*|\\()0*${fck}(?:\\s*MPa|\\))`,
-      "i",
-    )
-    return lista.find((t) => regexFckTexto.test(t.nome || ""))
-  }
-
-  // Encontra o traço correspondente no catálogo da empresa ativa para o FCK informado
-  const encontrarTracoPorFck = (fck: number): Traco | undefined => {
-    return encontrarTracoPorFckEmLista(fck, tracos)
-  }
-
-  // Ao tocar em um botão de traço rápido: pré-preenche os insumos com as dosagens cadastradas
-  const selecionarAtalhoTraco = async (fck: number) => {
-    let catalogo = tracos
-
-    // Se o catálogo estiver vazio ou carregando, busca sob demanda do serviço
-    if (catalogo.length === 0 && empresaAtiva?.id) {
-      try {
-        setCarregandoTracos(true)
-        const tr = await ConcreteiraService.getTracos(empresaAtiva.id)
-        const catalogoCompleto = [...tr].sort((a, b) => {
-          const fckA = a.fck_mpa ?? 0
-          const fckB = b.fck_mpa ?? 0
-          if (fckA !== fckB) return fckA - fckB
-          return (a.nome || "").localeCompare(b.nome || "")
-        })
-        setTracos(catalogoCompleto)
-        catalogo = catalogoCompleto
-      } catch (err) {
-        console.error("Erro ao carregar traços sob demanda:", err)
-      } finally {
-        setCarregandoTracos(false)
-      }
-    }
-
-    const traco = encontrarTracoPorFckEmLista(fck, catalogo)
-    if (traco) {
-      setTracoSelecionadoId(traco.id)
-      const cCim = Number(traco.consumo_cimento) || 0
-      const cB0 = Number(traco.consumo_brita12) || 0
-      const cB1 = Number(traco.consumo_brita19) || 0
-      const cAr = Number(traco.consumo_areia) || 0
-      const cPo = Number(traco.consumo_po_pedra) || 0
-
-      setCimento(cCim)
-      setBrita12(cB0)
-      setBrita19(cB1)
-      setAreia(cAr)
-      setPoPedra(cPo)
-
-      // Preenche os acumulados para Patos (brita 0+1, areia acum, pó acum)
-      // Se o traço não tem Brita 1 (cB1 === 0), Brita 0 passa a ser o valor acumulativo
-      const acum01 = cB1 === 0 ? 0 : cB0 + cB1
-      setPatosAcumBrita01(acum01)
-      setPatosAcumAreia(cB0 + cB1 + cAr)
-      setPatosAcumPo(cB0 + cB1 + cAr + cPo)
-
-      // Sincroniza o volume se necessário e preserva volumeTexto
-      if (!volume || volume <= 0) {
-        setVolume(8.0)
-        setVolumeTexto("8")
-        if (volumeInputRef.current) volumeInputRef.current.value = "8"
-      }
-      const volAtual = volume && volume > 0 ? volume : 8.0
-
-      // Aditivo sugerido: calcula total em litros (consumo_aditivo_m3 × volume)
-      const adtBase = Number(traco.consumo_aditivo) || 0
-      const adtTotal = adtBase > 0 ? Math.round(adtBase * volAtual) : 0
-      setAditivo(adtTotal)
-      setAditivoInput(adtTotal > 0 ? String(adtTotal) : "")
-      setAditivoBruto(adtTotal)
-      setAditivoEditadoManualmente(false)
-
-      toast({
-        title: `Traço ${formatarDescricaoCompletaTraco(traco)} selecionado`,
-        description:
-          "Insumos pré-preenchidos. Você pode ajustar qualquer valor livremente.",
-      })
-    } else {
-      toast({
-        title: `Traço F${fck} não encontrado`,
-        description: `Não há traço cadastrado com FCK ${fck} MPa na unidade ${
-          empresaAtiva?.nome || "ativa"
-        }.`,
-        variant: "destructive",
-      })
-    }
   }
 
   // Permite desmarcar o traço para gravar expressamente como Manual / Sem vínculo
@@ -1923,41 +1845,50 @@ export default function LancamentoCargas() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2">
-                    {ATALHOS_TRACO.map((atalho) => {
-                      const tracoExistente = encontrarTracoPorFck(atalho.fck)
-                      const isAtivo = tracoSelecionadoId === tracoExistente?.id
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {tracosAtivos.map((tracoItem) => {
+                      const isAtivo = tracoSelecionadoId === tracoItem.id
+                      const descricaoCompleta =
+                        formatarDescricaoCompletaTraco(tracoItem)
 
                       return (
                         <button
-                          key={atalho.label}
+                          key={tracoItem.id}
                           type="button"
-                          onClick={() => void selecionarAtalhoTraco(atalho.fck)}
+                          onClick={() => selecionarTracoObjeto(tracoItem)}
                           disabled={cargaZerada || carregandoTracos}
-                          className={`h-12 px-3 rounded-xl border-2 font-mono font-black text-sm sm:text-base flex items-center justify-between sm:justify-center sm:gap-1.5 transition-all ${
+                          className={`min-h-[48px] px-3 py-2 rounded-xl border-2 font-semibold text-xs sm:text-sm flex items-center justify-between gap-2 text-left transition-all ${
                             isAtivo
-                              ? "bg-primary text-primary-foreground border-primary shadow-sm scale-102"
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm scale-[1.02]"
                               : "bg-background text-foreground hover:bg-primary/10 hover:border-primary/50 border-border/80"
                           }`}
-                          title={
-                            tracoExistente
-                              ? formatarDescricaoCompletaTraco(tracoExistente)
-                              : `Traço FCK ${atalho.fck} MPa`
-                          }
+                          title={descricaoCompleta}
                         >
-                          <span>{atalho.label}</span>
-                          <span
-                            className={`text-[10px] font-sans font-normal ${
-                              isAtivo
-                                ? "text-primary-foreground/80"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            {atalho.fck}M
+                          <span className="font-bold truncate leading-tight">
+                            {tracoItem.nome}
                           </span>
+                          {tracoItem.fck_mpa !== null &&
+                            tracoItem.fck_mpa !== undefined &&
+                            Number(tracoItem.fck_mpa) > 0 && (
+                              <span
+                                className={`text-[11px] font-mono font-bold shrink-0 px-1.5 py-0.5 rounded ${
+                                  isAtivo
+                                    ? "bg-primary-foreground/20 text-primary-foreground"
+                                    : "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                {tracoItem.fck_mpa} MPa
+                              </span>
+                            )}
                         </button>
                       )
                     })}
+                    {tracosAtivos.length === 0 && !carregandoTracos && (
+                      <p className="text-xs text-muted-foreground col-span-full py-2">
+                        Nenhum traço ativo cadastrado para a unidade{" "}
+                        {empresaAtiva?.nome || "ativa"}.
+                      </p>
+                    )}
                   </div>
                 </div>
 
