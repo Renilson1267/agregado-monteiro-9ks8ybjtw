@@ -1624,7 +1624,7 @@ export default function Relatorios() {
                       </th>
                       <th className="py-2.5 px-3">Aditivo (L)</th>
                       <th className="py-2.5 px-3">Água (L)</th>
-                      <th className="py-2.5 px-3">Areia (kg)</th>
+                      <th className="py-2.5 px-3">Areia / Pó de Pedra</th>
                       <th className="py-2.5 px-3">Britas 12/19</th>
                       <th className="py-2.5 px-3">Motorista</th>
                       <th className="py-2.5 px-3">Placa</th>
@@ -1681,8 +1681,11 @@ export default function Relatorios() {
                         <td className="py-2 px-3 font-mono text-cyan-600 dark:text-cyan-400">
                           {Number(c.consumo_agua || 0).toLocaleString("pt-BR")}
                         </td>
-                        <td className="py-2 px-3 font-mono">
-                          {Number(c.consumo_areia).toLocaleString("pt-BR")}
+                        <td className="py-2 px-3 font-mono text-muted-foreground">
+                          {Number(c.consumo_areia).toLocaleString("pt-BR")} /{" "}
+                          {Number(c.consumo_po_pedra || 0).toLocaleString(
+                            "pt-BR",
+                          )}
                         </td>
                         <td className="py-2 px-3 font-mono text-muted-foreground">
                           {Number(c.consumo_brita12).toLocaleString("pt-BR")} /{" "}

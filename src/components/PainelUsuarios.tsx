@@ -3,7 +3,7 @@ import { ConcreteiraService } from "@/services/concreteira"
 import { useEmpresa } from "@/hooks/use-empresa"
 import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
-import { useUsuario } from "@/hooks/use-usuario"
+import { useUsuario, type PerfilUsuario } from "@/hooks/use-usuario"
 import type { UsuarioApp } from "@/types/concreteira"
 import {
   Card,

@@ -226,7 +226,8 @@ export default function LancamentoCargas() {
   const [searchParams] = useSearchParams()
   const editarCargaId = searchParams.get("editar")
   const { empresaAtiva } = useEmpresa()
-  const { isBalanceiro, isAdministrador, usuario } = useUsuario()
+  const { isBalanceiro, isAdministrador, usuarioApp } = useUsuario()
+  const usuario = usuarioApp
   const [tracos, setTracos] = useState<Traco[]>([])
   const [materiais, setMateriais] = useState<Material[]>([])
   const [salvando, setSalvando] = useState(false)

@@ -560,6 +560,72 @@ export function FolhaPagamento() {
     return String(dataIso)
   }
 
+  // Linhas processadas para exibição visual (respeita toggle mostrarOcultos)
+  const linhasGeralProcessadas = useMemo<LinhaGeralProcessada[]>(() => {
+    return funcionariosFiltrados.map((l) => processarFuncionarioLinha(l))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [funcionariosFiltrados, tabelaOficial, percentualQuinzena])
+
+  // Linhas processadas PARA TOTAIS (inclui oculto=true, ex: Renilson)
+  const linhasGeralProcessadasParaTotais =
+    useMemo<LinhaGeralProcessada[]>(() => {
+      return funcionariosParaTotais.map((l) => processarFuncionarioLinha(l))
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [funcionariosParaTotais, tabelaOficial, percentualQuinzena])
+
+  // Função auxiliar para processar linha de terceiro
+  const processarTerceiroLinha = (t: FolhaPagamentoLinha) => {
+    const cadastrado = terceirosCadastrados.find(
+      (c) =>
+        (t.id && c.id === t.id) ||
+        (t.nome &&
+          c.nome &&
+          c.nome.trim().toUpperCase() === t.nome.trim().toUpperCase()),
+    )
+    const ehVendedor = Boolean(
+      cadastrado?.eh_vendedor ||
+        (t.nome && t.nome.toUpperCase().includes("MARCIO LUAN")),
+    )
+
+    const valorMes = ehVendedor
+      ? Number(t.comissao || 0) + Number(t.ajuda_custo || 0)
+      : Number(t.salario_liquido || t.bruto || 0)
+
+    const quinzenaAuto = ehVendedor
+      ? 0
+      : Math.round(valorMes * percentualQuinzena * 100) / 100
+    const quinzena = ehVendedor
+      ? 0
+      : t.modo_calculo === "Digitado" &&
+          t.quinzena !== undefined &&
+          t.quinzena !== null &&
+          Number(t.quinzena) > 0
+        ? Number(t.quinzena)
+        : quinzenaAuto
+    const mensal = ehVendedor
+      ? valorMes
+      : Math.round((valorMes - quinzena) * 100) / 100
+    return {
+      ...t,
+      ehVendedor,
+      valorMes,
+      quinzena,
+      mensal,
+    }
+  }
+
+  // Processamento de Terceiros para exibição (Folha à parte: sem desconto, quinzena 40% automática pelo % da competência, mensal 60%)
+  const terceirosProcessados = useMemo(() => {
+    return terceirosFiltrados.map((t) => processarTerceiroLinha(t))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [terceirosFiltrados, terceirosCadastrados, percentualQuinzena])
+
+  // Processamento de Terceiros PARA TOTAIS (inclui terceiros ocultos se houver)
+  const terceirosProcessadosParaTotais = useMemo(() => {
+    return terceirosParaTotais.map((t) => processarTerceiroLinha(t))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [terceirosParaTotais, terceirosCadastrados, percentualQuinzena])
+
   // Lista unificada CLT + Terceiros (mesmas pessoas da QUINZENA) com o status pago gravado em folha_adiantamentos
   const listaAdiantamento = useMemo<ItemAdiantamentoColaborador[]>(() => {
     const mapaGravados = new Map<string, FolhaAdiantamento>()
@@ -1080,71 +1146,7 @@ export function FolhaPagamento() {
     }
   }
 
-  // Linhas processadas para exibição visual (respeita toggle mostrarOcultos)
-  const linhasGeralProcessadas = useMemo<LinhaGeralProcessada[]>(() => {
-    return funcionariosFiltrados.map((l) => processarFuncionarioLinha(l))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [funcionariosFiltrados, tabelaOficial, percentualQuinzena])
 
-  // Linhas processadas PARA TOTAIS (inclui oculto=true, ex: Renilson)
-  const linhasGeralProcessadasParaTotais =
-    useMemo<LinhaGeralProcessada[]>(() => {
-      return funcionariosParaTotais.map((l) => processarFuncionarioLinha(l))
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [funcionariosParaTotais, tabelaOficial, percentualQuinzena])
-
-  // Função auxiliar para processar linha de terceiro
-  const processarTerceiroLinha = (t: FolhaPagamentoLinha) => {
-    const cadastrado = terceirosCadastrados.find(
-      (c) =>
-        (t.id && c.id === t.id) ||
-        (t.nome &&
-          c.nome &&
-          c.nome.trim().toUpperCase() === t.nome.trim().toUpperCase()),
-    )
-    const ehVendedor = Boolean(
-      cadastrado?.eh_vendedor ||
-        (t.nome && t.nome.toUpperCase().includes("MARCIO LUAN")),
-    )
-
-    const valorMes = ehVendedor
-      ? Number(t.comissao || 0) + Number(t.ajuda_custo || 0)
-      : Number(t.salario_liquido || t.bruto || 0)
-
-    const quinzenaAuto = ehVendedor
-      ? 0
-      : Math.round(valorMes * percentualQuinzena * 100) / 100
-    const quinzena = ehVendedor
-      ? 0
-      : t.modo_calculo === "Digitado" &&
-          t.quinzena !== undefined &&
-          t.quinzena !== null &&
-          Number(t.quinzena) > 0
-        ? Number(t.quinzena)
-        : quinzenaAuto
-    const mensal = ehVendedor
-      ? valorMes
-      : Math.round((valorMes - quinzena) * 100) / 100
-    return {
-      ...t,
-      ehVendedor,
-      valorMes,
-      quinzena,
-      mensal,
-    }
-  }
-
-  // Processamento de Terceiros para exibição (Folha à parte: sem desconto, quinzena 40% automática pelo % da competência, mensal 60%)
-  const terceirosProcessados = useMemo(() => {
-    return terceirosFiltrados.map((t) => processarTerceiroLinha(t))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [terceirosFiltrados, terceirosCadastrados, percentualQuinzena])
-
-  // Processamento de Terceiros PARA TOTAIS (inclui terceiros ocultos se houver)
-  const terceirosProcessadosParaTotais = useMemo(() => {
-    return terceirosParaTotais.map((t) => processarTerceiroLinha(t))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [terceirosParaTotais, terceirosCadastrados, percentualQuinzena])
 
   // Helper: identifica se o colaborador é lançador/responsável de vendas (ex: VALDERCLEITON FREIRE DE OLIVEIRA)
   // que deve ser retirado da produção principal e ter seção própria em VENDAS

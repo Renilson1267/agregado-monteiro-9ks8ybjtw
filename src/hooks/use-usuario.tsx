@@ -14,8 +14,10 @@ export type PerfilUsuario = "administrador" | "balanceiro" | "gestor"
 
 interface UsuarioContextType {
   usuarioApp: UsuarioApp | null
+  usuario?: UsuarioApp | null
   perfil: PerfilUsuario
   isBalanceiro: boolean
+  isGestor: boolean
   isAdministrador: boolean
   nomePerfil: string
   nomeUsuario: string
@@ -70,6 +72,9 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
           user_id: user.id,
           nome: user.user_metadata?.name || email.split("@")[0] || "Usuário",
           email,
+          empresa_id: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
           perfil: "administrador",
           ativo: true,
         }
@@ -126,6 +131,7 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
     <UsuarioContext.Provider
       value={{
         usuarioApp,
+        usuario: usuarioApp,
         perfil: perfilAtivo,
         isBalanceiro,
         isGestor,
