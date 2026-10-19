@@ -331,10 +331,12 @@ export const RelatorioGerencialService = {
    * Monta o relatório gerencial simplificado de 1 página A4
    */
   async obterRelatorioMes(params: {
-    competencia?: string // padrão: "2026-09"
+    competencia?: string
     empresaFiltro?: string // "todas" | "monteiro" | "sje" | "caico" | "patos" | uuid
   }): Promise<DadosRelatorioGerencialMes> {
-    const competencia = params.competencia || "2026-09"
+    const hojeRelogio = new Date()
+    const compAtualRelogio = `${hojeRelogio.getFullYear()}-${String(hojeRelogio.getMonth() + 1).padStart(2, "0")}`
+    const competencia = params.competencia || compAtualRelogio
     const empresaFiltro = params.empresaFiltro || "todas"
     const mesAnterior = obterMesAnterior(competencia)
 

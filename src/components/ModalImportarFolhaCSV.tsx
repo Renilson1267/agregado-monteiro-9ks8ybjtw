@@ -57,8 +57,12 @@ export function ModalImportarFolhaCSV({
 
   const [arquivoNome, setArquivoNome] = useState<string | null>(null)
   const [conteudoCsv, setConteudoCsv] = useState<string>("")
+  const compAtualRelogio = useMemo(() => {
+    const hoje = new Date()
+    return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`
+  }, [])
   const [competenciaSelecionada, setCompetenciaSelecionada] = useState<string>(
-    competenciaAtiva || "2026-09",
+    competenciaAtiva || compAtualRelogio,
   )
   const [preview, setPreview] = useState<PreviewImportacaoFolhaCSV | null>(null)
   const [salvando, setSalvando] = useState(false)

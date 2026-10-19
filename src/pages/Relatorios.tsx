@@ -175,8 +175,12 @@ export default function Relatorios() {
   // =========================================================
   // Estado e Carregamento do Relatório Gerencial (Mês)
   // =========================================================
+  const compAtualRelogio = useMemo(() => {
+    const hoje = new Date()
+    return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`
+  }, [])
   const [competenciaGerencial, setCompetenciaGerencial] =
-    useState<string>("2026-09")
+    useState<string>(compAtualRelogio)
   const [visaoGerencialEmpresa, setVisaoGerencialEmpresa] = useState<string>(
     () => {
       if (empresaAtiva?.slug) return empresaAtiva.slug.toLowerCase()
@@ -866,6 +870,18 @@ export default function Relatorios() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      {![
+                        "2026-10",
+                        "2026-09",
+                        "2026-08",
+                        "2026-07",
+                        "2026-06",
+                        "2026-05",
+                      ].includes(competenciaGerencial) && (
+                        <SelectItem value={competenciaGerencial}>
+                          {competenciaGerencial} (Atual)
+                        </SelectItem>
+                      )}
                       <SelectItem value="2026-10">10/2026 (Outubro)</SelectItem>
                       <SelectItem value="2026-09">
                         09/2026 (Setembro)

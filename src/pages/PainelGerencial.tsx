@@ -136,8 +136,14 @@ export function PainelGerencial() {
     }
   }, [empresaAtiva?.id, empresaAtiva?.slug])
 
-  // Competência padrão inicial: '2026-09' (última competência ativa com dados consolidados)
-  const [competencia, setCompetencia] = useState<string>("2026-09")
+  // Competência calculada no relógio (YYYY-MM)
+  const compAtualRelogio = useMemo(() => {
+    const hoje = new Date()
+    return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`
+  }, [])
+
+  // Competência padrão inicial baseada no relógio
+  const [competencia, setCompetencia] = useState<string>(compAtualRelogio)
   const [dados, setDados] = useState<DadosPainelGerencial | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [abaAlerta, setAbaAlerta] =
@@ -152,12 +158,27 @@ export function PainelGerencial() {
         empresaAtivaId: empresaAtiva?.id,
       })
       setDados(res)
+
+      // Se a competência atual não estiver na lista de disponíveis, ajustar:
+      // se compAtualRelogio existir nas disponíveis usa ela; senão a mais recente
+      if (
+        res.competenciasDisponiveis &&
+        res.competenciasDisponiveis.length > 0
+      ) {
+        if (!res.competenciasDisponiveis.includes(competencia)) {
+          if (res.competenciasDisponiveis.includes(compAtualRelogio)) {
+            setCompetencia(compAtualRelogio)
+          } else {
+            setCompetencia(res.competenciasDisponiveis[0])
+          }
+        }
+      }
     } catch (err) {
       console.error("Erro ao carregar dados do painel gerencial:", err)
     } finally {
       setCarregando(false)
     }
-  }, [competencia, modoVisao, empresaAtiva?.id])
+  }, [competencia, modoVisao, empresaAtiva?.id, compAtualRelogio])
 
   useEffect(() => {
     carregarPainel()
@@ -633,21 +654,32 @@ export function PainelGerencial() {
                 <SelectValue placeholder="Selecione o mês" />
               </SelectTrigger>
               <SelectContent>
-                {(
-                  dados?.competenciasDisponiveis || [
-                    "2026-09",
-                    "2026-08",
-                    "2026-07",
-                  ]
-                ).map((c) => (
-                  <SelectItem
-                    key={c}
-                    value={c}
-                    className="text-xs font-medium font-mono"
-                  >
-                    {c}
-                  </SelectItem>
-                ))}
+                {(() => {
+                  const listaBase =
+                    dados?.competenciasDisponiveis &&
+                    dados.competenciasDisponiveis.length > 0
+                      ? dados.competenciasDisponiveis
+                      : [
+                          compAtualRelogio,
+                          "2026-10",
+                          "2026-09",
+                          "2026-08",
+                          "2026-07",
+                        ]
+                  const listaFinal = listaBase.includes(competencia)
+                    ? listaBase
+                    : [competencia, ...listaBase]
+                  const unicos = Array.from(new Set(listaFinal))
+                  return unicos.map((c) => (
+                    <SelectItem
+                      key={c}
+                      value={c}
+                      className="text-xs font-medium font-mono"
+                    >
+                      {c}
+                    </SelectItem>
+                  ))
+                })()}
               </SelectContent>
             </Select>
 
