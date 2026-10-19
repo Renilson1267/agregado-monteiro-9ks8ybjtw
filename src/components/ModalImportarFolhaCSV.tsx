@@ -238,7 +238,7 @@ export function ModalImportarFolhaCSV({
                 className="h-8 w-40 text-xs font-mono font-bold"
               />
               <span className="text-[11px] text-muted-foreground">
-                Ex: 2026-09
+                Ex: {compAtualRelogio}
               </span>
             </div>
           </div>

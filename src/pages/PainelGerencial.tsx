@@ -659,13 +659,7 @@ export function PainelGerencial() {
                     dados?.competenciasDisponiveis &&
                     dados.competenciasDisponiveis.length > 0
                       ? dados.competenciasDisponiveis
-                      : [
-                          compAtualRelogio,
-                          "2026-10",
-                          "2026-09",
-                          "2026-08",
-                          "2026-07",
-                        ]
+                      : [compAtualRelogio]
                   const listaFinal = listaBase.includes(competencia)
                     ? listaBase
                     : [competencia, ...listaBase]

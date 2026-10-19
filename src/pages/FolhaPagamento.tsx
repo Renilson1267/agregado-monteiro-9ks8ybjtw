@@ -115,6 +115,29 @@ interface CalculoUnidadeConsolidada {
   linhasCount: number
 }
 
+function contarPessoasUnidade(
+  linhasEmpresa: FolhaPagamentoLinha[] = [],
+  terceirosEmpresa: FolhaTerceiro[] = [],
+): number {
+  const funcs = (linhasEmpresa || []).filter((l) => l.tipo !== "Terceiro")
+  const tercs = (linhasEmpresa || []).filter((l) => l.tipo === "Terceiro")
+  if (tercs.length > 0) return funcs.length + tercs.length
+  return funcs.length + (terceirosEmpresa?.length || 0)
+}
+
+function calcularAjudaCustoTerceiros(
+  linhasEmpresa: FolhaPagamentoLinha[] = [],
+  terceirosEmpresa: FolhaTerceiro[] = [],
+): number {
+  let ajuda = 0
+  const tercs = (linhasEmpresa || []).filter((l) => l.tipo === "Terceiro")
+  tercs.forEach((t) => {
+    const val = Number(t.ajuda_custo ?? t.vendas_ajuda ?? 0)
+    ajuda += val
+  })
+  return Math.round(ajuda * 100) / 100
+}
+
 function calcularValorRealEmpresa(
   linhasEmpresa: FolhaPagamentoLinha[],
   terceirosCadastradosEmpresa: FolhaTerceiro[] = [],
@@ -1722,6 +1745,84 @@ export function FolhaPagamento() {
     totaisTerceiros,
     totaisVendasTerceiros,
     linhasGeralProcessadas.length,
+  ])
+
+  // COMPARATIVO RESUMO: MONTEIRO × SJE (cada unidade com SEUS números da competência selecionada)
+  // Regra do usuário (0.0.322+): comissões e ajuda de custo FAZEM PARTE DA FOLHA DE PAGAMENTO —
+  // entram no TOTAL DA UNIDADE, não são "folha à parte".
+  // Reutiliza o consolidado existente (consolidacaoDuasFolhas / calcularValorRealEmpresa) — sem fórmula nova.
+  const resumoComparativo = useMemo(() => {
+    const m = consolidacaoDuasFolhas.monteiro
+    const s = consolidacaoDuasFolhas.sje
+
+    // Ajuda de custo dos vendedores terceiros (VENDAS) por unidade — vem do consolidado das duas folhas
+    const ajudaMonteiro =
+      consolidacaoDuasFolhas.temMonteiro &&
+      empresaAtiva?.id === ID_EMPRESA_MONTEIRO
+        ? Math.round(totaisVendasTerceiros.ajuda_custo * 100) / 100
+        : calcularAjudaCustoTerceiros(
+            linhasConsolidacaoMonteiro,
+            terceirosMonteiro,
+          )
+    const ajudaSje =
+      consolidacaoDuasFolhas.temSje && empresaAtiva?.id === ID_EMPRESA_SJE
+        ? Math.round(totaisVendasTerceiros.ajuda_custo * 100) / 100
+        : calcularAjudaCustoTerceiros(linhasConsolidacaoSje, terceirosSje)
+
+    // Pessoas na folha por unidade (funcionários + terceiros da competência)
+    const pessoasMonteiro = contarPessoasUnidade(
+      linhasConsolidacaoMonteiro,
+      terceirosMonteiro,
+    )
+    const pessoasSje = contarPessoasUnidade(linhasConsolidacaoSje, terceirosSje)
+
+    const totalMonteiro =
+      Math.round(
+        (m.salariosQuinzena +
+          m.salariosMensal +
+          m.producaoAPagar +
+          m.comissoesVendas) *
+          100,
+      ) / 100
+    const totalSje =
+      Math.round(
+        (s.salariosQuinzena +
+          s.salariosMensal +
+          s.producaoAPagar +
+          s.comissoesVendas) *
+          100,
+      ) / 100
+
+    return {
+      monteiro: {
+        pessoas: pessoasMonteiro,
+        salariosQuinzena: m.salariosQuinzena,
+        salariosMensal: m.salariosMensal,
+        producaoAPagar: m.producaoAPagar,
+        comissoesAjuda:
+          Math.round((m.comissoesVendas + ajudaMonteiro) * 100) / 100,
+        terceiros: m.totalTerceiros,
+        totalUnidade: totalMonteiro,
+      },
+      sje: {
+        pessoas: pessoasSje,
+        salariosQuinzena: s.salariosQuinzena,
+        salariosMensal: s.salariosMensal,
+        producaoAPagar: s.producaoAPagar,
+        comissoesAjuda: Math.round((s.comissoesVendas + ajudaSje) * 100) / 100,
+        terceiros: s.totalTerceiros,
+        totalUnidade: totalSje,
+      },
+      totalGeralGcMix: Math.round((totalMonteiro + totalSje) * 100) / 100,
+    }
+  }, [
+    consolidacaoDuasFolhas,
+    totaisVendasTerceiros,
+    linhasConsolidacaoMonteiro,
+    linhasConsolidacaoSje,
+    terceirosMonteiro,
+    terceirosSje,
+    empresaAtiva?.id,
   ])
 
   // Abrir Modal de Edição / Criação
@@ -6378,102 +6479,229 @@ export function FolhaPagamento() {
             </Button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader className="py-3 px-4 border-b">
-                <CardTitle className="text-base font-semibold">
-                  Resumo Geral — {rotuloCompetenciaMesAno}
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Tudo aqui é automático — puxa do GERAL, PRODUÇÃO e VENDAS.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-border text-xs">
-                  <div className="flex items-center justify-between py-2.5 px-4">
-                    <span className="text-muted-foreground">Competência</span>
-                    <span className="font-semibold text-foreground">
-                      {rotuloCompetenciaMesAno}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-2.5 px-4">
-                    <span className="text-muted-foreground">
-                      Pessoas na folha
-                    </span>
-                    <span className="font-mono font-bold text-foreground">
-                      {resumo.pessoasNaFolha}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-2.5 px-4">
-                    <span className="text-muted-foreground">
-                      Salários — Quinzena
-                    </span>
-                    <span className="font-mono font-medium text-blue-600">
-                      {fmtMoeda(resumo.salariosQuinzena)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-2.5 px-4">
-                    <span className="text-muted-foreground">
-                      Salários — Mensal (líquido)
-                    </span>
-                    <span className="font-mono font-medium text-foreground">
-                      {fmtMoeda(resumo.salariosMensalLiquido)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-2.5 px-4 bg-muted/40 font-bold">
-                    <span className="text-foreground">SUBTOTAL FOLHA</span>
-                    <span className="font-mono text-primary text-sm">
-                      {fmtMoeda(resumo.subtotalFolha)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-2.5 px-4">
-                    <span className="text-muted-foreground">
-                      Produção (a pagar)
-                    </span>
-                    <span className="font-mono font-medium text-emerald-600">
-                      {fmtMoeda(resumo.producaoAPagar)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-2.5 px-4">
-                    <div className="flex flex-col">
+            {/* COMPARATIVO MONTEIRO × SJE (ou formato atual se Caicó/Patos) */}
+            {empresaAtiva?.slug === "caico" ||
+            empresaAtiva?.slug === "patos" ||
+            (empresaAtiva?.nome || "").toUpperCase().includes("CAICÓ") ||
+            (empresaAtiva?.nome || "").toUpperCase().includes("CAICO") ||
+            (empresaAtiva?.nome || "").toUpperCase().includes("PATOS") ? (
+              <Card>
+                <CardHeader className="py-3 px-4 border-b">
+                  <CardTitle className="text-base font-semibold">
+                    Resumo Geral — {empresaAtiva?.nome || "Unidade"} —{" "}
+                    {rotuloCompetenciaMesAno}
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Tudo aqui é automático — puxa do GERAL, PRODUÇÃO e VENDAS.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-border text-xs">
+                    <div className="flex items-center justify-between py-2.5 px-4">
+                      <span className="text-muted-foreground">Competência</span>
+                      <span className="font-semibold text-foreground">
+                        {rotuloCompetenciaMesAno}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2.5 px-4">
+                      <span className="text-muted-foreground">
+                        Pessoas na folha
+                      </span>
+                      <span className="font-mono font-bold text-foreground">
+                        {resumo.pessoasNaFolha}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2.5 px-4">
+                      <span className="text-muted-foreground">
+                        Salários — Quinzena
+                      </span>
+                      <span className="font-mono font-medium text-blue-600">
+                        {fmtMoeda(resumo.salariosQuinzena)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2.5 px-4">
+                      <span className="text-muted-foreground">
+                        Salários — Mensal (líquido)
+                      </span>
+                      <span className="font-mono font-medium text-foreground">
+                        {fmtMoeda(resumo.salariosMensalLiquido)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2.5 px-4 bg-muted/40 font-bold">
+                      <span className="text-foreground">SUBTOTAL FOLHA</span>
+                      <span className="font-mono text-primary text-sm">
+                        {fmtMoeda(resumo.subtotalFolha)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2.5 px-4">
+                      <span className="text-muted-foreground">
+                        Produção (a pagar)
+                      </span>
+                      <span className="font-mono font-medium text-emerald-600">
+                        {fmtMoeda(resumo.producaoAPagar)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2.5 px-4">
                       <span className="text-muted-foreground">
                         Vendas (comissões)
                       </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {totaisVendasTerceiros.comissao > 0
-                          ? `Funcionários (${fmtMoeda(totaisVendasFuncionarios.comissao)}) + Terceiros Vendedores (${fmtMoeda(totaisVendasTerceiros.comissao)})`
-                          : "Funcionários + Vendedores Terceiros"}
+                      <span className="font-mono font-medium text-amber-600">
+                        {fmtMoeda(resumo.vendasComissoes)}
                       </span>
                     </div>
-                    <span className="font-mono font-medium text-amber-600">
-                      {fmtMoeda(resumo.vendasComissoes)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-2.5 px-4 bg-purple-50/50 dark:bg-purple-950/20">
-                    <div className="flex flex-col">
+                    <div className="flex items-center justify-between py-2.5 px-4 bg-purple-50/50 dark:bg-purple-950/20">
                       <span className="text-purple-900 dark:text-purple-200 font-semibold">
-                        Terceiros (folha à parte)
+                        Terceiros
                       </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        Quinzena ({fmtMoeda(totaisTerceiros.quinzena)}) + Mensal
-                        ({fmtMoeda(totaisTerceiros.mensal)}) — salários sem
-                        comissão / sem desconto
+                      <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
+                        {fmtMoeda(resumo.terceirosFolha)}
                       </span>
                     </div>
-                    <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
-                      {fmtMoeda(resumo.terceirosFolha)}
-                    </span>
+                    <div className="flex items-center justify-between py-2.5 px-4 bg-primary/10 font-bold border-t-2">
+                      <span className="text-primary text-sm uppercase">
+                        TOTAL DA UNIDADE
+                      </span>
+                      <span className="font-mono text-primary text-base font-extrabold">
+                        {fmtMoeda(resumo.totalGeralDoMes)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between py-2.5 px-4 bg-primary/10 font-bold border-t-2">
-                    <span className="text-primary text-sm uppercase">
-                      TOTAL GERAL DO MÊS
-                    </span>
-                    <span className="font-mono text-primary text-base font-extrabold">
-                      {fmtMoeda(resumo.totalGeralDoMes)}
-                    </span>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader className="py-3 px-4 border-b">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base font-semibold">
+                        Comparativo Monteiro × SJE — {rotuloCompetenciaMesAno}
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Folha de pagamento lado a lado (comissões e ajuda de
+                        custo integram o total da unidade).
+                      </CardDescription>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b bg-muted/50 font-bold text-foreground">
+                          <th className="py-2.5 px-3 text-left">
+                            Item da Folha
+                          </th>
+                          <th className="py-2.5 px-3 text-right font-mono text-primary">
+                            MONTEIRO
+                          </th>
+                          <th className="py-2.5 px-3 text-right font-mono text-primary">
+                            SJE
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        <tr>
+                          <td className="py-2 px-3 text-muted-foreground">
+                            Pessoas na folha
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-foreground">
+                            {resumoComparativo.monteiro.pessoas}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-foreground">
+                            {resumoComparativo.sje.pessoas}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-3 text-muted-foreground">
+                            Salários Quinzena
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-blue-600 font-medium">
+                            {fmtMoeda(
+                              resumoComparativo.monteiro.salariosQuinzena,
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-blue-600 font-medium">
+                            {fmtMoeda(resumoComparativo.sje.salariosQuinzena)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-3 text-muted-foreground">
+                            Salários Mensal (líquido)
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-foreground font-medium">
+                            {fmtMoeda(
+                              resumoComparativo.monteiro.salariosMensal,
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-foreground font-medium">
+                            {fmtMoeda(resumoComparativo.sje.salariosMensal)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-3 text-muted-foreground">
+                            Produção (a pagar)
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-emerald-600 font-medium">
+                            {fmtMoeda(
+                              resumoComparativo.monteiro.producaoAPagar,
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-emerald-600 font-medium">
+                            {fmtMoeda(resumoComparativo.sje.producaoAPagar)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-3 text-muted-foreground">
+                            COMISSÕES + AJUDA DE CUSTO (Vendas)
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-amber-600 font-medium">
+                            {fmtMoeda(
+                              resumoComparativo.monteiro.comissoesAjuda,
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-amber-600 font-medium">
+                            {fmtMoeda(resumoComparativo.sje.comissoesAjuda)}
+                          </td>
+                        </tr>
+                        <tr className="bg-purple-50/40 dark:bg-purple-950/20">
+                          <td className="py-2 px-3 text-purple-900 dark:text-purple-200 font-semibold">
+                            Terceiros (incluindo comissões/ajuda de custo deles)
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-purple-700 dark:text-purple-300">
+                            {fmtMoeda(resumoComparativo.monteiro.terceiros)}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-purple-700 dark:text-purple-300">
+                            {fmtMoeda(resumoComparativo.sje.terceiros)}
+                          </td>
+                        </tr>
+                        <tr className="bg-muted/70 font-bold border-t-2 border-border">
+                          <td className="py-2.5 px-3 uppercase text-foreground">
+                            TOTAL DA UNIDADE
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-primary font-extrabold text-sm">
+                            {fmtMoeda(resumoComparativo.monteiro.totalUnidade)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-primary font-extrabold text-sm">
+                            {fmtMoeda(resumoComparativo.sje.totalUnidade)}
+                          </td>
+                        </tr>
+                        <tr className="bg-primary/10 font-black border-t-2 border-primary/40">
+                          <td
+                            colSpan={2}
+                            className="py-2.5 px-3 uppercase text-primary text-sm"
+                          >
+                            TOTAL GERAL GC MIX (Monteiro + SJE)
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-primary text-base font-black">
+                            {fmtMoeda(resumoComparativo.totalGeralGcMix)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* ENCARGOS RETIDOS / RECOLHIMENTO */}
             <Card>
@@ -8502,65 +8730,175 @@ export function FolhaPagamento() {
         {tipoImpressaoA4 === "resumo" && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <table className="w-full border-collapse border text-[10px]">
-                <thead className="bg-gray-100 text-gray-800 font-bold uppercase">
-                  <tr>
-                    <th className="border p-2 text-left" colSpan={2}>
-                      RESUMO DA FOLHA — {rotuloCompetenciaMesAno}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border p-2">Pessoas na Folha</td>
-                    <td className="border p-2 text-right font-mono font-bold">
-                      {resumo.pessoasNaFolha}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border p-2">Salários — Quinzena</td>
-                    <td className="border p-2 text-right font-mono">
-                      {fmtMoeda(resumo.salariosQuinzena)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border p-2">Salários — Mensal Líquido</td>
-                    <td className="border p-2 text-right font-mono">
-                      {fmtMoeda(resumo.salariosMensalLiquido)}
-                    </td>
-                  </tr>
-                  <tr className="bg-gray-50 font-bold">
-                    <td className="border p-2">SUBTOTAL FOLHA FUNCIONÁRIOS</td>
-                    <td className="border p-2 text-right font-mono">
-                      {fmtMoeda(resumo.subtotalFolha)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border p-2">Produção (a pagar)</td>
-                    <td className="border p-2 text-right font-mono">
-                      {fmtMoeda(resumo.producaoAPagar)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border p-2">Vendas (comissões)</td>
-                    <td className="border p-2 text-right font-mono">
-                      {fmtMoeda(resumo.vendasComissoes)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border p-2">Terceiros (folha à parte)</td>
-                    <td className="border p-2 text-right font-mono">
-                      {fmtMoeda(resumo.terceirosFolha)}
-                    </td>
-                  </tr>
-                  <tr className="bg-gray-200 font-bold text-xs">
-                    <td className="border p-2">TOTAL GERAL DO MÊS</td>
-                    <td className="border p-2 text-right font-mono">
-                      {fmtMoeda(resumo.totalGeralDoMes)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              {empresaAtiva?.slug === "caico" ||
+              empresaAtiva?.slug === "patos" ||
+              (empresaAtiva?.nome || "").toUpperCase().includes("CAICÓ") ||
+              (empresaAtiva?.nome || "").toUpperCase().includes("CAICO") ||
+              (empresaAtiva?.nome || "").toUpperCase().includes("PATOS") ? (
+                <table className="w-full border-collapse border text-[10px]">
+                  <thead className="bg-gray-100 text-gray-800 font-bold uppercase">
+                    <tr>
+                      <th className="border p-2 text-left" colSpan={2}>
+                        RESUMO DA FOLHA — {empresaAtiva?.nome || "Unidade"} —{" "}
+                        {rotuloCompetenciaMesAno}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border p-2">Pessoas na Folha</td>
+                      <td className="border p-2 text-right font-mono font-bold">
+                        {resumo.pessoasNaFolha}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-2">Salários — Quinzena</td>
+                      <td className="border p-2 text-right font-mono">
+                        {fmtMoeda(resumo.salariosQuinzena)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-2">Salários — Mensal Líquido</td>
+                      <td className="border p-2 text-right font-mono">
+                        {fmtMoeda(resumo.salariosMensalLiquido)}
+                      </td>
+                    </tr>
+                    <tr className="bg-gray-50 font-bold">
+                      <td className="border p-2">
+                        SUBTOTAL FOLHA FUNCIONÁRIOS
+                      </td>
+                      <td className="border p-2 text-right font-mono">
+                        {fmtMoeda(resumo.subtotalFolha)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-2">Produção (a pagar)</td>
+                      <td className="border p-2 text-right font-mono">
+                        {fmtMoeda(resumo.producaoAPagar)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-2">Vendas (comissões)</td>
+                      <td className="border p-2 text-right font-mono">
+                        {fmtMoeda(resumo.vendasComissoes)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-2">Terceiros</td>
+                      <td className="border p-2 text-right font-mono">
+                        {fmtMoeda(resumo.terceirosFolha)}
+                      </td>
+                    </tr>
+                    <tr className="bg-gray-200 font-bold text-xs">
+                      <td className="border p-2">TOTAL DA UNIDADE</td>
+                      <td className="border p-2 text-right font-mono">
+                        {fmtMoeda(resumo.totalGeralDoMes)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              ) : (
+                <table className="w-full border-collapse border text-[10px]">
+                  <thead className="bg-gray-100 text-gray-800 font-bold uppercase">
+                    <tr>
+                      <th className="border p-2 text-left" colSpan={3}>
+                        RESUMO DA FOLHA — COMPARATIVO MONTEIRO × SJE —{" "}
+                        {rotuloCompetenciaMesAno}
+                      </th>
+                    </tr>
+                    <tr className="bg-gray-50 text-gray-700">
+                      <th className="border p-1.5 text-left">
+                        Linha / Componente
+                      </th>
+                      <th className="border p-1.5 text-right font-mono">
+                        MONTEIRO
+                      </th>
+                      <th className="border p-1.5 text-right font-mono">SJE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border p-1.5">Pessoas na folha</td>
+                      <td className="border p-1.5 text-right font-mono font-bold">
+                        {resumoComparativo.monteiro.pessoas}
+                      </td>
+                      <td className="border p-1.5 text-right font-mono font-bold">
+                        {resumoComparativo.sje.pessoas}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-1.5">Salários Quinzena</td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(resumoComparativo.monteiro.salariosQuinzena)}
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(resumoComparativo.sje.salariosQuinzena)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-1.5">
+                        Salários Mensal (líquido)
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(resumoComparativo.monteiro.salariosMensal)}
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(resumoComparativo.sje.salariosMensal)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-1.5">Produção (a pagar)</td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(resumoComparativo.monteiro.producaoAPagar)}
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(resumoComparativo.sje.producaoAPagar)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-1.5">
+                        COMISSÕES + AJUDA DE CUSTO (Vendas)
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(resumoComparativo.monteiro.comissoesAjuda)}
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(resumoComparativo.sje.comissoesAjuda)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-1.5">
+                        Terceiros (incluindo comissões/ajuda deles)
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(resumoComparativo.monteiro.terceiros)}
+                      </td>
+                      <td className="border p-1.5 text-right font-mono">
+                        {fmtMoeda(resumoComparativo.sje.terceiros)}
+                      </td>
+                    </tr>
+                    <tr className="bg-gray-100 font-bold">
+                      <td className="border p-1.5 uppercase">
+                        TOTAL DA UNIDADE
+                      </td>
+                      <td className="border p-1.5 text-right font-mono font-bold">
+                        {fmtMoeda(resumoComparativo.monteiro.totalUnidade)}
+                      </td>
+                      <td className="border p-1.5 text-right font-mono font-bold">
+                        {fmtMoeda(resumoComparativo.sje.totalUnidade)}
+                      </td>
+                    </tr>
+                    <tr className="bg-gray-200 font-black text-[11px]">
+                      <td colSpan={2} className="border p-2 uppercase">
+                        TOTAL GERAL GC MIX (Monteiro + SJE)
+                      </td>
+                      <td className="border p-2 text-right font-mono font-black text-xs">
+                        {fmtMoeda(resumoComparativo.totalGeralGcMix)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
 
               <table className="w-full border-collapse border text-[10px]">
                 <thead className="bg-gray-100 text-gray-800 font-bold uppercase">

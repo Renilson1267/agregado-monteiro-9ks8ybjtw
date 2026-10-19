@@ -870,26 +870,51 @@ export default function Relatorios() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {![
-                        "2026-10",
-                        "2026-09",
-                        "2026-08",
-                        "2026-07",
-                        "2026-06",
-                        "2026-05",
-                      ].includes(competenciaGerencial) && (
-                        <SelectItem value={competenciaGerencial}>
-                          {competenciaGerencial} (Atual)
-                        </SelectItem>
-                      )}
-                      <SelectItem value="2026-10">10/2026 (Outubro)</SelectItem>
-                      <SelectItem value="2026-09">
-                        09/2026 (Setembro)
-                      </SelectItem>
-                      <SelectItem value="2026-08">08/2026 (Agosto)</SelectItem>
-                      <SelectItem value="2026-07">07/2026 (Julho)</SelectItem>
-                      <SelectItem value="2026-06">06/2026 (Junho)</SelectItem>
-                      <SelectItem value="2026-05">05/2026 (Maio)</SelectItem>
+                      {(() => {
+                        const mesesNomes = [
+                          "Janeiro",
+                          "Fevereiro",
+                          "Março",
+                          "Abril",
+                          "Maio",
+                          "Junho",
+                          "Julho",
+                          "Agosto",
+                          "Setembro",
+                          "Outubro",
+                          "Novembro",
+                          "Dezembro",
+                        ]
+                        const [anoAtualInt, mesAtualInt] = compAtualRelogio
+                          .split("-")
+                          .map(Number)
+                        // Gerar últimos 6 meses a partir da competência do relógio
+                        const ultimosMeses: string[] = []
+                        for (let i = 0; i < 6; i++) {
+                          const d = new Date(
+                            anoAtualInt,
+                            mesAtualInt - 1 - i,
+                            1,
+                          )
+                          const a = d.getFullYear()
+                          const m = String(d.getMonth() + 1).padStart(2, "0")
+                          ultimosMeses.push(`${a}-${m}`)
+                        }
+                        const opcoes = Array.from(
+                          new Set([competenciaGerencial, ...ultimosMeses]),
+                        )
+                        return opcoes.map((comp) => {
+                          const [a, m] = comp.split("-")
+                          const idx = Number(m) - 1
+                          const nomeMes = mesesNomes[idx] || m
+                          const ehAtual = comp === compAtualRelogio
+                          return (
+                            <SelectItem key={comp} value={comp}>
+                              {m}/{a} ({nomeMes}){ehAtual ? " • Atual" : ""}
+                            </SelectItem>
+                          )
+                        })
+                      })()}
                     </SelectContent>
                   </Select>
                   <Button
