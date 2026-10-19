@@ -28,6 +28,17 @@ import {
   DadosRelatorioGerencialMes,
 } from "@/services/relatorio-gerencial"
 import { RelatorioGerencialMes } from "@/components/RelatorioGerencialMes"
+import { RelatorioConsolidadoDocumento } from "@/components/RelatorioConsolidadoDocumento"
+import {
+  RelatorioConsolidadoService,
+  type RelatorioConsolidadoSjeMonteiro,
+} from "@/services/relatorio-consolidado"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import type {
   Carga,
   Cidade,
@@ -191,6 +202,55 @@ export default function Relatorios() {
   const [dadosGerencial, setDadosGerencial] =
     useState<DadosRelatorioGerencialMes | null>(null)
   const [loadingGerencial, setLoadingGerencial] = useState(false)
+
+  // =========================================================
+  // Relatório Consolidado SJE + Monteiro (Modal & Visualização)
+  // =========================================================
+  const [modalConsolidadoAberto, setModalConsolidadoAberto] = useState(false)
+  const [competenciaConsolidado, setCompetenciaConsolidado] =
+    useState<string>(compAtualRelogio)
+  const [dadosConsolidado, setDadosConsolidado] =
+    useState<RelatorioConsolidadoSjeMonteiro | null>(null)
+  const [loadingConsolidado, setLoadingConsolidado] = useState(false)
+
+  const carregarRelatorioConsolidado = useCallback(
+    async (compAlvo?: string) => {
+      const comp = compAlvo || competenciaConsolidado
+      setLoadingConsolidado(true)
+      try {
+        const res = await RelatorioConsolidadoService.gerarConsolidado(comp)
+        setDadosConsolidado(res)
+      } catch (err) {
+        console.error("Erro ao carregar relatório consolidado:", err)
+        toast({
+          title: "Erro ao gerar consolidado",
+          description:
+            "Não foi possível carregar os dados consolidados de SJE + Monteiro.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoadingConsolidado(false)
+      }
+    },
+    [competenciaConsolidado, toast],
+  )
+
+  const abrirRelatorioConsolidado = (compInicial?: string) => {
+    const comp = compInicial || competenciaGerencial || compAtualRelogio
+    setCompetenciaConsolidado(comp)
+    setModalConsolidadoAberto(true)
+    carregarRelatorioConsolidado(comp)
+  }
+
+  const navegarCompetenciaConsolidado = (delta: number) => {
+    const [ano, mes] = competenciaConsolidado.split("-").map(Number)
+    const dt = new Date(ano, mes - 1 + delta, 1)
+    const a = dt.getFullYear()
+    const m = String(dt.getMonth() + 1).padStart(2, "0")
+    const novaComp = `${a}-${m}`
+    setCompetenciaConsolidado(novaComp)
+    carregarRelatorioConsolidado(novaComp)
+  }
 
   // Sincroniza visão gerencial quando o seletor do topo altera a empresa ativa
   useEffect(() => {
@@ -969,6 +1029,53 @@ export default function Relatorios() {
                     }`}
                   />
                   Atualizar
+                </Button>
+
+                {/* BOTÃO DO RELATÓRIO CONSOLIDADO SJE + MONTEIRO */}
+                <Button
+                  onClick={() =>
+                    abrirRelatorioConsolidado(competenciaGerencial)
+                  }
+                  className="h-8 text-xs font-semibold gap-1.5 bg-blue-700 hover:bg-blue-800 text-white shadow-sm"
+                  title="Gera um único documento A4 consolidando SJE e Monteiro na competência selecionada"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  RELATÓRIO CONSOLIDADO SJE + MONTEIRO (PDF)
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* CARD DE DESTAQUE DO RELATÓRIO CONSOLIDADO SJE + MONTEIRO */}
+          <Card className="no-print border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20">
+            <CardContent className="py-3 px-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-600 text-white">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">
+                    Documento Consolidado SJE + Monteiro (PDF / Impressão A4)
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Gera UM ÚNICO documento A4 integrando a produção (cargas e
+                    m³), consumo somado de cimento, britas, areia, pó de pedra,
+                    aditivo e água, e o resumo comparativo oficial da folha de
+                    pagamento.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <Button
+                  onClick={() =>
+                    abrirRelatorioConsolidado(competenciaGerencial)
+                  }
+                  size="sm"
+                  className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold gap-1.5 w-full md:w-auto"
+                >
+                  <FileText className="w-4 h-4" />
+                  Abrir Relatório Consolidado
                 </Button>
               </div>
             </CardContent>
@@ -2737,6 +2844,140 @@ export default function Relatorios() {
           </Card>
         </TabsContent>
       </Tabs>
+      {/* MODAL / DIALOG DO RELATÓRIO CONSOLIDADO SJE + MONTEIRO */}
+      <Dialog
+        open={modalConsolidadoAberto}
+        onOpenChange={setModalConsolidadoAberto}
+      >
+        <DialogContent className="max-w-5xl w-[95vw] max-h-[92vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader className="no-print pb-2 border-b">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <DialogTitle className="text-base sm:text-lg font-black tracking-wide flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  RELATÓRIO CONSOLIDADO SJE + MONTEIRO
+                </DialogTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Visualização completa na tela antes de imprimir / salvar PDF
+                  (A4)
+                </p>
+              </div>
+
+              {/* Seletor de competência dentro do Modal */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-primary" />
+                  Competência:
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => navegarCompetenciaConsolidado(-1)}
+                    disabled={loadingConsolidado}
+                    title="Mês anterior"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Select
+                    value={competenciaConsolidado}
+                    onValueChange={(nova) => {
+                      setCompetenciaConsolidado(nova)
+                      carregarRelatorioConsolidado(nova)
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs font-mono w-[145px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(() => {
+                        const mesesNomes = [
+                          "Janeiro",
+                          "Fevereiro",
+                          "Março",
+                          "Abril",
+                          "Maio",
+                          "Junho",
+                          "Julho",
+                          "Agosto",
+                          "Setembro",
+                          "Outubro",
+                          "Novembro",
+                          "Dezembro",
+                        ]
+                        const [anoAtualInt, mesAtualInt] = compAtualRelogio
+                          .split("-")
+                          .map(Number)
+                        const ultimosMeses: string[] = []
+                        for (let i = 0; i < 12; i++) {
+                          const d = new Date(
+                            anoAtualInt,
+                            mesAtualInt - 1 - i,
+                            1,
+                          )
+                          const a = d.getFullYear()
+                          const m = String(d.getMonth() + 1).padStart(2, "0")
+                          ultimosMeses.push(`${a}-${m}`)
+                        }
+                        const opcoes = Array.from(
+                          new Set([competenciaConsolidado, ...ultimosMeses]),
+                        )
+                        return opcoes.map((comp) => {
+                          const [a, m] = comp.split("-")
+                          const idx = Number(m) - 1
+                          const nomeMes = mesesNomes[idx] || m
+                          const ehAtual = comp === compAtualRelogio
+                          return (
+                            <SelectItem key={comp} value={comp}>
+                              {m}/{a} ({nomeMes}){ehAtual ? " • Atual" : ""}
+                            </SelectItem>
+                          )
+                        })
+                      })()}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => navegarCompetenciaConsolidado(1)}
+                    disabled={loadingConsolidado}
+                    title="Próximo mês"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="py-2">
+            {loadingConsolidado && !dadosConsolidado ? (
+              <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center gap-3">
+                <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-sm font-medium">
+                  Carregando dados consolidados SJE + Monteiro...
+                </p>
+              </div>
+            ) : dadosConsolidado ? (
+              <RelatorioConsolidadoDocumento
+                dados={dadosConsolidado}
+                carregando={loadingConsolidado}
+                onAtualizar={() => carregarRelatorioConsolidado()}
+              />
+            ) : (
+              <div className="p-8 text-center text-muted-foreground">
+                Não foi possível gerar o consolidado para a competência
+                selecionada.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal de Confirmação para Exclusão de Carga (Somente Administrador) */}
       <AlertDialog
         open={!!cargaParaExcluir}
