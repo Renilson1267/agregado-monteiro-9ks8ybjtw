@@ -8,6 +8,8 @@ import {
 
 export const ID_EMPRESA_MONTEIRO = "11111111-1111-1111-1111-111111111111"
 export const ID_EMPRESA_SJE = "22222222-2222-2222-2222-222222222222"
+export const ID_EMPRESA_PATOS = "2da7537f-9f91-42b9-8020-f53c8fb52ec7"
+export const ID_EMPRESA_CAICO = "43208b25-5cce-4b94-94fd-9f7639a0960c"
 
 export interface DadosProducaoUnidade {
   cargas: number
@@ -41,11 +43,15 @@ export interface RelatorioConsolidadoSjeMonteiro {
   producao: {
     monteiro: DadosProducaoUnidade
     sje: DadosProducaoUnidade
+    patos: DadosProducaoUnidade
+    caico: DadosProducaoUnidade
     total: DadosProducaoUnidade
   }
   consumos: {
     monteiro: ConsumosUnidade
     sje: ConsumosUnidade
+    patos: ConsumosUnidade
+    caico: ConsumosUnidade
     total: ConsumosUnidade
   }
   folha: {
@@ -239,13 +245,15 @@ export const RelatorioConsolidadoService = {
       agora.getHours(),
     ).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}`
 
-    // 1. Buscar empresas 'Monteiro' e 'SJdoEgito' pelo nome/id
+    // 1. Buscar empresas 'Monteiro', 'SJdoEgito', 'Patos' e 'Caicó' pelo nome/id
     const { data: empresasCadastradas } = await (supabase as any)
       .from("empresas")
       .select("id, nome")
 
     let idMonteiro = ID_EMPRESA_MONTEIRO
     let idSje = ID_EMPRESA_SJE
+    let idPatos = ID_EMPRESA_PATOS
+    let idCaico = ID_EMPRESA_CAICO
 
     if (empresasCadastradas && empresasCadastradas.length > 0) {
       const empMont = empresasCadastradas.find((e: any) =>
@@ -257,9 +265,26 @@ export const RelatorioConsolidadoService = {
           e.nome.toLowerCase().includes("egito") ||
           e.nome.toLowerCase().includes("sje"),
       )
+      const empPatos = empresasCadastradas.find((e: any) =>
+        e.nome.toLowerCase().includes("patos"),
+      )
+      const empCaico = empresasCadastradas.find((e: any) => {
+        const norm = e.nome
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+        return norm.includes("caico")
+      })
+
       if (empMont?.id) idMonteiro = empMont.id
       if (empSje?.id) idSje = empSje.id
+      if (empPatos?.id) idPatos = empPatos.id
+      if (empCaico?.id) idCaico = empCaico.id
     }
+
+    const idsTodasEmpresas = Array.from(
+      new Set([idMonteiro, idSje, idPatos, idCaico]),
+    )
 
     // 2. Buscar cargas no período (EXCLUINDO canceladas: cancelada = false)
     const { data: cargas, error: errCargas } = await (supabase as any)
@@ -270,7 +295,7 @@ export const RelatorioConsolidadoService = {
       .gte("data", primeiroDia)
       .lte("data", ultimoDia)
       .eq("cancelada", false)
-      .in("empresa_id", [idMonteiro, idSje])
+      .in("empresa_id", idsTodasEmpresas)
 
     if (errCargas) {
       console.error("Erro ao buscar cargas consolidadas:", errCargas)
@@ -282,34 +307,40 @@ export const RelatorioConsolidadoService = {
       (c: any) => c.empresa_id === idMonteiro,
     )
     const cargasSje = cargasLista.filter((c: any) => c.empresa_id === idSje)
+    const cargasPatos = cargasLista.filter((c: any) => c.empresa_id === idPatos)
+    const cargasCaico = cargasLista.filter((c: any) => c.empresa_id === idCaico)
 
-    // Agrupamento de produção
-    const prodMonteiro: DadosProducaoUnidade = {
-      cargas: cargasMonteiro.length,
+    // Agrupamento de produção por unidade
+    const calcularProd = (lista: any[]): DadosProducaoUnidade => ({
+      cargas: lista.length,
       volumeM3:
         Math.round(
-          cargasMonteiro.reduce(
+          lista.reduce(
             (acc: number, c: any) => acc + (Number(c.volume_m3) || 0),
             0,
           ) * 10,
         ) / 10,
-    }
+    })
 
-    const prodSje: DadosProducaoUnidade = {
-      cargas: cargasSje.length,
-      volumeM3:
-        Math.round(
-          cargasSje.reduce(
-            (acc: number, c: any) => acc + (Number(c.volume_m3) || 0),
-            0,
-          ) * 10,
-        ) / 10,
-    }
+    const prodMonteiro = calcularProd(cargasMonteiro)
+    const prodSje = calcularProd(cargasSje)
+    const prodPatos = calcularProd(cargasPatos)
+    const prodCaico = calcularProd(cargasCaico)
 
     const prodTotal: DadosProducaoUnidade = {
-      cargas: prodMonteiro.cargas + prodSje.cargas,
+      cargas:
+        prodMonteiro.cargas +
+        prodSje.cargas +
+        prodPatos.cargas +
+        prodCaico.cargas,
       volumeM3:
-        Math.round((prodMonteiro.volumeM3 + prodSje.volumeM3) * 10) / 10,
+        Math.round(
+          (prodMonteiro.volumeM3 +
+            prodSje.volumeM3 +
+            prodPatos.volumeM3 +
+            prodCaico.volumeM3) *
+            10,
+        ) / 10,
     }
 
     // Agrupamento de consumos (brita12 = Brita 1, brita19 = Brita 2)
@@ -345,28 +376,66 @@ export const RelatorioConsolidadoService = {
 
     const consumosMonteiro = somarConsumos(cargasMonteiro)
     const consumosSje = somarConsumos(cargasSje)
+    const consumosPatos = somarConsumos(cargasPatos)
+    const consumosCaico = somarConsumos(cargasCaico)
 
     const consumosTotal: ConsumosUnidade = {
       cimentoKg:
-        Math.round((consumosMonteiro.cimentoKg + consumosSje.cimentoKg) * 100) /
-        100,
+        Math.round(
+          (consumosMonteiro.cimentoKg +
+            consumosSje.cimentoKg +
+            consumosPatos.cimentoKg +
+            consumosCaico.cimentoKg) *
+            100,
+        ) / 100,
       brita1Kg:
-        Math.round((consumosMonteiro.brita1Kg + consumosSje.brita1Kg) * 100) /
-        100,
+        Math.round(
+          (consumosMonteiro.brita1Kg +
+            consumosSje.brita1Kg +
+            consumosPatos.brita1Kg +
+            consumosCaico.brita1Kg) *
+            100,
+        ) / 100,
       brita2Kg:
-        Math.round((consumosMonteiro.brita2Kg + consumosSje.brita2Kg) * 100) /
-        100,
+        Math.round(
+          (consumosMonteiro.brita2Kg +
+            consumosSje.brita2Kg +
+            consumosPatos.brita2Kg +
+            consumosCaico.brita2Kg) *
+            100,
+        ) / 100,
       areiaKg:
-        Math.round((consumosMonteiro.areiaKg + consumosSje.areiaKg) * 100) /
-        100,
+        Math.round(
+          (consumosMonteiro.areiaKg +
+            consumosSje.areiaKg +
+            consumosPatos.areiaKg +
+            consumosCaico.areiaKg) *
+            100,
+        ) / 100,
       poPedraKg:
-        Math.round((consumosMonteiro.poPedraKg + consumosSje.poPedraKg) * 100) /
-        100,
+        Math.round(
+          (consumosMonteiro.poPedraKg +
+            consumosSje.poPedraKg +
+            consumosPatos.poPedraKg +
+            consumosCaico.poPedraKg) *
+            100,
+        ) / 100,
       aditivoL:
-        Math.round((consumosMonteiro.aditivoL + consumosSje.aditivoL) * 100) /
-        100,
+        Math.round(
+          (consumosMonteiro.aditivoL +
+            consumosSje.aditivoL +
+            consumosPatos.aditivoL +
+            consumosCaico.aditivoL) *
+            100,
+        ) / 100,
       aguaL:
-        Math.round((consumosMonteiro.aguaL + consumosSje.aguaL) * 100) / 100,
+        Math.round(
+          (consumosMonteiro.aguaL +
+            consumosSje.aguaL +
+            consumosPatos.aguaL +
+            consumosCaico.aguaL) *
+            100,
+        ) / 100,
     }
 
     // 3. Buscar dados de Folha (Monteiro e SJE)
@@ -400,11 +469,15 @@ export const RelatorioConsolidadoService = {
       producao: {
         monteiro: prodMonteiro,
         sje: prodSje,
+        patos: prodPatos,
+        caico: prodCaico,
         total: prodTotal,
       },
       consumos: {
         monteiro: consumosMonteiro,
         sje: consumosSje,
+        patos: consumosPatos,
+        caico: consumosCaico,
         total: consumosTotal,
       },
       folha: {

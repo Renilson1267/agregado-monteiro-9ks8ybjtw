@@ -225,7 +225,7 @@ export default function Relatorios() {
         toast({
           title: "Erro ao gerar consolidado",
           description:
-            "Não foi possível carregar os dados consolidados de SJE + Monteiro.",
+            "Não foi possível carregar os dados consolidados das 4 unidades.",
           variant: "destructive",
         })
       } finally {
@@ -1031,22 +1031,22 @@ export default function Relatorios() {
                   Atualizar
                 </Button>
 
-                {/* BOTÃO DO RELATÓRIO CONSOLIDADO SJE + MONTEIRO */}
+                {/* BOTÃO DO RELATÓRIO CONSOLIDADO GERAL (4 UNIDADES) */}
                 <Button
                   onClick={() =>
                     abrirRelatorioConsolidado(competenciaGerencial)
                   }
                   className="h-8 text-xs font-semibold gap-1.5 bg-blue-700 hover:bg-blue-800 text-white shadow-sm"
-                  title="Gera um único documento A4 consolidando SJE e Monteiro na competência selecionada"
+                  title="Gera um único documento A4 consolidando as 4 unidades (Monteiro, SJE, Patos e Caicó) na competência selecionada"
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  RELATÓRIO CONSOLIDADO SJE + MONTEIRO (PDF)
+                  RELATÓRIO CONSOLIDADO GERAL (4 UNIDADES)
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          {/* CARD DE DESTAQUE DO RELATÓRIO CONSOLIDADO SJE + MONTEIRO */}
+          {/* CARD DE DESTAQUE DO RELATÓRIO CONSOLIDADO GERAL (4 UNIDADES) */}
           <Card className="no-print border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20">
             <CardContent className="py-3 px-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -1055,13 +1055,13 @@ export default function Relatorios() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-foreground">
-                    Documento Consolidado SJE + Monteiro (PDF / Impressão A4)
+                    Relatório Consolidado Geral — 4 Unidades (PDF / Impressão
+                    A4)
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Gera UM ÚNICO documento A4 integrando a produção (cargas e
-                    m³), consumo somado de cimento, britas, areia, pó de pedra,
-                    aditivo e água, e o resumo comparativo oficial da folha de
-                    pagamento.
+                    Gera UM ÚNICO documento A4 integrando produção (cargas e m³)
+                    e consumos de Monteiro, SJE, Patos e Caicó, além da folha
+                    comparativa Monteiro × SJE.
                   </p>
                 </div>
               </div>
@@ -1075,7 +1075,7 @@ export default function Relatorios() {
                   className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold gap-1.5 w-full md:w-auto"
                 >
                   <FileText className="w-4 h-4" />
-                  Abrir Relatório Consolidado
+                  Abrir Relatório Consolidado (4 Unidades)
                 </Button>
               </div>
             </CardContent>
@@ -2959,7 +2959,7 @@ export default function Relatorios() {
               <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center gap-3">
                 <RefreshCw className="w-8 h-8 animate-spin text-primary" />
                 <p className="text-sm font-medium">
-                  Carregando dados consolidados SJE + Monteiro...
+                  Carregando dados consolidados das 4 unidades...
                 </p>
               </div>
             ) : dadosConsolidado ? (

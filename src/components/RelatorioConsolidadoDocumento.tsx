@@ -35,7 +35,7 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
       setImprimindo(true)
       try {
         await printElementInIsolatedIframe(containerImpressaoRef.current, {
-          title: `GC_MIX_RELATORIO_CONSOLIDADO_SJE_MONTEIRO_${dados.competencia.replace("-", "_")}`,
+          title: `GC_MIX_RELATORIO_CONSOLIDADO_4_UNIDADES_${dados.competencia.replace("-", "_")}`,
           waitForImages: true,
           delayMs: 300,
         })
@@ -55,6 +55,8 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
         unidade: "kg",
         monteiro: consumos.monteiro.cimentoKg,
         sje: consumos.sje.cimentoKg,
+        patos: consumos.patos.cimentoKg,
+        caico: consumos.caico.cimentoKg,
         total: consumos.total.cimentoKg,
         decimais: 0,
       },
@@ -63,6 +65,8 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
         unidade: "kg",
         monteiro: consumos.monteiro.brita1Kg,
         sje: consumos.sje.brita1Kg,
+        patos: consumos.patos.brita1Kg,
+        caico: consumos.caico.brita1Kg,
         total: consumos.total.brita1Kg,
         decimais: 0,
       },
@@ -71,6 +75,8 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
         unidade: "kg",
         monteiro: consumos.monteiro.brita2Kg,
         sje: consumos.sje.brita2Kg,
+        patos: consumos.patos.brita2Kg,
+        caico: consumos.caico.brita2Kg,
         total: consumos.total.brita2Kg,
         decimais: 0,
       },
@@ -79,6 +85,8 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
         unidade: "kg",
         monteiro: consumos.monteiro.areiaKg,
         sje: consumos.sje.areiaKg,
+        patos: consumos.patos.areiaKg,
+        caico: consumos.caico.areiaKg,
         total: consumos.total.areiaKg,
         decimais: 0,
       },
@@ -87,6 +95,8 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
         unidade: "kg",
         monteiro: consumos.monteiro.poPedraKg,
         sje: consumos.sje.poPedraKg,
+        patos: consumos.patos.poPedraKg,
+        caico: consumos.caico.poPedraKg,
         total: consumos.total.poPedraKg,
         decimais: 0,
       },
@@ -95,6 +105,8 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
         unidade: "L",
         monteiro: consumos.monteiro.aditivoL,
         sje: consumos.sje.aditivoL,
+        patos: consumos.patos.aditivoL,
+        caico: consumos.caico.aditivoL,
         total: consumos.total.aditivoL,
         decimais: 1,
       },
@@ -103,6 +115,8 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
         unidade: "L",
         monteiro: consumos.monteiro.aguaL,
         sje: consumos.sje.aguaL,
+        patos: consumos.patos.aguaL,
+        caico: consumos.caico.aguaL,
         total: consumos.total.aguaL,
         decimais: 0,
       },
@@ -116,10 +130,12 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
             <FileText className="w-5 h-5 text-primary" />
             <div>
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                Relatório Consolidado SJE + Monteiro • {dados.rotuloCompetencia}
+                Relatório Consolidado Geral (4 Unidades) •{" "}
+                {dados.rotuloCompetencia}
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Documento consolidado único (A4) com Produção, Consumos e Folha
+                Monteiro, SJE, Patos e Caicó em documento único (A4) com
+                Produção, Consumos e Folha
               </p>
             </div>
           </div>
@@ -176,14 +192,15 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                   />
                   <div>
                     <h1 className="text-sm sm:text-base font-black tracking-wider uppercase leading-tight text-black">
-                      GC MIX — RELATÓRIO CONSOLIDADO SJE + MONTEIRO
+                      GC MIX — RELATÓRIO CONSOLIDADO GERAL (4 UNIDADES)
                     </h1>
                     <p className="text-[10px] font-bold uppercase tracking-wide text-gray-700">
                       CONSOLIDAÇÃO OPERACIONAL E FINANCEIRA •{" "}
                       {dados.rotuloCompetencia}
                     </p>
                     <p className="text-[9px] font-semibold text-gray-800">
-                      UNIDADES: SÃO JOSÉ DO EGITO / PE & MONTEIRO / PB
+                      UNIDADES: MONTEIRO / PB • SJE / PE • PATOS / PB • CAICÓ /
+                      RN
                     </p>
                   </div>
                 </div>
@@ -209,62 +226,80 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                     1. PRODUÇÃO CONSOLIDADA (Cargas Válidas)
                   </span>
                   <span className="text-[9px] text-gray-600 font-medium">
-                    Excluindo canceladas (cancelada=false)
+                    Excluindo canceladas (cancelada=false) • 4 Unidades
                   </span>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse border border-gray-300 text-[10px]">
+                  <table className="w-full border-collapse border border-gray-300 text-[9.5px]">
                     <thead>
-                      <tr className="bg-gray-100 text-gray-800 font-bold uppercase text-[9px]">
-                        <th className="border border-gray-300 p-2 text-left">
+                      <tr className="bg-gray-100 text-gray-800 font-bold uppercase text-[8.5px]">
+                        <th className="border border-gray-300 p-1.5 text-left">
                           Indicador de Produção
                         </th>
-                        <th className="border border-gray-300 p-2 text-right font-mono">
+                        <th className="border border-gray-300 p-1.5 text-right font-mono">
                           MONTEIRO
                         </th>
-                        <th className="border border-gray-300 p-2 text-right font-mono">
+                        <th className="border border-gray-300 p-1.5 text-right font-mono">
                           SJE
                         </th>
-                        <th className="border border-gray-300 p-2 text-right font-mono bg-blue-50 text-blue-900 font-extrabold">
-                          TOTAL SOMADO
+                        <th className="border border-gray-300 p-1.5 text-right font-mono">
+                          PATOS
+                        </th>
+                        <th className="border border-gray-300 p-1.5 text-right font-mono">
+                          CAICÓ
+                        </th>
+                        <th className="border border-gray-300 p-1.5 text-right font-mono bg-blue-50 text-blue-900 font-extrabold">
+                          TOTAL GERAL
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td className="border border-gray-300 p-2 font-medium text-gray-700">
+                        <td className="border border-gray-300 p-1.5 font-medium text-gray-700">
                           Nº de Cargas Expedidas
                         </td>
-                        <td className="border border-gray-300 p-2 text-right font-mono font-bold text-gray-900">
+                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
                           {fmtNumero(producao.monteiro.cargas)} cargas
                         </td>
-                        <td className="border border-gray-300 p-2 text-right font-mono font-bold text-gray-900">
+                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
                           {fmtNumero(producao.sje.cargas)} cargas
                         </td>
-                        <td className="border border-gray-300 p-2 text-right font-mono font-black text-blue-950 bg-blue-50/60 text-xs">
+                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
+                          {fmtNumero(producao.patos.cargas)} cargas
+                        </td>
+                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
+                          {fmtNumero(producao.caico.cargas)} cargas
+                        </td>
+                        <td className="border border-gray-300 p-1.5 text-right font-mono font-black text-blue-950 bg-blue-50/60 text-[11px]">
                           {fmtNumero(producao.total.cargas)} cargas
                         </td>
                       </tr>
                       <tr>
-                        <td className="border border-gray-300 p-2 font-medium text-gray-700">
+                        <td className="border border-gray-300 p-1.5 font-medium text-gray-700">
                           Volume Total Produzido (m³)
                         </td>
-                        <td className="border border-gray-300 p-2 text-right font-mono font-bold text-gray-900">
+                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
                           {fmtNumero(producao.monteiro.volumeM3, 1)} m³
                         </td>
-                        <td className="border border-gray-300 p-2 text-right font-mono font-bold text-gray-900">
+                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
                           {fmtNumero(producao.sje.volumeM3, 1)} m³
                         </td>
-                        <td className="border border-gray-300 p-2 text-right font-mono font-black text-blue-950 bg-blue-50/60 text-xs">
+                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
+                          {fmtNumero(producao.patos.volumeM3, 1)} m³
+                        </td>
+                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
+                          {fmtNumero(producao.caico.volumeM3, 1)} m³
+                        </td>
+                        <td className="border border-gray-300 p-1.5 text-right font-mono font-black text-blue-950 bg-blue-50/60 text-[11px]">
                           {fmtNumero(producao.total.volumeM3, 1)} m³
                         </td>
                       </tr>
-                      <tr className="bg-gray-50 text-[9px] text-gray-600">
-                        <td className="border border-gray-300 p-1.5 italic">
+                      <tr className="bg-gray-50 text-[8.5px] text-gray-600">
+                        <td className="border border-gray-300 p-1 italic">
                           Média de Volume por Carga (m³)
                         </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono">
+                        <td className="border border-gray-300 p-1 text-right font-mono">
                           {producao.monteiro.cargas > 0
                             ? fmtNumero(
                                 producao.monteiro.volumeM3 /
@@ -274,7 +309,7 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                             : "0,00"}{" "}
                           m³
                         </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono">
+                        <td className="border border-gray-300 p-1 text-right font-mono">
                           {producao.sje.cargas > 0
                             ? fmtNumero(
                                 producao.sje.volumeM3 / producao.sje.cargas,
@@ -283,7 +318,25 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                             : "0,00"}{" "}
                           m³
                         </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-blue-900 bg-blue-50/40">
+                        <td className="border border-gray-300 p-1 text-right font-mono">
+                          {producao.patos.cargas > 0
+                            ? fmtNumero(
+                                producao.patos.volumeM3 / producao.patos.cargas,
+                                2,
+                              )
+                            : "0,00"}{" "}
+                          m³
+                        </td>
+                        <td className="border border-gray-300 p-1 text-right font-mono">
+                          {producao.caico.cargas > 0
+                            ? fmtNumero(
+                                producao.caico.volumeM3 / producao.caico.cargas,
+                                2,
+                              )
+                            : "0,00"}{" "}
+                          m³
+                        </td>
+                        <td className="border border-gray-300 p-1 text-right font-mono font-bold text-blue-900 bg-blue-50/40">
                           {producao.total.cargas > 0
                             ? fmtNumero(
                                 producao.total.volumeM3 / producao.total.cargas,
@@ -306,25 +359,31 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                     2. CONSUMOS CONSOLIDADOS DE MATERIAIS
                   </span>
                   <span className="text-[9px] text-gray-600 font-medium">
-                    Soma dos campos consumo_* das cargas válidas no período
+                    Soma dos consumos das 4 unidades no período
                   </span>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse border border-gray-300 text-[10px]">
+                  <table className="w-full border-collapse border border-gray-300 text-[9px]">
                     <thead>
-                      <tr className="bg-gray-100 text-gray-800 font-bold uppercase text-[9px]">
-                        <th className="border border-gray-300 p-2 text-left">
+                      <tr className="bg-gray-100 text-gray-800 font-bold uppercase text-[8.5px]">
+                        <th className="border border-gray-300 p-1.5 text-left">
                           Material Insumo
                         </th>
-                        <th className="border border-gray-300 p-2 text-right font-mono">
+                        <th className="border border-gray-300 p-1.5 text-right font-mono">
                           MONTEIRO
                         </th>
-                        <th className="border border-gray-300 p-2 text-right font-mono">
+                        <th className="border border-gray-300 p-1.5 text-right font-mono">
                           SJE
                         </th>
-                        <th className="border border-gray-300 p-2 text-right font-mono bg-emerald-50 text-emerald-950 font-extrabold">
-                          TOTAL (SOMA DAS DUAS)
+                        <th className="border border-gray-300 p-1.5 text-right font-mono">
+                          PATOS
+                        </th>
+                        <th className="border border-gray-300 p-1.5 text-right font-mono">
+                          CAICÓ
+                        </th>
+                        <th className="border border-gray-300 p-1.5 text-right font-mono bg-emerald-50 text-emerald-950 font-extrabold">
+                          TOTAL (4 UNIDADES)
                         </th>
                       </tr>
                     </thead>
@@ -341,6 +400,12 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                           <td className="border border-gray-300 p-1.5 text-right font-mono font-medium text-gray-900">
                             {fmtNumero(row.sje, row.decimais)} {row.unidade}
                           </td>
+                          <td className="border border-gray-300 p-1.5 text-right font-mono font-medium text-gray-900">
+                            {fmtNumero(row.patos, row.decimais)} {row.unidade}
+                          </td>
+                          <td className="border border-gray-300 p-1.5 text-right font-mono font-medium text-gray-900">
+                            {fmtNumero(row.caico, row.decimais)} {row.unidade}
+                          </td>
                           <td className="border border-gray-300 p-1.5 text-right font-mono font-black text-emerald-950 bg-emerald-50/60">
                             {fmtNumero(row.total, row.decimais)} {row.unidade}
                           </td>
@@ -351,12 +416,12 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                 </div>
               </div>
 
-              {/* (d) FOLHA: REAPROVEITAR O CONSOLIDADO MONTEIRO × SJE QUE JÁ EXISTE NO RESUMO */}
+              {/* (d) FOLHA: CONSOLIDADO MONTEIRO × SJE + TOTAL GERAL GC MIX */}
               <div className="border border-gray-300 rounded p-3 bg-gray-50/60">
                 <div className="flex items-center justify-between border-b border-gray-300 pb-1.5 mb-2.5">
                   <span className="text-[11px] font-black uppercase tracking-wider text-black flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-purple-600 inline-block" />
-                    3. FOLHA DE PAGAMENTO CONSOLIDADA (RESUMO OFICIAL)
+                    3. FOLHA DE PAGAMENTO CONSOLIDADA (SJE + MONTEIRO)
                   </span>
                   <span className="text-[9px] text-gray-600 font-medium">
                     Consolidado Monteiro × SJE (fórmula oficial do módulo Folha)
@@ -519,13 +584,14 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
               <div>
                 <div className="border-b border-gray-400 pb-1 mb-1"></div>
                 <span className="font-semibold">
-                  Responsável Operacional / Usina (SJE + Monteiro)
+                  Responsável Operacional / Usinas (Monteiro, SJE, Patos e
+                  Caicó)
                 </span>
               </div>
               <div>
                 <div className="border-b border-gray-400 pb-1 mb-1"></div>
                 <span className="font-semibold">
-                  Diretoria Executiva GC MIX — Validação & Fechamento
+                  Diretoria Executiva GC MIX — Validação & Fechamento Geral
                 </span>
               </div>
             </div>
