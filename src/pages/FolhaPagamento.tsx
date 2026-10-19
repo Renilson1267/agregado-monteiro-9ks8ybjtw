@@ -243,8 +243,16 @@ export function FolhaPagamento() {
   const { isAdministrador } = useUsuario()
   const { toast } = useToast()
 
+  // Competência padrão calculada a partir da data atual do relógio (AAAA-MM)
+  const COMPETENCIA_ATUAL = useMemo(() => {
+    const hoje = new Date()
+    const ano = hoje.getFullYear()
+    const mes = String(hoje.getMonth() + 1).padStart(2, "0")
+    return `${ano}-${mes}`
+  }, [])
+
   // Competência selecionada (ex: '2026-09')
-  const [competencia, setCompetencia] = useState<string>("2026-09")
+  const [competencia, setCompetencia] = useState<string>(COMPETENCIA_ATUAL)
   const [competenciasDisponiveis, setCompetenciasDisponiveis] =
     useState<string[]>([])
   const [competenciaObj, setCompetenciaObj] = useState<FolhaCompetencia | null>(
@@ -348,7 +356,9 @@ export function FolhaPagamento() {
           setCompetenciasDisponiveis(nomesComps)
           setCompetencia((prev) => {
             if (!nomesComps.includes(prev)) {
-              return nomesComps.includes("2026-09") ? "2026-09" : nomesComps[0]
+              return nomesComps.includes(COMPETENCIA_ATUAL)
+                ? COMPETENCIA_ATUAL
+                : nomesComps[0]
             }
             return prev
           })
@@ -360,7 +370,7 @@ export function FolhaPagamento() {
       }
     }
     carregarCompetencias()
-  }, [empresaAtiva?.id])
+  }, [empresaAtiva?.id, COMPETENCIA_ATUAL])
 
   // 2. Carregar tabelas oficiais (2026), faixas de comissão, terceiros e funcionários cadastrados da empresa
   useEffect(() => {
@@ -1508,9 +1518,10 @@ export function FolhaPagamento() {
       (acc, l) => {
         acc.vendas_obra += Number(l.vendas_obra || 0)
         acc.comissao += l.comissaoFinal
+        acc.ajuda_custo += Number(l.ajuda_custo ?? l.vendas_ajuda ?? 0)
         return acc
       },
-      { vendas_obra: 0, comissao: 0 },
+      { vendas_obra: 0, comissao: 0, ajuda_custo: 0 },
     )
   }, [linhasVendasTerceiros])
 
@@ -2065,10 +2076,10 @@ export function FolhaPagamento() {
   const [salvandoCelulaProducao, setSalvandoCelulaProducao] =
     useState<string | null>(null)
 
-  // Estado de edição inline da aba VENDAS (vendas_obra de terceiros vendedores e Lançador, vendas_ajuda do Lançador)
+  // Estado de edição inline da aba VENDAS (vendas_obra de terceiros vendedores e Lançador, vendas_ajuda do Lançador, ajuda_custo de terceiros)
   const [celulaAtivaVendas, setCelulaAtivaVendas] = useState<{
     linhaId: string
-    campo: "vendas_obra" | "vendas_ajuda"
+    campo: "vendas_obra" | "vendas_ajuda" | "ajuda_custo"
   } | null>(null)
   const [valorTempVendas, setValorTempVendas] = useState<string>("")
   const [salvandoCelulaVendas, setSalvandoCelulaVendas] =
@@ -2353,7 +2364,7 @@ export function FolhaPagamento() {
   const iniciarEdicaoCelulaVendas = (
     linhaId: string,
     valorAtual: number | undefined | null,
-    campo: "vendas_obra" | "vendas_ajuda" = "vendas_obra",
+    campo: "vendas_obra" | "vendas_ajuda" | "ajuda_custo" = "vendas_obra",
   ) => {
     const v = Number(valorAtual || 0)
     setCelulaAtivaVendas({ linhaId, campo })
@@ -2392,9 +2403,12 @@ export function FolhaPagamento() {
       return
     }
 
-    if (campoAtivo === "vendas_ajuda") {
+    if (campoAtivo === "ajuda_custo" || campoAtivo === "vendas_ajuda") {
+      const isAjudaCusto = campoAtivo === "ajuda_custo"
       const valorAntigoAjuda = Number(
-        linhaBase.vendas_ajuda ?? linhaBase.ajuda_custo ?? 0,
+        isAjudaCusto
+          ? (linhaBase.ajuda_custo ?? linhaBase.vendas_ajuda ?? 0)
+          : (linhaBase.vendas_ajuda ?? linhaBase.ajuda_custo ?? 0),
       )
 
       if (numNovo === valorAntigoAjuda && linhaExistente) {
@@ -2410,7 +2424,9 @@ export function FolhaPagamento() {
         const index = prev.findIndex((l) => l.id === linhaId)
         const linhaAtualizada: FolhaPagamentoLinha = {
           ...(linhaExistente || linhaBase as FolhaPagamentoLinha),
-          vendas_ajuda: numNovo,
+          ...(isAjudaCusto
+            ? { ajuda_custo: numNovo }
+            : { vendas_ajuda: numNovo }),
           updated_at: new Date().toISOString(),
         }
         if (index >= 0) {
@@ -2422,13 +2438,14 @@ export function FolhaPagamento() {
       })
 
       try {
+        const payloadAtualizacao = isAjudaCusto
+          ? { ajuda_custo: numNovo }
+          : { vendas_ajuda: numNovo }
         const linhaGravada = await FolhaService.atualizarCamposVendasLinha(
           linhaId,
           empresaAtiva.id,
           competencia,
-          {
-            vendas_ajuda: numNovo,
-          },
+          payloadAtualizacao,
         )
         setLinhas((prev) =>
           prev.map((l) => (l.id === linhaId ? { ...l, ...linhaGravada } : l)),
@@ -2445,15 +2462,16 @@ export function FolhaPagamento() {
             if (l.id !== linhaId) return l
             return {
               ...l,
-              vendas_ajuda: valorAntigoAjuda,
+              ...(isAjudaCusto
+                ? { ajuda_custo: valorAntigoAjuda }
+                : { vendas_ajuda: valorAntigoAjuda }),
               updated_at: new Date().toISOString(),
             }
           }),
         )
         toast({
           title: "Erro ao salvar ajuda de custo",
-          description:
-            err.message || "Falha ao gravar ajuda de custo do lançador.",
+          description: err.message || "Falha ao gravar ajuda de custo.",
           variant: "destructive",
         })
       } finally {
@@ -5868,6 +5886,9 @@ export function FolhaPagamento() {
                           <th className="py-2.5 px-3 text-right font-bold text-amber-600">
                             COMISSÃO
                           </th>
+                          <th className="py-2.5 px-3 text-right font-semibold text-emerald-600">
+                            AJUDA DE CUSTO
+                          </th>
                           <th className="py-2.5 px-3">AGÊNCIA / C/C</th>
                           <th className="py-2.5 px-3">PIX</th>
                           <th className="py-2.5 px-2 text-center print:hidden w-16">
@@ -5879,7 +5900,7 @@ export function FolhaPagamento() {
                         {linhasVendasTerceiros.length === 0 ? (
                           <tr>
                             <td
-                              colSpan={6}
+                              colSpan={7}
                               className="text-center py-6 text-muted-foreground"
                             >
                               Nenhum vendedor terceiro cadastrado ou com vendas
@@ -5983,6 +6004,69 @@ export function FolhaPagamento() {
                                   </Badge>
                                 </div>
                               </td>
+                              <td
+                                className="py-2 px-3 text-right font-mono text-emerald-600 font-semibold whitespace-nowrap cursor-pointer hover:bg-emerald-500/10 transition-colors"
+                                onClick={() => {
+                                  if (
+                                    celulaAtivaVendas?.linhaId !== l.id ||
+                                    celulaAtivaVendas?.campo !== "ajuda_custo"
+                                  ) {
+                                    iniciarEdicaoCelulaVendas(
+                                      l.id,
+                                      l.ajuda_custo ?? l.vendas_ajuda ?? 0,
+                                      "ajuda_custo",
+                                    )
+                                  }
+                                }}
+                                title="Clique para editar Ajuda de Custo"
+                              >
+                                {celulaAtivaVendas?.linhaId === l.id &&
+                                celulaAtivaVendas?.campo === "ajuda_custo" ? (
+                                  <Input
+                                    autoFocus
+                                    className="h-7 w-28 text-right font-mono text-xs px-1.5 py-0 ml-auto bg-background border-primary focus-visible:ring-1"
+                                    value={valorTempVendas}
+                                    onChange={(e) =>
+                                      setValorTempVendas(e.target.value)
+                                    }
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault()
+                                        salvarEdicaoCelulaVendas(l.id)
+                                      } else if (e.key === "Escape") {
+                                        e.preventDefault()
+                                        cancelarEdicaoCelulaVendas()
+                                      }
+                                    }}
+                                    onBlur={() =>
+                                      salvarEdicaoCelulaVendas(l.id)
+                                    }
+                                    placeholder="0,00"
+                                  />
+                                ) : (
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {salvandoCelulaVendas ===
+                                      `${l.id}-ajuda_custo` && (
+                                      <RefreshCw className="h-3 w-3 animate-spin text-emerald-600" />
+                                    )}
+                                    <span>
+                                      {fmtMoeda(
+                                        l.ajuda_custo ?? l.vendas_ajuda ?? 0,
+                                      )}
+                                    </span>
+                                    {Number(
+                                      l.ajuda_custo ?? l.vendas_ajuda ?? 0,
+                                    ) > 0 && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[8px] px-1 py-0 h-3.5 border-emerald-300 text-emerald-700 bg-emerald-50"
+                                      >
+                                        Digitado
+                                      </Badge>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
                               <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
                                 {l.conta || "-"}
                               </td>
@@ -6016,6 +6100,9 @@ export function FolhaPagamento() {
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono text-amber-600">
                             {fmtMoeda(totaisVendasTerceiros.comissao)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600">
+                            {fmtMoeda(totaisVendasTerceiros.ajuda_custo)}
                           </td>
                           <td className="py-2.5 px-3" colSpan={3}></td>
                         </tr>
@@ -8129,6 +8216,9 @@ export function FolhaPagamento() {
                           <th className="border p-1.5 text-right">
                             COMISSÃO (PROGRESSIVA)
                           </th>
+                          <th className="border p-1.5 text-right">
+                            AJUDA DE CUSTO
+                          </th>
                           <th className="border p-1.5 text-left">
                             AGÊNCIA / C/C
                           </th>
@@ -8150,6 +8240,9 @@ export function FolhaPagamento() {
                             <td className="border p-1 text-right font-mono font-bold">
                               {fmtMoeda(l.comissaoFinal)}
                             </td>
+                            <td className="border p-1 text-right font-mono">
+                              {fmtMoeda(l.ajuda_custo ?? l.vendas_ajuda ?? 0)}
+                            </td>
                             <td className="border p-1 font-mono text-[9px]">
                               {l.conta || "-"}
                             </td>
@@ -8170,6 +8263,9 @@ export function FolhaPagamento() {
                           </td>
                           <td className="border p-1.5 text-right font-mono">
                             {fmtMoeda(totaisVendasTerceiros.comissao)}
+                          </td>
+                          <td className="border p-1.5 text-right font-mono">
+                            {fmtMoeda(totaisVendasTerceiros.ajuda_custo)}
                           </td>
                           <td className="border p-1.5" colSpan={3}></td>
                         </tr>
