@@ -5841,190 +5841,94 @@ export function FolhaPagamento() {
           {/* SEÇÕES ADICIONAIS DE VENDAS: OCULTAS EM SJE (EM SJE FICA SOMENTE O CARD DO LANÇADOR DE VENDAS) */}
           {empresaAtiva?.id !== ID_EMPRESA_SJE && (
             <>
-              {/* 1. SEÇÃO VENDEDORES TERCEIROS (FORA DA FOLHA) - CONFORME PLANILHA DO USUÁRIO */}
-              <Card className="border-purple-300 dark:border-purple-800">
-                <CardHeader className="py-3 px-4 border-b bg-purple-500/10">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                    <div>
-                      <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-purple-600" />
-                        VENDEDORES TERCEIROS (fora da folha)
-                        <Badge
-                          variant="outline"
-                          className="border-purple-400 text-purple-700 bg-purple-50 text-[10px]"
-                        >
-                          Tabela Progressiva
-                        </Badge>
-                      </CardTitle>
-                      <CardDescription className="text-xs mt-1 text-purple-700 dark:text-purple-300 font-semibold">
-                        COMISSÃO = TABELA PROGRESSIVA (calcula sozinha)
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {faixasComissao.length === 0 && (
-                    <div className="p-3 bg-amber-50 border-b border-amber-200 text-amber-800 text-xs flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                      <span>
-                        Configure a tabela progressiva de comissões na aba{" "}
-                        <strong>Tabelas (Admin)</strong> para cálculo automático
-                        marginal por faixa.
-                      </span>
-                    </div>
-                  )}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left border-collapse">
-                      <thead className="bg-purple-100/60 dark:bg-purple-950/40 text-muted-foreground uppercase font-semibold border-b">
-                        <tr>
-                          <th className="py-2.5 px-3 sticky left-0 bg-purple-100/90 dark:bg-purple-950/90 z-10">
-                            NOME
-                          </th>
-                          <th className="py-2.5 px-3 text-right font-semibold text-blue-600">
-                            VALOR DAS OBRAS
-                          </th>
-                          <th className="py-2.5 px-3 text-right font-bold text-amber-600">
-                            COMISSÃO
-                          </th>
-                          <th className="py-2.5 px-3 text-right font-semibold text-emerald-600">
-                            AJUDA DE CUSTO
-                          </th>
-                          <th className="py-2.5 px-3">AGÊNCIA / C/C</th>
-                          <th className="py-2.5 px-3">PIX</th>
-                          <th className="py-2.5 px-2 text-center print:hidden w-16">
-                            AÇÕES
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {linhasVendasTerceiros.length === 0 ? (
-                          <tr>
-                            <td
-                              colSpan={7}
-                              className="text-center py-6 text-muted-foreground"
-                            >
-                              Nenhum vendedor terceiro cadastrado ou com vendas
-                              nesta unidade.
-                            </td>
-                          </tr>
-                        ) : (
-                          linhasVendasTerceiros.map((l) => (
-                            <tr key={l.id} className="hover:bg-purple-50/30">
-                              <td className="py-2 px-3 font-semibold text-foreground sticky left-0 bg-background z-10 border-r whitespace-nowrap">
-                                <div className="flex items-center gap-1.5">
-                                  <span>{l.nome}</span>
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-[9px] px-1 py-0 h-4 bg-purple-100 text-purple-700"
-                                  >
-                                    Terceiro Vendedor
-                                  </Badge>
-                                </div>
-                              </td>
-                              <td
-                                className={`py-2 px-3 text-right font-mono text-blue-600 font-semibold whitespace-nowrap ${
-                                  empresaAtiva?.id ===
-                                    "11111111-1111-1111-1111-111111111111" &&
-                                  l.nome.toUpperCase().includes("MARCIO LUAN")
-                                    ? "cursor-pointer hover:bg-blue-500/10 transition-colors"
-                                    : ""
-                                }`}
-                                onClick={() => {
-                                  if (
-                                    celulaAtivaVendas?.linhaId !== l.id ||
-                                    celulaAtivaVendas?.campo !== "vendas_obra"
-                                  ) {
-                                    iniciarEdicaoCelulaVendas(
-                                      l.id,
-                                      l.vendas_obra,
-                                    )
-                                  }
-                                }}
-                                title="Clique para editar Valor das Obras"
-                              >
-                                {celulaAtivaVendas?.linhaId === l.id &&
-                                celulaAtivaVendas?.campo === "vendas_obra" ? (
-                                  <Input
-                                    autoFocus
-                                    className="h-7 w-28 text-right font-mono text-xs px-1.5 py-0 ml-auto bg-background border-primary focus-visible:ring-1"
-                                    value={valorTempVendas}
-                                    onChange={(e) =>
-                                      setValorTempVendas(e.target.value)
-                                    }
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") {
-                                        e.preventDefault()
-                                        salvarEdicaoCelulaVendas(l.id)
-                                      } else if (e.key === "Escape") {
-                                        e.preventDefault()
-                                        cancelarEdicaoCelulaVendas()
-                                      }
-                                    }}
-                                    onBlur={() =>
-                                      salvarEdicaoCelulaVendas(l.id)
-                                    }
-                                    placeholder="0,00"
-                                  />
-                                ) : (
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    {salvandoCelulaVendas ===
-                                      `${l.id}-vendas_obra` && (
-                                      <RefreshCw className="h-3 w-3 animate-spin text-blue-600" />
-                                    )}
-                                    <span>{fmtMoeda(l.vendas_obra)}</span>
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[8px] px-1 py-0 h-3.5 border-blue-300 text-blue-700 bg-blue-50"
-                                    >
-                                      Digitado
-                                    </Badge>
-                                  </div>
-                                )}
-                              </td>
-                              <td className="py-2 px-3 text-right font-mono font-bold text-amber-600 whitespace-nowrap">
-                                <div className="flex items-center justify-end gap-1">
-                                  {!l.temTabelaConfigurada ? (
-                                    <span className="text-[11px] font-normal text-amber-600 italic">
-                                      Configure as faixas na aba TABELAS
-                                    </span>
-                                  ) : (
-                                    <span>{fmtMoeda(l.comissaoFinal)}</span>
-                                  )}
+              {/* 1. SEÇÃO VENDEDORES TERCEIROS (CARDS NO MESMO FORMATO DO LANÇADOR DE VENDAS SJE) */}
+              <div className="space-y-4">
+                {linhasVendasTerceiros.length === 0 ? (
+                  <Card className="border-amber-300 bg-gradient-to-br from-amber-500/5 via-background to-amber-500/10 shadow-sm">
+                    <CardContent className="p-6 text-center text-xs text-muted-foreground">
+                      Nenhum vendedor terceiro cadastrado ou com vendas nesta
+                      unidade.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  linhasVendasTerceiros.map((l) => {
+                    const vendasObra = Number(l.vendas_obra || 0)
+                    const ajudaCusto = Number(
+                      l.ajuda_custo ?? l.vendas_ajuda ?? 0,
+                    )
+                    const comissaoFinal = Number(l.comissaoFinal || 0)
+                    const totalReceberVendas =
+                      Math.round((comissaoFinal + ajudaCusto) * 100) / 100
+
+                    return (
+                      <Card
+                        key={l.id}
+                        className="border-amber-300 bg-gradient-to-br from-amber-500/5 via-background to-amber-500/10 shadow-sm"
+                      >
+                        <CardHeader className="py-3 px-4 border-b bg-amber-500/10">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <TrendingUp className="h-5 w-5 text-amber-600" />
+                              <div>
+                                <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                                  <span>LANÇADOR DE VENDAS: {l.nome}</span>
                                   <Badge
                                     variant="outline"
-                                    className={`text-[8px] px-1 py-0 h-3.5 ${
-                                      l.isComissaoSobrescrita
-                                        ? "border-amber-400 text-amber-700 bg-amber-50"
-                                        : "border-muted text-muted-foreground"
-                                    }`}
+                                    className="border-amber-500 text-amber-700 bg-amber-100/60 dark:bg-amber-950/40 text-[10px]"
                                   >
-                                    {l.isComissaoSobrescrita
-                                      ? "Digitado"
-                                      : "Calculado"}
+                                    Vendedor Titular
                                   </Badge>
-                                </div>
-                              </td>
-                              <td
-                                className="py-2 px-3 text-right font-mono text-emerald-600 font-semibold whitespace-nowrap cursor-pointer hover:bg-emerald-500/10 transition-colors"
-                                onClick={() => {
-                                  if (
-                                    celulaAtivaVendas?.linhaId !== l.id ||
-                                    celulaAtivaVendas?.campo !== "ajuda_custo"
-                                  ) {
-                                    iniciarEdicaoCelulaVendas(
-                                      l.id,
-                                      l.ajuda_custo ?? l.vendas_ajuda ?? 0,
-                                      "ajuda_custo",
-                                    )
-                                  }
-                                }}
-                                title="Clique para editar Ajuda de Custo"
-                              >
-                                {celulaAtivaVendas?.linhaId === l.id &&
-                                celulaAtivaVendas?.campo === "ajuda_custo" ? (
+                                </CardTitle>
+                                <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                                  Folha de Vendas exclusiva — apuração direta de
+                                  obras, comissão progressiva e ajuda de custo.
+                                </CardDescription>
+                              </div>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 text-xs border-amber-400 hover:bg-amber-100/50"
+                              onClick={() => abrirModalEdicao(l, "Terceiro")}
+                            >
+                              <Edit2 className="h-3.5 w-3.5 text-amber-700" />
+                              Editar Dados de Vendas
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="p-4 space-y-4">
+                          {/* CARDS DE DESTAQUE DOS VALORES */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {/* BLOCO 1: Total Obras / Vendido */}
+                            <div
+                              className="p-3 rounded-lg border bg-card/80 cursor-pointer hover:border-blue-400 hover:bg-blue-500/5 transition-colors relative"
+                              onClick={() => {
+                                if (
+                                  celulaAtivaVendas?.linhaId !== l.id ||
+                                  celulaAtivaVendas?.campo !== "vendas_obra"
+                                ) {
+                                  iniciarEdicaoCelulaVendas(
+                                    l.id,
+                                    vendasObra,
+                                    "vendas_obra",
+                                  )
+                                }
+                              }}
+                              title="Clique para editar Total Obras / Vendido"
+                            >
+                              <span className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium flex items-center justify-between">
+                                <span>Total Obras / Vendido</span>
+                                <Edit2 className="h-3 w-3 text-muted-foreground/60" />
+                              </span>
+                              {celulaAtivaVendas?.linhaId === l.id &&
+                              celulaAtivaVendas?.campo === "vendas_obra" ? (
+                                <div
+                                  className="mt-1 flex items-center gap-1.5"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <Input
                                     autoFocus
-                                    className="h-7 w-28 text-right font-mono text-xs px-1.5 py-0 ml-auto bg-background border-primary focus-visible:ring-1"
+                                    className="h-8 font-mono text-base font-bold text-blue-600 px-2 py-1 bg-background border-primary focus-visible:ring-1"
                                     value={valorTempVendas}
                                     onChange={(e) =>
                                       setValorTempVendas(e.target.value)
@@ -6043,74 +5947,156 @@ export function FolhaPagamento() {
                                     }
                                     placeholder="0,00"
                                   />
-                                ) : (
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    {salvandoCelulaVendas ===
-                                      `${l.id}-ajuda_custo` && (
-                                      <RefreshCw className="h-3 w-3 animate-spin text-emerald-600" />
-                                    )}
-                                    <span>
-                                      {fmtMoeda(
-                                        l.ajuda_custo ?? l.vendas_ajuda ?? 0,
-                                      )}
-                                    </span>
-                                    {Number(
-                                      l.ajuda_custo ?? l.vendas_ajuda ?? 0,
-                                    ) > 0 && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-[8px] px-1 py-0 h-3.5 border-emerald-300 text-emerald-700 bg-emerald-50"
-                                      >
-                                        Digitado
-                                      </Badge>
-                                    )}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
-                                {l.conta || "-"}
-                              </td>
-                              <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
-                                {l.pix || l.chave_pix || "-"}
-                              </td>
-                              <td className="py-2 px-2 text-center print:hidden">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                  onClick={() =>
-                                    abrirModalEdicao(l, "Terceiro")
-                                  }
-                                  title="Editar vendas do terceiro"
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1.5 mt-1">
+                                  {salvandoCelulaVendas ===
+                                    `${l.id}-vendas_obra` && (
+                                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                                  )}
+                                  <span className="text-lg font-bold font-mono text-blue-600 block">
+                                    {fmtMoeda(vendasObra)}
+                                  </span>
+                                </div>
+                              )}
+                              <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                                Clique para digitar • Tabela progressiva
+                              </span>
+                            </div>
+
+                            {/* BLOCO 2: Comissão (Tabela Progressiva) */}
+                            <div className="p-3 rounded-lg border bg-card/80">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">
+                                  Comissão (Tabela Progressiva)
+                                </span>
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[8px] px-1 py-0 h-3.5 ${
+                                    l.isComissaoSobrescrita
+                                      ? "border-amber-400 text-amber-700 bg-amber-50"
+                                      : "border-muted text-muted-foreground"
+                                  }`}
                                 >
-                                  <Edit2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                      <tfoot className="bg-purple-100/40 dark:bg-purple-950/30 font-bold text-foreground border-t-2 border-border">
-                        <tr>
-                          <td className="py-2.5 px-3 sticky left-0 bg-purple-100/40 dark:bg-purple-950/30 z-10 border-r">
-                            TOTAL TERCEIROS ({linhasVendasTerceiros.length})
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-mono text-blue-600">
-                            {fmtMoeda(totaisVendasTerceiros.vendas_obra)}
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-mono text-amber-600">
-                            {fmtMoeda(totaisVendasTerceiros.comissao)}
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-mono text-emerald-600">
-                            {fmtMoeda(totaisVendasTerceiros.ajuda_custo)}
-                          </td>
-                          <td className="py-2.5 px-3" colSpan={3}></td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
+                                  {l.isComissaoSobrescrita
+                                    ? "Digitado"
+                                    : "Progressiva"}
+                                </Badge>
+                              </div>
+                              <span className="text-lg font-bold font-mono text-amber-600 block mt-1">
+                                {fmtMoeda(comissaoFinal)}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                                {!l.temTabelaConfigurada
+                                  ? "Configure as faixas na aba TABELAS"
+                                  : "Cálculo marginal automático"}
+                              </span>
+                            </div>
+
+                            {/* BLOCO 3: Ajuda de Custo */}
+                            <div
+                              className="p-3 rounded-lg border bg-card/80 cursor-pointer hover:border-emerald-400 hover:bg-emerald-500/5 transition-colors relative"
+                              onClick={() => {
+                                if (
+                                  celulaAtivaVendas?.linhaId !== l.id ||
+                                  celulaAtivaVendas?.campo !== "ajuda_custo"
+                                ) {
+                                  iniciarEdicaoCelulaVendas(
+                                    l.id,
+                                    ajudaCusto,
+                                    "ajuda_custo",
+                                  )
+                                }
+                              }}
+                              title="Clique para digitar Ajuda de Custo"
+                            >
+                              <span className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium flex items-center justify-between">
+                                <span>Ajuda de Custo</span>
+                                <Edit2 className="h-3 w-3 text-muted-foreground/60" />
+                              </span>
+                              {celulaAtivaVendas?.linhaId === l.id &&
+                              celulaAtivaVendas?.campo === "ajuda_custo" ? (
+                                <div
+                                  className="mt-1 flex items-center gap-1.5"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Input
+                                    autoFocus
+                                    className="h-8 font-mono text-base font-bold text-emerald-600 px-2 py-1 bg-background border-primary focus-visible:ring-1"
+                                    value={valorTempVendas}
+                                    onChange={(e) =>
+                                      setValorTempVendas(e.target.value)
+                                    }
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault()
+                                        salvarEdicaoCelulaVendas(l.id)
+                                      } else if (e.key === "Escape") {
+                                        e.preventDefault()
+                                        cancelarEdicaoCelulaVendas()
+                                      }
+                                    }}
+                                    onBlur={() =>
+                                      salvarEdicaoCelulaVendas(l.id)
+                                    }
+                                    placeholder="0,00"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1.5 mt-1">
+                                  {salvandoCelulaVendas ===
+                                    `${l.id}-ajuda_custo` && (
+                                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                                  )}
+                                  <span className="text-lg font-bold font-mono text-foreground block">
+                                    {fmtMoeda(ajudaCusto)}
+                                  </span>
+                                </div>
+                              )}
+                              <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                                Clique para digitar • Auxílio mensal de vendas
+                              </span>
+                            </div>
+
+                            {/* BLOCO 4: Total a Receber (Vendas) */}
+                            <div className="p-3 rounded-lg border border-primary/30 bg-primary/5">
+                              <span className="text-[11px] text-primary uppercase tracking-wide font-bold block">
+                                Total a Receber (Vendas)
+                              </span>
+                              <span className="text-lg font-extrabold font-mono text-primary block mt-1">
+                                {fmtMoeda(totalReceberVendas)}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                                Comissão + Ajuda de Custo
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* DETALHES BANCÁRIOS */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t text-xs">
+                            <div>
+                              <span className="text-muted-foreground block text-[11px]">
+                                Agência / Conta:
+                              </span>
+                              <span className="font-mono font-medium text-foreground">
+                                {l.conta || "Não informado"}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block text-[11px]">
+                                Chave PIX:
+                              </span>
+                              <span className="font-mono font-medium text-foreground">
+                                {l.pix || l.chave_pix || "Não informado"}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })
+                )}
+              </div>
 
               {/* 2. TABELA DE VENDEDORES DA FOLHA (FUNCIONÁRIOS) */}
               <Card>
@@ -7894,219 +7880,113 @@ export function FolhaPagamento() {
 
         {tipoImpressaoA4 === "vendas" && (
           <div className="space-y-4">
-            {/* Se for Monteiro (ou empresa Monteiro ativa), a impressão sai SOMENTE como folha de comissão para pagamento do Márcio Luan */}
+            {/* Se for Monteiro (ou empresa Monteiro ativa), a impressão sai no MESMO layout do bloco SJE para cada vendedor de linhasVendasTerceiros */}
             {empresaAtiva?.id === ID_EMPRESA_MONTEIRO ||
             (empresaAtiva?.nome || "").toUpperCase().includes("MONTEIRO") ? (
-              (() => {
-                const marcio =
-                  linhasVendasTerceiros.find((t) =>
-                    (t.nome || "").toUpperCase().includes("MARCIO LUAN"),
-                  ) ||
-                  linhasVendas.find((l) =>
-                    (l.nome || "").toUpperCase().includes("MARCIO LUAN"),
-                  )
+              linhasVendasTerceiros.length > 0 ? (
+                <div className="space-y-6">
+                  {linhasVendasTerceiros.map((l) => {
+                    const vendasObra = Number(l.vendas_obra || 0)
+                    const comissaoFinal = Number(l.comissaoFinal || 0)
+                    const ajudaCusto = Number(
+                      l.ajuda_custo ?? l.vendas_ajuda ?? 0,
+                    )
+                    const totalReceberVendas =
+                      Math.round((comissaoFinal + ajudaCusto) * 100) / 100
 
-                const nomeVendedor = marcio?.nome || "MÁRCIO LUAN"
-                const valorObrasVendidas = Number(marcio?.vendas_obra || 0)
-                const comissaoCalculada = Number(
-                  marcio?.comissaoFinal || marcio?.comissao || 0,
-                )
-                const valorAPagar = comissaoCalculada
-                const dadosPix = marcio?.pix || marcio?.chave_pix || "-"
-                const dadosConta = marcio?.conta || "-"
+                    return (
+                      <div key={l.id} className="space-y-6">
+                        <div className="p-4 border rounded bg-gray-50 text-xs space-y-3">
+                          <div className="font-bold text-sm uppercase text-gray-800 border-b pb-1">
+                            Destaque Lançador de Vendas: {l.nome}
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                            <div>
+                              <span className="text-gray-500 block text-[10px] uppercase font-semibold">
+                                Total Obras / Vendido:
+                              </span>
+                              <span className="font-mono font-bold text-blue-700 text-sm">
+                                {fmtMoeda(vendasObra)}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500 block text-[10px] uppercase font-semibold">
+                                Comissão (Tabela Progressiva):
+                              </span>
+                              <span className="font-mono font-bold text-amber-700 text-sm">
+                                {fmtMoeda(comissaoFinal)}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500 block text-[10px] uppercase font-semibold">
+                                Ajuda de Custo:
+                              </span>
+                              <span className="font-mono font-bold text-gray-800 text-sm">
+                                {fmtMoeda(ajudaCusto)}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500 block text-[10px] uppercase font-semibold">
+                                Total a Receber:
+                              </span>
+                              <span className="font-mono font-bold text-emerald-700 text-sm">
+                                {fmtMoeda(totalReceberVendas)}
+                              </span>
+                              <span className="text-[9px] text-gray-500 block mt-0.5">
+                                Comissão + Ajuda de Custo
+                              </span>
+                            </div>
+                          </div>
 
-                return (
-                  <div className="space-y-6 p-4">
-                    <div className="border-b pb-3 text-center space-y-1">
-                      <div className="text-base font-black tracking-wider uppercase text-gray-900">
-                        FOLHA DE COMISSÃO DE VENDAS
-                      </div>
-                      <div className="text-xs text-gray-700 font-semibold uppercase">
-                        {empresaAtiva?.nome || "CONCRETEIRA MONTEIRO"} —
-                        COMPETÊNCIA: {rotuloCompetenciaMesAno}
-                      </div>
-                    </div>
-
-                    {/* Dados do Vendedor e Valores */}
-                    <div className="border border-gray-300 rounded overflow-hidden">
-                      <table className="w-full border-collapse text-xs">
-                        <tbody>
-                          <tr className="border-b bg-gray-50/70">
-                            <td className="p-3 font-semibold text-gray-600 w-1/3 uppercase text-[11px]">
-                              Vendedor
-                            </td>
-                            <td className="p-3 font-bold text-sm text-gray-900">
-                              {nomeVendedor}
-                            </td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="p-3 font-semibold text-gray-600 uppercase text-[11px]">
-                              Valor das Obras Vendidas
-                            </td>
-                            <td className="p-3 font-mono font-bold text-sm text-blue-700">
-                              {fmtMoeda(valorObrasVendidas)}
-                            </td>
-                          </tr>
-                          <tr className="border-b bg-gray-50/70">
-                            <td className="p-3 font-semibold text-gray-600 uppercase text-[11px]">
-                              Comissão Calculada (Tabela Progressiva)
-                            </td>
-                            <td className="p-3 font-mono font-bold text-sm text-amber-700">
-                              {fmtMoeda(comissaoCalculada)}
-                            </td>
-                          </tr>
-                          <tr className="border-b-2 border-gray-800 bg-emerald-50/50">
-                            <td className="p-3 font-extrabold text-gray-900 uppercase text-[12px]">
-                              VALOR A PAGAR
-                            </td>
-                            <td className="p-3 font-mono font-black text-base text-emerald-700">
-                              {fmtMoeda(valorAPagar)}
-                            </td>
-                          </tr>
-                          <tr className="border-b text-[11px]">
-                            <td className="p-2.5 text-gray-500 uppercase">
-                              Dados Bancários (Agência / Conta)
-                            </td>
-                            <td className="p-2.5 font-mono text-gray-700">
-                              {dadosConta}
-                            </td>
-                          </tr>
-                          <tr className="text-[11px]">
-                            <td className="p-2.5 text-gray-500 uppercase">
-                              Chave PIX
-                            </td>
-                            <td className="p-2.5 font-mono text-gray-700">
-                              {dadosPix}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Tabela Progressiva de Faixas de Monteiro (Demonstrativo Marginal) */}
-                    {faixasComissao.length > 0 && (
-                      <div className="space-y-1.5 pt-1">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
-                          Demonstrativo de Cálculo — Tabela Progressiva
-                          (Marginal)
+                          <div className="pt-2 border-t text-[11px] grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-gray-500">
+                                Agência / Conta:{" "}
+                              </span>
+                              <span className="font-mono font-medium">
+                                {l.conta || "Não informado"}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Chave PIX: </span>
+                              <span className="font-mono font-medium">
+                                {l.pix || l.chave_pix || "Não informado"}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <table className="w-full border-collapse border text-[9px] font-mono">
-                          <thead className="bg-gray-100 uppercase text-gray-700 font-bold">
-                            <tr>
-                              <th className="border p-1.5 text-left">Faixa</th>
-                              <th className="border p-1.5 text-left">
-                                De (R$)
-                              </th>
-                              <th className="border p-1.5 text-left">
-                                Até (R$)
-                              </th>
-                              <th className="border p-1.5 text-right">
-                                Alíquota (%)
-                              </th>
-                              <th className="border p-1.5 text-right">
-                                Base na Faixa
-                              </th>
-                              <th className="border p-1.5 text-right">
-                                Comissão da Faixa
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(() => {
-                              const faixasOrdenadas = [...faixasComissao].sort(
-                                (a, b) =>
-                                  Number(a.de_valor || 0) -
-                                  Number(b.de_valor || 0),
-                              )
-                              let baseRestante = valorObrasVendidas
 
-                              return faixasOrdenadas.map((f, idx) => {
-                                const de = Number(f.de_valor || 0)
-                                const ate = Number(f.ate_valor || 0)
-                                const percRaw = Number(f.percentual || 0)
-                                const perc =
-                                  percRaw > 1 ? percRaw / 100 : percRaw
-                                const percFormatado =
-                                  percRaw > 1 ? percRaw : percRaw * 100
-
-                                let baseNaFaixa = 0
-                                if (valorObrasVendidas > de) {
-                                  const tetoFaixa =
-                                    ate >= 900000000 ? Infinity : ate
-                                  const larguraFaixa = tetoFaixa - de
-                                  baseNaFaixa = Math.min(
-                                    valorObrasVendidas - de,
-                                    larguraFaixa,
-                                  )
-                                  if (baseNaFaixa < 0) baseNaFaixa = 0
-                                }
-                                const comissaoFaixa =
-                                  Math.round(baseNaFaixa * perc * 100) / 100
-
-                                return (
-                                  <tr
-                                    key={idx}
-                                    className={
-                                      baseNaFaixa > 0 ? "bg-amber-50/40" : ""
-                                    }
-                                  >
-                                    <td className="border p-1 font-semibold">
-                                      {idx + 1}ª Faixa
-                                    </td>
-                                    <td className="border p-1">
-                                      {fmtMoeda(f.de_valor)}
-                                    </td>
-                                    <td className="border p-1">
-                                      {ate >= 900000000
-                                        ? "Sem limite"
-                                        : fmtMoeda(f.ate_valor)}
-                                    </td>
-                                    <td className="border p-1 text-right font-bold">
-                                      {percFormatado.toLocaleString("pt-BR", {
-                                        minimumFractionDigits: 1,
-                                        maximumFractionDigits: 3,
-                                      })}
-                                      %
-                                    </td>
-                                    <td className="border p-1 text-right">
-                                      {fmtMoeda(baseNaFaixa)}
-                                    </td>
-                                    <td className="border p-1 text-right font-bold text-amber-800">
-                                      {fmtMoeda(comissaoFaixa)}
-                                    </td>
-                                  </tr>
-                                )
-                              })
-                            })()}
-                          </tbody>
-                        </table>
+                        {/* Espaço para Assinatura do Vendedor e Diretoria */}
+                        <div className="pt-8 grid grid-cols-2 gap-12 text-center text-xs">
+                          <div>
+                            <div className="border-b border-gray-400 pb-1 mb-1 mx-4"></div>
+                            <span className="font-bold uppercase text-gray-800">
+                              {l.nome}
+                            </span>
+                            <p className="text-[10px] text-gray-500">
+                              Vendedor
+                            </p>
+                          </div>
+                          <div>
+                            <div className="border-b border-gray-400 pb-1 mb-1 mx-4"></div>
+                            <span className="font-bold uppercase text-gray-800">
+                              Diretoria / Financeiro
+                            </span>
+                            <p className="text-[10px] text-gray-500">
+                              {empresaAtiva?.nome || "Concreteira"}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    )}
-
-                    {/* Espaço para Assinatura */}
-                    <div className="pt-12 grid grid-cols-2 gap-12 text-center text-xs">
-                      <div>
-                        <div className="border-b border-gray-400 pb-1 mb-1 mx-4"></div>
-                        <span className="font-bold uppercase text-gray-800">
-                          {nomeVendedor}
-                        </span>
-                        <p className="text-[10px] text-gray-500">Vendedor</p>
-                      </div>
-                      <div>
-                        <div className="border-b border-gray-400 pb-1 mb-1 mx-4"></div>
-                        <span className="font-bold uppercase text-gray-800">
-                          Diretoria / Financeiro
-                        </span>
-                        <p className="text-[10px] text-gray-500">
-                          {empresaAtiva?.nome || "Concreteira"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })()
-            ) : /* SE NÃO FOR MONTEIRO (ex: SJE ou outras unidades) */
-              empresaAtiva?.id === ID_EMPRESA_SJE ? (
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="p-4 text-center text-xs text-muted-foreground border rounded">
+                  Nenhum vendedor terceiro encontrado para esta competência.
+                </div /* SE NÃO FOR MONTEIRO (ex: SJE ou outras unidades) */>
+              )
+            ) : empresaAtiva?.id === ID_EMPRESA_SJE ? (
               /* Em SJE, imprime APENAS o bloco do Lançador de Vendas */
               dadosLancadorVendas ? (
                 <div className="space-y-6">
