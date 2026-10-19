@@ -12,11 +12,21 @@ import {
   Package,
   Layers,
   ArrowRight,
+  Send,
+  Copy,
+  Check,
+  AlertCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from "@/assets/logos"
 import { printElementInIsolatedIframe } from "@/lib/imprimir-recibo"
-import type { DadosRelatorioGerencialMes } from "@/services/relatorio-gerencial"
+import {
+  RelatorioGerencialService,
+  type DadosRelatorioGerencialMes,
+  type DadosFechamentoWhatsApp,
+} from "@/services/relatorio-gerencial"
+import { useEmpresa } from "@/hooks/use-empresa"
+import { useToast } from "@/hooks/use-toast"
 
 interface RelatorioGerencialMesProps {
   dados: DadosRelatorioGerencialMes
@@ -43,8 +53,74 @@ export const RelatorioGerencialMes: React.FC<RelatorioGerencialMesProps> = ({
   dados,
   carregando = false,
 }) => {
+  const { empresaAtiva } = useEmpresa()
+  const { toast } = useToast()
   const containerImpressaoRef = useRef<HTMLDivElement>(null)
   const [imprimindo, setImprimindo] = useState(false)
+  const [gerandoWhatsApp, setGerandoWhatsApp] = useState(false)
+  const [copiado, setCopiado] = useState(false)
+
+  const handleGerarFechamentoWhatsApp = async () => {
+    setGerandoWhatsApp(true)
+    try {
+      const slugOuId =
+        empresaAtiva?.slug ||
+        empresaAtiva?.id ||
+        dados.empresaFiltro ||
+        "monteiro"
+      const res: DadosFechamentoWhatsApp =
+        await RelatorioGerencialService.obterFechamentoWhatsApp({
+          empresaAtivaSlugOuId: slugOuId,
+        })
+
+      // Fallback de cópia para a área de transferência
+      let copiouClipboard = false
+      if (navigator?.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(res.textoWhatsApp)
+          copiouClipboard = true
+          setCopiado(true)
+          setTimeout(() => setCopiado(false), 3000)
+        } catch (clipErr) {
+          console.warn(
+            "Não foi possível copiar para clipboard via API:",
+            clipErr,
+          )
+        }
+      }
+
+      if (res.avisoSemDestino || !res.telefoneDestino || !res.linkWhatsApp) {
+        toast({
+          title: "Sem destino configurado",
+          description:
+            res.avisoSemDestino ||
+            "Não há número de WhatsApp configurado para esta unidade.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Abrir o WhatsApp em nova aba
+      window.open(res.linkWhatsApp, "_blank", "noopener,noreferrer")
+
+      toast({
+        title: "Fechamento gerado!",
+        description: copiouClipboard
+          ? "WhatsApp aberto e mensagem copiada para a área de transferência."
+          : "WhatsApp aberto com a mensagem pronta.",
+      })
+    } catch (err: any) {
+      console.error("Erro ao gerar fechamento WhatsApp:", err)
+      toast({
+        title: "Erro ao gerar fechamento",
+        description:
+          err?.message || "Ocorreu um erro ao montar os dados da folha.",
+        variant: "destructive",
+      })
+    } finally {
+      setGerandoWhatsApp(false)
+    }
+  }
 
   const handleImprimir = async () => {
     if (!containerImpressaoRef.current) return
@@ -144,14 +220,49 @@ export const RelatorioGerencialMes: React.FC<RelatorioGerencialMesProps> = ({
           </div>
         </div>
 
-        <Button
-          onClick={handleImprimir}
-          disabled={imprimindo || carregando}
-          className="gap-2 bg-primary text-primary-foreground font-semibold shadow-sm w-full sm:w-auto"
-        >
-          <Printer className="w-4 h-4" />
-          {imprimindo ? "Preparando Impressão..." : "Imprimir Página A4"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Botão de Fechamento do Mês no WhatsApp */}
+          {empresaAtiva?.slug?.toLowerCase() === "caico" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled
+              title="A unidade Caicó não possui destino de WhatsApp configurado"
+              className="gap-1.5 text-xs text-muted-foreground opacity-60 w-full sm:w-auto"
+            >
+              <AlertCircle className="w-3.5 h-3.5" />
+              WhatsApp indisponível (Caicó)
+            </Button>
+          ) : (
+            <Button
+              onClick={handleGerarFechamentoWhatsApp}
+              disabled={gerandoWhatsApp || carregando}
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm w-full sm:w-auto"
+              title="Gera o fechamento do mês anterior ao relógio e abre o WhatsApp com a mensagem pronta"
+            >
+              {copiado ? (
+                <Check className="w-4 h-4 text-emerald-200" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+              {gerandoWhatsApp
+                ? "Calculando Fechamento..."
+                : copiado
+                  ? "Copiado & Aberto!"
+                  : "GERAR FECHAMENTO DO MÊS (WhatsApp)"}
+            </Button>
+          )}
+
+          <Button
+            onClick={handleImprimir}
+            disabled={imprimindo || carregando}
+            variant="outline"
+            className="gap-2 font-semibold shadow-sm w-full sm:w-auto"
+          >
+            <Printer className="w-4 h-4" />
+            {imprimindo ? "Preparando Impressão..." : "Imprimir Página A4"}
+          </Button>
+        </div>
       </div>
 
       {/* =========================================================================

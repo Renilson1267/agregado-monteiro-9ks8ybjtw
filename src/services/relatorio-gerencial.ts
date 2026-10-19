@@ -326,7 +326,249 @@ export function calcularResumoFolhaUnidade(params: {
   }
 }
 
+export interface ItemFechamentoWhatsAppUnidade {
+  nomeUnidade: string
+  pessoasNaFolha: number
+  salariosQuinzena: number
+  salariosMensalLiquido: number
+  producaoAPagar: number
+  comissoesAjudaVendas: number
+  terceiros: number
+  totalUnidade: number
+}
+
+export interface DadosFechamentoWhatsApp {
+  competencia: string // "YYYY-MM"
+  rotuloMesAno: string // "MÊS/ANO"
+  telefoneDestino: string | null // "5583981503316" | "5587998061826" | null
+  unidades: ItemFechamentoWhatsAppUnidade[]
+  totalGeral: number
+  textoWhatsApp: string
+  linkWhatsApp: string | null
+  avisoSemDestino?: string
+}
+
+function formatarMoedaWhatsApp(val: number): string {
+  return (val || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  })
+}
+
 export const RelatorioGerencialService = {
+  obterMesAnterior,
+
+  /**
+   * Monta os dados e texto formatado em negrito WhatsApp para o Fechamento do Mês
+   * do mês anterior ao relógio (competência atual - 1).
+   * Destinos por empresa ativa:
+   * - PATOS → 5583981503316
+   * - SJE ou MONTEIRO → 5587998061826 (SJE e Monteiro no mesmo fechamento)
+   * - CAICÓ → sem destino configurado
+   */
+  async obterFechamentoWhatsApp(params: {
+    empresaAtivaSlugOuId?: string
+    competenciaAlvo?: string
+  }): Promise<DadosFechamentoWhatsApp> {
+    const hoje = new Date()
+    const compAtualRelogio = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`
+    // Fechamento do mês anterior ao relógio por padrão
+    const compFechamento =
+      params.competenciaAlvo || obterMesAnterior(compAtualRelogio)
+
+    const [anoStr, mesStr] = compFechamento.split("-")
+    const ano = Number(anoStr) || 2026
+    const mes = Number(mesStr) || 1
+    const mesesAbrev = [
+      "JANEIRO",
+      "FEVEREIRO",
+      "MARÇO",
+      "ABRIL",
+      "MAIO",
+      "JUNHO",
+      "JULHO",
+      "AGOSTO",
+      "SETEMBRO",
+      "OUTUBRO",
+      "NOVEMBRO",
+      "DEZEMBRO",
+    ]
+    const nomeMes = mesesAbrev[mes - 1] || mesStr
+    const rotuloMesAno = `${nomeMes}/${ano}`
+
+    const slug = (params.empresaAtivaSlugOuId || "").toLowerCase().trim()
+    const ehPatos = slug === "patos" || slug.includes("patos")
+    const ehCaico = slug === "caico" || slug.includes("caic")
+
+    let telefoneDestino: string | null = null
+    let avisoSemDestino: string | undefined = undefined
+
+    if (ehPatos) {
+      telefoneDestino = "5583981503316"
+    } else if (ehCaico) {
+      telefoneDestino = null
+      avisoSemDestino =
+        "A unidade Caicó não possui destino de WhatsApp configurado para fechamento mensal."
+    } else {
+      // Padrão: SJE e Monteiro no mesmo fechamento
+      telefoneDestino = "5587998061826"
+    }
+
+    // Helper interno para carregar e calcular unidade
+    const carregarUnidade = async (
+      empresaId: string,
+      nomeUnidade: string,
+    ): Promise<ItemFechamentoWhatsAppUnidade> => {
+      try {
+        const [linhas, terceiros, tabela, faixas, compObj] = await Promise.all([
+          FolhaService.getLinhasCompetencia(empresaId, compFechamento).catch(
+            () => [],
+          ),
+          FolhaService.getTerceiros(empresaId).catch(() => []),
+          FolhaService.getTabelaOficial(empresaId, ano).catch(() => null),
+          FolhaService.getFaixasComissao(empresaId).catch(() => []),
+          FolhaService.getCompetencia(empresaId, compFechamento).catch(
+            () => null,
+          ),
+        ])
+
+        const pctQuinzena = compObj?.percentual_quinzena ?? 0.4
+        const resumo = calcularResumoFolhaUnidade({
+          empresaId,
+          linhas,
+          terceiros,
+          tabelaOficial: tabela,
+          faixasComissao: faixas,
+          percentualQuinzena: pctQuinzena,
+        })
+
+        // Comissões + Ajuda de Custo (Vendas)
+        let ajudaCustoTerceiros = 0
+        const tercs = (linhas || []).filter((l) => l.tipo === "Terceiro")
+        tercs.forEach((t) => {
+          ajudaCustoTerceiros += Number(t.ajuda_custo ?? t.vendas_ajuda ?? 0)
+        })
+
+        const comissoesAjudaVendas =
+          Math.round((resumo.comissoesVendas + ajudaCustoTerceiros) * 100) / 100
+
+        return {
+          nomeUnidade,
+          pessoasNaFolha: resumo.pessoasNaFolha,
+          salariosQuinzena: resumo.salariosQuinzena,
+          salariosMensalLiquido: resumo.salariosMensalLiquido,
+          producaoAPagar: resumo.producaoAPagar,
+          comissoesAjudaVendas,
+          terceiros: resumo.terceirosFolha,
+          totalUnidade: resumo.totalGeral,
+        }
+      } catch (err) {
+        console.warn(`Erro ao carregar folha da unidade ${nomeUnidade}:`, err)
+        return {
+          nomeUnidade,
+          pessoasNaFolha: 0,
+          salariosQuinzena: 0,
+          salariosMensalLiquido: 0,
+          producaoAPagar: 0,
+          comissoesAjudaVendas: 0,
+          terceiros: 0,
+          totalUnidade: 0,
+        }
+      }
+    }
+
+    const unidades: ItemFechamentoWhatsAppUnidade[] = []
+
+    if (ehPatos) {
+      // Buscar id de Patos
+      const { data: empPatos } = await (supabase as any)
+        .from("empresas")
+        .select("id, nome")
+        .eq("slug", "patos")
+        .maybeSingle()
+      const idPatos = empPatos?.id || params.empresaAtivaSlugOuId || ""
+      const uPatos = await carregarUnidade(idPatos, "PATOS")
+      unidades.push(uPatos)
+    } else if (ehCaico) {
+      const { data: empCaico } = await (supabase as any)
+        .from("empresas")
+        .select("id, nome")
+        .eq("slug", "caico")
+        .maybeSingle()
+      const idCaico = empCaico?.id || params.empresaAtivaSlugOuId || ""
+      const uCaico = await carregarUnidade(idCaico, "CAICÓ")
+      unidades.push(uCaico)
+    } else {
+      // SJE e MONTEIRO NO MESMO FECHAMENTO (um só clique monta as duas unidades)
+      const [uMonteiro, uSje] = await Promise.all([
+        carregarUnidade(ID_EMPRESA_MONTEIRO, "MONTEIRO"),
+        carregarUnidade(ID_EMPRESA_SJE, "SÃO JOSÉ DO EGITO"),
+      ])
+      unidades.push(uMonteiro, uSje)
+    }
+
+    const totalGeral =
+      Math.round(
+        unidades.reduce((acc, u) => acc + (u.totalUnidade || 0), 0) * 100,
+      ) / 100
+
+    // Montagem da mensagem formatada com negrito WhatsApp (*texto*)
+    const linhasMsg: string[] = []
+    linhasMsg.push(`*GC MIX — FECHAMENTO ${rotuloMesAno}*`)
+    linhasMsg.push("")
+
+    unidades.forEach((u, idx) => {
+      linhasMsg.push(`*UNIDADE ${u.nomeUnidade.toUpperCase()}*`)
+      linhasMsg.push(`• Pessoas na folha: ${u.pessoasNaFolha}`)
+      linhasMsg.push(
+        `• Salários Quinzena: ${formatarMoedaWhatsApp(u.salariosQuinzena)}`,
+      )
+      linhasMsg.push(
+        `• Salários Mensal (líquido): ${formatarMoedaWhatsApp(u.salariosMensalLiquido)}`,
+      )
+      linhasMsg.push(
+        `• Produção (a pagar): ${formatarMoedaWhatsApp(u.producaoAPagar)}`,
+      )
+      linhasMsg.push(
+        `• Comissões + Ajuda de Custo (Vendas): ${formatarMoedaWhatsApp(u.comissoesAjudaVendas)}`,
+      )
+      linhasMsg.push(`• Terceiros: ${formatarMoedaWhatsApp(u.terceiros)}`)
+      linhasMsg.push(
+        `*TOTAL DA UNIDADE: ${formatarMoedaWhatsApp(u.totalUnidade)}*`,
+      )
+      if (idx < unidades.length - 1) {
+        linhasMsg.push("")
+        linhasMsg.push("────────────────────")
+        linhasMsg.push("")
+      }
+    })
+
+    if (unidades.length > 1) {
+      linhasMsg.push("")
+      linhasMsg.push(
+        `*TOTAL GERAL GC MIX: ${formatarMoedaWhatsApp(totalGeral)}*`,
+      )
+    }
+
+    const textoWhatsApp = linhasMsg.join("\n")
+
+    let linkWhatsApp: string | null = null
+    if (telefoneDestino) {
+      linkWhatsApp = `https://wa.me/${telefoneDestino}?text=${encodeURIComponent(textoWhatsApp)}`
+    }
+
+    return {
+      competencia: compFechamento,
+      rotuloMesAno,
+      telefoneDestino,
+      unidades,
+      totalGeral,
+      textoWhatsApp,
+      linkWhatsApp,
+      avisoSemDestino,
+    }
+  },
+
   /**
    * Monta o relatório gerencial simplificado de 1 página A4
    */
