@@ -347,7 +347,11 @@ export async function convertElementToPdfFile(
     quality: 0.95,
   })
   const pdfBytes = createA4PdfFromJpeg(jpegBytes)
-  return new File([pdfBytes], nomeArquivo, {
+  const arrayBuffer = pdfBytes.buffer.slice(
+    pdfBytes.byteOffset,
+    pdfBytes.byteOffset + pdfBytes.byteLength,
+  ) as ArrayBuffer
+  return new File([arrayBuffer], nomeArquivo, {
     type: "application/pdf",
   })
 }

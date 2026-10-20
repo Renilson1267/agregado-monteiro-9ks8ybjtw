@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import {
   Card,
   CardContent,
@@ -73,6 +73,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Globe2,
+  Send,
 } from "lucide-react"
 import {
   AlertDialog,
