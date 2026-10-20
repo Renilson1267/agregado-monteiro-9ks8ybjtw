@@ -36,10 +36,22 @@ export interface ResumoFolhaUnidade {
   totalUnidade: number
 }
 
+export type UnidadeConsolidadoSlug = "monteiro" | "sje" | "patos" | "caico"
+
+export interface ItemUnidadeConsolidadoInfo {
+  slug: UnidadeConsolidadoSlug
+  nomeCurto: string
+  nomeCompleto: string
+  empresaId: string
+}
+
 export interface RelatorioConsolidadoSjeMonteiro {
   competencia: string // "YYYY-MM"
   rotuloCompetencia: string // "SETEMBRO / 2026"
   dataEmissao: string // "DD/MM/AAAA HH:mm"
+  unidadesFiltro?: UnidadeConsolidadoSlug[] // se omitido, são todas as 4
+  tituloDocumento?: string
+  subtituloDocumento?: string
   producao: {
     monteiro: DadosProducaoUnidade
     sje: DadosProducaoUnidade
@@ -57,6 +69,8 @@ export interface RelatorioConsolidadoSjeMonteiro {
   folha: {
     monteiro: ResumoFolhaUnidade
     sje: ResumoFolhaUnidade
+    patos?: ResumoFolhaUnidade
+    caico?: ResumoFolhaUnidade
     totalGeralGcMix: number
   }
 }
@@ -212,6 +226,7 @@ export const RelatorioConsolidadoService = {
    */
   async gerarConsolidado(
     competencia: string,
+    unidades?: UnidadeConsolidadoSlug[],
   ): Promise<RelatorioConsolidadoSjeMonteiro> {
     const [anoStr, mesStr] = competencia.split("-")
     const ano = Number(anoStr) || 2026
@@ -438,16 +453,28 @@ export const RelatorioConsolidadoService = {
         ) / 100,
     }
 
-    // 3. Buscar dados de Folha (Monteiro e SJE)
-    const [linhasMont, linhasSjeData, tercsMont, tercsSjeData] =
-      await Promise.all([
-        FolhaService.getLinhasCompetencia(idMonteiro, competencia).catch(
-          () => [],
-        ),
-        FolhaService.getLinhasCompetencia(idSje, competencia).catch(() => []),
-        FolhaService.getTerceiros(idMonteiro).catch(() => []),
-        FolhaService.getTerceiros(idSje).catch(() => []),
-      ])
+    // 3. Buscar dados de Folha de todas as unidades relevantes (Monteiro, SJE, Patos, Caicó)
+    const [
+      linhasMont,
+      linhasSjeData,
+      linhasPatosData,
+      linhasCaicoData,
+      tercsMont,
+      tercsSjeData,
+      tercsPatosData,
+      tercsCaicoData,
+    ] = await Promise.all([
+      FolhaService.getLinhasCompetencia(idMonteiro, competencia).catch(
+        () => [],
+      ),
+      FolhaService.getLinhasCompetencia(idSje, competencia).catch(() => []),
+      FolhaService.getLinhasCompetencia(idPatos, competencia).catch(() => []),
+      FolhaService.getLinhasCompetencia(idCaico, competencia).catch(() => []),
+      FolhaService.getTerceiros(idMonteiro).catch(() => []),
+      FolhaService.getTerceiros(idSje).catch(() => []),
+      FolhaService.getTerceiros(idPatos).catch(() => []),
+      FolhaService.getTerceiros(idCaico).catch(() => []),
+    ])
 
     const folhaMonteiro = calcularFolhaUnidadeComparativo(
       linhasMont || [],
@@ -457,32 +484,192 @@ export const RelatorioConsolidadoService = {
       linhasSjeData || [],
       tercsSjeData || [],
     )
+    const folhaPatos = calcularFolhaUnidadeComparativo(
+      linhasPatosData || [],
+      tercsPatosData || [],
+    )
+    const folhaCaico = calcularFolhaUnidadeComparativo(
+      linhasCaicoData || [],
+      tercsCaicoData || [],
+    )
 
-    const totalGeralGcMix =
-      Math.round((folhaMonteiro.totalUnidade + folhaSje.totalUnidade) * 100) /
-      100
+    // Se houver filtro específico de unidades, calcula os totais somando apenas as unidades filtradas
+    const unidadesFiltradas =
+      unidades && unidades.length > 0
+        ? unidades
+        : ["monteiro", "sje", "patos", "caico"]
+
+    // Total produção filtrada
+    let cargasTotalFiltro = 0
+    let volumeTotalFiltro = 0
+    if (unidadesFiltradas.includes("monteiro")) {
+      cargasTotalFiltro += prodMonteiro.cargas
+      volumeTotalFiltro += prodMonteiro.volumeM3
+    }
+    if (unidadesFiltradas.includes("sje")) {
+      cargasTotalFiltro += prodSje.cargas
+      volumeTotalFiltro += prodSje.volumeM3
+    }
+    if (unidadesFiltradas.includes("patos")) {
+      cargasTotalFiltro += prodPatos.cargas
+      volumeTotalFiltro += prodPatos.volumeM3
+    }
+    if (unidadesFiltradas.includes("caico")) {
+      cargasTotalFiltro += prodCaico.cargas
+      volumeTotalFiltro += prodCaico.volumeM3
+    }
+
+    const prodTotalCalculado: DadosProducaoUnidade = {
+      cargas: cargasTotalFiltro,
+      volumeM3: Math.round(volumeTotalFiltro * 10) / 10,
+    }
+
+    // Total consumos filtrados
+    const consumosTotalCalculado: ConsumosUnidade = {
+      cimentoKg:
+        Math.round(
+          ((unidadesFiltradas.includes("monteiro")
+            ? consumosMonteiro.cimentoKg
+            : 0) +
+            (unidadesFiltradas.includes("sje") ? consumosSje.cimentoKg : 0) +
+            (unidadesFiltradas.includes("patos")
+              ? consumosPatos.cimentoKg
+              : 0) +
+            (unidadesFiltradas.includes("caico")
+              ? consumosCaico.cimentoKg
+              : 0)) *
+            100,
+        ) / 100,
+      brita1Kg:
+        Math.round(
+          ((unidadesFiltradas.includes("monteiro")
+            ? consumosMonteiro.brita1Kg
+            : 0) +
+            (unidadesFiltradas.includes("sje") ? consumosSje.brita1Kg : 0) +
+            (unidadesFiltradas.includes("patos") ? consumosPatos.brita1Kg : 0) +
+            (unidadesFiltradas.includes("caico")
+              ? consumosCaico.brita1Kg
+              : 0)) *
+            100,
+        ) / 100,
+      brita2Kg:
+        Math.round(
+          ((unidadesFiltradas.includes("monteiro")
+            ? consumosMonteiro.brita2Kg
+            : 0) +
+            (unidadesFiltradas.includes("sje") ? consumosSje.brita2Kg : 0) +
+            (unidadesFiltradas.includes("patos") ? consumosPatos.brita2Kg : 0) +
+            (unidadesFiltradas.includes("caico")
+              ? consumosCaico.brita2Kg
+              : 0)) *
+            100,
+        ) / 100,
+      areiaKg:
+        Math.round(
+          ((unidadesFiltradas.includes("monteiro")
+            ? consumosMonteiro.areiaKg
+            : 0) +
+            (unidadesFiltradas.includes("sje") ? consumosSje.areiaKg : 0) +
+            (unidadesFiltradas.includes("patos") ? consumosPatos.areiaKg : 0) +
+            (unidadesFiltradas.includes("caico") ? consumosCaico.areiaKg : 0)) *
+            100,
+        ) / 100,
+      poPedraKg:
+        Math.round(
+          ((unidadesFiltradas.includes("monteiro")
+            ? consumosMonteiro.poPedraKg
+            : 0) +
+            (unidadesFiltradas.includes("sje") ? consumosSje.poPedraKg : 0) +
+            (unidadesFiltradas.includes("patos")
+              ? consumosPatos.poPedraKg
+              : 0) +
+            (unidadesFiltradas.includes("caico")
+              ? consumosCaico.poPedraKg
+              : 0)) *
+            100,
+        ) / 100,
+      aditivoL:
+        Math.round(
+          ((unidadesFiltradas.includes("monteiro")
+            ? consumosMonteiro.aditivoL
+            : 0) +
+            (unidadesFiltradas.includes("sje") ? consumosSje.aditivoL : 0) +
+            (unidadesFiltradas.includes("patos") ? consumosPatos.aditivoL : 0) +
+            (unidadesFiltradas.includes("caico")
+              ? consumosCaico.aditivoL
+              : 0)) *
+            100,
+        ) / 100,
+      aguaL:
+        Math.round(
+          ((unidadesFiltradas.includes("monteiro")
+            ? consumosMonteiro.aguaL
+            : 0) +
+            (unidadesFiltradas.includes("sje") ? consumosSje.aguaL : 0) +
+            (unidadesFiltradas.includes("patos") ? consumosPatos.aguaL : 0) +
+            (unidadesFiltradas.includes("caico") ? consumosCaico.aguaL : 0)) *
+            100,
+        ) / 100,
+    }
+
+    // Total folha filtrada
+    let totalFolhaFiltro = 0
+    if (unidadesFiltradas.includes("monteiro"))
+      totalFolhaFiltro += folhaMonteiro.totalUnidade
+    if (unidadesFiltradas.includes("sje"))
+      totalFolhaFiltro += folhaSje.totalUnidade
+    if (unidadesFiltradas.includes("patos"))
+      totalFolhaFiltro += folhaPatos.totalUnidade
+    if (unidadesFiltradas.includes("caico"))
+      totalFolhaFiltro += folhaCaico.totalUnidade
+
+    const totalGeralGcMix = Math.round(totalFolhaFiltro * 100) / 100
+
+    // Rótulos de documento conforme as unidades
+    let tituloDocumento = "GC MIX — RELATÓRIO CONSOLIDADO GERAL (4 UNIDADES)"
+    let subtituloDocumento =
+      "UNIDADES: MONTEIRO / PB • SJE / PE • PATOS / PB • CAICÓ / RN"
+    if (unidades && unidades.length === 1 && unidades[0] === "patos") {
+      tituloDocumento = "GC MIX — RELATÓRIO CONSOLIDADO • UNIDADE PATOS"
+      subtituloDocumento =
+        "UNIDADE: PATOS / PB • FECHAMENTO OPERACIONAL & FINANCEIRO"
+    } else if (
+      unidades &&
+      unidades.length === 2 &&
+      unidades.includes("monteiro") &&
+      unidades.includes("sje")
+    ) {
+      tituloDocumento = "GC MIX — RELATÓRIO CONSOLIDADO • SJE + MONTEIRO"
+      subtituloDocumento =
+        "UNIDADES: SÃO JOSÉ DO EGITO / PE • MONTEIRO / PB (CONSOLIDADO)"
+    }
 
     return {
       competencia,
       rotuloCompetencia,
       dataEmissao,
+      unidadesFiltro: unidades,
+      tituloDocumento,
+      subtituloDocumento,
       producao: {
         monteiro: prodMonteiro,
         sje: prodSje,
         patos: prodPatos,
         caico: prodCaico,
-        total: prodTotal,
+        total: prodTotalCalculado,
       },
       consumos: {
         monteiro: consumosMonteiro,
         sje: consumosSje,
         patos: consumosPatos,
         caico: consumosCaico,
-        total: consumosTotal,
+        total: consumosTotalCalculado,
       },
       folha: {
         monteiro: folhaMonteiro,
         sje: folhaSje,
+        patos: folhaPatos,
+        caico: folhaCaico,
         totalGeralGcMix,
       },
     }

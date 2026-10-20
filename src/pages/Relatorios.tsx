@@ -32,7 +32,12 @@ import { RelatorioConsolidadoDocumento } from "@/components/RelatorioConsolidado
 import {
   RelatorioConsolidadoService,
   type RelatorioConsolidadoSjeMonteiro,
+  type UnidadeConsolidadoSlug,
 } from "@/services/relatorio-consolidado"
+import {
+  convertElementToPdfFile,
+  compartilharPdfOuFallbackWhatsApp,
+} from "@/lib/pdf-whatsapp-share"
 import {
   Dialog,
   DialogContent,
@@ -212,34 +217,53 @@ export default function Relatorios() {
   const [dadosConsolidado, setDadosConsolidado] =
     useState<RelatorioConsolidadoSjeMonteiro | null>(null)
   const [loadingConsolidado, setLoadingConsolidado] = useState(false)
+  const [unidadesFiltroConsolidado, setUnidadesFiltroConsolidado] =
+    useState<UnidadeConsolidadoSlug[] | undefined>(undefined)
+
+  // Estados de geração e envio de PDF para WhatsApp
+  const [enviandoPdfPatos, setEnviandoPdfPatos] = useState(false)
+  const [enviandoPdfSjeMonteiro, setEnviandoPdfSjeMonteiro] = useState(false)
+  // Container invisível para renderização rápida de PDF em background
+  const containerPdfBackgroundRef = useRef<HTMLDivElement>(null)
+  const [dadosPdfBackground, setDadosPdfBackground] =
+    useState<RelatorioConsolidadoSjeMonteiro | null>(null)
 
   const carregarRelatorioConsolidado = useCallback(
-    async (compAlvo?: string) => {
+    async (compAlvo?: string, unidadesAlvo?: UnidadeConsolidadoSlug[]) => {
       const comp = compAlvo || competenciaConsolidado
+      const unidades =
+        unidadesAlvo !== undefined ? unidadesAlvo : unidadesFiltroConsolidado
       setLoadingConsolidado(true)
       try {
-        const res = await RelatorioConsolidadoService.gerarConsolidado(comp)
+        const res = await RelatorioConsolidadoService.gerarConsolidado(
+          comp,
+          unidades,
+        )
         setDadosConsolidado(res)
       } catch (err) {
         console.error("Erro ao carregar relatório consolidado:", err)
         toast({
           title: "Erro ao gerar consolidado",
           description:
-            "Não foi possível carregar os dados consolidados das 4 unidades.",
+            "Não foi possível carregar os dados consolidados das unidades.",
           variant: "destructive",
         })
       } finally {
         setLoadingConsolidado(false)
       }
     },
-    [competenciaConsolidado, toast],
+    [competenciaConsolidado, unidadesFiltroConsolidado, toast],
   )
 
-  const abrirRelatorioConsolidado = (compInicial?: string) => {
+  const abrirRelatorioConsolidado = (
+    compInicial?: string,
+    unidadesIniciais?: UnidadeConsolidadoSlug[],
+  ) => {
     const comp = compInicial || competenciaGerencial || compAtualRelogio
     setCompetenciaConsolidado(comp)
+    setUnidadesFiltroConsolidado(unidadesIniciais)
     setModalConsolidadoAberto(true)
-    carregarRelatorioConsolidado(comp)
+    carregarRelatorioConsolidado(comp, unidadesIniciais)
   }
 
   const navegarCompetenciaConsolidado = (delta: number) => {
@@ -250,6 +274,99 @@ export default function Relatorios() {
     const novaComp = `${a}-${m}`
     setCompetenciaConsolidado(novaComp)
     carregarRelatorioConsolidado(novaComp)
+  }
+
+  // =========================================================
+  // NOVO RECURSO: GERAR E ENVIAR PDF POR WHATSAPP (PATOS OU SJE+MONTEIRO)
+  // =========================================================
+  const handleEnviarPdfWhatsApp = async (tipo: "patos" | "sje_monteiro") => {
+    const comp = competenciaGerencial || compAtualRelogio
+    const ehPatos = tipo === "patos"
+    const setEnviando = ehPatos
+      ? setEnviandoPdfPatos
+      : setEnviandoPdfSjeMonteiro
+
+    setEnviando(true)
+    try {
+      const unidadesAlvo: UnidadeConsolidadoSlug[] = ehPatos
+        ? ["patos"]
+        : ["monteiro", "sje"]
+      const telefoneDestino = ehPatos ? "5583981503316" : "5587998061826"
+      const nomeUnidadesArquivo = ehPatos ? "PATOS" : "SJE-MONTEIRO"
+      const nomeArquivo = `GC-MIX-CONSOLIDADO-${nomeUnidadesArquivo}-${comp}.pdf`
+
+      // 1. Gera os dados consolidados específicos
+      const dadosDoc = await RelatorioConsolidadoService.gerarConsolidado(
+        comp,
+        unidadesAlvo,
+      )
+      setDadosPdfBackground(dadosDoc)
+
+      // Aguarda 1 tick para o React renderizar o DOM invisível
+      await new Promise((r) => setTimeout(r, 120))
+
+      // 2. Busca mensagem de texto oficial do Fechamento do Mês
+      const slugEmpresa = ehPatos ? "patos" : "sje"
+      const fechamentoRes =
+        await RelatorioGerencialService.obterFechamentoWhatsApp({
+          empresaAtivaSlugOuId: slugEmpresa,
+          competenciaAlvo: comp,
+        })
+      const textoWhatsApp =
+        fechamentoRes.textoWhatsApp ||
+        `*GC MIX — FECHAMENTO ${dadosDoc.rotuloCompetencia}*\nConsolidado ${nomeUnidadesArquivo}`
+
+      // 3. Captura o elemento renderizado e converte em arquivo PDF
+      const elementoAlvo =
+        containerPdfBackgroundRef.current?.querySelector<HTMLElement>(
+          "[data-relatorio-consolidado-a4]",
+        ) || containerPdfBackgroundRef.current
+
+      if (!elementoAlvo) {
+        throw new Error(
+          "Não foi possível localizar o layout A4 para gerar o PDF.",
+        )
+      }
+
+      const pdfFile = await convertElementToPdfFile(elementoAlvo, nomeArquivo)
+
+      // 4. Compartilha via Web Share API com navigator.share({ files: [File] }) ou dispara Fallback
+      const resShare = await compartilharPdfOuFallbackWhatsApp({
+        file: pdfFile,
+        telefoneWhatsApp: telefoneDestino,
+        textoWhatsApp,
+        tituloShare: `GC MIX — Consolidado ${nomeUnidadesArquivo} (${comp})`,
+        onFallbackAcionado: () => {
+          toast({
+            title: "Download iniciado & WhatsApp aberto",
+            description: `PDF '${nomeArquivo}' baixado e conversa aberta no WhatsApp com a mensagem do fechamento.`,
+          })
+        },
+        onSucessoCompartilhamento: () => {
+          toast({
+            title: "Compartilhamento iniciado!",
+            description: `Documento PDF e fechamento prontos para envio ao WhatsApp.`,
+          })
+        },
+      })
+
+      if (resShare.metodo === "aborted") {
+        // Usuário apenas cancelou a janela nativa de compartilhamento; nada a exibir
+        return
+      }
+    } catch (err: any) {
+      console.error("Erro ao gerar/enviar PDF por WhatsApp:", err)
+      toast({
+        title: "Erro ao gerar PDF",
+        description:
+          err?.message ||
+          "Não foi possível gerar ou compartilhar o PDF consolidado.",
+        variant: "destructive",
+      })
+    } finally {
+      setEnviando(false)
+      setDadosPdfBackground(null)
+    }
   }
 
   // Sincroniza visão gerencial quando o seletor do topo altera a empresa ativa
@@ -1046,40 +1163,157 @@ export default function Relatorios() {
             </CardContent>
           </Card>
 
-          {/* CARD DE DESTAQUE DO RELATÓRIO CONSOLIDADO GERAL (4 UNIDADES) */}
-          <Card className="no-print border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20">
-            <CardContent className="py-3 px-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-600 text-white">
-                  <Layers className="w-5 h-5" />
+          {/* CARDS DE RELATÓRIO CONSOLIDADO & ENVIAR PDF POR WHATSAPP */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 no-print">
+            {/* CARD 1: RELATÓRIO CONSOLIDADO GERAL (4 UNIDADES) */}
+            <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20">
+              <CardContent className="p-3.5 flex flex-col justify-between h-full gap-3">
+                <div className="flex items-start gap-2.5">
+                  <div className="p-2 rounded-lg bg-blue-600 text-white shrink-0 mt-0.5">
+                    <Layers className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wide">
+                      Consolidado Geral (4 Unidades)
+                    </h3>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                      Monteiro, SJE, Patos e Caicó em documento único A4.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-foreground">
-                    Relatório Consolidado Geral — 4 Unidades (PDF / Impressão
-                    A4)
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Gera UM ÚNICO documento A4 integrando produção (cargas e m³)
-                    e consumos de Monteiro, SJE, Patos e Caicó, além da folha
-                    comparativa Monteiro × SJE.
-                  </p>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-2 w-full md:w-auto">
                 <Button
                   onClick={() =>
                     abrirRelatorioConsolidado(competenciaGerencial)
                   }
                   size="sm"
-                  className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold gap-1.5 w-full md:w-auto"
+                  className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold gap-1.5 w-full"
                 >
-                  <FileText className="w-4 h-4" />
-                  Abrir Relatório Consolidado (4 Unidades)
+                  <FileText className="w-3.5 h-3.5" />
+                  Abrir Relatório (4 Unidades)
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* CARD 2: NOVO RECURSO ENVIAR PDF PATOS (WhatsApp) */}
+            <Card className="border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20">
+              <CardContent className="p-3.5 flex flex-col justify-between h-full gap-3">
+                <div className="flex items-start gap-2.5">
+                  <div className="p-2 rounded-lg bg-emerald-600 text-white shrink-0 mt-0.5">
+                    <Send className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="text-xs font-bold text-foreground uppercase tracking-wide">
+                        Consolidado Patos
+                      </h3>
+                      <span className="text-[9px] font-mono font-semibold px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                        (83) 98150-3316
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                      Gera PDF A4 só de Patos e compartilha direto via WhatsApp
+                      com o texto do fechamento.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    onClick={() => handleEnviarPdfWhatsApp("patos")}
+                    disabled={enviandoPdfPatos || loadingGerencial}
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 flex-1 shadow-sm"
+                    title="Gera o PDF consolidado de Patos e compartilha no WhatsApp (wa.me/5583981503316)"
+                  >
+                    {enviandoPdfPatos ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Gerando PDF...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        ENVIAR PDF PATOS (WhatsApp)
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    title="Pré-visualizar Relatório de Patos"
+                    onClick={() =>
+                      abrirRelatorioConsolidado(competenciaGerencial, ["patos"])
+                    }
+                  >
+                    <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* CARD 3: NOVO RECURSO ENVIAR PDF SJE+MONTEIRO (WhatsApp) */}
+            <Card className="border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20">
+              <CardContent className="p-3.5 flex flex-col justify-between h-full gap-3">
+                <div className="flex items-start gap-2.5">
+                  <div className="p-2 rounded-lg bg-purple-600 text-white shrink-0 mt-0.5">
+                    <Send className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="text-xs font-bold text-foreground uppercase tracking-wide">
+                        Consolidado SJE + Monteiro
+                      </h3>
+                      <span className="text-[9px] font-mono font-semibold px-1 py-0.2 rounded bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">
+                        (87) 99806-1826
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                      Gera PDF A4 somando Monteiro + SJE e compartilha via
+                      WhatsApp com o texto do fechamento.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    onClick={() => handleEnviarPdfWhatsApp("sje_monteiro")}
+                    disabled={enviandoPdfSjeMonteiro || loadingGerencial}
+                    size="sm"
+                    className="bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold gap-1.5 flex-1 shadow-sm"
+                    title="Gera o PDF consolidado SJE + Monteiro e compartilha no WhatsApp (wa.me/5587998061826)"
+                  >
+                    {enviandoPdfSjeMonteiro ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Gerando PDF...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        ENVIAR PDF SJE+MONTEIRO (WhatsApp)
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    title="Pré-visualizar Relatório SJE + Monteiro"
+                    onClick={() =>
+                      abrirRelatorioConsolidado(competenciaGerencial, [
+                        "monteiro",
+                        "sje",
+                      ])
+                    }
+                  >
+                    <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Renderização do Componente A4 */}
           {loadingGerencial && !dadosGerencial ? (
@@ -1100,6 +1334,26 @@ export default function Relatorios() {
             </div>
           )}
         </TabsContent>
+
+        {/* Container invisível para geração assíncrona de PDF A4 em background */}
+        <div
+          style={{
+            position: "fixed",
+            left: "-9999px",
+            top: "-9999px",
+            width: "820px",
+            pointerEvents: "none",
+            opacity: 0,
+            overflow: "hidden",
+          }}
+          aria-hidden="true"
+        >
+          {dadosPdfBackground && (
+            <div ref={containerPdfBackgroundRef}>
+              <RelatorioConsolidadoDocumento dados={dadosPdfBackground} />
+            </div>
+          )}
+        </div>
 
         {/* ========================================================= */}
         {/* TAB 1: OPERACIONAL E CUSTOS DA UNIDADE ATIVA */}

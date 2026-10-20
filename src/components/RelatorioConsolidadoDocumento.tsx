@@ -49,76 +49,143 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
 
     const { producao, consumos, folha } = dados
 
+    // Lista de unidades ativas neste documento (padrão: 4 unidades, ou [Patos] ou [Monteiro, SJE])
+    const unidadesFiltradas =
+      dados.unidadesFiltro && dados.unidadesFiltro.length > 0
+        ? dados.unidadesFiltro
+        : ["monteiro", "sje", "patos", "caico"] as const
+
+    const ehApenasPatos =
+      unidadesFiltradas.length === 1 && unidadesFiltradas[0] === "patos"
+    const ehSjeMonteiro =
+      unidadesFiltradas.length === 2 &&
+      unidadesFiltradas.includes("monteiro") &&
+      unidadesFiltradas.includes("sje")
+
+    // Colunas de unidades a renderizar
+    const defColunas: Array<{
+      slug: "monteiro" | "sje" | "patos" | "caico"
+      label: string
+      cargas: number
+      volumeM3: number
+      consumoKey: "monteiro" | "sje" | "patos" | "caico"
+      folhaObj?: typeof folha.monteiro
+    }> = []
+
+    if (unidadesFiltradas.includes("monteiro")) {
+      defColunas.push({
+        slug: "monteiro",
+        label: "MONTEIRO",
+        cargas: producao.monteiro.cargas,
+        volumeM3: producao.monteiro.volumeM3,
+        consumoKey: "monteiro",
+        folhaObj: folha.monteiro,
+      })
+    }
+    if (unidadesFiltradas.includes("sje")) {
+      defColunas.push({
+        slug: "sje",
+        label: "SJE",
+        cargas: producao.sje.cargas,
+        volumeM3: producao.sje.volumeM3,
+        consumoKey: "sje",
+        folhaObj: folha.sje,
+      })
+    }
+    if (unidadesFiltradas.includes("patos")) {
+      defColunas.push({
+        slug: "patos",
+        label: "PATOS",
+        cargas: producao.patos.cargas,
+        volumeM3: producao.patos.volumeM3,
+        consumoKey: "patos",
+        folhaObj: folha.patos,
+      })
+    }
+    if (unidadesFiltradas.includes("caico")) {
+      defColunas.push({
+        slug: "caico",
+        label: "CAICÓ",
+        cargas: producao.caico.cargas,
+        volumeM3: producao.caico.volumeM3,
+        consumoKey: "caico",
+        folhaObj: folha.caico,
+      })
+    }
+
+    const temMultiplasUnidades = defColunas.length > 1
+
+    const rotuloTotal = ehSjeMonteiro
+      ? "TOTAL SJE+MONTEIRO"
+      : ehApenasPatos
+        ? "TOTAL PATOS"
+        : "TOTAL GERAL"
+
+    const tituloDoc =
+      dados.tituloDocumento ||
+      (ehApenasPatos
+        ? "GC MIX — RELATÓRIO CONSOLIDADO • UNIDADE PATOS"
+        : ehSjeMonteiro
+          ? "GC MIX — RELATÓRIO CONSOLIDADO • SJE + MONTEIRO"
+          : "GC MIX — RELATÓRIO CONSOLIDADO GERAL (4 UNIDADES)")
+
+    const subtituloDoc =
+      dados.subtituloDocumento ||
+      (ehApenasPatos
+        ? "UNIDADE: PATOS / PB • FECHAMENTO OPERACIONAL & FINANCEIRO"
+        : ehSjeMonteiro
+          ? "UNIDADES: SÃO JOSÉ DO EGITO / PE • MONTEIRO / PB (CONSOLIDADO)"
+          : "UNIDADES: MONTEIRO / PB • SJE / PE • PATOS / PB • CAICÓ / RN")
+
     const linhasConsumo = [
       {
         label: "Cimento",
         unidade: "kg",
-        monteiro: consumos.monteiro.cimentoKg,
-        sje: consumos.sje.cimentoKg,
-        patos: consumos.patos.cimentoKg,
-        caico: consumos.caico.cimentoKg,
-        total: consumos.total.cimentoKg,
         decimais: 0,
+        getter: (c: typeof consumos.monteiro) => c.cimentoKg,
+        total: consumos.total.cimentoKg,
       },
       {
         label: "Brita 1",
         unidade: "kg",
-        monteiro: consumos.monteiro.brita1Kg,
-        sje: consumos.sje.brita1Kg,
-        patos: consumos.patos.brita1Kg,
-        caico: consumos.caico.brita1Kg,
-        total: consumos.total.brita1Kg,
         decimais: 0,
+        getter: (c: typeof consumos.monteiro) => c.brita1Kg,
+        total: consumos.total.brita1Kg,
       },
       {
         label: "Brita 2",
         unidade: "kg",
-        monteiro: consumos.monteiro.brita2Kg,
-        sje: consumos.sje.brita2Kg,
-        patos: consumos.patos.brita2Kg,
-        caico: consumos.caico.brita2Kg,
-        total: consumos.total.brita2Kg,
         decimais: 0,
+        getter: (c: typeof consumos.monteiro) => c.brita2Kg,
+        total: consumos.total.brita2Kg,
       },
       {
         label: "Areia",
         unidade: "kg",
-        monteiro: consumos.monteiro.areiaKg,
-        sje: consumos.sje.areiaKg,
-        patos: consumos.patos.areiaKg,
-        caico: consumos.caico.areiaKg,
-        total: consumos.total.areiaKg,
         decimais: 0,
+        getter: (c: typeof consumos.monteiro) => c.areiaKg,
+        total: consumos.total.areiaKg,
       },
       {
         label: "Pó de Pedra",
         unidade: "kg",
-        monteiro: consumos.monteiro.poPedraKg,
-        sje: consumos.sje.poPedraKg,
-        patos: consumos.patos.poPedraKg,
-        caico: consumos.caico.poPedraKg,
-        total: consumos.total.poPedraKg,
         decimais: 0,
+        getter: (c: typeof consumos.monteiro) => c.poPedraKg,
+        total: consumos.total.poPedraKg,
       },
       {
         label: "Aditivo",
         unidade: "L",
-        monteiro: consumos.monteiro.aditivoL,
-        sje: consumos.sje.aditivoL,
-        patos: consumos.patos.aditivoL,
-        caico: consumos.caico.aditivoL,
-        total: consumos.total.aditivoL,
         decimais: 1,
+        getter: (c: typeof consumos.monteiro) => c.aditivoL,
+        total: consumos.total.aditivoL,
       },
       {
         label: "Água",
         unidade: "L",
-        monteiro: consumos.monteiro.aguaL,
-        sje: consumos.sje.aguaL,
-        patos: consumos.patos.aguaL,
-        caico: consumos.caico.aguaL,
-        total: consumos.total.aguaL,
         decimais: 0,
+        getter: (c: typeof consumos.monteiro) => c.aguaL,
+        total: consumos.total.aguaL,
       },
     ]
 
@@ -130,12 +197,10 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
             <FileText className="w-5 h-5 text-primary" />
             <div>
               <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-                Relatório Consolidado Geral (4 Unidades) •{" "}
-                {dados.rotuloCompetencia}
+                {tituloDoc} • {dados.rotuloCompetencia}
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Monteiro, SJE, Patos e Caicó em documento único (A4) com
-                Produção, Consumos e Folha
+                {subtituloDoc}
               </p>
             </div>
           </div>
@@ -192,15 +257,14 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                   />
                   <div>
                     <h1 className="text-sm sm:text-base font-black tracking-wider uppercase leading-tight text-black">
-                      GC MIX — RELATÓRIO CONSOLIDADO GERAL (4 UNIDADES)
+                      {tituloDoc}
                     </h1>
                     <p className="text-[10px] font-bold uppercase tracking-wide text-gray-700">
                       CONSOLIDAÇÃO OPERACIONAL E FINANCEIRA •{" "}
                       {dados.rotuloCompetencia}
                     </p>
                     <p className="text-[9px] font-semibold text-gray-800">
-                      UNIDADES: MONTEIRO / PB • SJE / PE • PATOS / PB • CAICÓ /
-                      RN
+                      {subtituloDoc}
                     </p>
                   </div>
                 </div>
@@ -218,7 +282,7 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
             </div>
 
             <div className="space-y-4">
-              {/* (b) PRODUÇÃO: Nº DE CARGAS E VOLUME M³ POR UNIDADE + TOTAL SOMADO */}
+              {/* (b) PRODUÇÃO: Nº DE CARGAS E VOLUME M³ */}
               <div className="border border-gray-300 rounded p-3 bg-gray-50/60">
                 <div className="flex items-center justify-between border-b border-gray-300 pb-1.5 mb-2.5">
                   <span className="text-[11px] font-black uppercase tracking-wider text-black flex items-center gap-1.5">
@@ -226,7 +290,8 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                     1. PRODUÇÃO CONSOLIDADA (Cargas Válidas)
                   </span>
                   <span className="text-[9px] text-gray-600 font-medium">
-                    Excluindo canceladas (cancelada=false) • 4 Unidades
+                    Excluindo canceladas (cancelada=false) •{" "}
+                    {defColunas.map((c) => c.label).join(", ")}
                   </span>
                 </div>
 
@@ -237,21 +302,19 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                         <th className="border border-gray-300 p-1.5 text-left">
                           Indicador de Produção
                         </th>
-                        <th className="border border-gray-300 p-1.5 text-right font-mono">
-                          MONTEIRO
-                        </th>
-                        <th className="border border-gray-300 p-1.5 text-right font-mono">
-                          SJE
-                        </th>
-                        <th className="border border-gray-300 p-1.5 text-right font-mono">
-                          PATOS
-                        </th>
-                        <th className="border border-gray-300 p-1.5 text-right font-mono">
-                          CAICÓ
-                        </th>
-                        <th className="border border-gray-300 p-1.5 text-right font-mono bg-blue-50 text-blue-900 font-extrabold">
-                          TOTAL GERAL
-                        </th>
+                        {defColunas.map((col) => (
+                          <th
+                            key={col.slug}
+                            className="border border-gray-300 p-1.5 text-right font-mono"
+                          >
+                            {col.label}
+                          </th>
+                        ))}
+                        {temMultiplasUnidades && (
+                          <th className="border border-gray-300 p-1.5 text-right font-mono bg-blue-50 text-blue-900 font-extrabold">
+                            {rotuloTotal}
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -259,92 +322,65 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                         <td className="border border-gray-300 p-1.5 font-medium text-gray-700">
                           Nº de Cargas Expedidas
                         </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
-                          {fmtNumero(producao.monteiro.cargas)} cargas
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
-                          {fmtNumero(producao.sje.cargas)} cargas
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
-                          {fmtNumero(producao.patos.cargas)} cargas
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
-                          {fmtNumero(producao.caico.cargas)} cargas
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-black text-blue-950 bg-blue-50/60 text-[11px]">
-                          {fmtNumero(producao.total.cargas)} cargas
-                        </td>
+                        {defColunas.map((col) => (
+                          <td
+                            key={col.slug}
+                            className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900"
+                          >
+                            {fmtNumero(col.cargas)} cargas
+                          </td>
+                        ))}
+                        {temMultiplasUnidades && (
+                          <td className="border border-gray-300 p-1.5 text-right font-mono font-black text-blue-950 bg-blue-50/60 text-[11px]">
+                            {fmtNumero(producao.total.cargas)} cargas
+                          </td>
+                        )}
                       </tr>
                       <tr>
                         <td className="border border-gray-300 p-1.5 font-medium text-gray-700">
                           Volume Total Produzido (m³)
                         </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
-                          {fmtNumero(producao.monteiro.volumeM3, 1)} m³
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
-                          {fmtNumero(producao.sje.volumeM3, 1)} m³
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
-                          {fmtNumero(producao.patos.volumeM3, 1)} m³
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
-                          {fmtNumero(producao.caico.volumeM3, 1)} m³
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-black text-blue-950 bg-blue-50/60 text-[11px]">
-                          {fmtNumero(producao.total.volumeM3, 1)} m³
-                        </td>
+                        {defColunas.map((col) => (
+                          <td
+                            key={col.slug}
+                            className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900"
+                          >
+                            {fmtNumero(col.volumeM3, 1)} m³
+                          </td>
+                        ))}
+                        {temMultiplasUnidades && (
+                          <td className="border border-gray-300 p-1.5 text-right font-mono font-black text-blue-950 bg-blue-50/60 text-[11px]">
+                            {fmtNumero(producao.total.volumeM3, 1)} m³
+                          </td>
+                        )}
                       </tr>
                       <tr className="bg-gray-50 text-[8.5px] text-gray-600">
                         <td className="border border-gray-300 p-1 italic">
                           Média de Volume por Carga (m³)
                         </td>
-                        <td className="border border-gray-300 p-1 text-right font-mono">
-                          {producao.monteiro.cargas > 0
-                            ? fmtNumero(
-                                producao.monteiro.volumeM3 /
-                                  producao.monteiro.cargas,
-                                2,
-                              )
-                            : "0,00"}{" "}
-                          m³
-                        </td>
-                        <td className="border border-gray-300 p-1 text-right font-mono">
-                          {producao.sje.cargas > 0
-                            ? fmtNumero(
-                                producao.sje.volumeM3 / producao.sje.cargas,
-                                2,
-                              )
-                            : "0,00"}{" "}
-                          m³
-                        </td>
-                        <td className="border border-gray-300 p-1 text-right font-mono">
-                          {producao.patos.cargas > 0
-                            ? fmtNumero(
-                                producao.patos.volumeM3 / producao.patos.cargas,
-                                2,
-                              )
-                            : "0,00"}{" "}
-                          m³
-                        </td>
-                        <td className="border border-gray-300 p-1 text-right font-mono">
-                          {producao.caico.cargas > 0
-                            ? fmtNumero(
-                                producao.caico.volumeM3 / producao.caico.cargas,
-                                2,
-                              )
-                            : "0,00"}{" "}
-                          m³
-                        </td>
-                        <td className="border border-gray-300 p-1 text-right font-mono font-bold text-blue-900 bg-blue-50/40">
-                          {producao.total.cargas > 0
-                            ? fmtNumero(
-                                producao.total.volumeM3 / producao.total.cargas,
-                                2,
-                              )
-                            : "0,00"}{" "}
-                          m³
-                        </td>
+                        {defColunas.map((col) => (
+                          <td
+                            key={col.slug}
+                            className="border border-gray-300 p-1 text-right font-mono"
+                          >
+                            {col.cargas > 0
+                              ? fmtNumero(col.volumeM3 / col.cargas, 2)
+                              : "0,00"}{" "}
+                            m³
+                          </td>
+                        ))}
+                        {temMultiplasUnidades && (
+                          <td className="border border-gray-300 p-1 text-right font-mono font-bold text-blue-900 bg-blue-50/40">
+                            {producao.total.cargas > 0
+                              ? fmtNumero(
+                                  producao.total.volumeM3 /
+                                    producao.total.cargas,
+                                  2,
+                                )
+                              : "0,00"}{" "}
+                            m³
+                          </td>
+                        )}
                       </tr>
                     </tbody>
                   </table>
@@ -359,7 +395,7 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                     2. CONSUMOS CONSOLIDADOS DE MATERIAIS
                   </span>
                   <span className="text-[9px] text-gray-600 font-medium">
-                    Soma dos consumos das 4 unidades no período
+                    Soma dos consumos no período
                   </span>
                 </div>
 
@@ -370,21 +406,19 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                         <th className="border border-gray-300 p-1.5 text-left">
                           Material Insumo
                         </th>
-                        <th className="border border-gray-300 p-1.5 text-right font-mono">
-                          MONTEIRO
-                        </th>
-                        <th className="border border-gray-300 p-1.5 text-right font-mono">
-                          SJE
-                        </th>
-                        <th className="border border-gray-300 p-1.5 text-right font-mono">
-                          PATOS
-                        </th>
-                        <th className="border border-gray-300 p-1.5 text-right font-mono">
-                          CAICÓ
-                        </th>
-                        <th className="border border-gray-300 p-1.5 text-right font-mono bg-emerald-50 text-emerald-950 font-extrabold">
-                          TOTAL (4 UNIDADES)
-                        </th>
+                        {defColunas.map((col) => (
+                          <th
+                            key={col.slug}
+                            className="border border-gray-300 p-1.5 text-right font-mono"
+                          >
+                            {col.label}
+                          </th>
+                        ))}
+                        {temMultiplasUnidades && (
+                          <th className="border border-gray-300 p-1.5 text-right font-mono bg-emerald-50 text-emerald-950 font-extrabold">
+                            {rotuloTotal}
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -393,22 +427,22 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                           <td className="border border-gray-300 p-1.5 font-semibold text-gray-800">
                             {row.label} ({row.unidade})
                           </td>
-                          <td className="border border-gray-300 p-1.5 text-right font-mono font-medium text-gray-900">
-                            {fmtNumero(row.monteiro, row.decimais)}{" "}
-                            {row.unidade}
-                          </td>
-                          <td className="border border-gray-300 p-1.5 text-right font-mono font-medium text-gray-900">
-                            {fmtNumero(row.sje, row.decimais)} {row.unidade}
-                          </td>
-                          <td className="border border-gray-300 p-1.5 text-right font-mono font-medium text-gray-900">
-                            {fmtNumero(row.patos, row.decimais)} {row.unidade}
-                          </td>
-                          <td className="border border-gray-300 p-1.5 text-right font-mono font-medium text-gray-900">
-                            {fmtNumero(row.caico, row.decimais)} {row.unidade}
-                          </td>
-                          <td className="border border-gray-300 p-1.5 text-right font-mono font-black text-emerald-950 bg-emerald-50/60">
-                            {fmtNumero(row.total, row.decimais)} {row.unidade}
-                          </td>
+                          {defColunas.map((col) => {
+                            const val = row.getter(consumos[col.consumoKey])
+                            return (
+                              <td
+                                key={col.slug}
+                                className="border border-gray-300 p-1.5 text-right font-mono font-medium text-gray-900"
+                              >
+                                {fmtNumero(val, row.decimais)} {row.unidade}
+                              </td>
+                            )
+                          })}
+                          {temMultiplasUnidades && (
+                            <td className="border border-gray-300 p-1.5 text-right font-mono font-black text-emerald-950 bg-emerald-50/60">
+                              {fmtNumero(row.total, row.decimais)} {row.unidade}
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -416,15 +450,16 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                 </div>
               </div>
 
-              {/* (d) FOLHA: CONSOLIDADO MONTEIRO × SJE + TOTAL GERAL GC MIX */}
+              {/* (d) FOLHA DE PAGAMENTO */}
               <div className="border border-gray-300 rounded p-3 bg-gray-50/60">
                 <div className="flex items-center justify-between border-b border-gray-300 pb-1.5 mb-2.5">
                   <span className="text-[11px] font-black uppercase tracking-wider text-black flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-purple-600 inline-block" />
-                    3. FOLHA DE PAGAMENTO CONSOLIDADA (SJE + MONTEIRO)
+                    3. FOLHA DE PAGAMENTO CONSOLIDADA (
+                    {defColunas.map((c) => c.label).join(" + ")})
                   </span>
                   <span className="text-[9px] text-gray-600 font-medium">
-                    Consolidado Monteiro × SJE (fórmula oficial do módulo Folha)
+                    Fórmula oficial do módulo Folha
                   </span>
                 </div>
 
@@ -435,15 +470,19 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                         <th className="border border-gray-300 p-2 text-left">
                           Componente da Folha
                         </th>
-                        <th className="border border-gray-300 p-2 text-right font-mono">
-                          MONTEIRO
-                        </th>
-                        <th className="border border-gray-300 p-2 text-right font-mono">
-                          SJE
-                        </th>
-                        <th className="border border-gray-300 p-2 text-right font-mono bg-purple-50 text-purple-950 font-extrabold">
-                          TOTAL GC MIX
-                        </th>
+                        {defColunas.map((col) => (
+                          <th
+                            key={col.slug}
+                            className="border border-gray-300 p-2 text-right font-mono"
+                          >
+                            {col.label}
+                          </th>
+                        ))}
+                        {temMultiplasUnidades && (
+                          <th className="border border-gray-300 p-2 text-right font-mono bg-purple-50 text-purple-950 font-extrabold">
+                            {rotuloTotal}
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -451,128 +490,173 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
                         <td className="border border-gray-300 p-1.5 text-gray-700 font-medium">
                           Pessoas na folha
                         </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
-                          {folha.monteiro.pessoas}
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900">
-                          {folha.sje.pessoas}
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-black text-purple-950 bg-purple-50/50">
-                          {folha.monteiro.pessoas + folha.sje.pessoas}
-                        </td>
+                        {defColunas.map((col) => (
+                          <td
+                            key={col.slug}
+                            className="border border-gray-300 p-1.5 text-right font-mono font-bold text-gray-900"
+                          >
+                            {col.folhaObj?.pessoas || 0}
+                          </td>
+                        ))}
+                        {temMultiplasUnidades && (
+                          <td className="border border-gray-300 p-1.5 text-right font-mono font-black text-purple-950 bg-purple-50/50">
+                            {defColunas.reduce(
+                              (acc, c) => acc + (c.folhaObj?.pessoas || 0),
+                              0,
+                            )}
+                          </td>
+                        )}
                       </tr>
                       <tr>
                         <td className="border border-gray-300 p-1.5 text-gray-700 font-medium">
                           Salários Quinzena
                         </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono text-gray-900">
-                          {fmtMoeda(folha.monteiro.salariosQuinzena)}
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono text-gray-900">
-                          {fmtMoeda(folha.sje.salariosQuinzena)}
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-purple-950 bg-purple-50/50">
-                          {fmtMoeda(
-                            folha.monteiro.salariosQuinzena +
-                              folha.sje.salariosQuinzena,
-                          )}
-                        </td>
+                        {defColunas.map((col) => (
+                          <td
+                            key={col.slug}
+                            className="border border-gray-300 p-1.5 text-right font-mono text-gray-900"
+                          >
+                            {fmtMoeda(col.folhaObj?.salariosQuinzena || 0)}
+                          </td>
+                        ))}
+                        {temMultiplasUnidades && (
+                          <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-purple-950 bg-purple-50/50">
+                            {fmtMoeda(
+                              defColunas.reduce(
+                                (acc, c) =>
+                                  acc + (c.folhaObj?.salariosQuinzena || 0),
+                                0,
+                              ),
+                            )}
+                          </td>
+                        )}
                       </tr>
                       <tr>
                         <td className="border border-gray-300 p-1.5 text-gray-700 font-medium">
                           Salários Mensal (líquido)
                         </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono text-gray-900">
-                          {fmtMoeda(folha.monteiro.salariosMensal)}
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono text-gray-900">
-                          {fmtMoeda(folha.sje.salariosMensal)}
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-purple-950 bg-purple-50/50">
-                          {fmtMoeda(
-                            folha.monteiro.salariosMensal +
-                              folha.sje.salariosMensal,
-                          )}
-                        </td>
+                        {defColunas.map((col) => (
+                          <td
+                            key={col.slug}
+                            className="border border-gray-300 p-1.5 text-right font-mono text-gray-900"
+                          >
+                            {fmtMoeda(col.folhaObj?.salariosMensal || 0)}
+                          </td>
+                        ))}
+                        {temMultiplasUnidades && (
+                          <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-purple-950 bg-purple-50/50">
+                            {fmtMoeda(
+                              defColunas.reduce(
+                                (acc, c) =>
+                                  acc + (c.folhaObj?.salariosMensal || 0),
+                                0,
+                              ),
+                            )}
+                          </td>
+                        )}
                       </tr>
                       <tr>
                         <td className="border border-gray-300 p-1.5 text-gray-700 font-medium">
                           Produção (a pagar)
                         </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono text-gray-900">
-                          {fmtMoeda(folha.monteiro.producaoAPagar)}
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono text-gray-900">
-                          {fmtMoeda(folha.sje.producaoAPagar)}
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-purple-950 bg-purple-50/50">
-                          {fmtMoeda(
-                            folha.monteiro.producaoAPagar +
-                              folha.sje.producaoAPagar,
-                          )}
-                        </td>
+                        {defColunas.map((col) => (
+                          <td
+                            key={col.slug}
+                            className="border border-gray-300 p-1.5 text-right font-mono text-gray-900"
+                          >
+                            {fmtMoeda(col.folhaObj?.producaoAPagar || 0)}
+                          </td>
+                        ))}
+                        {temMultiplasUnidades && (
+                          <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-purple-950 bg-purple-50/50">
+                            {fmtMoeda(
+                              defColunas.reduce(
+                                (acc, c) =>
+                                  acc + (c.folhaObj?.producaoAPagar || 0),
+                                0,
+                              ),
+                            )}
+                          </td>
+                        )}
                       </tr>
                       <tr>
                         <td className="border border-gray-300 p-1.5 text-gray-700 font-medium">
                           COMISSÕES + AJUDA DE CUSTO (Vendas)
                         </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono text-gray-900">
-                          {fmtMoeda(folha.monteiro.comissoesAjuda)}
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono text-gray-900">
-                          {fmtMoeda(folha.sje.comissoesAjuda)}
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-purple-950 bg-purple-50/50">
-                          {fmtMoeda(
-                            folha.monteiro.comissoesAjuda +
-                              folha.sje.comissoesAjuda,
-                          )}
-                        </td>
+                        {defColunas.map((col) => (
+                          <td
+                            key={col.slug}
+                            className="border border-gray-300 p-1.5 text-right font-mono text-gray-900"
+                          >
+                            {fmtMoeda(col.folhaObj?.comissoesAjuda || 0)}
+                          </td>
+                        ))}
+                        {temMultiplasUnidades && (
+                          <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-purple-950 bg-purple-50/50">
+                            {fmtMoeda(
+                              defColunas.reduce(
+                                (acc, c) =>
+                                  acc + (c.folhaObj?.comissoesAjuda || 0),
+                                0,
+                              ),
+                            )}
+                          </td>
+                        )}
                       </tr>
                       <tr className="bg-purple-50/40">
                         <td className="border border-gray-300 p-1.5 text-purple-950 font-semibold">
                           Terceiros (incluindo comissões/ajuda deles)
                         </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-purple-900">
-                          {fmtMoeda(folha.monteiro.terceiros)}
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-purple-900">
-                          {fmtMoeda(folha.sje.terceiros)}
-                        </td>
-                        <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-purple-950 bg-purple-100/60">
-                          {fmtMoeda(
-                            folha.monteiro.terceiros + folha.sje.terceiros,
-                          )}
-                        </td>
+                        {defColunas.map((col) => (
+                          <td
+                            key={col.slug}
+                            className="border border-gray-300 p-1.5 text-right font-mono font-bold text-purple-900"
+                          >
+                            {fmtMoeda(col.folhaObj?.terceiros || 0)}
+                          </td>
+                        ))}
+                        {temMultiplasUnidades && (
+                          <td className="border border-gray-300 p-1.5 text-right font-mono font-bold text-purple-950 bg-purple-100/60">
+                            {fmtMoeda(
+                              defColunas.reduce(
+                                (acc, c) => acc + (c.folhaObj?.terceiros || 0),
+                                0,
+                              ),
+                            )}
+                          </td>
+                        )}
                       </tr>
                       <tr className="bg-gray-100 font-bold border-t-2 border-gray-400">
                         <td className="border border-gray-300 p-2 uppercase text-gray-900">
                           TOTAL DA UNIDADE
                         </td>
-                        <td className="border border-gray-300 p-2 text-right font-mono font-black text-black">
-                          {fmtMoeda(folha.monteiro.totalUnidade)}
-                        </td>
-                        <td className="border border-gray-300 p-2 text-right font-mono font-black text-black">
-                          {fmtMoeda(folha.sje.totalUnidade)}
-                        </td>
-                        <td className="border border-gray-300 p-2 text-right font-mono font-black text-purple-950 bg-purple-100/80">
-                          {fmtMoeda(folha.totalGeralGcMix)}
-                        </td>
+                        {defColunas.map((col) => (
+                          <td
+                            key={col.slug}
+                            className="border border-gray-300 p-2 text-right font-mono font-black text-black"
+                          >
+                            {fmtMoeda(col.folhaObj?.totalUnidade || 0)}
+                          </td>
+                        ))}
+                        {temMultiplasUnidades && (
+                          <td className="border border-gray-300 p-2 text-right font-mono font-black text-purple-950 bg-purple-100/80">
+                            {fmtMoeda(folha.totalGeralGcMix)}
+                          </td>
+                        )}
                       </tr>
-                      <tr className="bg-gray-200 font-black text-[11px] border-t-2 border-black">
-                        <td
-                          colSpan={2}
-                          className="border border-gray-300 p-2 uppercase text-black"
-                        >
-                          TOTAL GERAL GC MIX (Monteiro + SJE)
-                        </td>
-                        <td
-                          colSpan={2}
-                          className="border border-gray-300 p-2 text-right font-mono font-black text-xs text-black"
-                        >
-                          {fmtMoeda(folha.totalGeralGcMix)}
-                        </td>
-                      </tr>
+                      {temMultiplasUnidades && (
+                        <tr className="bg-gray-200 font-black text-[11px] border-t-2 border-black">
+                          <td
+                            colSpan={defColunas.length}
+                            className="border border-gray-300 p-2 uppercase text-black"
+                          >
+                            {rotuloTotal}
+                          </td>
+                          <td className="border border-gray-300 p-2 text-right font-mono font-black text-xs text-black">
+                            {fmtMoeda(folha.totalGeralGcMix)}
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -584,8 +668,8 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
               <div>
                 <div className="border-b border-gray-400 pb-1 mb-1"></div>
                 <span className="font-semibold">
-                  Responsável Operacional / Usinas (Monteiro, SJE, Patos e
-                  Caicó)
+                  Responsável Operacional / Usinas (
+                  {defColunas.map((c) => c.label).join(", ")})
                 </span>
               </div>
               <div>
