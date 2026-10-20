@@ -328,7 +328,16 @@ export default function Relatorios() {
         )
       }
 
-      const pdfFile = await convertElementToPdfFile(elementoAlvo, nomeArquivo)
+      const pdfFile = await convertElementToPdfFile(elementoAlvo, nomeArquivo, {
+        onAvisoFallbackSemLogo: () => {
+          toast({
+            title: "Aviso de segurança de imagem",
+            description:
+              "O PDF foi gerado sem o logotipo para contornar restrições do navegador, mas todos os dados operacionais estão preservados.",
+            variant: "default",
+          })
+        },
+      })
 
       // 4. Compartilha via Web Share API com navigator.share({ files: [File] }) ou dispara Fallback
       const resShare = await compartilharPdfOuFallbackWhatsApp({

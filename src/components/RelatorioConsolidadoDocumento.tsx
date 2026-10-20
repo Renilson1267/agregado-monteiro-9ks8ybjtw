@@ -1,7 +1,11 @@
 import React, { useRef, useState } from "react"
 import { Printer, FileText, Check, AlertCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { LOGO_GC_MIX_HORIZONTAL, LOGO_ALT_TEXT } from "@/assets/logos"
+import {
+  LOGO_GC_MIX_HORIZONTAL,
+  LOGO_GC_MIX_HORIZONTAL_DATA_URI,
+  LOGO_ALT_TEXT,
+} from "@/assets/logos"
 import { printElementInIsolatedIframe } from "@/lib/imprimir-recibo"
 import { RelatorioConsolidadoSjeMonteiro } from "@/services/relatorio-consolidado"
 
@@ -250,7 +254,9 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <img
-                    src={LOGO_GC_MIX_HORIZONTAL}
+                    src={
+                      LOGO_GC_MIX_HORIZONTAL_DATA_URI || LOGO_GC_MIX_HORIZONTAL
+                    }
                     alt={LOGO_ALT_TEXT}
                     className="h-10 w-auto object-contain"
                     style={{ maxHeight: "42px" }}

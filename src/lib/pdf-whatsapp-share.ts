@@ -256,124 +256,173 @@ export async function renderElementToJpegBytes(
   clone.style.backgroundColor = backgroundColor
   clone.style.boxSizing = "border-box"
 
-  // Imagens dentro do SVG (ForeignObject) NÃO podem carregar URLs externas (bloqueadas pela política de segurança do SVG como Image).
-  // Converte imagens existentes para data URI caso sejam carregáveis, ou se não forem data URI, tenta converter via Canvas ou remove para evitar quebra do Image.
-  const imgs = Array.from(clone.querySelectorAll("img"))
-  for (const img of imgs) {
-    const src = img.getAttribute("src") || ""
-    if (src.startsWith("data:")) {
-      // Já é data URI, perfeito
-      continue
+  // Função interna para montar o SVG e renderizar no Canvas com captura de erro tainted
+  const tentarRenderizar = async (
+    removerTodasImgs: boolean,
+  ): Promise<Uint8Array> => {
+    const cloneTrabalho = clone.cloneNode(true) as HTMLElement
+
+    const imgs = Array.from(cloneTrabalho.querySelectorAll("img"))
+    for (const img of imgs) {
+      if (removerTodasImgs) {
+        img.remove()
+        continue
+      }
+
+      const src = img.getAttribute("src") || ""
+      if (src.startsWith("data:")) {
+        // Já é data URI válida
+        continue
+      }
+
+      // Tenta obter src de imagem já carregada no DOM original correspondente via canvas local
+      let converteu = false
+      try {
+        const imgsOriginais = Array.from(element.querySelectorAll("img"))
+        const imgOriginal = imgsOriginais.find(
+          (orig) => orig.getAttribute("src") === src || orig.src === img.src,
+        )
+        if (
+          imgOriginal &&
+          imgOriginal.complete &&
+          imgOriginal.naturalWidth > 0
+        ) {
+          const tempCanvas = document.createElement("canvas")
+          tempCanvas.width = imgOriginal.naturalWidth
+          tempCanvas.height = imgOriginal.naturalHeight
+          const tempCtx = tempCanvas.getContext("2d")
+          if (tempCtx) {
+            tempCtx.drawImage(imgOriginal, 0, 0)
+            // Se toDataURL lançar SecurityError / Tainted canvas, o catch trata
+            const dataUri = tempCanvas.toDataURL("image/png")
+            img.setAttribute("src", dataUri)
+            converteu = true
+          }
+        }
+      } catch {
+        converteu = false
+      }
+
+      // Se não virou data URI garantido, REMOVER a tag <img> para não contaminar o SVG/Canvas
+      if (!converteu) {
+        img.remove()
+      }
     }
 
-    // Tenta obter src de imagem já carregada no DOM original correspondente
-    let converteu = false
-    try {
-      // Procura a imagem correspondente no elemento original
-      const imgsOriginais = Array.from(element.querySelectorAll("img"))
-      const imgOriginal = imgsOriginais.find(
-        (orig) => orig.getAttribute("src") === src || orig.src === img.src,
-      )
-      if (imgOriginal && imgOriginal.complete && imgOriginal.naturalWidth > 0) {
-        const tempCanvas = document.createElement("canvas")
-        tempCanvas.width = imgOriginal.naturalWidth
-        tempCanvas.height = imgOriginal.naturalHeight
-        const tempCtx = tempCanvas.getContext("2d")
-        if (tempCtx) {
-          tempCtx.drawImage(imgOriginal, 0, 0)
-          const dataUri = tempCanvas.toDataURL("image/png")
-          img.setAttribute("src", dataUri)
-          converteu = true
+    // Serializa para XML
+    const serializer = new XMLSerializer()
+    const rawHtml = serializer.serializeToString(cloneTrabalho)
+
+    // Escapar cssText para inclusão segura dentro de XML/SVG
+    const safeCssText = cssText.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+
+    const svgString = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+        <foreignObject width="100%" height="100%">
+          <div xmlns="http://www.w3.org/1999/xhtml" style="background:${backgroundColor}; color:#000000; font-family: sans-serif;">
+            <style>
+              ${safeCssText}
+              * { box-sizing: border-box !important; }
+              body, html { margin: 0 !important; padding: 0 !important; background: ${backgroundColor} !important; }
+            </style>
+            ${rawHtml}
+          </div>
+        </foreignObject>
+      </svg>
+    `
+
+    const svgBlob = new Blob([svgString], {
+      type: "image/svg+xml;charset=utf-8",
+    })
+    const svgUrl = URL.createObjectURL(svgBlob)
+
+    return new Promise<Uint8Array>((resolve, reject) => {
+      const img = new Image()
+      img.crossOrigin = "anonymous"
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas")
+          canvas.width = Math.floor(width * scale)
+          canvas.height = Math.floor(height * scale)
+          const ctx = canvas.getContext("2d")
+          if (!ctx) {
+            URL.revokeObjectURL(svgUrl)
+            reject(new Error("Não foi possível criar contexto 2D do Canvas"))
+            return
+          }
+
+          // Fundo branco
+          ctx.fillStyle = backgroundColor
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+          URL.revokeObjectURL(svgUrl)
+
+          // Tenta toBlob diretamente com salvaguarda de tainted canvas
+          try {
+            canvas.toBlob(
+              async (blob) => {
+                if (!blob) {
+                  reject(new Error("Falha ao gerar blob JPEG do Canvas"))
+                  return
+                }
+                const buffer = await blob.arrayBuffer()
+                resolve(new Uint8Array(buffer))
+              },
+              "image/jpeg",
+              quality,
+            )
+          } catch (blobErr) {
+            reject(blobErr)
+          }
+        } catch (err) {
+          URL.revokeObjectURL(svgUrl)
+          reject(err)
         }
       }
-    } catch {
-      converteu = false
-    }
 
-    // Se não conseguiu converter para data URI e é URL remota/relativa externa,
-    // substitui ou remove o src problemático para não impedir a renderização do SVG
-    if (!converteu && !src.startsWith("data:")) {
-      // Se não for possível ler via canvas (ex: tainted canvas cross-origin),
-      // remove a tag img do clone para que o restante do documento A4 renderize perfeitamente
-      img.remove()
-    }
+      img.onerror = (e) => {
+        URL.revokeObjectURL(svgUrl)
+        reject(
+          new Error("Falha ao renderizar SVG no objeto Image: " + String(e)),
+        )
+      }
+
+      img.src = svgUrl
+    })
   }
 
-  // Serializa para XML
-  const serializer = new XMLSerializer()
-  const rawHtml = serializer.serializeToString(clone)
+  // 1ª tentativa: com imagens em data URI
+  try {
+    return await tentarRenderizar(false)
+  } catch (err: any) {
+    console.warn(
+      "renderElementToJpegBytes falhou na 1ª tentativa (possível tainted canvas ou erro de recurso). Erro:",
+      err,
+    )
 
-  // Escapar cssText para inclusão segura dentro de XML/SVG:
-  // Seletores Tailwind contêm '&' (ex.: '&:is(...)') e caracteres que invalidam o XML do SVG.
-  const safeCssText = cssText.replace(/&/g, "&amp;").replace(/</g, "&lt;")
-
-  const svgString = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-      <foreignObject width="100%" height="100%">
-        <div xmlns="http://www.w3.org/1999/xhtml" style="background:${backgroundColor}; color:#000000; font-family: sans-serif;">
-          <style>
-            ${safeCssText}
-            * { box-sizing: border-box !important; }
-            body, html { margin: 0 !important; padding: 0 !important; background: ${backgroundColor} !important; }
-          </style>
-          ${rawHtml}
-        </div>
-      </foreignObject>
-    </svg>
-  `
-
-  const svgBlob = new Blob([svgString], {
-    type: "image/svg+xml;charset=utf-8",
-  })
-  const svgUrl = URL.createObjectURL(svgBlob)
-
-  return new Promise<Uint8Array>((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = "anonymous"
-    img.onload = () => {
-      try {
-        const canvas = document.createElement("canvas")
-        canvas.width = Math.floor(width * scale)
-        canvas.height = Math.floor(height * scale)
-        const ctx = canvas.getContext("2d")
-        if (!ctx) {
-          URL.revokeObjectURL(svgUrl)
-          reject(new Error("Não foi possível criar contexto 2D do Canvas"))
-          return
+    // Rede de segurança: se der erro de tainted canvas ou falha de renderização,
+    // tenta de novo removendo TODAS as <img> do clone (PDF sai sem logo, mas sai) e avisar o usuário de forma amigável
+    try {
+      const fallbackBytes = await tentarRenderizar(true)
+      console.info("PDF gerado com sucesso via fallback sem imagens.")
+      if (
+        typeof window !== "undefined" &&
+        (window as any).__onPdfFallbackSemLogo
+      ) {
+        try {
+          ;(window as any).__onPdfFallbackSemLogo()
+        } catch {
+          // ignora
         }
-
-        // Fundo branco
-        ctx.fillStyle = backgroundColor
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        URL.revokeObjectURL(svgUrl)
-
-        canvas.toBlob(
-          async (blob) => {
-            if (!blob) {
-              reject(new Error("Falha ao gerar blob JPEG do Canvas"))
-              return
-            }
-            const buffer = await blob.arrayBuffer()
-            resolve(new Uint8Array(buffer))
-          },
-          "image/jpeg",
-          quality,
-        )
-      } catch (err) {
-        URL.revokeObjectURL(svgUrl)
-        reject(err)
       }
+      return fallbackBytes
+    } catch (errFallback) {
+      throw new Error(
+        `Não foi possível exportar o documento para PDF: ${err?.message || errFallback}`,
+      )
     }
-
-    img.onerror = (e) => {
-      URL.revokeObjectURL(svgUrl)
-      reject(new Error("Falha ao renderizar SVG no objeto Image: " + String(e)))
-    }
-
-    img.src = svgUrl
-  })
+  }
 }
 
 /**
@@ -382,11 +431,30 @@ export async function renderElementToJpegBytes(
 export async function convertElementToPdfFile(
   element: HTMLElement,
   nomeArquivo: string,
+  options?: {
+    onAvisoFallbackSemLogo?: () => void
+  },
 ): Promise<File> {
-  const jpegBytes = await renderElementToJpegBytes(element, {
-    scale: 2,
-    quality: 0.95,
-  })
+  let acionouFallback = false
+  if (typeof window !== "undefined") {
+    ;(window as any).__onPdfFallbackSemLogo = () => {
+      acionouFallback = true
+      options?.onAvisoFallbackSemLogo?.()
+    }
+  }
+
+  let jpegBytes: Uint8Array
+  try {
+    jpegBytes = await renderElementToJpegBytes(element, {
+      scale: 2,
+      quality: 0.95,
+    })
+  } finally {
+    if (typeof window !== "undefined") {
+      delete (window as any).__onPdfFallbackSemLogo
+    }
+  }
+
   const pdfBytes = createA4PdfFromJpeg(jpegBytes)
   const arrayBuffer = pdfBytes.buffer.slice(
     pdfBytes.byteOffset,
