@@ -221,38 +221,6 @@ export const RelatorioGerencialMes: React.FC<RelatorioGerencialMesProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          {/* Botão de Fechamento do Mês no WhatsApp */}
-          {empresaAtiva?.slug?.toLowerCase() === "caico" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled
-              title="A unidade Caicó não possui destino de WhatsApp configurado"
-              className="gap-1.5 text-xs text-muted-foreground opacity-60 w-full sm:w-auto"
-            >
-              <AlertCircle className="w-3.5 h-3.5" />
-              WhatsApp indisponível (Caicó)
-            </Button>
-          ) : (
-            <Button
-              onClick={handleGerarFechamentoWhatsApp}
-              disabled={gerandoWhatsApp || carregando}
-              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm w-full sm:w-auto"
-              title="Gera o fechamento do mês anterior ao relógio e abre o WhatsApp com a mensagem pronta"
-            >
-              {copiado ? (
-                <Check className="w-4 h-4 text-emerald-200" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-              {gerandoWhatsApp
-                ? "Calculando Fechamento..."
-                : copiado
-                  ? "Copiado & Aberto!"
-                  : "GERAR FECHAMENTO DO MÊS (WhatsApp)"}
-            </Button>
-          )}
-
           <Button
             onClick={handleImprimir}
             disabled={imprimindo || carregando}

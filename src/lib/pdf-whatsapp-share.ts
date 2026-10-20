@@ -256,22 +256,63 @@ export async function renderElementToJpegBytes(
   clone.style.backgroundColor = backgroundColor
   clone.style.boxSizing = "border-box"
 
-  // Garante que imagens do clone (como logo em data URI ou URL) tenham src absoluto
+  // Imagens dentro do SVG (ForeignObject) NÃO podem carregar URLs externas (bloqueadas pela política de segurança do SVG como Image).
+  // Converte imagens existentes para data URI caso sejam carregáveis, ou se não forem data URI, tenta converter via Canvas ou remove para evitar quebra do Image.
   const imgs = Array.from(clone.querySelectorAll("img"))
-  imgs.forEach((img) => {
-    if (!img.crossOrigin) img.crossOrigin = "anonymous"
-  })
+  for (const img of imgs) {
+    const src = img.getAttribute("src") || ""
+    if (src.startsWith("data:")) {
+      // Já é data URI, perfeito
+      continue
+    }
+
+    // Tenta obter src de imagem já carregada no DOM original correspondente
+    let converteu = false
+    try {
+      // Procura a imagem correspondente no elemento original
+      const imgsOriginais = Array.from(element.querySelectorAll("img"))
+      const imgOriginal = imgsOriginais.find(
+        (orig) => orig.getAttribute("src") === src || orig.src === img.src,
+      )
+      if (imgOriginal && imgOriginal.complete && imgOriginal.naturalWidth > 0) {
+        const tempCanvas = document.createElement("canvas")
+        tempCanvas.width = imgOriginal.naturalWidth
+        tempCanvas.height = imgOriginal.naturalHeight
+        const tempCtx = tempCanvas.getContext("2d")
+        if (tempCtx) {
+          tempCtx.drawImage(imgOriginal, 0, 0)
+          const dataUri = tempCanvas.toDataURL("image/png")
+          img.setAttribute("src", dataUri)
+          converteu = true
+        }
+      }
+    } catch {
+      converteu = false
+    }
+
+    // Se não conseguiu converter para data URI e é URL remota/relativa externa,
+    // substitui ou remove o src problemático para não impedir a renderização do SVG
+    if (!converteu && !src.startsWith("data:")) {
+      // Se não for possível ler via canvas (ex: tainted canvas cross-origin),
+      // remove a tag img do clone para que o restante do documento A4 renderize perfeitamente
+      img.remove()
+    }
+  }
 
   // Serializa para XML
   const serializer = new XMLSerializer()
   const rawHtml = serializer.serializeToString(clone)
+
+  // Escapar cssText para inclusão segura dentro de XML/SVG:
+  // Seletores Tailwind contêm '&' (ex.: '&:is(...)') e caracteres que invalidam o XML do SVG.
+  const safeCssText = cssText.replace(/&/g, "&amp;").replace(/</g, "&lt;")
 
   const svgString = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
       <foreignObject width="100%" height="100%">
         <div xmlns="http://www.w3.org/1999/xhtml" style="background:${backgroundColor}; color:#000000; font-family: sans-serif;">
           <style>
-            ${cssText}
+            ${safeCssText}
             * { box-sizing: border-box !important; }
             body, html { margin: 0 !important; padding: 0 !important; background: ${backgroundColor} !important; }
           </style>

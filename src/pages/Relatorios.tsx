@@ -63,7 +63,6 @@ import {
   Scale,
   DollarSign,
   Coins,
-  Layers,
   ArrowUpDown,
   Calendar,
   Pencil,
@@ -1165,38 +1164,8 @@ export default function Relatorios() {
           </Card>
 
           {/* CARDS DE RELATÓRIO CONSOLIDADO & ENVIAR PDF POR WHATSAPP */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 no-print">
-            {/* CARD 1: RELATÓRIO CONSOLIDADO GERAL (4 UNIDADES) */}
-            <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20">
-              <CardContent className="p-3.5 flex flex-col justify-between h-full gap-3">
-                <div className="flex items-start gap-2.5">
-                  <div className="p-2 rounded-lg bg-blue-600 text-white shrink-0 mt-0.5">
-                    <Layers className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wide">
-                      Consolidado Geral (4 Unidades)
-                    </h3>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                      Monteiro, SJE, Patos e Caicó em documento único A4.
-                    </p>
-                  </div>
-                </div>
-
-                <Button
-                  onClick={() =>
-                    abrirRelatorioConsolidado(competenciaGerencial)
-                  }
-                  size="sm"
-                  className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold gap-1.5 w-full"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  Abrir Relatório (4 Unidades)
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* CARD 2: NOVO RECURSO ENVIAR PDF PATOS (WhatsApp) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 no-print">
+            {/* CARD 1: RECURSO ENVIAR PDF PATOS (WhatsApp) */}
             <Card className="border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20">
               <CardContent className="p-3.5 flex flex-col justify-between h-full gap-3">
                 <div className="flex items-start gap-2.5">

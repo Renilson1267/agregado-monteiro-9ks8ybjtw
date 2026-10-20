@@ -1,6 +1,6 @@
 // Service Worker simples e seguro para o PWA GC MIX Concreto Usinado
-// Versão do cache: alterar para invalidar cache estático (build v77 - relatorio consolidado enviar PDF WhatsApp 0.0.328/0.0.329)
-const CACHE_NAME = "gcmix-pwa-v77"
+// Versão do cache: alterar para invalidar cache estático (build v78 - fix SVG Image XML escape cssText + limpeza UI gerencial 0.0.331)
+const CACHE_NAME = "gcmix-pwa-v78"
 // Recursos estáticos básicos essenciais para abrir o shell do app offline
 const PRECACHE_ASSETS = [
   "/",
