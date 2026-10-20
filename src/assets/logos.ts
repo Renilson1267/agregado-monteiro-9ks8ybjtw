@@ -12,7 +12,7 @@ export const LOGO_GC_MIX_HORIZONTAL_REMOTE =
 
 // Imagens padrão utilizadas por todos os componentes do sistema
 // Logotipo GC MIX horizontal oficial sintetizado em SVG vetorial de alta definição puro em data URI (sem dependência externa de fetch/storage)
-export const LOGO_GC_MIX_HORIZONTAL_DATA_URI = `data:image/svg+xml;utf8,${encodeURIComponent(
+export const LOGO_GC_MIX_HORIZONTAL_DATA_URI = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 100" width="460" height="100">
       <defs>
         <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">

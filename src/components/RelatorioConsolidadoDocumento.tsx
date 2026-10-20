@@ -254,9 +254,7 @@ export const RelatorioConsolidadoDocumento: React.FC<RelatorioConsolidadoDocumen
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <img
-                    src={
-                      LOGO_GC_MIX_HORIZONTAL_DATA_URI || LOGO_GC_MIX_HORIZONTAL
-                    }
+                    src={LOGO_GC_MIX_HORIZONTAL_DATA_URI}
                     alt={LOGO_ALT_TEXT}
                     className="h-10 w-auto object-contain"
                     style={{ maxHeight: "42px" }}

@@ -228,13 +228,15 @@ export async function renderElementToJpegBytes(
   const height = Math.ceil(rect.height) || 1123 // 1123px ~ A4 96dpi
 
   // Coleta folhas de estilo da página para que o SVG contenha as classes Tailwind e estilos A4
+  // CRÍTICO: remove @import, @font-face externos (ex: Google Fonts) e referências url(...) com http/https/blob
+  // que contaminam (taint) o canvas durante a renderização SVG via ForeignObject
   const styleNodes = Array.from(
     document.querySelectorAll('style, link[rel="stylesheet"]'),
   )
   let cssText = ""
   for (const node of styleNodes) {
     if (node.tagName.toLowerCase() === "style") {
-      cssText += node.textContent + "\n"
+      cssText += (node.textContent || "") + "\n"
     } else if (node.tagName.toLowerCase() === "link") {
       const link = node as HTMLLinkElement
       try {
@@ -248,6 +250,17 @@ export async function renderElementToJpegBytes(
     }
   }
 
+  // Sanitiza CSS contra qualquer recurso remoto/externo
+  // 1. Remove @import externos
+  let sanitizedCss = cssText.replace(/@import\s+url\([^)]+\);?/gi, "")
+  // 2. Remove blocos @font-face inteiros (PDF usará fontes padrão do sistema: sans-serif/system-ui)
+  sanitizedCss = sanitizedCss.replace(/@font-face\s*\{[^}]*\}/gi, "")
+  // 3. Remove qualquer url(...) que aponte para http:, https: ou blob:
+  sanitizedCss = sanitizedCss.replace(
+    /url\(\s*['"]?(?:https?:|blob:)[^)'"]*['"]?\s*\)/gi,
+    "none",
+  )
+
   // Prepara o clone do elemento limpo sem scroll e com background garantido
   const clone = element.cloneNode(true) as HTMLElement
   clone.style.margin = "0"
@@ -256,13 +269,29 @@ export async function renderElementToJpegBytes(
   clone.style.backgroundColor = backgroundColor
   clone.style.boxSizing = "border-box"
 
-  // Função interna para montar o SVG e renderizar no Canvas com captura de erro tainted
-  const tentarRenderizar = async (
+  // Sanitização profunda do DOM clonado contra recursos externos:
+  // - Remove estilos inline com background-image externo
+  // - Sanitiza ou remove imagens que não sejam estritamente data:
+  const sanitizarElementosClonados = (
+    root: HTMLElement,
     removerTodasImgs: boolean,
-  ): Promise<Uint8Array> => {
-    const cloneTrabalho = clone.cloneNode(true) as HTMLElement
+  ) => {
+    // 1. Sanitiza background-image em todos os nós
+    const todosElementos = Array.from(root.querySelectorAll<HTMLElement>("*"))
+    for (const el of todosElementos) {
+      const bg = el.style.backgroundImage || ""
+      if (
+        bg &&
+        (bg.includes("http://") ||
+          bg.includes("https://") ||
+          bg.includes("blob:"))
+      ) {
+        el.style.backgroundImage = "none"
+      }
+    }
 
-    const imgs = Array.from(cloneTrabalho.querySelectorAll("img"))
+    // 2. Sanitiza tags <img>
+    const imgs = Array.from(root.querySelectorAll("img"))
     for (const img of imgs) {
       if (removerTodasImgs) {
         img.remove()
@@ -270,12 +299,12 @@ export async function renderElementToJpegBytes(
       }
 
       const src = img.getAttribute("src") || ""
+      // Imagem já em data URI válida
       if (src.startsWith("data:")) {
-        // Já é data URI válida
         continue
       }
 
-      // Tenta obter src de imagem já carregada no DOM original correspondente via canvas local
+      // Se for imagem externa/relativa, tenta converter via canvas local
       let converteu = false
       try {
         const imgsOriginais = Array.from(element.querySelectorAll("img"))
@@ -293,7 +322,6 @@ export async function renderElementToJpegBytes(
           const tempCtx = tempCanvas.getContext("2d")
           if (tempCtx) {
             tempCtx.drawImage(imgOriginal, 0, 0)
-            // Se toDataURL lançar SecurityError / Tainted canvas, o catch trata
             const dataUri = tempCanvas.toDataURL("image/png")
             img.setAttribute("src", dataUri)
             converteu = true
@@ -303,42 +331,68 @@ export async function renderElementToJpegBytes(
         converteu = false
       }
 
-      // Se não virou data URI garantido, REMOVER a tag <img> para não contaminar o SVG/Canvas
+      // Se não virou data URI garantido, REMOVER a tag <img>
       if (!converteu) {
         img.remove()
       }
     }
+  }
+
+  // Função interna para montar o SVG e renderizar no Canvas
+  // Suporta estratégia 1: data URI (WebKit / Blink não tainty com data: URL de SVG)
+  // Fallback estratégia 2: blob URL
+  const tentarRenderizar = async (
+    removerTodasImgs: boolean,
+    usarBlobUrl = false,
+  ): Promise<Uint8Array> => {
+    const cloneTrabalho = clone.cloneNode(true) as HTMLElement
+    sanitizarElementosClonados(cloneTrabalho, removerTodasImgs)
 
     // Serializa para XML
     const serializer = new XMLSerializer()
     const rawHtml = serializer.serializeToString(cloneTrabalho)
 
-    // Escapar cssText para inclusão segura dentro de XML/SVG
-    const safeCssText = cssText.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    // Escapar sanitizedCss para inclusão segura dentro de XML/SVG
+    const safeCssText = sanitizedCss
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
 
-    const svgString = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-        <foreignObject width="100%" height="100%">
-          <div xmlns="http://www.w3.org/1999/xhtml" style="background:${backgroundColor}; color:#000000; font-family: sans-serif;">
-            <style>
-              ${safeCssText}
-              * { box-sizing: border-box !important; }
-              body, html { margin: 0 !important; padding: 0 !important; background: ${backgroundColor} !important; }
-            </style>
-            ${rawHtml}
-          </div>
-        </foreignObject>
-      </svg>
-    `
+    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+  <foreignObject width="100%" height="100%">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="background:${backgroundColor}; color:#000000; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <style>
+        ${safeCssText}
+        * { box-sizing: border-box !important; }
+        body, html { margin: 0 !important; padding: 0 !important; background: ${backgroundColor} !important; }
+      </style>
+      ${rawHtml}
+    </div>
+  </foreignObject>
+</svg>`
 
-    const svgBlob = new Blob([svgString], {
-      type: "image/svg+xml;charset=utf-8",
-    })
-    const svgUrl = URL.createObjectURL(svgBlob)
+    // CRÍTICO: Chrome e Safari consideram SVG com foreignObject via blob: URL como "tainted".
+    // Para SVG com foreignObject, 'data:image/svg+xml;charset=utf-8,...' NÃO contamina o canvas
+    // desde que todo recurso interno seja data: URI e sem fontes externas!
+    let imageSrc = ""
+    let cleanupUrl: string | null = null
+
+    if (usarBlobUrl) {
+      const svgBlob = new Blob([svgString], {
+        type: "image/svg+xml;charset=utf-8",
+      })
+      imageSrc = URL.createObjectURL(svgBlob)
+      cleanupUrl = imageSrc
+    } else {
+      imageSrc = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`
+    }
 
     return new Promise<Uint8Array>((resolve, reject) => {
       const img = new Image()
-      img.crossOrigin = "anonymous"
+      // Não definir crossOrigin para data URI para evitar que alguns navegadores o tratem como CORS anônimo estranho
+      if (usarBlobUrl) {
+        img.crossOrigin = "anonymous"
+      }
+
       img.onload = () => {
         try {
           const canvas = document.createElement("canvas")
@@ -346,7 +400,7 @@ export async function renderElementToJpegBytes(
           canvas.height = Math.floor(height * scale)
           const ctx = canvas.getContext("2d")
           if (!ctx) {
-            URL.revokeObjectURL(svgUrl)
+            if (cleanupUrl) URL.revokeObjectURL(cleanupUrl)
             reject(new Error("Não foi possível criar contexto 2D do Canvas"))
             return
           }
@@ -356,14 +410,32 @@ export async function renderElementToJpegBytes(
           ctx.fillRect(0, 0, canvas.width, canvas.height)
 
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-          URL.revokeObjectURL(svgUrl)
+          if (cleanupUrl) URL.revokeObjectURL(cleanupUrl)
 
-          // Tenta toBlob diretamente com salvaguarda de tainted canvas
+          // Extração segura de bytes do Canvas:
+          // Primeiro tenta toBlob; se lançar SecurityError / Tainted canvas de forma síncrona,
+          // ou se toDataURL funcionar como fallback, trata com segurança.
           try {
             canvas.toBlob(
               async (blob) => {
                 if (!blob) {
-                  reject(new Error("Falha ao gerar blob JPEG do Canvas"))
+                  // Fallback para toDataURL
+                  try {
+                    const dataUrl = canvas.toDataURL("image/jpeg", quality)
+                    const base64 = dataUrl.split(",")[1]
+                    const binary = atob(base64)
+                    const bytes = new Uint8Array(binary.length)
+                    for (let i = 0; i < binary.length; i++) {
+                      bytes[i] = binary.charCodeAt(i)
+                    }
+                    resolve(bytes)
+                  } catch (errToDataUrl) {
+                    reject(
+                      new Error(
+                        `Falha ao extrair imagem do Canvas: ${errToDataUrl}`,
+                      ),
+                    )
+                  }
                   return
                 }
                 const buffer = await blob.arrayBuffer()
@@ -372,56 +444,89 @@ export async function renderElementToJpegBytes(
               "image/jpeg",
               quality,
             )
-          } catch (blobErr) {
+          } catch (blobErr: any) {
+            // Se canvas foi tainted, este bloco síncrono pega a exceção SecurityError imediatamente
             reject(blobErr)
           }
         } catch (err) {
-          URL.revokeObjectURL(svgUrl)
+          if (cleanupUrl) URL.revokeObjectURL(cleanupUrl)
           reject(err)
         }
       }
 
       img.onerror = (e) => {
-        URL.revokeObjectURL(svgUrl)
+        if (cleanupUrl) URL.revokeObjectURL(cleanupUrl)
         reject(
           new Error("Falha ao renderizar SVG no objeto Image: " + String(e)),
         )
       }
 
-      img.src = svgUrl
+      img.src = imageSrc
     })
   }
 
-  // 1ª tentativa: com imagens em data URI
+  // Sequência de tentativas para garantir 100% de sucesso na geração do PDF:
+  // Tentativa 1: SVG via data URI com imagens em data URI
   try {
-    return await tentarRenderizar(false)
-  } catch (err: any) {
+    return await tentarRenderizar(false, false)
+  } catch (err1: any) {
     console.warn(
-      "renderElementToJpegBytes falhou na 1ª tentativa (possível tainted canvas ou erro de recurso). Erro:",
-      err,
+      "renderElementToJpegBytes falhou na 1ª tentativa (data URI com logo). Erro:",
+      err1?.message || err1,
     )
+  }
 
-    // Rede de segurança: se der erro de tainted canvas ou falha de renderização,
-    // tenta de novo removendo TODAS as <img> do clone (PDF sai sem logo, mas sai) e avisar o usuário de forma amigável
-    try {
-      const fallbackBytes = await tentarRenderizar(true)
-      console.info("PDF gerado com sucesso via fallback sem imagens.")
-      if (
-        typeof window !== "undefined" &&
-        (window as any).__onPdfFallbackSemLogo
-      ) {
-        try {
-          ;(window as any).__onPdfFallbackSemLogo()
-        } catch {
-          // ignora
-        }
+  // Tentativa 2: SVG via blob URL com imagens em data URI
+  try {
+    return await tentarRenderizar(false, true)
+  } catch (err2: any) {
+    console.warn(
+      "renderElementToJpegBytes falhou na 2ª tentativa (blob URL com logo). Erro:",
+      err2?.message || err2,
+    )
+  }
+
+  // Tentativa 3: FALLBACK REAL SEM IMAGENS via data URI (remove todas as <img> para eliminar qualquer causa de tainted canvas)
+  try {
+    const fallbackBytes = await tentarRenderizar(true, false)
+    console.info("PDF gerado com sucesso via fallback sem imagens (data URI).")
+    if (
+      typeof window !== "undefined" &&
+      (window as any).__onPdfFallbackSemLogo
+    ) {
+      try {
+        ;(window as any).__onPdfFallbackSemLogo()
+      } catch {
+        // ignora
       }
-      return fallbackBytes
-    } catch (errFallback) {
-      throw new Error(
-        `Não foi possível exportar o documento para PDF: ${err?.message || errFallback}`,
-      )
     }
+    return fallbackBytes
+  } catch (err3: any) {
+    console.warn(
+      "renderElementToJpegBytes falhou na 3ª tentativa (fallback sem imagens data URI). Erro:",
+      err3?.message || err3,
+    )
+  }
+
+  // Tentativa 4: FALLBACK FINAL SEM IMAGENS via blob URL
+  try {
+    const fallbackBytes = await tentarRenderizar(true, true)
+    console.info("PDF gerado com sucesso via fallback sem imagens (blob URL).")
+    if (
+      typeof window !== "undefined" &&
+      (window as any).__onPdfFallbackSemLogo
+    ) {
+      try {
+        ;(window as any).__onPdfFallbackSemLogo()
+      } catch {
+        // ignora
+      }
+    }
+    return fallbackBytes
+  } catch (err4: any) {
+    throw new Error(
+      `Não foi possível exportar o documento para PDF: ${err4?.message || err4}`,
+    )
   }
 }
 
