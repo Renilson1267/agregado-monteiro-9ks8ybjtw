@@ -5,7 +5,9 @@ export interface ControleBritaCompra {
   id: string
   empresa_id: string
   competencia: string // 'YYYY-MM'
+  data: string // 'YYYY-MM-DD'
   volume_m3: number
+  fornecedor?: string | null
   observacao?: string | null
   created_at?: string
   updated_at?: string
@@ -31,6 +33,7 @@ export interface ControleBritaCheque {
   id: string
   empresa_id: string
   competencia: string // 'YYYY-MM'
+  compra_id?: string | null
   valor: number
   data_vencimento?: string | null // 'YYYY-MM-DD'
   numero?: string | null

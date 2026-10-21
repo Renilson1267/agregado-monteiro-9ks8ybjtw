@@ -12,10 +12,13 @@ export interface ImpressaoControleBritasProps {
   empresaAtiva: Empresa | null
   competencia: string
   rotuloCompetencia: string
-  compraMensal: ControleBritaCompra | null
+  compraMensal?: ControleBritaCompra | null
+  compras?: ControleBritaCompra[]
   resumo: ResumoControleBritasMes
   entregas: ControleBritaEntrega[]
   cheques: ControleBritaCheque[]
+  chequesPorCompraId?: Map<string, ControleBritaCheque[]>
+  chequesSemCompra?: ControleBritaCheque[]
   totalCheques: number
   totalChequesPagos: number
   totalChequesPendentes: number
@@ -46,10 +49,11 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
     empresaAtiva,
     competencia,
     rotuloCompetencia,
-    compraMensal,
+    compras = [],
     resumo,
     entregas,
     cheques,
+    chequesPorCompraId,
     totalCheques,
     totalChequesPagos,
     totalChequesPendentes,
@@ -134,23 +138,18 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
           </div>
         </div>
 
-        {/* 2. CARTÃO DE COMPRA COM REPASSE + INDICADORES */}
+        {/* 2. CARTÃO DE RESUMO + INDICADORES */}
         <div className="border border-gray-400 rounded-md p-2.5 mb-3 bg-gray-50/70 page-break-inside-avoid">
           <div className="flex justify-between items-center border-b border-gray-300 pb-1.5 mb-2">
             <div className="flex items-center gap-2">
               <strong className="text-[11px] uppercase font-black text-black tracking-wide">
                 {modoVisao === "ano"
                   ? `Totalizadores Anuais & Saldos — Exercício ${anoSelecionado || competencia.substring(0, 4)}`
-                  : "Resumo da Compra & Saldos da Competência"}
+                  : `Resumo de Compras & Saldos da Competência (${rotuloCompetencia})`}
               </strong>
-              {compraMensal?.observacao && modoVisao !== "ano" && (
-                <span className="text-[9px] text-gray-600 italic">
-                  (Obs: {compraMensal.observacao})
-                </span>
-              )}
             </div>
             <div className="text-[10px] font-bold font-mono text-gray-800">
-              Total Financeiro Cheques: {formatarMoeda(totalCheques)}
+              Total Financeiro em Cheques: {formatarMoeda(totalCheques)}
             </div>
           </div>
 
@@ -159,7 +158,7 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
             {/* Compra do Mês / Ano */}
             <div className="border border-gray-300 rounded p-1.5 bg-white">
               <span className="text-[8px] font-bold uppercase text-gray-600 block">
-                {modoVisao === "ano" ? "Comprado (Ano)" : "Compra do Mês"}
+                {modoVisao === "ano" ? "Comprado (Ano)" : "Compras do Mês"}
               </span>
               <span className="text-sm font-black font-mono text-black block">
                 {resumo.compraTotalM3.toLocaleString("pt-BR", {
@@ -167,7 +166,22 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
                   maximumFractionDigits: 2,
                 })}
               </span>
-              <span className="text-[8px] text-gray-500">m³ contratados</span>
+              <span className="text-[8px] text-gray-500">
+                {compras.length} compras (m³)
+              </span>
+            </div>
+
+            {/* Total em Cheques */}
+            <div className="border border-gray-300 rounded p-1.5 bg-white">
+              <span className="text-[8px] font-bold uppercase text-gray-600 block">
+                Total em Cheques
+              </span>
+              <span className="text-xs font-black font-mono text-emerald-800 block truncate">
+                {formatarMoeda(totalCheques)}
+              </span>
+              <span className="text-[8px] text-gray-500">
+                {cheques.length} cheques
+              </span>
             </div>
 
             {/* Saldo Anterior (Repasse) */}

@@ -156,9 +156,7 @@ export function AbaControleBritas({
   // ou quando o usuário optar por visão de ano completo
   const modoVisaoAnoCompleto = anoSelecionado !== anoCompetenciaAtual
 
-  const [compraMensal, setCompraMensal] = useState<ControleBritaCompra | null>(
-    null,
-  )
+  const [compras, setCompras] = useState<ControleBritaCompra[]>([])
   const [entregas, setEntregas] = useState<ControleBritaEntrega[]>([])
   const [cheques, setCheques] = useState<ControleBritaCheque[]>([])
   const [saldoAnterior, setSaldoAnterior] =
@@ -177,13 +175,26 @@ export function AbaControleBritas({
   const [filtroDataInicio, setFiltroDataInicio] = useState<string>("")
   const [filtroDataFim, setFiltroDataFim] = useState<string>("")
 
-  // Modal Lançar / Editar Compra Mensal Única
+  // Modal Lançar / Editar Compra da Competência
   const [modalCompraAberta, setModalCompraAberta] = useState(false)
+  const [compraEmEdicao, setCompraEmEdicao] =
+    useState<ControleBritaCompra | null>(null)
   const [salvandoCompra, setSalvandoCompra] = useState(false)
+  const [compraData, setCompraData] = useState<string>("")
   const [compraVolumeM3, setCompraVolumeM3] = useState<string>("")
+  const [compraFornecedor, setCompraFornecedor] = useState<string>("")
   const [compraObservacao, setCompraObservacao] = useState<string>("")
 
-  // Diálogo para Replicar Compra para o Próximo Mês
+  // Dialog Excluir Compra
+  const [compraParaExcluir, setCompraParaExcluir] =
+    useState<ControleBritaCompra | null>(null)
+  const [excluindoCompra, setExcluindoCompra] = useState(false)
+
+  // Drawer / Seção / Modal de Cheques vinculados à Compra
+  const [compraSelecionadaCheques, setCompraSelecionadaCheques] =
+    useState<ControleBritaCompra | null>(null)
+
+  // Diálogo para Replicar Compras para o Próximo Mês
   const [confirmarReplicarAberto, setConfirmarReplicarAberto] = useState(false)
   const [replicandoCompra, setReplicandoCompra] = useState(false)
 
@@ -260,9 +271,9 @@ export function AbaControleBritas({
         setAnosDisponiveis(anosRes)
       } else {
         // Visão do mês normal
-        const [compraRes, entregasRes, saldoAntRes, chequesRes, anosRes] =
+        const [comprasRes, entregasRes, saldoAntRes, chequesRes, anosRes] =
           await Promise.all([
-            BritasService.getCompraCompetencia(empresaAtiva.id, competencia),
+            BritasService.getComprasCompetencia(empresaAtiva.id, competencia),
             BritasService.getEntregasCompetencia(empresaAtiva.id, competencia),
             BritasService.getSaldoCompetenciaAnterior(
               empresaAtiva.id,
@@ -271,7 +282,7 @@ export function AbaControleBritas({
             BritasService.getChequesCompetencia(empresaAtiva.id, competencia),
             BritasService.getAnosDisponiveis(empresaAtiva.id),
           ])
-        setCompraMensal(compraRes)
+        setCompras(comprasRes)
         setEntregas(entregasRes)
         setSaldoAnterior(saldoAntRes)
         setCheques(chequesRes)
@@ -370,7 +381,11 @@ export function AbaControleBritas({
       }
     }
 
-    const compraTotalM3 = compraMensal ? Number(compraMensal.volume_m3) || 0 : 0
+    const compraTotalM3 = Number(
+      compras
+        .reduce((acc, c) => acc + (Number(c.volume_m3) || 0), 0)
+        .toFixed(3),
+    )
     const saldoRepasseM3 = saldoAnterior
       ? Number(saldoAnterior.saldoRepasseM3) || 0
       : 0
@@ -419,20 +434,44 @@ export function AbaControleBritas({
     modoVisaoAnoCompleto,
     comprasAno,
     entregasAno,
-    compraMensal,
+    compras,
     entregas,
     saldoAnterior,
   ])
 
+  // Mapa de cheques indexados por compra_id (e cheques legados sem compra_id)
+  const chequesPorCompraId = useMemo(() => {
+    const map = new Map<string, ControleBritaCheque[]>()
+    const semCompra: ControleBritaCheque[] = []
+    cheques.forEach((chq) => {
+      if (chq.compra_id) {
+        const arr = map.get(chq.compra_id) || []
+        arr.push(chq)
+        map.set(chq.compra_id, arr)
+      } else {
+        semCompra.push(chq)
+      }
+    })
+    return { map, semCompra }
+  }, [cheques])
+
   // Totalizadores de cheques da competência
   const totaisCheques = useMemo(() => {
-    const total = cheques.reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
-    const pagos = cheques
-      .filter((c) => c.pago)
-      .reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
-    const pendentes = cheques
-      .filter((c) => !c.pago)
-      .reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+    const total = Number(
+      cheques.reduce((acc, c) => acc + (Number(c.valor) || 0), 0).toFixed(2),
+    )
+    const pagos = Number(
+      cheques
+        .filter((c) => c.pago)
+        .reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+        .toFixed(2),
+    )
+    const pendentes = Number(
+      cheques
+        .filter((c) => !c.pago)
+        .reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+        .toFixed(2),
+    )
     return {
       total,
       pagos,
@@ -450,56 +489,124 @@ export function AbaControleBritas({
     )
   }, [resumo.totalDisponivelM3, resumo.totalEntregueGeralM3])
 
-  // Abrir modal de compra mensal (para criar ou editar)
-  const abrirModalCompra = () => {
-    if (compraMensal) {
-      setCompraVolumeM3(String(compraMensal.volume_m3))
-      setCompraObservacao(compraMensal.observacao || "")
-    } else {
-      setCompraVolumeM3("")
-      setCompraObservacao("")
+  // Obter data padrão de compra dentro da competência navegada:
+  // padrão = hoje se hoje pertencer à competência, senão 1º dia da competência navegada
+  const obterDataPadraoParaCompetencia = (comp: string): string => {
+    const hoje = new Date()
+    const hojeStr = hoje.toISOString().split("T")[0]
+    if (hojeStr.startsWith(comp)) {
+      return hojeStr
     }
+    return `${comp}-01`
+  }
+
+  // Abrir modal de compra (criar nova)
+  const abrirModalNovaCompra = () => {
+    setCompraEmEdicao(null)
+    setCompraData(obterDataPadraoParaCompetencia(competencia))
+    setCompraVolumeM3("")
+    setCompraFornecedor("")
+    setCompraObservacao("")
     setModalCompraAberta(true)
   }
 
-  // Salvar compra mensal única
+  // Abrir modal de compra (editar existente)
+  const abrirModalEditarCompra = (compra: ControleBritaCompra) => {
+    setCompraEmEdicao(compra)
+    setCompraData(compra.data || obterDataPadraoParaCompetencia(competencia))
+    setCompraVolumeM3(String(compra.volume_m3))
+    setCompraFornecedor(compra.fornecedor || "")
+    setCompraObservacao(compra.observacao || "")
+    setModalCompraAberta(true)
+  }
+
+  // Salvar compra (criar ou editar)
   const handleSalvarCompra = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!empresaAtiva?.id) return
 
     const vol = Number(compraVolumeM3.replace(",", "."))
-    if (isNaN(vol) || vol < 0) {
+    if (isNaN(vol) || vol <= 0) {
       toast({
         title: "Volume inválido",
-        description: "Informe um volume em m³ válido (0 ou maior).",
+        description: "Informe um volume em m³ válido (maior que 0).",
         variant: "destructive",
       })
       return
     }
 
+    const dataFinal = compraData || obterDataPadraoParaCompetencia(competencia)
+
     setSalvandoCompra(true)
     try {
-      await BritasService.upsertCompra({
-        empresa_id: empresaAtiva.id,
-        competencia,
-        volume_m3: vol,
-        observacao: compraObservacao,
-      })
+      if (compraEmEdicao) {
+        await BritasService.atualizarCompra({
+          id: compraEmEdicao.id,
+          competencia,
+          data: dataFinal,
+          volume_m3: vol,
+          fornecedor: compraFornecedor,
+          observacao: compraObservacao,
+        })
+        toast({
+          title: "Compra atualizada",
+          description: `Compra de ${vol.toLocaleString("pt-BR")} m³ atualizada com sucesso.`,
+        })
+      } else {
+        await BritasService.criarCompra({
+          empresa_id: empresaAtiva.id,
+          competencia,
+          data: dataFinal,
+          volume_m3: vol,
+          fornecedor: compraFornecedor,
+          observacao: compraObservacao,
+        })
+        toast({
+          title: "Compra lançada",
+          description: `Compra de ${vol.toLocaleString("pt-BR")} m³ adicionada ao mês ${formatarCompetenciaRotulo(competencia)}.`,
+        })
+      }
 
-      toast({
-        title: "Compra mensal salva",
-        description: `Volume total de ${vol.toLocaleString("pt-BR")} m³ registrado para o mês ${competencia}.`,
-      })
       setModalCompraAberta(false)
+      setCompraEmEdicao(null)
       carregarDados()
     } catch (err: any) {
       toast({
-        title: "Erro ao salvar compra",
+        title: compraEmEdicao
+          ? "Erro ao atualizar compra"
+          : "Erro ao lançar compra",
         description: err.message,
         variant: "destructive",
       })
     } finally {
       setSalvandoCompra(false)
+    }
+  }
+
+  // Excluir compra (com aviso se tiver cheques vinculados)
+  const handleConfirmarExclusaoCompra = async () => {
+    if (!compraParaExcluir) return
+    setExcluindoCompra(true)
+    try {
+      await BritasService.excluirCompra(compraParaExcluir.id)
+      toast({
+        title: "Compra excluída",
+        description:
+          "A compra e eventuais cheques vinculados foram excluídos com sucesso.",
+      })
+      if (compraSelecionadaCheques?.id === compraParaExcluir.id) {
+        setCompraSelecionadaCheques(null)
+      }
+      setCompraParaExcluir(null)
+      carregarDados()
+    } catch (err: any) {
+      toast({
+        title: "Erro ao excluir compra",
+        description: err.message,
+        variant: "destructive",
+      })
+    } finally {
+      setExcluindoCompra(false)
     }
   }
 
@@ -521,14 +628,13 @@ export function AbaControleBritas({
     setCompetencia(proximaCompetencia)
   }
 
-  // Replicar compra da competência atual para a próxima
+  // Replicar compras da competência atual para a próxima
   const handleConfirmarReplicacao = async () => {
     if (!empresaAtiva?.id) return
-    const vol = compraMensal ? Number(compraMensal.volume_m3) || 0 : 0
-    if (vol <= 0) {
+    if (compras.length === 0) {
       toast({
         title: "Nenhuma compra para replicar",
-        description: `Cadastre primeiro um volume de compra em ${formatarCompetenciaRotulo(competencia)}.`,
+        description: `Cadastre primeiro uma compra em ${formatarCompetenciaRotulo(competencia)}.`,
         variant: "destructive",
       })
       setConfirmarReplicarAberto(false)
@@ -537,41 +643,37 @@ export function AbaControleBritas({
 
     setReplicandoCompra(true)
     try {
-      await BritasService.upsertCompra({
-        empresa_id: empresaAtiva.id,
-        competencia: proximaCompetencia,
-        volume_m3: vol,
-        observacao: compraMensal?.observacao
-          ? `Replicado de ${formatarCompetenciaRotulo(competencia)}: ${compraMensal.observacao}`
-          : `Replicado de ${formatarCompetenciaRotulo(competencia)}`,
-      })
+      // Cria as compras na próxima competência com data no 1º dia da próxima competência
+      const proximaData = `${proximaCompetencia}-01`
+      for (const c of compras) {
+        await BritasService.criarCompra({
+          empresa_id: empresaAtiva.id,
+          competencia: proximaCompetencia,
+          data: proximaData,
+          volume_m3: Number(c.volume_m3) || 0,
+          fornecedor: c.fornecedor || null,
+          observacao: c.observacao
+            ? `Replicado de ${formatarCompetenciaRotulo(competencia)}: ${c.observacao}`
+            : `Replicado de ${formatarCompetenciaRotulo(competencia)}`,
+        })
+      }
 
       toast({
-        title: "Compra replicada com sucesso",
-        description: `Volume de ${vol.toLocaleString("pt-BR")} m³ copiado para ${formatarCompetenciaRotulo(proximaCompetencia)}. Avançando para o mês...`,
+        title: "Compras replicadas com sucesso",
+        description: `${compras.length} compra(s) copiada(s) para ${formatarCompetenciaRotulo(proximaCompetencia)}. Avançando para o mês...`,
       })
 
       setConfirmarReplicarAberto(false)
       setCompetencia(proximaCompetencia)
     } catch (err: any) {
       toast({
-        title: "Erro ao replicar compra",
+        title: "Erro ao replicar compras",
         description: err.message,
         variant: "destructive",
       })
     } finally {
       setReplicandoCompra(false)
     }
-  }
-
-  // Obter data padrão de entrega dentro do mês selecionado
-  const obterDataPadraoParaCompetencia = (comp: string): string => {
-    const hoje = new Date()
-    const hojeStr = hoje.toISOString().split("T")[0]
-    if (hojeStr.startsWith(comp)) {
-      return hojeStr
-    }
-    return `${comp}-01`
   }
 
   // Troca de tipo de brita no modal
@@ -736,18 +838,29 @@ export function AbaControleBritas({
      AÇÕES DE CHEQUES DA COMPRA
      ========================================================================= */
 
-  const abrirModalNovoCheque = () => {
+  const abrirModalNovoCheque = (compra?: ControleBritaCompra) => {
+    const alvoCompra = compra || compraSelecionadaCheques || null
     setChequeEmEdicao(null)
     setChequeValor("")
-    setChequeDataVencimento(obterDataPadraoParaCompetencia(competencia))
+    // Se a compra tem data, sugerir a data da compra ou padrão do mês
+    setChequeDataVencimento(
+      alvoCompra?.data || obterDataPadraoParaCompetencia(competencia),
+    )
     setChequeNumero("")
     setChequeObservacao("")
     setChequePago(false)
+    if (alvoCompra) {
+      setCompraSelecionadaCheques(alvoCompra)
+    }
     setModalChequeAberta(true)
   }
 
   const abrirModalEditarCheque = (chq: ControleBritaCheque) => {
     setChequeEmEdicao(chq)
+    if (chq.compra_id) {
+      const c = compras.find((x) => x.id === chq.compra_id) || null
+      setCompraSelecionadaCheques(c)
+    }
     setChequeValor(String(chq.valor))
     setChequeDataVencimento(chq.data_vencimento || "")
     setChequeNumero(chq.numero || "")
@@ -775,6 +888,7 @@ export function AbaControleBritas({
       if (chequeEmEdicao) {
         await BritasService.atualizarCheque({
           id: chequeEmEdicao.id,
+          compra_id: compraSelecionadaCheques?.id || null,
           valor: val,
           data_vencimento: chequeDataVencimento || null,
           numero: chequeNumero,
@@ -791,6 +905,7 @@ export function AbaControleBritas({
         await BritasService.criarCheque({
           empresa_id: empresaAtiva.id,
           competencia,
+          compra_id: compraSelecionadaCheques?.id || null,
           valor: val,
           data_vencimento: chequeDataVencimento || null,
           numero: chequeNumero,
@@ -801,7 +916,11 @@ export function AbaControleBritas({
           title: "Cheque lançado",
           description: `Cheque ${
             chequeNumero ? `Nº ${chequeNumero}` : ""
-          } de ${formatarMoeda(val)} registrado para a compra de ${formatarCompetenciaRotulo(competencia)}.`,
+          } de ${formatarMoeda(val)} registrado para a compra${
+            compraSelecionadaCheques
+              ? ` (${compraSelecionadaCheques.volume_m3} m³)`
+              : ""
+          }.`,
         })
       }
 
@@ -929,15 +1048,15 @@ export function AbaControleBritas({
         empresaAtiva={empresaAtiva}
         competencia={competencia}
         rotuloCompetencia={formatarCompetenciaRotulo(competencia)}
-        compraMensal={compraMensal}
+        compras={modoVisaoAnoCompleto ? comprasAno : compras}
         resumo={resumo}
         entregas={entregasFiltradas}
-        cheques={modoVisaoAnoCompleto ? [] : cheques}
-        totalCheques={modoVisaoAnoCompleto ? 0 : totaisCheques.total}
-        totalChequesPagos={modoVisaoAnoCompleto ? 0 : totaisCheques.pagos}
-        totalChequesPendentes={
-          modoVisaoAnoCompleto ? 0 : totaisCheques.pendentes
-        }
+        cheques={cheques}
+        chequesPorCompraId={chequesPorCompraId.map}
+        chequesSemCompra={chequesPorCompraId.semCompra}
+        totalCheques={totaisCheques.total}
+        totalChequesPagos={totaisCheques.pagos}
+        totalChequesPendentes={totaisCheques.pendentes}
         filtroTipoBrita={filtroTipoBrita}
         filtroFornecedor={filtroFornecedor}
         filtroDataInicio={filtroDataInicio}
@@ -961,13 +1080,14 @@ export function AbaControleBritas({
               variant="outline"
               className="border-primary/40 text-primary text-xs font-semibold"
             >
-              Compra Única Mensal
+              Compras &amp; Cheques
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            A compra é contratada em <strong>volume único mensal</strong> para
-            as duas britas juntas (ex.: 450 m³). Na entrega individual,
-            classifica-se se é Brita 19 ou Brita 12 (com conversão m³ / t).
+            Lançamento de <strong>compras do mês</strong> (mais de uma compra no
+            mês, pagamentos à vista ou em cheques pré-datados). Na entrega
+            individual, classifica-se Brita 19 ou Brita 12 (com conversão m³ /
+            t).
           </p>
         </div>
 
@@ -1173,16 +1293,16 @@ export function AbaControleBritas({
             <Button
               size="sm"
               variant="outline"
-              onClick={abrirModalCompra}
+              onClick={abrirModalNovaCompra}
               className="border-destructive text-destructive hover:bg-destructive/20 h-8 text-xs shrink-0 font-bold"
             >
-              Ajustar Compra
+              Lançar Compra
             </Button>
           )}
         </div>
       )}
 
-      {/* Cartão Principal: COMPRA DO MÊS + REPASSE ANTERIOR + Indicadores Solicitados */}
+      {/* Cartão Principal: INDICADORES OFICIAIS + LISTA DE COMPRAS DA COMPETÊNCIA */}
       <Card className="no-print border border-border/60 bg-card/90 shadow-xs overflow-hidden">
         {/* Barra superior de progresso visual */}
         <div
@@ -1204,7 +1324,7 @@ export function AbaControleBritas({
                   <span>
                     {modoVisaoAnoCompleto
                       ? `Controle de Britas — Visão ANO COMPLETO ${anoSelecionado}`
-                      : "Compra Mensal & Atendimento de Britas"}
+                      : "Compras da Competência & Atendimento de Britas"}
                   </span>
                 </CardTitle>
                 <Badge
@@ -1221,7 +1341,7 @@ export function AbaControleBritas({
               <CardDescription className="text-xs mt-0.5">
                 {modoVisaoAnoCompleto ? (
                   <>
-                    Totalizadores de todas as competências do ano{" "}
+                    Totalizadores de todas as compras e entregas do ano{" "}
                     <strong className="text-foreground font-mono">
                       {anoSelecionado}
                     </strong>{" "}
@@ -1233,68 +1353,53 @@ export function AbaControleBritas({
                   </>
                 ) : (
                   <>
-                    Volume contratado único para Brita 19 e 12 juntas na unidade{" "}
-                    <strong className="text-foreground">
-                      {empresaAtiva?.nome}
-                    </strong>{" "}
-                    em{" "}
+                    Compras realizadas no mês de{" "}
                     <strong className="text-primary font-mono">
                       {formatarCompetenciaRotulo(competencia)}
+                    </strong>{" "}
+                    na unidade{" "}
+                    <strong className="text-foreground">
+                      {empresaAtiva?.nome}
                     </strong>
+                    .
                   </>
                 )}
               </CardDescription>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-              {/* Botão de Lançar Cheque no topo do cartão */}
-              {podeEditar && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={abrirModalNovoCheque}
-                  className="h-8 text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold"
-                  title="Lançar cheque vinculado ao pagamento da compra de britas"
-                >
-                  <Banknote className="w-3.5 h-3.5" />
-                  Lançar Cheque
-                </Button>
-              )}
-
-              {podeEditar && resumo.compraTotalM3 > 0 && (
+              {podeEditar && !modoVisaoAnoCompleto && compras.length > 0 && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setConfirmarReplicarAberto(true)}
                   className="h-8 text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold"
-                  title={`Replicar ${resumo.compraTotalM3.toLocaleString("pt-BR")} m³ para ${formatarCompetenciaRotulo(proximaCompetencia)}`}
+                  title={`Replicar ${compras.length} compra(s) para ${formatarCompetenciaRotulo(proximaCompetencia)}`}
                 >
                   <Copy className="w-3.5 h-3.5" />
-                  Replicar para o Próximo Mês
+                  Replicar Compras para o Próximo Mês
                 </Button>
               )}
 
-              {podeEditar && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={abrirModalCompra}
-                  className="h-8 text-xs gap-1.5 border-primary/40 text-primary hover:bg-primary/10 font-semibold"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                  {resumo.compraTotalM3 > 0
-                    ? "Editar Compra do Mês"
-                    : "Lançar Compra do Mês"}
-                </Button>
-              )}
-
-              {podeEditar && (
+              {podeEditar && !modoVisaoAnoCompleto && (
                 <Button
                   size="sm"
-                  onClick={() => abrirModalNovaEntrega()}
-                  className="h-8 text-xs gap-1.5 bg-primary text-primary-foreground font-semibold"
+                  onClick={abrirModalNovaCompra}
+                  className="h-8 text-xs gap-1.5 bg-primary text-primary-foreground font-semibold shadow-xs"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
+                  LANÇAR COMPRA
+                </Button>
+              )}
+
+              {podeEditar && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => abrirModalNovaEntrega()}
+                  className="h-8 text-xs gap-1.5 font-semibold"
+                >
+                  <Truck className="w-3.5 h-3.5 text-primary" />
                   Lançar Entrega
                 </Button>
               )}
@@ -1305,7 +1410,7 @@ export function AbaControleBritas({
         <CardContent className="pt-4 space-y-4">
           {/* Grid com os 6 Indicadores Oficiais (incluindo SALDO ANTERIOR REPASSE) */}
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-            {/* 1. COMPRA DO MÊS / ANO */}
+            {/* 1. COMPRA DO MÊS / ANO (soma dos volumes de todas as compras) */}
             <div className="p-3 rounded-xl bg-muted/40 border border-border/50 text-center relative flex flex-col justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
@@ -1319,27 +1424,39 @@ export function AbaControleBritas({
                 </span>
               </div>
               <div className="mt-2 pt-1 border-t border-border/30 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>m³ contratados</span>
-                {podeEditar && !modoVisaoAnoCompleto && (
-                  <button
-                    type="button"
-                    onClick={abrirModalCompra}
-                    className="text-primary hover:underline text-[10px] font-semibold"
-                    title="Editar volume da compra mensal"
-                  >
-                    Editar
-                  </button>
-                )}
-                {modoVisaoAnoCompleto && (
-                  <span className="text-[10px] font-mono text-muted-foreground">
-                    {comprasAno.length}{" "}
-                    {comprasAno.length === 1 ? "mês" : "meses"}
-                  </span>
-                )}
+                <span>m³ somados</span>
+                <span className="text-[10px] font-mono font-semibold">
+                  {modoVisaoAnoCompleto
+                    ? `${comprasAno.length} compras`
+                    : `${compras.length} ${
+                        compras.length === 1 ? "compra" : "compras"
+                      }`}
+                </span>
               </div>
             </div>
 
-            {/* 2. NOVO INDICADOR: SALDO ANTERIOR (REPASSE) / TOTAL DISPONÍVEL */}
+            {/* 2. NOVO INDICADOR: TOTAL EM CHEQUES (soma de todos os cheques das compras do mês) */}
+            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 block mb-1">
+                  Total em Cheques
+                </span>
+                <span className="text-lg sm:text-xl font-extrabold font-mono text-emerald-700 dark:text-emerald-300 block truncate">
+                  {formatarMoeda(totaisCheques.total)}
+                </span>
+              </div>
+              <div className="mt-2 pt-1 border-t border-emerald-500/20 flex items-center justify-between text-[11px] text-emerald-700/80 dark:text-emerald-400">
+                <span>
+                  {totaisCheques.qtd}{" "}
+                  {totaisCheques.qtd === 1 ? "cheque" : "cheques"}
+                </span>
+                <span className="font-mono text-[10px] font-semibold">
+                  {totaisCheques.qtdPagos} baixado(s)
+                </span>
+              </div>
+            </div>
+
+            {/* 2b. SALDO ANTERIOR (REPASSE) */}
             <div
               className={`p-3 rounded-xl border text-center flex flex-col justify-between ${
                 resumo.saldoRepasseM3 > 0
@@ -1499,7 +1616,7 @@ export function AbaControleBritas({
             <div className="flex justify-between text-xs text-muted-foreground flex-wrap gap-2">
               <span className="flex items-center gap-1.5 font-medium">
                 <Layers2 className="w-3.5 h-3.5 text-primary" />
-                Atendimento do Volume Total (Compra {resumo.compraTotalM3} m³
+                Atendimento do Volume Total (Compras {resumo.compraTotalM3} m³
                 {resumo.saldoRepasseM3 !== 0
                   ? ` ${
                       resumo.saldoRepasseM3 > 0 ? "+" : "−"
@@ -1562,64 +1679,56 @@ export function AbaControleBritas({
                   m³
                 </span>
               </div>
-              {compraMensal?.observacao && (
-                <span
-                  className="italic truncate max-w-[280px]"
-                  title={compraMensal.observacao}
-                >
-                  Obs: {compraMensal.observacao}
-                </span>
-              )}
             </div>
           </div>
 
           {/* =========================================================================
-              SEÇÃO CHEQUES DA COMPRA (Dentro do cartão da compra)
+              (2) LISTA DE COMPRAS DA COMPETÊNCIA — TABELA COM TODAS AS COMPRAS DO MÊS
           ========================================================================== */}
           <div className="pt-3 border-t border-border/40 space-y-3">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Banknote className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <ShoppingCart className="w-4 h-4 text-primary" />
                 <h3 className="text-sm font-bold text-foreground">
-                  Cheques da Compra do Mês
+                  {modoVisaoAnoCompleto
+                    ? `Compras do Ano Completo (${anoSelecionado})`
+                    : `Compras da Competência (${formatarCompetenciaRotulo(competencia)})`}
                 </h3>
-                {/* Total dos cheques exibido ao lado do volume da compra */}
-                <Badge
-                  variant="outline"
-                  className="font-mono text-xs font-bold border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10"
-                >
-                  Total Cheques: {formatarMoeda(totaisCheques.total)}
+                <Badge variant="outline" className="text-xs font-mono">
+                  {modoVisaoAnoCompleto ? comprasAno.length : compras.length}{" "}
+                  lançamento(s)
                 </Badge>
-                <span className="text-xs text-muted-foreground hidden md:inline">
-                  (Pagos: {formatarMoeda(totaisCheques.pagos)} | Pendentes:{" "}
-                  {formatarMoeda(totaisCheques.pendentes)})
-                </span>
               </div>
 
-              {podeEditar && (
+              {podeEditar && !modoVisaoAnoCompleto && (
                 <Button
                   size="sm"
-                  variant="outline"
-                  onClick={abrirModalNovoCheque}
-                  className="h-7 text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold"
+                  onClick={abrirModalNovaCompra}
+                  className="h-7 text-xs gap-1.5 bg-primary text-primary-foreground font-semibold"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
-                  Lançar Cheque
+                  LANÇAR COMPRA
                 </Button>
               )}
             </div>
 
-            {cheques.length === 0 ? (
-              <div className="py-4 text-center text-xs text-muted-foreground bg-muted/20 rounded-lg border border-border/30">
-                <p>Nenhum cheque cadastrado para a compra desta competência.</p>
-                {podeEditar && (
+            {(modoVisaoAnoCompleto ? comprasAno : compras).length === 0 ? (
+              <div className="py-6 text-center text-xs text-muted-foreground bg-muted/20 rounded-lg border border-border/30">
+                <p>
+                  Nenhuma compra cadastrada para{" "}
+                  {modoVisaoAnoCompleto
+                    ? `o ano ${anoSelecionado}`
+                    : `o mês de ${formatarCompetenciaRotulo(competencia)}`}
+                  .
+                </p>
+                {podeEditar && !modoVisaoAnoCompleto && (
                   <Button
                     variant="link"
                     size="sm"
-                    onClick={abrirModalNovoCheque}
+                    onClick={abrirModalNovaCompra}
                     className="text-xs text-primary h-auto p-0 mt-1"
                   >
-                    + Lançar primeiro cheque da compra
+                    + Lançar primeira compra de brita
                   </Button>
                 )}
               </div>
@@ -1628,112 +1737,427 @@ export function AbaControleBritas({
                 <table className="w-full text-xs text-left">
                   <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border/40">
                     <tr>
-                      <th className="py-2 px-3">Nº Cheque</th>
-                      <th className="py-2 px-3">Vencimento (Vai Cair)</th>
-                      <th className="py-2 px-3 text-right">Valor (R$)</th>
-                      <th className="py-2 px-3 text-center w-28">Status</th>
-                      <th className="py-2 px-3">Observação</th>
-                      {podeEditar && (
-                        <th className="py-2 px-3 text-center w-24">Ações</th>
+                      <th className="py-2.5 px-3">Data</th>
+                      <th className="py-2.5 px-3 text-right">Volume (m³)</th>
+                      <th className="py-2.5 px-3">Fornecedor</th>
+                      <th className="py-2.5 px-3">Obs</th>
+                      <th className="py-2.5 px-3 text-right">
+                        Total em Cheques
+                      </th>
+                      <th className="py-2.5 px-3 text-center">Cheques</th>
+                      {podeEditar && !modoVisaoAnoCompleto && (
+                        <th className="py-2.5 px-3 text-center w-28">Ações</th>
                       )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/20">
-                    {cheques.map((chq) => (
-                      <tr
-                        key={chq.id}
-                        className={`hover:bg-muted/20 transition-colors ${
-                          chq.pago ? "opacity-75" : ""
-                        }`}
-                      >
-                        <td className="py-2 px-3 font-mono font-bold text-foreground">
-                          {chq.numero || "—"}
-                        </td>
-                        <td className="py-2 px-3 font-mono text-muted-foreground">
-                          {chq.data_vencimento
-                            ? chq.data_vencimento.split("-").reverse().join("/")
-                            : "—"}
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono font-bold text-foreground">
-                          {formatarMoeda(Number(chq.valor) || 0)}
-                        </td>
-                        <td className="py-2 px-3 text-center">
-                          {podeEditar ? (
-                            <button
-                              type="button"
-                              onClick={() => handleAlternarPagoCheque(chq)}
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold uppercase transition-colors cursor-pointer ${
-                                chq.pago
-                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30"
-                                  : "bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25 border border-amber-500/30"
-                              }`}
-                              title={
-                                chq.pago
-                                  ? "Clique para marcar como PENDENTE"
-                                  : "Clique para marcar como PAGO"
-                              }
+                    {(modoVisaoAnoCompleto ? comprasAno : compras).map(
+                      (compra) => {
+                        const chqsDestaCompra =
+                          chequesPorCompraId.map.get(compra.id) || []
+                        const totalChequesDestaCompra = chqsDestaCompra.reduce(
+                          (acc, c) => acc + (Number(c.valor) || 0),
+                          0,
+                        )
+                        const estaSelecionada =
+                          compraSelecionadaCheques?.id === compra.id
+
+                        return (
+                          <tr
+                            key={compra.id}
+                            className={`hover:bg-muted/20 transition-colors ${
+                              estaSelecionada ? "bg-primary/5 font-medium" : ""
+                            }`}
+                          >
+                            <td className="py-2.5 px-3 font-mono font-semibold text-foreground whitespace-nowrap">
+                              {compra.data
+                                ? compra.data.split("-").reverse().join("/")
+                                : "—"}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-extrabold text-foreground">
+                              {Number(compra.volume_m3).toLocaleString(
+                                "pt-BR",
+                                {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 3,
+                                },
+                              )}{" "}
+                              m³
+                            </td>
+                            <td className="py-2.5 px-3 text-foreground">
+                              {compra.fornecedor || "—"}
+                            </td>
+                            <td
+                              className="py-2.5 px-3 text-muted-foreground max-w-[200px] truncate"
+                              title={compra.observacao || ""}
                             >
-                              {chq.pago ? (
-                                <>
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                  <span>PAGO</span>
-                                </>
+                              {compra.observacao || "—"}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold">
+                              {chqsDestaCompra.length > 0 ? (
+                                <span className="text-emerald-600 dark:text-emerald-400">
+                                  {formatarMoeda(totalChequesDestaCompra)}
+                                </span>
                               ) : (
-                                <>
-                                  <Clock className="w-3 h-3 text-amber-600" />
-                                  <span>PENDENTE</span>
-                                </>
+                                <span className="text-muted-foreground">—</span>
                               )}
-                            </button>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className={
-                                chq.pago
-                                  ? "border-emerald-500 text-emerald-600"
-                                  : "border-amber-500 text-amber-600"
-                              }
-                            >
-                              {chq.pago ? "PAGO" : "PENDENTE"}
-                            </Badge>
-                          )}
-                        </td>
-                        <td
-                          className="py-2 px-3 text-muted-foreground max-w-[220px] truncate"
-                          title={chq.observacao || ""}
-                        >
-                          {chq.observacao || "—"}
-                        </td>
-                        {podeEditar && (
-                          <td className="py-2 px-3 text-center">
-                            <div className="flex items-center justify-center gap-1">
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
                               <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                title="Editar cheque"
-                                onClick={() => abrirModalEditarCheque(chq)}
+                                variant={
+                                  estaSelecionada ? "default" : "outline"
+                                }
+                                size="sm"
+                                onClick={() => {
+                                  if (estaSelecionada) {
+                                    setCompraSelecionadaCheques(null)
+                                  } else {
+                                    setCompraSelecionadaCheques(compra)
+                                  }
+                                }}
+                                className="h-6 text-[11px] gap-1 px-2 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+                                title={`Gerenciar cheques desta compra (${chqsDestaCompra.length})`}
                               >
-                                <Edit2 className="w-3.5 h-3.5" />
+                                <Banknote className="w-3 h-3" />
+                                <span>CHEQUES ({chqsDestaCompra.length})</span>
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                title="Excluir cheque"
-                                onClick={() => setChequeParaExcluir(chq)}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
+                            </td>
+                            {podeEditar && !modoVisaoAnoCompleto && (
+                              <td className="py-2.5 px-3 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                    title="Editar compra"
+                                    onClick={() =>
+                                      abrirModalEditarCompra(compra)
+                                    }
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                    title="Excluir compra"
+                                    onClick={() => setCompraParaExcluir(compra)}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        )
+                      },
+                    )}
                   </tbody>
+                  <tfoot className="bg-muted/40 font-bold border-t-2 border-border/60 text-xs">
+                    <tr>
+                      <td className="py-2.5 px-3 uppercase text-foreground">
+                        Total Compras (
+                        {modoVisaoAnoCompleto
+                          ? comprasAno.length
+                          : compras.length}
+                        )
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-extrabold text-primary">
+                        {resumo.compraTotalM3.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 3,
+                        })}{" "}
+                        m³
+                      </td>
+                      <td
+                        colSpan={2}
+                        className="py-2.5 px-3 text-muted-foreground text-[11px]"
+                      >
+                        Volume total acumulado
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-extrabold text-emerald-600 dark:text-emerald-400">
+                        {formatarMoeda(totaisCheques.total)}
+                      </td>
+                      <td
+                        colSpan={podeEditar && !modoVisaoAnoCompleto ? 2 : 1}
+                      />
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             )}
+
+            {/* Cheques órfãos / legados (sem compra_id) se existirem */}
+            {chequesPorCompraId.semCompra.length > 0 && (
+              <div className="p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5 text-xs flex items-center justify-between">
+                <span className="text-amber-800 dark:text-amber-300">
+                  Existem {chequesPorCompraId.semCompra.length} cheque(s)
+                  legado(s) vinculados ao mês sem compra específica (
+                  {formatarMoeda(
+                    chequesPorCompraId.semCompra.reduce(
+                      (acc, c) => acc + (Number(c.valor) || 0),
+                      0,
+                    ),
+                  )}
+                  ).
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCompraSelecionadaCheques(null)}
+                  className="h-6 text-[11px]"
+                >
+                  Ver todos os cheques
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* =========================================================================
+              (3) SEÇÃO CHEQUES POR COMPRA (ou cheques da compra selecionada / todos)
+          ========================================================================== */}
+          <div className="pt-3 border-t border-border/40 space-y-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Banknote className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <h3 className="text-sm font-bold text-foreground">
+                  {compraSelecionadaCheques
+                    ? `Cheques da Compra de ${
+                        compraSelecionadaCheques.data
+                          ? compraSelecionadaCheques.data
+                              .split("-")
+                              .reverse()
+                              .join("/")
+                          : ""
+                      } (${compraSelecionadaCheques.volume_m3} m³ - ${compraSelecionadaCheques.fornecedor || "Sem fornecedor"})`
+                    : "Todos os Cheques da Competência"}
+                </h3>
+                {compraSelecionadaCheques && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCompraSelecionadaCheques(null)}
+                    className="h-6 text-[11px] text-muted-foreground hover:text-foreground"
+                  >
+                    (Ver todos do mês)
+                  </Button>
+                )}
+                {/* Totalizador filtrado */}
+                <Badge
+                  variant="outline"
+                  className="font-mono text-xs font-bold border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10"
+                >
+                  {compraSelecionadaCheques ? (
+                    <>
+                      Total:{" "}
+                      {formatarMoeda(
+                        (
+                          chequesPorCompraId.map.get(
+                            compraSelecionadaCheques.id,
+                          ) || []
+                        ).reduce((acc, c) => acc + (Number(c.valor) || 0), 0),
+                      )}
+                    </>
+                  ) : (
+                    <>Total Cheques: {formatarMoeda(totaisCheques.total)}</>
+                  )}
+                </Badge>
+              </div>
+
+              {podeEditar && !modoVisaoAnoCompleto && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    abrirModalNovoCheque(compraSelecionadaCheques || undefined)
+                  }
+                  className="h-7 text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  Lançar Cheque {compraSelecionadaCheques ? "nesta Compra" : ""}
+                </Button>
+              )}
+            </div>
+
+            {(() => {
+              const listaChequesExibida = compraSelecionadaCheques
+                ? chequesPorCompraId.map.get(compraSelecionadaCheques.id) || []
+                : cheques
+
+              if (listaChequesExibida.length === 0) {
+                return (
+                  <div className="py-4 text-center text-xs text-muted-foreground bg-muted/20 rounded-lg border border-border/30">
+                    <p>
+                      {compraSelecionadaCheques
+                        ? "Nenhum cheque cadastrado para esta compra específica."
+                        : "Nenhum cheque cadastrado para a competência."}
+                    </p>
+                    {podeEditar && !modoVisaoAnoCompleto && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={() =>
+                          abrirModalNovoCheque(
+                            compraSelecionadaCheques || undefined,
+                          )
+                        }
+                        className="text-xs text-primary h-auto p-0 mt-1"
+                      >
+                        + Lançar primeiro cheque{" "}
+                        {compraSelecionadaCheques ? "para esta compra" : ""}
+                      </Button>
+                    )}
+                  </div>
+                )
+              }
+
+              return (
+                <div className="overflow-x-auto border border-border/30 rounded-lg bg-background/50">
+                  <table className="w-full text-xs text-left">
+                    <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border/40">
+                      <tr>
+                        <th className="py-2 px-3">Nº Cheque</th>
+                        <th className="py-2 px-3">Vencimento (Vai Cair)</th>
+                        <th className="py-2 px-3 text-right">Valor (R$)</th>
+                        <th className="py-2 px-3 text-center w-28">Status</th>
+                        {!compraSelecionadaCheques && (
+                          <th className="py-2 px-3">Compra Vinculada</th>
+                        )}
+                        <th className="py-2 px-3">Observação</th>
+                        {podeEditar && !modoVisaoAnoCompleto && (
+                          <th className="py-2 px-3 text-center w-24">Ações</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/20">
+                      {listaChequesExibida.map((chq) => {
+                        const compraDoChq = chq.compra_id
+                          ? compras.find((c) => c.id === chq.compra_id)
+                          : null
+
+                        return (
+                          <tr
+                            key={chq.id}
+                            className={`hover:bg-muted/20 transition-colors ${
+                              chq.pago ? "opacity-75" : ""
+                            }`}
+                          >
+                            <td className="py-2 px-3 font-mono font-bold text-foreground">
+                              {chq.numero || "—"}
+                            </td>
+                            <td className="py-2 px-3 font-mono text-muted-foreground">
+                              {chq.data_vencimento
+                                ? chq.data_vencimento
+                                    .split("-")
+                                    .reverse()
+                                    .join("/")
+                                : "—"}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-foreground">
+                              {formatarMoeda(Number(chq.valor) || 0)}
+                            </td>
+                            <td className="py-2 px-3 text-center">
+                              {podeEditar ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAlternarPagoCheque(chq)}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold uppercase transition-colors cursor-pointer ${
+                                    chq.pago
+                                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30"
+                                      : "bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25 border border-amber-500/30"
+                                  }`}
+                                  title={
+                                    chq.pago
+                                      ? "Clique para marcar como PENDENTE"
+                                      : "Clique para marcar como PAGO"
+                                  }
+                                >
+                                  {chq.pago ? (
+                                    <>
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                      <span>PAGO</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Clock className="w-3 h-3 text-amber-600" />
+                                      <span>PENDENTE</span>
+                                    </>
+                                  )}
+                                </button>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    chq.pago
+                                      ? "border-emerald-500 text-emerald-600"
+                                      : "border-amber-500 text-amber-600"
+                                  }
+                                >
+                                  {chq.pago ? "PAGO" : "PENDENTE"}
+                                </Badge>
+                              )}
+                            </td>
+                            {!compraSelecionadaCheques && (
+                              <td className="py-2 px-3 text-muted-foreground">
+                                {compraDoChq ? (
+                                  <span className="font-mono text-[11px]">
+                                    {compraDoChq.data
+                                      ? compraDoChq.data
+                                          .split("-")
+                                          .reverse()
+                                          .join("/")
+                                      : ""}{" "}
+                                    ({compraDoChq.volume_m3} m³
+                                    {compraDoChq.fornecedor
+                                      ? ` - ${compraDoChq.fornecedor}`
+                                      : ""}
+                                    )
+                                  </span>
+                                ) : (
+                                  <span className="italic text-muted-foreground/70">
+                                    Sem compra vinculada
+                                  </span>
+                                )}
+                              </td>
+                            )}
+                            <td
+                              className="py-2 px-3 text-muted-foreground max-w-[220px] truncate"
+                              title={chq.observacao || ""}
+                            >
+                              {chq.observacao || "—"}
+                            </td>
+                            {podeEditar && !modoVisaoAnoCompleto && (
+                              <td className="py-2 px-3 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                    title="Editar cheque"
+                                    onClick={() => abrirModalEditarCheque(chq)}
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                    title="Excluir cheque"
+                                    onClick={() => setChequeParaExcluir(chq)}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })()}
           </div>
         </CardContent>
       </Card>
@@ -2066,56 +2490,79 @@ export function AbaControleBritas({
         </CardContent>
       </Card>
 
-      {/* Modal Lançar / Editar Compra Mensal Única */}
-      <Dialog open={modalCompraAberta} onOpenChange={setModalCompraAberta}>
+      {/* Modal Lançar / Editar Compra da Competência */}
+      <Dialog
+        open={modalCompraAberta}
+        onOpenChange={(aberto) => {
+          setModalCompraAberta(aberto)
+          if (!aberto) setCompraEmEdicao(null)
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShoppingCart className="w-5 h-5 text-primary" />
-              {compraMensal
-                ? "Editar Compra Mensal de Britas"
-                : "Lançar Compra Mensal de Britas"}
+              {compraEmEdicao
+                ? "Editar Compra de Brita"
+                : "Lançar Compra de Brita"}
             </DialogTitle>
             <DialogDescription>
-              Volume único para as britas 19 e 12 juntas no mês{" "}
-              <strong>{formatarCompetenciaRotulo(competencia)}</strong> (
-              <span className="font-mono">{competencia}</span>) na unidade{" "}
-              <strong>{empresaAtiva?.nome}</strong>.
+              {compraEmEdicao
+                ? "Atualize os dados desta compra de brita."
+                : `Registre uma compra realizada no mês de ${formatarCompetenciaRotulo(competencia)} (${empresaAtiva?.nome}). É permitido lançar mais de uma compra no mês.`}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSalvarCompra} className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="compraVolumeM3">
-                Volume Comprado no Mês (m³ total) *
-              </Label>
-              <div className="relative">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="compraData">Data da Compra *</Label>
                 <Input
-                  id="compraVolumeM3"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="Ex: 450"
-                  value={compraVolumeM3}
-                  onChange={(e) => setCompraVolumeM3(e.target.value)}
-                  className="font-mono text-base font-bold pr-12"
+                  id="compraData"
+                  type="date"
+                  value={compraData}
+                  onChange={(e) => setCompraData(e.target.value)}
+                  className="font-mono text-xs font-semibold"
                   required
-                  autoFocus
                 />
-                <span className="absolute right-3 top-2.5 text-xs text-muted-foreground font-semibold">
-                  m³
-                </span>
               </div>
-              <p className="text-[11px] text-muted-foreground">
-                Informe o volume total contratado no mês para ambas as britas
-                (ex.: 450 m³).
-              </p>
+
+              <div className="space-y-2">
+                <Label htmlFor="compraVolumeM3">Volume (m³) *</Label>
+                <div className="relative">
+                  <Input
+                    id="compraVolumeM3"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Ex: 450"
+                    value={compraVolumeM3}
+                    onChange={(e) => setCompraVolumeM3(e.target.value)}
+                    className="font-mono font-bold pr-10"
+                    required
+                    autoFocus
+                  />
+                  <span className="absolute right-2.5 top-2.5 text-xs text-muted-foreground font-semibold">
+                    m³
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="compraFornecedor">Fornecedor / Pedreira</Label>
+              <Input
+                id="compraFornecedor"
+                placeholder="Ex: Pedreira Sertão, Pedreira São Bento..."
+                value={compraFornecedor}
+                onChange={(e) => setCompraFornecedor(e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="compraObservacao">Observações (opcional)</Label>
               <Input
                 id="compraObservacao"
-                placeholder="Ex: Contrato Pedreira São Bento / Pedido 1042"
+                placeholder="Ex: Pedido 1042, pagamento à vista / pré-datado..."
                 value={compraObservacao}
                 onChange={(e) => setCompraObservacao(e.target.value)}
               />
@@ -2125,7 +2572,10 @@ export function AbaControleBritas({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setModalCompraAberta(false)}
+                onClick={() => {
+                  setModalCompraAberta(false)
+                  setCompraEmEdicao(null)
+                }}
               >
                 Cancelar
               </Button>
@@ -2134,7 +2584,11 @@ export function AbaControleBritas({
                 disabled={salvandoCompra || !compraVolumeM3.trim()}
                 className="bg-primary text-primary-foreground font-semibold"
               >
-                {salvandoCompra ? "Salvando..." : "Salvar Compra do Mês"}
+                {salvandoCompra
+                  ? "Salvando..."
+                  : compraEmEdicao
+                    ? "Salvar Alterações"
+                    : "Lançar Compra"}
               </Button>
             </DialogFooter>
           </form>
@@ -2403,6 +2857,44 @@ export function AbaControleBritas({
           </DialogHeader>
 
           <form onSubmit={handleSalvarCheque} className="space-y-4 py-2">
+            {/* Seletor da Compra a vincular (ou compra já pré-selecionada) */}
+            {compras.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="chequeCompraId">Vincular à Compra</Label>
+                <Select
+                  value={compraSelecionadaCheques?.id || "nenhuma"}
+                  onValueChange={(val) => {
+                    if (val === "nenhuma") {
+                      setCompraSelecionadaCheques(null)
+                    } else {
+                      const c = compras.find((x) => x.id === val) || null
+                      setCompraSelecionadaCheques(c)
+                    }
+                  }}
+                >
+                  <SelectTrigger id="chequeCompraId" className="text-xs">
+                    <SelectValue placeholder="Selecione a compra" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nenhuma">
+                      (Nenhuma compra específica / Geral do mês)
+                    </SelectItem>
+                    {compras.map((c) => (
+                      <SelectItem
+                        key={c.id}
+                        value={c.id}
+                        className="text-xs font-mono"
+                      >
+                        {c.data ? c.data.split("-").reverse().join("/") : ""} —{" "}
+                        {c.volume_m3} m³{" "}
+                        {c.fornecedor ? `(${c.fornecedor})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="chequeValor">Valor do Cheque (R$) *</Label>
@@ -2565,6 +3057,80 @@ export function AbaControleBritas({
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
             >
               {replicandoCompra ? "Replicando..." : "Sim, Replicar Compra"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* AlertDialog de Confirmação para Excluir Compra (com aviso se tiver cheques) */}
+      <AlertDialog
+        open={Boolean(compraParaExcluir)}
+        onOpenChange={(aberto) => !aberto && setCompraParaExcluir(null)}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="w-5 h-5" />
+              Excluir Compra de Brita
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              Tem certeza que deseja remover esta compra?
+              {compraParaExcluir &&
+                (chequesPorCompraId.map.get(compraParaExcluir.id)?.length ||
+                  0) > 0 && (
+                  <span className="block mt-2 font-bold text-destructive bg-destructive/10 p-2 rounded border border-destructive/30">
+                    ATENÇÃO: Esta compra possui{" "}
+                    {chequesPorCompraId.map.get(compraParaExcluir.id)?.length}{" "}
+                    cheque(s) vinculado(s) no valor total de{" "}
+                    {formatarMoeda(
+                      (
+                        chequesPorCompraId.map.get(compraParaExcluir.id) || []
+                      ).reduce((acc, c) => acc + (Number(c.valor) || 0), 0),
+                    )}
+                    . Os cheques serão EXCLUÍDOS JUNTO com a compra!
+                  </span>
+                )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {compraParaExcluir && (
+            <div className="p-3 rounded-lg border border-border/40 bg-muted/30 space-y-1.5 text-xs font-mono">
+              <div className="flex justify-between">
+                <span className="font-sans text-muted-foreground">Data:</span>
+                <span className="font-bold">
+                  {compraParaExcluir.data
+                    ? compraParaExcluir.data.split("-").reverse().join("/")
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between font-bold text-destructive">
+                <span className="font-sans text-muted-foreground">Volume:</span>
+                <span>
+                  {Number(compraParaExcluir.volume_m3).toLocaleString("pt-BR")}{" "}
+                  m³
+                </span>
+              </div>
+              {compraParaExcluir.fornecedor && (
+                <div className="flex justify-between">
+                  <span className="font-sans text-muted-foreground">
+                    Fornecedor:
+                  </span>
+                  <span>{compraParaExcluir.fornecedor}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluindoCompra}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={excluindoCompra}
+              onClick={handleConfirmarExclusaoCompra}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold"
+            >
+              {excluindoCompra ? "Excluindo..." : "Sim, Excluir Compra"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -112,12 +112,16 @@ export class BritasService {
     }
     const compAnterior = `${ano}-${String(mes).padStart(2, "0")}`
 
-    const [compraAnterior, entregasAnteriores] = await Promise.all([
-      BritasService.getCompraCompetencia(empresaId, compAnterior),
+    const [comprasAnteriores, entregasAnteriores] = await Promise.all([
+      BritasService.getComprasCompetencia(empresaId, compAnterior),
       BritasService.getEntregasCompetencia(empresaId, compAnterior),
     ])
 
-    const compraM3 = compraAnterior ? Number(compraAnterior.volume_m3) || 0 : 0
+    const compraM3 = Number(
+      comprasAnteriores
+        .reduce((acc, c) => acc + (Number(c.volume_m3) || 0), 0)
+        .toFixed(3),
+    )
     const entregueM3 = Number(
       entregasAnteriores
         .reduce((acc, cur) => acc + (Number(cur.quantidade_m3) || 0), 0)
@@ -125,7 +129,7 @@ export class BritasService {
     )
 
     const temRegistroMesAnterior = Boolean(
-      compraAnterior || entregasAnteriores.length > 0,
+      comprasAnteriores.length > 0 || entregasAnteriores.length > 0,
     )
     const saldoRepasseM3 = temRegistroMesAnterior
       ? Number((compraM3 - entregueM3).toFixed(3))
@@ -139,57 +143,112 @@ export class BritasService {
     }
   }
   /**
-   * Busca a compra mensal cadastrada (volume único para britas 19 e 12 juntas) da empresa na competência informada
+   * Busca todas as compras de britas da empresa na competência informada (ordenadas por data asc, created_at asc)
    */
-  static async getCompraCompetencia(
+  static async getComprasCompetencia(
     empresaId: string,
     competencia: string,
-  ): Promise<ControleBritaCompra | null> {
+  ): Promise<ControleBritaCompra[]> {
     const { data, error } = (await supabase
       .from("controle_britas_compras" as any)
       .select("*")
       .eq("empresa_id", empresaId)
       .eq("competencia", competencia)
-      .maybeSingle()) as any
+      .order("data", { ascending: true })
+      .order("created_at", { ascending: true })) as any
 
     if (error) {
-      console.error("Erro ao buscar compra de britas:", error)
+      console.error("Erro ao buscar compras de britas:", error)
       throw error
     }
-    return (data || null) as ControleBritaCompra | null
+    return (data || []) as ControleBritaCompra[]
   }
 
   /**
-   * Salva ou atualiza a compra mensal única de britas da empresa na competência
+   * Lança uma nova compra de brita na competência
    */
-  static async upsertCompra(params: {
+  static async criarCompra(params: {
     empresa_id: string
     competencia: string
+    data: string
     volume_m3: number
+    fornecedor?: string | null
     observacao?: string | null
   }): Promise<ControleBritaCompra> {
-    const { empresa_id, competencia, volume_m3, observacao } = params
+    const { empresa_id, competencia, data, volume_m3, fornecedor, observacao } =
+      params
 
-    const { data, error } = (await supabase
+    const { data: result, error } = (await supabase
       .from("controle_britas_compras" as any)
-      .upsert(
-        {
-          empresa_id,
-          competencia,
-          volume_m3,
-          observacao: observacao?.trim() || null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "empresa_id,competencia" },
-      )
+      .insert({
+        empresa_id,
+        competencia,
+        data,
+        volume_m3,
+        fornecedor: fornecedor?.trim() || null,
+        observacao: observacao?.trim() || null,
+      })
       .select()
       .single()) as any
 
     if (error) {
-      console.error("Erro ao salvar compra de brita:", error)
+      console.error("Erro ao criar compra de brita:", error)
       throw error
     }
-    return data as ControleBritaCompra
+    return result as ControleBritaCompra
+  }
+
+  /**
+   * Atualiza uma compra existente
+   */
+  static async atualizarCompra(params: {
+    id: string
+    competencia?: string
+    data?: string
+    volume_m3?: number
+    fornecedor?: string | null
+    observacao?: string | null
+  }): Promise<ControleBritaCompra> {
+    const { id, competencia, data, volume_m3, fornecedor, observacao } = params
+
+    const payload: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    }
+    if (competencia !== undefined) payload.competencia = competencia
+    if (data !== undefined) payload.data = data
+    if (volume_m3 !== undefined) payload.volume_m3 = volume_m3
+    if (fornecedor !== undefined)
+      payload.fornecedor = fornecedor?.trim() || null
+    if (observacao !== undefined)
+      payload.observacao = observacao?.trim() || null
+
+    const { data: result, error } = (await supabase
+      .from("controle_britas_compras" as any)
+      .update(payload)
+      .eq("id", id)
+      .select()
+      .single()) as any
+
+    if (error) {
+      console.error("Erro ao atualizar compra de brita:", error)
+      throw error
+    }
+    return result as ControleBritaCompra
+  }
+
+  /**
+   * Exclui uma compra de brita (os cheques vinculados por compra_id têm ON DELETE CASCADE)
+   */
+  static async excluirCompra(id: string): Promise<void> {
+    const { error } = (await supabase
+      .from("controle_britas_compras" as any)
+      .delete()
+      .eq("id", id)) as any
+
+    if (error) {
+      console.error("Erro ao excluir compra de brita:", error)
+      throw error
+    }
   }
 
   /**
@@ -398,6 +457,7 @@ export class BritasService {
   static async criarCheque(params: {
     empresa_id: string
     competencia: string
+    compra_id?: string | null
     valor: number
     data_vencimento?: string | null
     numero?: string | null
@@ -407,6 +467,7 @@ export class BritasService {
     const {
       empresa_id,
       competencia,
+      compra_id,
       valor,
       data_vencimento,
       numero,
@@ -419,6 +480,7 @@ export class BritasService {
       .insert({
         empresa_id,
         competencia,
+        compra_id: compra_id || null,
         valor,
         data_vencimento: data_vencimento || null,
         numero: numero?.trim() || null,
@@ -440,15 +502,18 @@ export class BritasService {
    */
   static async atualizarCheque(params: {
     id: string
+    compra_id?: string | null
     valor?: number
     data_vencimento?: string | null
     numero?: string | null
     observacao?: string | null
     pago?: boolean
   }): Promise<ControleBritaCheque> {
-    const { id, valor, data_vencimento, numero, observacao, pago } = params
+    const { id, compra_id, valor, data_vencimento, numero, observacao, pago } =
+      params
 
     const payload: Record<string, any> = {}
+    if (compra_id !== undefined) payload.compra_id = compra_id || null
     if (valor !== undefined) payload.valor = valor
     if (data_vencimento !== undefined)
       payload.data_vencimento = data_vencimento || null
