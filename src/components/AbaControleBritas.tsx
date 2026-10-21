@@ -51,17 +51,26 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
+  Printer,
+  Search,
+  CheckCircle2,
+  Clock,
+  Banknote,
+  FilterX,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { BritasService } from "@/services/britas"
 import type {
   ControleBritaCompra,
   ControleBritaEntrega,
+  ControleBritaCheque,
+  SaldoCompetenciaAnterior,
   TipoBrita,
   UnidadeBritaEntrega,
   ResumoControleBritasMes,
 } from "@/types/britas"
 import type { Empresa } from "@/types/concreteira"
+import { ImpressaoControleBritas } from "@/components/ImpressaoControleBritas"
 
 interface AbaControleBritasProps {
   empresaAtiva: Empresa | null
@@ -120,6 +129,13 @@ function somarMesesCompetencia(comp: string, delta: number): string {
   return `${ano}-${String(mes).padStart(2, "0")}`
 }
 
+function formatarMoeda(val: number): string {
+  return val.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  })
+}
+
 export function AbaControleBritas({
   empresaAtiva,
   podeEditar = true,
@@ -129,10 +145,18 @@ export function AbaControleBritas({
     null,
   )
   const [entregas, setEntregas] = useState<ControleBritaEntrega[]>([])
+  const [cheques, setCheques] = useState<ControleBritaCheque[]>([])
+  const [saldoAnterior, setSaldoAnterior] =
+    useState<SaldoCompetenciaAnterior | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
+
+  // Filtros das entregas do mês
   const [filtroTipoBrita, setFiltroTipoBrita] = useState<"ALL" | TipoBrita>(
     "ALL",
   )
+  const [filtroFornecedor, setFiltroFornecedor] = useState<string>("")
+  const [filtroDataInicio, setFiltroDataInicio] = useState<string>("")
+  const [filtroDataFim, setFiltroDataFim] = useState<string>("")
 
   // Modal Lançar / Editar Compra Mensal Única
   const [modalCompraAberta, setModalCompraAberta] = useState(false)
@@ -159,7 +183,6 @@ export function AbaControleBritas({
   const [entregaDensidade, setEntregaDensidade] = useState<string>(
     DENSIDADE_PADRAO["19"],
   )
-  // Rastreia se o usuário editou manualmente o campo densidade na sessão do modal
   const [densidadeEditadaManualmente, setDensidadeEditadaManualmente] =
     useState<boolean>(false)
   const [entregaFornecedor, setEntregaFornecedor] = useState<string>("")
@@ -171,16 +194,40 @@ export function AbaControleBritas({
     useState<ControleBritaEntrega | null>(null)
   const [excluindoEntrega, setExcluindoEntrega] = useState(false)
 
+  // Modal e Ações de Cheques
+  const [modalChequeAberta, setModalChequeAberta] = useState(false)
+  const [chequeEmEdicao, setChequeEmEdicao] =
+    useState<ControleBritaCheque | null>(null)
+  const [salvandoCheque, setSalvandoCheque] = useState(false)
+  const [chequeValor, setChequeValor] = useState<string>("")
+  const [chequeDataVencimento, setChequeDataVencimento] = useState<string>("")
+  const [chequeNumero, setChequeNumero] = useState<string>("")
+  const [chequeObservacao, setChequeObservacao] = useState<string>("")
+  const [chequePago, setChequePago] = useState<boolean>(false)
+
+  // Dialog Excluir Cheque
+  const [chequeParaExcluir, setChequeParaExcluir] =
+    useState<ControleBritaCheque | null>(null)
+  const [excluindoCheque, setExcluindoCheque] = useState(false)
+
   const carregarDados = async () => {
     if (!empresaAtiva?.id) return
     setLoading(true)
     try {
-      const [compraRes, entregasRes] = await Promise.all([
-        BritasService.getCompraCompetencia(empresaAtiva.id, competencia),
-        BritasService.getEntregasCompetencia(empresaAtiva.id, competencia),
-      ])
+      const [compraRes, entregasRes, saldoAntRes, chequesRes] =
+        await Promise.all([
+          BritasService.getCompraCompetencia(empresaAtiva.id, competencia),
+          BritasService.getEntregasCompetencia(empresaAtiva.id, competencia),
+          BritasService.getSaldoCompetenciaAnterior(
+            empresaAtiva.id,
+            competencia,
+          ),
+          BritasService.getChequesCompetencia(empresaAtiva.id, competencia),
+        ])
       setCompraMensal(compraRes)
       setEntregas(entregasRes)
+      setSaldoAnterior(saldoAntRes)
+      setCheques(chequesRes)
     } catch (err: any) {
       console.error(err)
       toast({
@@ -220,9 +267,17 @@ export function AbaControleBritas({
     }
   }, [entregaQuantidade, entregaUnidade, entregaDensidade])
 
-  // Resumo Geral: Compra do Mês, Entregas Brita 19, Brita 12, Total Geral e Saldo a Receber
+  // Resumo Geral: Compra do Mês, Repasse Anterior, Entregas Brita 19, Brita 12, Total Geral e Saldo a Receber
+  // Regra: SALDO A RECEBER = compra do mês + repasse − entregue do mês
+  // (repasse positivo soma, negativo subtrai; se não houver compra nem entrega no mês anterior, repasse = 0)
   const resumo: ResumoControleBritasMes = useMemo(() => {
     const compraTotalM3 = compraMensal ? Number(compraMensal.volume_m3) || 0 : 0
+    const saldoRepasseM3 = saldoAnterior
+      ? Number(saldoAnterior.saldoRepasseM3) || 0
+      : 0
+    const totalDisponivelM3 = Number(
+      (compraTotalM3 + saldoRepasseM3).toFixed(3),
+    )
 
     const entregas19 = entregas.filter((e) => e.tipo_brita === "19")
     const entregas12 = entregas.filter((e) => e.tipo_brita === "12")
@@ -241,13 +296,17 @@ export function AbaControleBritas({
       (totalEntregue19M3 + totalEntregue12M3).toFixed(3),
     )
 
+    // Saldo a receber considerando o repasse
     const saldoAReceberM3 = Number(
-      (compraTotalM3 - totalEntregueGeralM3).toFixed(3),
+      (totalDisponivelM3 - totalEntregueGeralM3).toFixed(3),
     )
-    const entregasExcedentes = totalEntregueGeralM3 > compraTotalM3
+    // Alerta vermelho: entregue geral supera o total disponível (compra + repasse)
+    const entregasExcedentes = totalEntregueGeralM3 > totalDisponivelM3
 
     return {
       compraTotalM3,
+      saldoRepasseM3,
+      totalDisponivelM3,
       totalEntregue19M3,
       totalEntregue12M3,
       totalEntregueGeralM3,
@@ -257,15 +316,33 @@ export function AbaControleBritas({
       totalEntregas19Qtd: entregas19.length,
       totalEntregas12Qtd: entregas12.length,
     }
-  }, [compraMensal, entregas])
+  }, [compraMensal, entregas, saldoAnterior])
 
-  // Percentual atendido da compra
+  // Totalizadores de cheques da competência
+  const totaisCheques = useMemo(() => {
+    const total = cheques.reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+    const pagos = cheques
+      .filter((c) => c.pago)
+      .reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+    const pendentes = cheques
+      .filter((c) => !c.pago)
+      .reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+    return {
+      total,
+      pagos,
+      pendentes,
+      qtd: cheques.length,
+      qtdPagos: cheques.filter((c) => c.pago).length,
+    }
+  }, [cheques])
+
+  // Percentual atendido do total disponível
   const percentualAtendido = useMemo(() => {
-    if (resumo.compraTotalM3 <= 0) return 0
+    if (resumo.totalDisponivelM3 <= 0) return 0
     return Math.round(
-      (resumo.totalEntregueGeralM3 / resumo.compraTotalM3) * 100,
+      (resumo.totalEntregueGeralM3 / resumo.totalDisponivelM3) * 100,
     )
-  }, [resumo.compraTotalM3, resumo.totalEntregueGeralM3])
+  }, [resumo.totalDisponivelM3, resumo.totalEntregueGeralM3])
 
   // Abrir modal de compra mensal (para criar ou editar)
   const abrirModalCompra = () => {
@@ -320,7 +397,7 @@ export function AbaControleBritas({
     }
   }
 
-  // Competência seguinte calculada para o atalho de replicação
+  // Competência seguinte e anterior calculadas
   const proximaCompetencia = useMemo(
     () => somarMesesCompetencia(competencia, 1),
     [competencia],
@@ -330,7 +407,6 @@ export function AbaControleBritas({
     [competencia],
   )
 
-  // Handlers de navegação entre meses
   const irMesAnterior = () => {
     setCompetencia(anteriorCompetencia)
   }
@@ -370,7 +446,6 @@ export function AbaControleBritas({
       })
 
       setConfirmarReplicarAberto(false)
-      // Avança a tela diretamente para a competência criada
       setCompetencia(proximaCompetencia)
     } catch (err: any) {
       toast({
@@ -393,16 +468,15 @@ export function AbaControleBritas({
     return `${comp}-01`
   }
 
-  // Troca de tipo de brita no modal com atualização da densidade padrão se a unidade for "t"
+  // Troca de tipo de brita no modal
   const handleTrocarTipoBritaModal = (novoTipo: TipoBrita) => {
     setEntregaTipoBrita(novoTipo)
-    // Se a unidade for "t" e o usuário não tiver digitado um valor manualmente nesta edição
     if (entregaUnidade === "t" && !densidadeEditadaManualmente) {
       setEntregaDensidade(DENSIDADE_PADRAO[novoTipo])
     }
   }
 
-  // Troca de unidade no modal com pré-preenchimento da densidade padrão para "t"
+  // Troca de unidade no modal
   const handleTrocarUnidadeModal = (novaUnidade: UnidadeBritaEntrega) => {
     setEntregaUnidade(novaUnidade)
     if (novaUnidade === "t" && !densidadeEditadaManualmente) {
@@ -468,7 +542,7 @@ export function AbaControleBritas({
         toast({
           title: "Densidade obrigatória",
           description:
-            "Para entregas em toneladas (t), informe a densidade (sugerido: 1,5).",
+            "Para entregas em toneladas (t), informe a densidade (Brita 12: 1,38; Brita 19: 1,40).",
           variant: "destructive",
         })
         return
@@ -478,7 +552,6 @@ export function AbaControleBritas({
     setSalvandoEntrega(true)
     try {
       if (entregaEmEdicao) {
-        // Modo Edição
         await BritasService.atualizarEntrega({
           id: entregaEmEdicao.id,
           tipo_brita: entregaTipoBrita,
@@ -496,7 +569,6 @@ export function AbaControleBritas({
           description: `Brita ${entregaTipoBrita}: ${calculoConversaoAoVivo.qtdM3.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })} m³ recalculados.`,
         })
       } else {
-        // Modo Novo Registro
         await BritasService.registrarEntrega({
           empresa_id: empresaAtiva.id,
           tipo_brita: entregaTipoBrita,
@@ -554,20 +626,226 @@ export function AbaControleBritas({
     }
   }
 
+  /* =========================================================================
+     AÇÕES DE CHEQUES DA COMPRA
+     ========================================================================= */
+
+  const abrirModalNovoCheque = () => {
+    setChequeEmEdicao(null)
+    setChequeValor("")
+    setChequeDataVencimento(obterDataPadraoParaCompetencia(competencia))
+    setChequeNumero("")
+    setChequeObservacao("")
+    setChequePago(false)
+    setModalChequeAberta(true)
+  }
+
+  const abrirModalEditarCheque = (chq: ControleBritaCheque) => {
+    setChequeEmEdicao(chq)
+    setChequeValor(String(chq.valor))
+    setChequeDataVencimento(chq.data_vencimento || "")
+    setChequeNumero(chq.numero || "")
+    setChequeObservacao(chq.observacao || "")
+    setChequePago(Boolean(chq.pago))
+    setModalChequeAberta(true)
+  }
+
+  const handleSalvarCheque = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!empresaAtiva?.id) return
+
+    const val = Number(chequeValor.replace(",", "."))
+    if (isNaN(val) || val <= 0) {
+      toast({
+        title: "Valor inválido",
+        description: "Informe um valor positivo para o cheque.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSalvandoCheque(true)
+    try {
+      if (chequeEmEdicao) {
+        await BritasService.atualizarCheque({
+          id: chequeEmEdicao.id,
+          valor: val,
+          data_vencimento: chequeDataVencimento || null,
+          numero: chequeNumero,
+          observacao: chequeObservacao,
+          pago: chequePago,
+        })
+        toast({
+          title: "Cheque atualizado",
+          description: `Cheque ${
+            chequeNumero ? `Nº ${chequeNumero}` : ""
+          } de ${formatarMoeda(val)} atualizado.`,
+        })
+      } else {
+        await BritasService.criarCheque({
+          empresa_id: empresaAtiva.id,
+          competencia,
+          valor: val,
+          data_vencimento: chequeDataVencimento || null,
+          numero: chequeNumero,
+          observacao: chequeObservacao,
+          pago: chequePago,
+        })
+        toast({
+          title: "Cheque lançado",
+          description: `Cheque ${
+            chequeNumero ? `Nº ${chequeNumero}` : ""
+          } de ${formatarMoeda(val)} registrado para a compra de ${formatarCompetenciaRotulo(competencia)}.`,
+        })
+      }
+
+      setModalChequeAberta(false)
+      setChequeEmEdicao(null)
+      carregarDados()
+    } catch (err: any) {
+      toast({
+        title: "Erro ao salvar cheque",
+        description: err.message,
+        variant: "destructive",
+      })
+    } finally {
+      setSalvandoCheque(false)
+    }
+  }
+
+  const handleAlternarPagoCheque = async (chq: ControleBritaCheque) => {
+    try {
+      const novoStatus = !chq.pago
+      await BritasService.alternarPagoCheque(chq.id, novoStatus)
+      toast({
+        title: novoStatus
+          ? "Cheque marcado como PAGO"
+          : "Cheque marcado como PENDENTE",
+        description: `Cheque ${
+          chq.numero ? `Nº ${chq.numero}` : ""
+        } de ${formatarMoeda(Number(chq.valor) || 0)} atualizado.`,
+      })
+      carregarDados()
+    } catch (err: any) {
+      toast({
+        title: "Erro ao alterar status do cheque",
+        description: err.message,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleConfirmarExclusaoCheque = async () => {
+    if (!chequeParaExcluir) return
+    setExcluindoCheque(true)
+    try {
+      await BritasService.excluirCheque(chequeParaExcluir.id)
+      toast({
+        title: "Cheque excluído",
+        description: "O cheque foi removido do controle da compra.",
+      })
+      setChequeParaExcluir(null)
+      carregarDados()
+    } catch (err: any) {
+      toast({
+        title: "Erro ao excluir cheque",
+        description: err.message,
+        variant: "destructive",
+      })
+    } finally {
+      setExcluindoCheque(false)
+    }
+  }
+
+  // Filtragem no histórico de entregas do mês
   const entregasFiltradas = useMemo(() => {
-    if (filtroTipoBrita === "ALL") return entregas
-    return entregas.filter((e) => e.tipo_brita === filtroTipoBrita)
-  }, [entregas, filtroTipoBrita])
+    return entregas.filter((e) => {
+      // Filtro tipo de brita
+      if (filtroTipoBrita !== "ALL" && e.tipo_brita !== filtroTipoBrita) {
+        return false
+      }
+      // Filtro fornecedor (texto parcial case-insensitive)
+      if (filtroFornecedor.trim()) {
+        const termo = filtroFornecedor.trim().toLowerCase()
+        const fornec = (e.fornecedor || "").toLowerCase()
+        if (!fornec.includes(termo)) return false
+      }
+      // Filtro período inicial
+      if (filtroDataInicio && e.data < filtroDataInicio) {
+        return false
+      }
+      // Filtro período final
+      if (filtroDataFim && e.data > filtroDataFim) {
+        return false
+      }
+      return true
+    })
+  }, [
+    entregas,
+    filtroTipoBrita,
+    filtroFornecedor,
+    filtroDataInicio,
+    filtroDataFim,
+  ])
+
+  const totalVolumeEntregasFiltradas = useMemo(() => {
+    return Number(
+      entregasFiltradas
+        .reduce((acc, cur) => acc + (Number(cur.quantidade_m3) || 0), 0)
+        .toFixed(3),
+    )
+  }, [entregasFiltradas])
+
+  const limparFiltros = () => {
+    setFiltroTipoBrita("ALL")
+    setFiltroFornecedor("")
+    setFiltroDataInicio("")
+    setFiltroDataFim("")
+  }
+
+  const temFiltroAtivo =
+    filtroTipoBrita !== "ALL" ||
+    Boolean(filtroFornecedor.trim()) ||
+    Boolean(filtroDataInicio) ||
+    Boolean(filtroDataFim)
+
+  // Disparo da impressão A4 via window.print
+  const handleImprimir = () => {
+    window.print()
+  }
 
   return (
     <div className="space-y-6">
+      {/* =========================================================================
+          COMPONENTE EXCLUSIVO PARA IMPRESSÃO A4 (visível apenas em window.print)
+      ========================================================================== */}
+      <ImpressaoControleBritas
+        empresaAtiva={empresaAtiva}
+        competencia={competencia}
+        rotuloCompetencia={formatarCompetenciaRotulo(competencia)}
+        compraMensal={compraMensal}
+        resumo={resumo}
+        entregas={entregasFiltradas}
+        cheques={cheques}
+        totalCheques={totaisCheques.total}
+        totalChequesPagos={totaisCheques.pagos}
+        totalChequesPendentes={totaisCheques.pendentes}
+        filtroTipoBrita={filtroTipoBrita}
+        filtroFornecedor={filtroFornecedor}
+        filtroDataInicio={filtroDataInicio}
+        filtroDataFim={filtroDataFim}
+      />
+
+      {/* =========================================================================
+          INTERFACE EM TELA (no-print)
+      ========================================================================== */}
       {/* Barra Superior: Título, Competência, Ações Rápidas */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 rounded-xl border border-primary/20 bg-primary/5">
+      <div className="no-print flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 rounded-xl border border-primary/20 bg-primary/5">
         <div>
           <div className="flex items-center gap-2">
             <Layers className="w-5 h-5 text-primary" />
             <h2 className="text-lg font-bold tracking-tight text-foreground">
-              Controle de Britas (Brita 19 & Brita 12)
+              Controle de Britas (Brita 19 &amp; Brita 12)
             </h2>
             <Badge
               variant="outline"
@@ -585,7 +863,7 @@ export function AbaControleBritas({
 
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           {/* Seletor de Competência com Navegação ‹ anterior / › próximo */}
-          <div className="flex items-center bg-background border border-border/60 rounded-lg shadow-sm p-0.5">
+          <div className="flex items-center bg-background border border-border/60 rounded-lg shadow-xs p-0.5">
             <Button
               type="button"
               variant="ghost"
@@ -630,7 +908,7 @@ export function AbaControleBritas({
           </div>
 
           {/* Input month nativo para pular direto a qualquer ano/mês */}
-          <div className="hidden lg:flex items-center bg-background border border-border/50 rounded-lg px-2 py-1 shadow-sm">
+          <div className="hidden lg:flex items-center bg-background border border-border/50 rounded-lg px-2 py-1 shadow-xs">
             <Input
               id="competencia-britas"
               type="month"
@@ -656,11 +934,23 @@ export function AbaControleBritas({
             Recarregar
           </Button>
 
+          {/* Botão Imprimir A4 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleImprimir}
+            className="h-8 gap-1.5 text-xs font-semibold border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary"
+            title="Imprimir relatório da competência em formato A4"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Imprimir A4</span>
+          </Button>
+
           {podeEditar && (
             <Button
               size="sm"
               onClick={() => abrirModalNovaEntrega()}
-              className="h-8 gap-1 text-xs bg-primary text-primary-foreground font-semibold shadow-sm"
+              className="h-8 gap-1 text-xs bg-primary text-primary-foreground font-semibold shadow-xs"
             >
               <Truck className="w-3.5 h-3.5" />
               Registrar Entrega
@@ -669,14 +959,15 @@ export function AbaControleBritas({
         </div>
       </div>
 
-      {/* Alerta Vermelho de Excedente Geral: se entregue geral > compra total */}
+      {/* Alerta Vermelho de Excedente Geral: se entregue geral > total disponível (compra + repasse) */}
       {resumo.entregasExcedentes && (
-        <div className="p-4 rounded-xl border-2 border-destructive bg-destructive/15 text-destructive flex items-center justify-between gap-3 animate-pulse">
+        <div className="no-print p-4 rounded-xl border-2 border-destructive bg-destructive/15 text-destructive flex items-center justify-between gap-3 animate-pulse">
           <div className="flex items-center gap-3">
             <AlertTriangle className="w-6 h-6 shrink-0 text-destructive" />
             <div className="text-xs space-y-0.5">
               <p className="font-extrabold text-sm uppercase tracking-wide">
-                ALERTA: O total entregue geral superou a compra do mês!
+                ALERTA: O total entregue geral superou a compra do mês +
+                repasse!
               </p>
               <p className="text-[12px] opacity-90">
                 Foram entregues{" "}
@@ -685,11 +976,17 @@ export function AbaControleBritas({
                 </strong>{" "}
                 (Brita 19: {resumo.totalEntregue19M3.toLocaleString("pt-BR")} m³
                 | Brita 12: {resumo.totalEntregue12M3.toLocaleString("pt-BR")}{" "}
-                m³) para uma compra total de{" "}
+                m³) para um volume total contratado de{" "}
                 <strong>
-                  {resumo.compraTotalM3.toLocaleString("pt-BR")} m³
-                </strong>
-                . Excesso:{" "}
+                  {resumo.totalDisponivelM3.toLocaleString("pt-BR")} m³
+                </strong>{" "}
+                (Compra: {resumo.compraTotalM3.toLocaleString("pt-BR")} m³
+                {resumo.saldoRepasseM3 !== 0
+                  ? ` ${
+                      resumo.saldoRepasseM3 > 0 ? "+" : "−"
+                    } Repasse: ${Math.abs(resumo.saldoRepasseM3).toLocaleString("pt-BR")} m³`
+                  : ""}
+                ). Excesso:{" "}
                 <span className="font-mono font-bold">
                   {Math.abs(resumo.saldoAReceberM3).toLocaleString("pt-BR")} m³
                 </span>
@@ -710,14 +1007,14 @@ export function AbaControleBritas({
         </div>
       )}
 
-      {/* Cartão Principal: COMPRA DO MÊS + Indicadores Solicitados */}
-      <Card className="border border-border/60 bg-card/90 shadow-sm overflow-hidden">
+      {/* Cartão Principal: COMPRA DO MÊS + REPASSE ANTERIOR + Indicadores Solicitados */}
+      <Card className="no-print border border-border/60 bg-card/90 shadow-xs overflow-hidden">
         {/* Barra superior de progresso visual */}
         <div
           className={`h-2.5 w-full ${
             resumo.entregasExcedentes
               ? "bg-destructive animate-pulse"
-              : resumo.saldoAReceberM3 === 0 && resumo.compraTotalM3 > 0
+              : resumo.saldoAReceberM3 === 0 && resumo.totalDisponivelM3 > 0
                 ? "bg-emerald-500"
                 : "bg-primary"
           }`}
@@ -729,7 +1026,7 @@ export function AbaControleBritas({
               <div className="flex items-center gap-2">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                   <ShoppingCart className="w-5 h-5 text-primary" />
-                  <span>Compra Mensal & Atendimento de Britas</span>
+                  <span>Compra Mensal &amp; Atendimento de Britas</span>
                 </CardTitle>
                 <Badge
                   variant="secondary"
@@ -750,22 +1047,35 @@ export function AbaControleBritas({
               </CardDescription>
             </div>
 
-            {podeEditar && (
-              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                {/* Atalho Replicar Compra para o Próximo Mês */}
-                {resumo.compraTotalM3 > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setConfirmarReplicarAberto(true)}
-                    className="h-8 text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold"
-                    title={`Replicar ${resumo.compraTotalM3.toLocaleString("pt-BR")} m³ para ${formatarCompetenciaRotulo(proximaCompetencia)}`}
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    Replicar para o Próximo Mês
-                  </Button>
-                )}
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {/* Botão de Lançar Cheque no topo do cartão */}
+              {podeEditar && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={abrirModalNovoCheque}
+                  className="h-8 text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold"
+                  title="Lançar cheque vinculado ao pagamento da compra de britas"
+                >
+                  <Banknote className="w-3.5 h-3.5" />
+                  Lançar Cheque
+                </Button>
+              )}
 
+              {podeEditar && resumo.compraTotalM3 > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmarReplicarAberto(true)}
+                  className="h-8 text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold"
+                  title={`Replicar ${resumo.compraTotalM3.toLocaleString("pt-BR")} m³ para ${formatarCompetenciaRotulo(proximaCompetencia)}`}
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  Replicar para o Próximo Mês
+                </Button>
+              )}
+
+              {podeEditar && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -777,7 +1087,9 @@ export function AbaControleBritas({
                     ? "Editar Compra do Mês"
                     : "Lançar Compra do Mês"}
                 </Button>
+              )}
 
+              {podeEditar && (
                 <Button
                   size="sm"
                   onClick={() => abrirModalNovaEntrega()}
@@ -786,21 +1098,21 @@ export function AbaControleBritas({
                   <PlusCircle className="w-3.5 h-3.5" />
                   Lançar Entrega
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </CardHeader>
 
         <CardContent className="pt-4 space-y-4">
-          {/* Grid com os 5 Indicadores Oficiais */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {/* Grid com os 6 Indicadores Oficiais (incluindo SALDO ANTERIOR REPASSE) */}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             {/* 1. COMPRA DO MÊS (ÚNICA) */}
-            <div className="p-3.5 rounded-xl bg-muted/40 border border-border/50 text-center relative flex flex-col justify-between">
+            <div className="p-3 rounded-xl bg-muted/40 border border-border/50 text-center relative flex flex-col justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
                   Compra do Mês
                 </span>
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground block">
+                <span className="text-xl sm:text-2xl font-extrabold font-mono text-foreground block">
                   {resumo.compraTotalM3.toLocaleString("pt-BR", {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 2,
@@ -822,13 +1134,49 @@ export function AbaControleBritas({
               </div>
             </div>
 
-            {/* 2. TOTAL ENTREGUE BRITA 19 */}
-            <div className="p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/20 text-center flex flex-col justify-between">
+            {/* 2. NOVO INDICADOR: SALDO ANTERIOR (REPASSE) */}
+            <div
+              className={`p-3 rounded-xl border text-center flex flex-col justify-between ${
+                resumo.saldoRepasseM3 > 0
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+                  : resumo.saldoRepasseM3 < 0
+                    ? "bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-400"
+                    : "bg-muted/40 border-border/50 text-muted-foreground"
+              }`}
+            >
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider block mb-1">
+                  Saldo Anterior (Repasse)
+                </span>
+                <span className="text-xl sm:text-2xl font-extrabold font-mono block">
+                  {resumo.saldoRepasseM3 > 0 ? "+" : ""}
+                  {resumo.saldoRepasseM3.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+              <div className="mt-2 pt-1 border-t border-current/20 flex items-center justify-between text-[11px] font-medium">
+                <span className="text-[10px] truncate">
+                  {formatarCompetenciaRotulo(anteriorCompetencia)}
+                </span>
+                <span className="font-mono text-[10px]">
+                  {resumo.saldoRepasseM3 > 0
+                    ? "soma"
+                    : resumo.saldoRepasseM3 < 0
+                      ? "subtrai"
+                      : "0"}
+                </span>
+              </div>
+            </div>
+
+            {/* 3. TOTAL ENTREGUE BRITA 19 */}
+            <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 text-center flex flex-col justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
-                  Total Entregue Brita 19
+                  Total Brita 19
                 </span>
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-blue-600 dark:text-blue-400 block">
+                <span className="text-xl sm:text-2xl font-extrabold font-mono text-blue-600 dark:text-blue-400 block">
                   {resumo.totalEntregue19M3.toLocaleString("pt-BR", {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 2,
@@ -843,13 +1191,13 @@ export function AbaControleBritas({
               </div>
             </div>
 
-            {/* 3. TOTAL ENTREGUE BRITA 12 */}
-            <div className="p-3.5 rounded-xl bg-purple-500/5 border border-purple-500/20 text-center flex flex-col justify-between">
+            {/* 4. TOTAL ENTREGUE BRITA 12 */}
+            <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20 text-center flex flex-col justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block mb-1">
-                  Total Entregue Brita 12
+                  Total Brita 12
                 </span>
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-purple-600 dark:text-purple-400 block">
+                <span className="text-xl sm:text-2xl font-extrabold font-mono text-purple-600 dark:text-purple-400 block">
                   {resumo.totalEntregue12M3.toLocaleString("pt-BR", {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 2,
@@ -864,13 +1212,13 @@ export function AbaControleBritas({
               </div>
             </div>
 
-            {/* 4. TOTAL ENTREGUE GERAL (m³) */}
-            <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/30 text-center flex flex-col justify-between">
+            {/* 5. TOTAL ENTREGUE GERAL (m³) */}
+            <div className="p-3 rounded-xl bg-primary/10 border border-primary/30 text-center flex flex-col justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-primary block mb-1">
                   Total Entregue Geral
                 </span>
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-primary block">
+                <span className="text-xl sm:text-2xl font-extrabold font-mono text-primary block">
                   {resumo.totalEntregueGeralM3.toLocaleString("pt-BR", {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 2,
@@ -885,12 +1233,12 @@ export function AbaControleBritas({
               </div>
             </div>
 
-            {/* 5. SALDO A RECEBER (compra total − entregue geral) */}
+            {/* 6. SALDO A RECEBER (compra + repasse − entregue geral) */}
             <div
-              className={`p-3.5 rounded-xl border text-center flex flex-col justify-between col-span-2 md:col-span-1 ${
+              className={`p-3 rounded-xl border text-center flex flex-col justify-between ${
                 resumo.entregasExcedentes
                   ? "bg-destructive/15 border-destructive text-destructive"
-                  : resumo.saldoAReceberM3 === 0 && resumo.compraTotalM3 > 0
+                  : resumo.saldoAReceberM3 === 0 && resumo.totalDisponivelM3 > 0
                     ? "bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400"
                     : "bg-muted/40 border-border/50 text-foreground"
               }`}
@@ -899,7 +1247,7 @@ export function AbaControleBritas({
                 <span className="text-[10px] font-bold uppercase tracking-wider opacity-80 block mb-1">
                   Saldo a Receber
                 </span>
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono block">
+                <span className="text-xl sm:text-2xl font-extrabold font-mono block">
                   {resumo.saldoAReceberM3.toLocaleString("pt-BR", {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 2,
@@ -910,12 +1258,15 @@ export function AbaControleBritas({
                 <span>
                   {resumo.entregasExcedentes
                     ? "Excedente m³"
-                    : resumo.saldoAReceberM3 === 0 && resumo.compraTotalM3 > 0
+                    : resumo.saldoAReceberM3 === 0 &&
+                        resumo.totalDisponivelM3 > 0
                       ? "100% entregue"
                       : "Pendente m³"}
                 </span>
                 <span className="font-mono text-[10px]">
-                  {resumo.compraTotalM3 > 0 ? `${percentualAtendido}%` : "—"}
+                  {resumo.totalDisponivelM3 > 0
+                    ? `${percentualAtendido}%`
+                    : "—"}
                 </span>
               </div>
             </div>
@@ -923,32 +1274,37 @@ export function AbaControleBritas({
 
           {/* Barra de Progresso do Volume Contratado */}
           <div className="p-3 rounded-lg bg-muted/20 border border-border/30 space-y-1.5">
-            <div className="flex justify-between text-xs text-muted-foreground">
+            <div className="flex justify-between text-xs text-muted-foreground flex-wrap gap-2">
               <span className="flex items-center gap-1.5 font-medium">
                 <Layers2 className="w-3.5 h-3.5 text-primary" />
-                Atendimento do Volume Mensal Contratado:
+                Atendimento do Volume Total (Compra {resumo.compraTotalM3} m³
+                {resumo.saldoRepasseM3 !== 0
+                  ? ` ${
+                      resumo.saldoRepasseM3 > 0 ? "+" : "−"
+                    } Repasse ${Math.abs(resumo.saldoRepasseM3)} m³ = ${resumo.totalDisponivelM3} m³`
+                  : ""}
+                ):
               </span>
               <span className="font-mono font-bold text-foreground">
-                {resumo.compraTotalM3 > 0
-                  ? `${resumo.totalEntregueGeralM3.toLocaleString("pt-BR")} m³ de ${resumo.compraTotalM3.toLocaleString("pt-BR")} m³ (${percentualAtendido}%)`
-                  : "Volume de compra não cadastrado"}
+                {resumo.totalDisponivelM3 > 0
+                  ? `${resumo.totalEntregueGeralM3.toLocaleString("pt-BR")} m³ de ${resumo.totalDisponivelM3.toLocaleString("pt-BR")} m³ (${percentualAtendido}%)`
+                  : "Volume não cadastrado"}
               </span>
             </div>
             <div className="w-full h-2.5 rounded-full bg-muted overflow-hidden flex">
-              {resumo.compraTotalM3 > 0 ? (
+              {resumo.totalDisponivelM3 > 0 ? (
                 <>
-                  {/* Faixa Brita 19 */}
                   <div
                     className="h-full bg-blue-500 transition-all duration-300"
                     style={{
                       width: `${Math.min(
                         100,
-                        (resumo.totalEntregue19M3 / resumo.compraTotalM3) * 100,
+                        (resumo.totalEntregue19M3 / resumo.totalDisponivelM3) *
+                          100,
                       )}%`,
                     }}
                     title={`Brita 19: ${resumo.totalEntregue19M3} m³`}
                   />
-                  {/* Faixa Brita 12 */}
                   <div
                     className="h-full bg-purple-500 transition-all duration-300"
                     style={{
@@ -956,10 +1312,12 @@ export function AbaControleBritas({
                         100 -
                           Math.min(
                             100,
-                            (resumo.totalEntregue19M3 / resumo.compraTotalM3) *
+                            (resumo.totalEntregue19M3 /
+                              resumo.totalDisponivelM3) *
                               100,
                           ),
-                        (resumo.totalEntregue12M3 / resumo.compraTotalM3) * 100,
+                        (resumo.totalEntregue12M3 / resumo.totalDisponivelM3) *
+                          100,
                       )}%`,
                     }}
                     title={`Brita 12: ${resumo.totalEntregue12M3} m³`}
@@ -969,7 +1327,7 @@ export function AbaControleBritas({
                 <div className="h-full w-full bg-muted" />
               )}
             </div>
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5 flex-wrap gap-2">
               <div className="flex items-center gap-3">
                 <span className="inline-flex items-center gap-1">
                   <span className="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block" />
@@ -992,42 +1350,313 @@ export function AbaControleBritas({
               )}
             </div>
           </div>
+
+          {/* =========================================================================
+              SEÇÃO CHEQUES DA COMPRA (Dentro do cartão da compra)
+          ========================================================================== */}
+          <div className="pt-3 border-t border-border/40 space-y-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Banknote className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <h3 className="text-sm font-bold text-foreground">
+                  Cheques da Compra do Mês
+                </h3>
+                {/* Total dos cheques exibido ao lado do volume da compra */}
+                <Badge
+                  variant="outline"
+                  className="font-mono text-xs font-bold border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10"
+                >
+                  Total Cheques: {formatarMoeda(totaisCheques.total)}
+                </Badge>
+                <span className="text-xs text-muted-foreground hidden md:inline">
+                  (Pagos: {formatarMoeda(totaisCheques.pagos)} | Pendentes:{" "}
+                  {formatarMoeda(totaisCheques.pendentes)})
+                </span>
+              </div>
+
+              {podeEditar && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={abrirModalNovoCheque}
+                  className="h-7 text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  Lançar Cheque
+                </Button>
+              )}
+            </div>
+
+            {cheques.length === 0 ? (
+              <div className="py-4 text-center text-xs text-muted-foreground bg-muted/20 rounded-lg border border-border/30">
+                <p>Nenhum cheque cadastrado para a compra desta competência.</p>
+                {podeEditar && (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={abrirModalNovoCheque}
+                    className="text-xs text-primary h-auto p-0 mt-1"
+                  >
+                    + Lançar primeiro cheque da compra
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-border/30 rounded-lg bg-background/50">
+                <table className="w-full text-xs text-left">
+                  <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border/40">
+                    <tr>
+                      <th className="py-2 px-3">Nº Cheque</th>
+                      <th className="py-2 px-3">Vencimento (Vai Cair)</th>
+                      <th className="py-2 px-3 text-right">Valor (R$)</th>
+                      <th className="py-2 px-3 text-center w-28">Status</th>
+                      <th className="py-2 px-3">Observação</th>
+                      {podeEditar && (
+                        <th className="py-2 px-3 text-center w-24">Ações</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/20">
+                    {cheques.map((chq) => (
+                      <tr
+                        key={chq.id}
+                        className={`hover:bg-muted/20 transition-colors ${
+                          chq.pago ? "opacity-75" : ""
+                        }`}
+                      >
+                        <td className="py-2 px-3 font-mono font-bold text-foreground">
+                          {chq.numero || "—"}
+                        </td>
+                        <td className="py-2 px-3 font-mono text-muted-foreground">
+                          {chq.data_vencimento
+                            ? chq.data_vencimento.split("-").reverse().join("/")
+                            : "—"}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-foreground">
+                          {formatarMoeda(Number(chq.valor) || 0)}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          {podeEditar ? (
+                            <button
+                              type="button"
+                              onClick={() => handleAlternarPagoCheque(chq)}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold uppercase transition-colors cursor-pointer ${
+                                chq.pago
+                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30"
+                                  : "bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25 border border-amber-500/30"
+                              }`}
+                              title={
+                                chq.pago
+                                  ? "Clique para marcar como PENDENTE"
+                                  : "Clique para marcar como PAGO"
+                              }
+                            >
+                              {chq.pago ? (
+                                <>
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>PAGO</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Clock className="w-3 h-3 text-amber-600" />
+                                  <span>PENDENTE</span>
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className={
+                                chq.pago
+                                  ? "border-emerald-500 text-emerald-600"
+                                  : "border-amber-500 text-amber-600"
+                              }
+                            >
+                              {chq.pago ? "PAGO" : "PENDENTE"}
+                            </Badge>
+                          )}
+                        </td>
+                        <td
+                          className="py-2 px-3 text-muted-foreground max-w-[220px] truncate"
+                          title={chq.observacao || ""}
+                        >
+                          {chq.observacao || "—"}
+                        </td>
+                        {podeEditar && (
+                          <td className="py-2 px-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                title="Editar cheque"
+                                onClick={() => abrirModalEditarCheque(chq)}
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                title="Excluir cheque"
+                                onClick={() => setChequeParaExcluir(chq)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Histórico das Entregas do Mês com NOVA COLUNA 'AÇÕES' (EDITAR e EXCLUIR) */}
-      <Card className="border-border/40 bg-card/70">
-        <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Truck className="w-4 h-4 text-primary" />
-              Histórico das Entregas do Mês (
-              {formatarCompetenciaRotulo(competencia)})
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Registros individuais de cargas recebidas de Brita 19 e Brita 12
-              na competência {formatarCompetenciaRotulo(competencia)} com
-              conversão automática para m³
-            </CardDescription>
+      {/* Histórico das Entregas do Mês com FILTROS e BOTÃO IMPRIMIR */}
+      <Card className="no-print border-border/40 bg-card/70">
+        <CardHeader className="flex flex-col gap-3 pb-3">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Truck className="w-4 h-4 text-primary" />
+                <span>
+                  Histórico das Entregas do Mês (
+                  {formatarCompetenciaRotulo(competencia)})
+                </span>
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Registros individuais de cargas recebidas de Brita 19 e Brita 12
+                na competência {formatarCompetenciaRotulo(competencia)} com
+                conversão automática para m³
+              </CardDescription>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleImprimir}
+                className="h-8 gap-1.5 text-xs font-semibold border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary"
+                title="Imprimir histórico de entregas filtrado em A4"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Imprimir A4</span>
+              </Button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-xs text-muted-foreground shrink-0">
-              Filtrar brita:
-            </span>
-            <Select
-              value={filtroTipoBrita}
-              onValueChange={(val: any) => setFiltroTipoBrita(val)}
-            >
-              <SelectTrigger className="w-[160px] h-8 text-xs">
-                <SelectValue placeholder="Todas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todas as Britas</SelectItem>
-                <SelectItem value="19">Apenas Brita 19</SelectItem>
-                <SelectItem value="12">Apenas Brita 12</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* BARRA DE FILTROS: Tipo de brita, fornecedor (texto) e período (data inicial/final) */}
+          <div className="p-3 rounded-lg border border-border/40 bg-muted/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                <Search className="w-3.5 h-3.5 text-primary" />
+                Filtros de Pesquisa
+              </span>
+              {temFiltroAtivo && (
+                <button
+                  type="button"
+                  onClick={limparFiltros}
+                  className="text-xs text-primary hover:underline flex items-center gap-1 font-semibold"
+                >
+                  <FilterX className="w-3 h-3" />
+                  Limpar Filtros
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+              {/* Filtro Tipo de Brita */}
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">
+                  Tipo de Brita
+                </Label>
+                <Select
+                  value={filtroTipoBrita}
+                  onValueChange={(val: any) => setFiltroTipoBrita(val)}
+                >
+                  <SelectTrigger className="h-8 text-xs bg-background">
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Todas as Britas</SelectItem>
+                    <SelectItem value="19">Apenas Brita 19</SelectItem>
+                    <SelectItem value="12">Apenas Brita 12</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro Fornecedor (texto) */}
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">
+                  Fornecedor / Pedreira
+                </Label>
+                <div className="relative">
+                  <Input
+                    placeholder="Filtrar por pedreira..."
+                    value={filtroFornecedor}
+                    onChange={(e) => setFiltroFornecedor(e.target.value)}
+                    className="h-8 text-xs bg-background pr-7"
+                  />
+                  {filtroFornecedor && (
+                    <button
+                      type="button"
+                      onClick={() => setFiltroFornecedor("")}
+                      className="absolute right-2 top-2 text-muted-foreground hover:text-foreground text-xs"
+                      title="Limpar texto"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Período Data Inicial */}
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">
+                  Data Inicial
+                </Label>
+                <Input
+                  type="date"
+                  value={filtroDataInicio}
+                  onChange={(e) => setFiltroDataInicio(e.target.value)}
+                  className="h-8 text-xs bg-background font-mono"
+                />
+              </div>
+
+              {/* Período Data Final */}
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">
+                  Data Final
+                </Label>
+                <Input
+                  type="date"
+                  value={filtroDataFim}
+                  onChange={(e) => setFiltroDataFim(e.target.value)}
+                  className="h-8 text-xs bg-background font-mono"
+                />
+              </div>
+            </div>
+
+            {temFiltroAtivo && (
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/20">
+                <span>
+                  Exibindo <strong>{entregasFiltradas.length}</strong> de{" "}
+                  <strong>{entregas.length}</strong> entregas do mês
+                </span>
+                <span className="font-mono font-bold text-foreground">
+                  Volume Filtrado:{" "}
+                  {totalVolumeEntregasFiltradas.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 3,
+                  })}{" "}
+                  m³
+                </span>
+              </div>
+            )}
           </div>
         </CardHeader>
 
@@ -1036,20 +1665,33 @@ export function AbaControleBritas({
             <div className="py-12 text-center text-muted-foreground text-xs space-y-2">
               <Truck className="w-8 h-8 mx-auto opacity-30" />
               <p>
-                Nenhuma entrega registrada para o mês de{" "}
-                <strong>{formatarCompetenciaRotulo(competencia)}</strong>.
+                {temFiltroAtivo
+                  ? "Nenhuma entrega corresponde aos filtros selecionados."
+                  : `Nenhuma entrega registrada para o mês de ${formatarCompetenciaRotulo(competencia)}.`}
               </p>
-              {podeEditar && (
+              {temFiltroAtivo ? (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => abrirModalNovaEntrega()}
+                  onClick={limparFiltros}
                   className="gap-1.5 text-xs text-primary"
                 >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  Registrar Primeira Entrega de{" "}
-                  {formatarCompetenciaRotulo(competencia)}
+                  <FilterX className="w-3.5 h-3.5" />
+                  Limpar Filtros
                 </Button>
+              ) : (
+                podeEditar && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => abrirModalNovaEntrega()}
+                    className="gap-1.5 text-xs text-primary"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    Registrar Primeira Entrega de{" "}
+                    {formatarCompetenciaRotulo(competencia)}
+                  </Button>
+                )
               )}
             </div>
           ) : (
@@ -1151,6 +1793,37 @@ export function AbaControleBritas({
                     </tr>
                   ))}
                 </tbody>
+                {/* Totalizador da tabela em tela */}
+                <tfoot className="bg-muted/50 font-bold border-t-2 border-border/60 text-xs">
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="py-2.5 px-3 uppercase text-foreground"
+                    >
+                      Total ({entregasFiltradas.length}{" "}
+                      {entregasFiltradas.length === 1 ? "entrega" : "entregas"})
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono font-black text-primary">
+                      {totalVolumeEntregasFiltradas.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 3,
+                      })}{" "}
+                      m³
+                    </td>
+                    <td
+                      colSpan={podeEditar ? 4 : 3}
+                      className="py-2.5 px-3 text-muted-foreground text-[11px]"
+                    >
+                      Geral do mês:{" "}
+                      {resumo.totalEntregueGeralM3.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                      })}{" "}
+                      m³ (19: {resumo.totalEntregue19M3.toLocaleString("pt-BR")}{" "}
+                      m³ | 12:{" "}
+                      {resumo.totalEntregue12M3.toLocaleString("pt-BR")} m³)
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
@@ -1470,6 +2143,133 @@ export function AbaControleBritas({
         </DialogContent>
       </Dialog>
 
+      {/* Modal Lançar / Editar Cheque da Compra */}
+      <Dialog
+        open={modalChequeAberta}
+        onOpenChange={(aberto) => {
+          setModalChequeAberta(aberto)
+          if (!aberto) setChequeEmEdicao(null)
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Banknote className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              {chequeEmEdicao
+                ? "Editar Cheque da Compra"
+                : "Lançar Cheque da Compra"}
+            </DialogTitle>
+            <DialogDescription>
+              Vincule um cheque ao pagamento da compra de britas de{" "}
+              <strong>{formatarCompetenciaRotulo(competencia)}</strong> (
+              {empresaAtiva?.nome}).
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSalvarCheque} className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="chequeValor">Valor do Cheque (R$) *</Label>
+                <div className="relative">
+                  <Input
+                    id="chequeValor"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Ex: 5000,00"
+                    value={chequeValor}
+                    onChange={(e) => setChequeValor(e.target.value)}
+                    className="font-mono font-bold pl-8"
+                    required
+                    autoFocus
+                  />
+                  <span className="absolute left-2.5 top-2.5 text-xs text-muted-foreground font-bold">
+                    R$
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="chequeDataVencimento">Data que vai cair</Label>
+                <Input
+                  id="chequeDataVencimento"
+                  type="date"
+                  value={chequeDataVencimento}
+                  onChange={(e) => setChequeDataVencimento(e.target.value)}
+                  className="font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="chequeNumero">Número do Cheque</Label>
+                <Input
+                  id="chequeNumero"
+                  placeholder="Ex: 001234"
+                  value={chequeNumero}
+                  onChange={(e) => setChequeNumero(e.target.value)}
+                  className="font-mono font-semibold"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="chequePago">Status do Pagamento</Label>
+                <Select
+                  value={chequePago ? "true" : "false"}
+                  onValueChange={(val) => setChequePago(val === "true")}
+                >
+                  <SelectTrigger id="chequePago" className="text-xs">
+                    <SelectValue placeholder="Selecione o status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="false">
+                      PENDENTE (A compensar)
+                    </SelectItem>
+                    <SelectItem value="true">
+                      PAGO (Compensado / Baixado)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="chequeObservacao">Observação (opcional)</Label>
+              <Input
+                id="chequeObservacao"
+                placeholder="Ex: Banco do Brasil, agência centro, favorecido..."
+                value={chequeObservacao}
+                onChange={(e) => setChequeObservacao(e.target.value)}
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setModalChequeAberta(false)
+                  setChequeEmEdicao(null)
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={salvandoCheque || !chequeValor.trim()}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+              >
+                {salvandoCheque
+                  ? "Salvando..."
+                  : chequeEmEdicao
+                    ? "Salvar Alterações"
+                    : "Lançar Cheque"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* AlertDialog de Confirmação para Replicar Compra para o Próximo Mês */}
       <AlertDialog
         open={confirmarReplicarAberto}
@@ -1607,6 +2407,71 @@ export function AbaControleBritas({
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold"
             >
               {excluindoEntrega ? "Excluindo..." : "Sim, Excluir Entrega"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* AlertDialog de Confirmação para Excluir Cheque */}
+      <AlertDialog
+        open={Boolean(chequeParaExcluir)}
+        onOpenChange={(aberto) => !aberto && setChequeParaExcluir(null)}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="w-5 h-5" />
+              Excluir Cheque da Compra
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              Tem certeza que deseja remover este cheque do controle da compra?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {chequeParaExcluir && (
+            <div className="p-3 rounded-lg border border-border/40 bg-muted/30 space-y-1.5 text-xs font-mono">
+              <div className="flex justify-between">
+                <span className="font-sans text-muted-foreground">Número:</span>
+                <span className="font-bold">
+                  {chequeParaExcluir.numero || "Sem número"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-sans text-muted-foreground">Valor:</span>
+                <span className="font-bold text-destructive">
+                  {formatarMoeda(Number(chequeParaExcluir.valor) || 0)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-sans text-muted-foreground">
+                  Vencimento:
+                </span>
+                <span>
+                  {chequeParaExcluir.data_vencimento
+                    ? chequeParaExcluir.data_vencimento
+                        .split("-")
+                        .reverse()
+                        .join("/")
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-sans text-muted-foreground">Status:</span>
+                <span>{chequeParaExcluir.pago ? "PAGO" : "PENDENTE"}</span>
+              </div>
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluindoCheque}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={excluindoCheque}
+              onClick={handleConfirmarExclusaoCheque}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold"
+            >
+              {excluindoCheque ? "Excluindo..." : "Sim, Excluir Cheque"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -27,13 +27,34 @@ export interface ControleBritaEntrega {
   created_at?: string
 }
 
+export interface ControleBritaCheque {
+  id: string
+  empresa_id: string
+  competencia: string // 'YYYY-MM'
+  valor: number
+  data_vencimento?: string | null // 'YYYY-MM-DD'
+  numero?: string | null
+  observacao?: string | null
+  pago: boolean
+  created_at?: string
+}
+
+export interface SaldoCompetenciaAnterior {
+  compraMesAnteriorM3: number
+  entregueGeralMesAnteriorM3: number
+  saldoRepasseM3: number // compraMesAnteriorM3 - entregueGeralMesAnteriorM3
+  temRegistroMesAnterior: boolean
+}
+
 export interface ResumoControleBritasMes {
   compraTotalM3: number
+  saldoRepasseM3: number // Repasse da competência anterior
+  totalDisponivelM3: number // compraTotalM3 + saldoRepasseM3
   totalEntregue19M3: number
   totalEntregue12M3: number
   totalEntregueGeralM3: number
-  saldoAReceberM3: number // compraTotalM3 - totalEntregueGeralM3
-  entregasExcedentes: boolean // totalEntregueGeralM3 > compraTotalM3
+  saldoAReceberM3: number // compraTotalM3 + saldoRepasseM3 - totalEntregueGeralM3
+  entregasExcedentes: boolean // totalEntregueGeralM3 > (compraTotalM3 + saldoRepasseM3)
   totalEntregasQtd: number
   totalEntregas19Qtd: number
   totalEntregas12Qtd: number
