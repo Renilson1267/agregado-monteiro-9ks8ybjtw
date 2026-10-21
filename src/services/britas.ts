@@ -293,13 +293,13 @@ export class BritasService {
     empresaId: string,
     competencia: string,
   ): Promise<ControleBritaCheque[]> {
-    const { data, error } = await supabase
+    const { data, error } = (await supabase
       .from("controle_britas_cheques" as any)
       .select("*")
       .eq("empresa_id", empresaId)
       .eq("competencia", competencia)
       .order("data_vencimento", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: true }) as any
+      .order("created_at", { ascending: true })) as any
 
     if (error) {
       console.error("Erro ao buscar cheques de britas:", error)
