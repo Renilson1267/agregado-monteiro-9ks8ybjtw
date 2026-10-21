@@ -215,7 +215,7 @@ export function Sidebar({
         {
           icon: CalendarDays,
           label: "Controle de Férias",
-          path: "/cadastros?tab=ferias",
+          path: "/ferias",
           group: "cadastros",
           adminOnly: true,
         },
