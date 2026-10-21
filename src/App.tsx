@@ -15,6 +15,7 @@ import { UsuarioProvider, useUsuario } from "@/hooks/use-usuario"
 import { EmpresaProvider } from "@/hooks/use-empresa"
 import { AtualizacaoPwaBanner } from "@/components/AtualizacaoPwaBanner"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
+import { AbaControleFerias } from "@/components/AbaControleFerias"
 import Layout from "./components/Layout"
 import Login from "./pages/Login"
 import Index from "./pages/Index"
@@ -135,12 +136,7 @@ const App = () => (
                     >
                       <Route path="/exames" element={<ControleExames />} />
                       <Route path="/folha" element={<FolhaPagamento />} />
-                      <Route
-                        path="/ferias"
-                        element={
-                          <Navigate to="/cadastros?tab=ferias" replace />
-                        }
-                      />
+                      <Route path="/ferias" element={<AbaControleFerias />} />
                     </Route>
 
                     {/* Lançamento de Cargas: liberado para Gestor, Balanceiro e Admin (BLOQUEADO para Auxiliar Adm) */}

@@ -88,6 +88,7 @@ export function Header({
         return "Quadro Comparativo (Monteiro × SJE)"
       return "Relatórios de Produção"
     }
+    if (path === "/ferias") return "Controle de Férias & Fardamento"
     if (path === "/cadastros") {
       const params = new URLSearchParams(search)
       if (params.get("tab") === "usuarios") return "Gestão de Usuários"
