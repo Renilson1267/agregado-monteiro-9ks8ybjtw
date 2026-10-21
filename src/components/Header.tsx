@@ -61,7 +61,9 @@ export function Header({
     emailUsuario,
     podeTrocarEmpresa,
     empresaVinculadaNome,
-  } = useUsuario()  const [modalEmpresasOpen, setModalEmpresasOpen] = useState(false)
+  } = useUsuario()
+
+  const [modalEmpresasOpen, setModalEmpresasOpen] = useState(false)
   const [modalTrocarSenhaOpen, setModalTrocarSenhaOpen] = useState(false)
 
   const nomeEmpresa = empresaAtiva?.nome || "Selecione"
