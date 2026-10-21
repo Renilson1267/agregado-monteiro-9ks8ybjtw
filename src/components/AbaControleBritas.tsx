@@ -41,6 +41,7 @@ import {
   ShoppingCart,
   Truck,
   Trash2,
+  Edit2,
   AlertTriangle,
   CheckCircle2,
   RefreshCw,
@@ -49,6 +50,9 @@ import {
   Building2,
   FileText,
   Calculator,
+  ArrowDownRight,
+  TrendingDown,
+  Layers2,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { BritasService } from "@/services/britas"
@@ -57,7 +61,7 @@ import type {
   ControleBritaEntrega,
   TipoBrita,
   UnidadeBritaEntrega,
-  ResumoBritaItem,
+  ResumoControleBritasMes,
 } from "@/types/britas"
 import type { Empresa } from "@/types/concreteira"
 
@@ -78,22 +82,25 @@ export function AbaControleBritas({
   podeEditar = true,
 }: AbaControleBritasProps) {
   const [competencia, setCompetencia] = useState<string>(getCompetenciaAtual)
-  const [compras, setCompras] = useState<ControleBritaCompra[]>([])
+  const [compraMensal, setCompraMensal] = useState<ControleBritaCompra | null>(
+    null,
+  )
   const [entregas, setEntregas] = useState<ControleBritaEntrega[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [filtroTipoBrita, setFiltroTipoBrita] = useState<"ALL" | TipoBrita>(
     "ALL",
   )
 
-  // Modal Lançar Compra Mensal
+  // Modal Lançar / Editar Compra Mensal Única
   const [modalCompraAberta, setModalCompraAberta] = useState(false)
   const [salvandoCompra, setSalvandoCompra] = useState(false)
-  const [compraTipoBrita, setCompraTipoBrita] = useState<TipoBrita>("19")
   const [compraVolumeM3, setCompraVolumeM3] = useState<string>("")
   const [compraObservacao, setCompraObservacao] = useState<string>("")
 
-  // Modal Registrar Entrega
+  // Modal Registrar ou Editar Entrega
   const [modalEntregaAberta, setModalEntregaAberta] = useState(false)
+  const [entregaEmEdicao, setEntregaEmEdicao] =
+    useState<ControleBritaEntrega | null>(null)
   const [salvandoEntrega, setSalvandoEntrega] = useState(false)
   const [entregaTipoBrita, setEntregaTipoBrita] = useState<TipoBrita>("19")
   const [entregaData, setEntregaData] = useState<string>(
@@ -116,11 +123,11 @@ export function AbaControleBritas({
     if (!empresaAtiva?.id) return
     setLoading(true)
     try {
-      const [comprasRes, entregasRes] = await Promise.all([
-        BritasService.getComprasCompetencia(empresaAtiva.id, competencia),
+      const [compraRes, entregasRes] = await Promise.all([
+        BritasService.getCompraCompetencia(empresaAtiva.id, competencia),
         BritasService.getEntregasCompetencia(empresaAtiva.id, competencia),
       ])
-      setCompras(comprasRes)
+      setCompraMensal(compraRes)
       setEntregas(entregasRes)
     } catch (err: any) {
       console.error(err)
@@ -139,7 +146,7 @@ export function AbaControleBritas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaAtiva?.id, competencia])
 
-  // Cálculo da conversão ao vivo para o modal de entrega
+  // Cálculo da conversão ao vivo para o modal de entrega (criar ou editar)
   const calculoConversaoAoVivo = useMemo(() => {
     const qtdNum = Number(entregaQuantidade.replace(",", ".")) || 0
     if (qtdNum <= 0) return { qtdM3: 0, formula: "" }
@@ -161,45 +168,58 @@ export function AbaControleBritas({
     }
   }, [entregaQuantidade, entregaUnidade, entregaDensidade])
 
-  // Resumos Brita 19 e Brita 12
-  const resumoBritas: Record<TipoBrita, ResumoBritaItem> = useMemo(() => {
-    const tipos: TipoBrita[] = ["19", "12"]
-    const resultado: any = {}
+  // Resumo Geral: Compra do Mês, Entregas Brita 19, Brita 12, Total Geral e Saldo a Receber
+  const resumo: ResumoControleBritasMes = useMemo(() => {
+    const compraTotalM3 = compraMensal ? Number(compraMensal.volume_m3) || 0 : 0
 
-    tipos.forEach((tipo) => {
-      const compraItem = compras.find((c) => c.tipo_brita === tipo)
-      const compraM3 = compraItem ? Number(compraItem.volume_m3) || 0 : 0
+    const entregas19 = entregas.filter((e) => e.tipo_brita === "19")
+    const entregas12 = entregas.filter((e) => e.tipo_brita === "12")
 
-      const entregasDoTipo = entregas.filter((e) => e.tipo_brita === tipo)
-      const totalEntregueM3 = entregasDoTipo.reduce(
-        (acc, cur) => acc + (Number(cur.quantidade_m3) || 0),
-        0,
-      )
+    const totalEntregue19M3 = Number(
+      entregas19
+        .reduce((acc, cur) => acc + (Number(cur.quantidade_m3) || 0), 0)
+        .toFixed(3),
+    )
+    const totalEntregue12M3 = Number(
+      entregas12
+        .reduce((acc, cur) => acc + (Number(cur.quantidade_m3) || 0), 0)
+        .toFixed(3),
+    )
+    const totalEntregueGeralM3 = Number(
+      (totalEntregue19M3 + totalEntregue12M3).toFixed(3),
+    )
 
-      const saldoAReceberM3 = Number((compraM3 - totalEntregueM3).toFixed(3))
-      const entregasExcedentes = totalEntregueM3 > compraM3
+    const saldoAReceberM3 = Number(
+      (compraTotalM3 - totalEntregueGeralM3).toFixed(3),
+    )
+    const entregasExcedentes = totalEntregueGeralM3 > compraTotalM3
 
-      resultado[tipo] = {
-        tipo,
-        nome: tipo === "19" ? "Brita 19" : "Brita 12",
-        compraM3,
-        totalEntregueM3: Number(totalEntregueM3.toFixed(3)),
-        saldoAReceberM3,
-        entregasExcedentes,
-        totalEntregasQtd: entregasDoTipo.length,
-      }
-    })
+    return {
+      compraTotalM3,
+      totalEntregue19M3,
+      totalEntregue12M3,
+      totalEntregueGeralM3,
+      saldoAReceberM3,
+      entregasExcedentes,
+      totalEntregasQtd: entregas.length,
+      totalEntregas19Qtd: entregas19.length,
+      totalEntregas12Qtd: entregas12.length,
+    }
+  }, [compraMensal, entregas])
 
-    return resultado
-  }, [compras, entregas])
+  // Percentual atendido da compra
+  const percentualAtendido = useMemo(() => {
+    if (resumo.compraTotalM3 <= 0) return 0
+    return Math.round(
+      (resumo.totalEntregueGeralM3 / resumo.compraTotalM3) * 100,
+    )
+  }, [resumo.compraTotalM3, resumo.totalEntregueGeralM3])
 
-  // Abrir modal de compra pré-preenchendo valor se já existir
-  const abrirModalCompra = (tipo: TipoBrita) => {
-    setCompraTipoBrita(tipo)
-    const compraExistente = compras.find((c) => c.tipo_brita === tipo)
-    if (compraExistente) {
-      setCompraVolumeM3(String(compraExistente.volume_m3))
-      setCompraObservacao(compraExistente.observacao || "")
+  // Abrir modal de compra mensal (para criar ou editar)
+  const abrirModalCompra = () => {
+    if (compraMensal) {
+      setCompraVolumeM3(String(compraMensal.volume_m3))
+      setCompraObservacao(compraMensal.observacao || "")
     } else {
       setCompraVolumeM3("")
       setCompraObservacao("")
@@ -207,7 +227,7 @@ export function AbaControleBritas({
     setModalCompraAberta(true)
   }
 
-  // Salvar compra mensal
+  // Salvar compra mensal única
   const handleSalvarCompra = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!empresaAtiva?.id) return
@@ -226,15 +246,14 @@ export function AbaControleBritas({
     try {
       await BritasService.upsertCompra({
         empresa_id: empresaAtiva.id,
-        tipo_brita: compraTipoBrita,
         competencia,
         volume_m3: vol,
         observacao: compraObservacao,
       })
 
       toast({
-        title: "Compra mensal atualizada",
-        description: `Brita ${compraTipoBrita}: ${vol.toLocaleString("pt-BR")} m³ para o mês ${competencia}.`,
+        title: "Compra mensal salva",
+        description: `Volume total de ${vol.toLocaleString("pt-BR")} m³ registrado para o mês ${competencia}.`,
       })
       setModalCompraAberta(false)
       carregarDados()
@@ -249,9 +268,10 @@ export function AbaControleBritas({
     }
   }
 
-  // Abrir modal de entrega
-  const abrirModalEntrega = (tipo?: TipoBrita) => {
-    if (tipo) setEntregaTipoBrita(tipo)
+  // Abrir modal de entrega para CRIAR
+  const abrirModalNovaEntrega = (tipo?: TipoBrita) => {
+    setEntregaEmEdicao(null)
+    setEntregaTipoBrita(tipo || "19")
     setEntregaQuantidade("")
     setEntregaUnidade("m³")
     setEntregaDensidade("1.5")
@@ -262,7 +282,23 @@ export function AbaControleBritas({
     setModalEntregaAberta(true)
   }
 
-  // Salvar entrega
+  // Abrir modal de entrega para EDITAR
+  const abrirModalEditarEntrega = (entrega: ControleBritaEntrega) => {
+    setEntregaEmEdicao(entrega)
+    setEntregaTipoBrita(entrega.tipo_brita)
+    setEntregaData(entrega.data)
+    setEntregaQuantidade(String(entrega.quantidade))
+    setEntregaUnidade(entrega.unidade)
+    setEntregaDensidade(
+      entrega.densidade != null ? String(entrega.densidade) : "1.5",
+    )
+    setEntregaFornecedor(entrega.fornecedor || "")
+    setEntregaDocumento(entrega.documento || "")
+    setEntregaObservacao(entrega.observacao || "")
+    setModalEntregaAberta(true)
+  }
+
+  // Salvar entrega (Insert ou Update)
   const handleSalvarEntrega = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!empresaAtiva?.id) return
@@ -293,28 +329,52 @@ export function AbaControleBritas({
 
     setSalvandoEntrega(true)
     try {
-      await BritasService.registrarEntrega({
-        empresa_id: empresaAtiva.id,
-        tipo_brita: entregaTipoBrita,
-        competencia,
-        data: entregaData,
-        quantidade: qtd,
-        unidade: entregaUnidade,
-        densidade: dens,
-        fornecedor: entregaFornecedor,
-        documento: entregaDocumento,
-        observacao: entregaObservacao,
-      })
+      if (entregaEmEdicao) {
+        // Modo Edição
+        await BritasService.atualizarEntrega({
+          id: entregaEmEdicao.id,
+          tipo_brita: entregaTipoBrita,
+          competencia,
+          data: entregaData,
+          quantidade: qtd,
+          unidade: entregaUnidade,
+          densidade: dens,
+          fornecedor: entregaFornecedor,
+          documento: entregaDocumento,
+          observacao: entregaObservacao,
+        })
+        toast({
+          title: "Entrega atualizada com sucesso",
+          description: `Brita ${entregaTipoBrita}: ${calculoConversaoAoVivo.qtdM3.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })} m³ recalculados.`,
+        })
+      } else {
+        // Modo Novo Registro
+        await BritasService.registrarEntrega({
+          empresa_id: empresaAtiva.id,
+          tipo_brita: entregaTipoBrita,
+          competencia,
+          data: entregaData,
+          quantidade: qtd,
+          unidade: entregaUnidade,
+          densidade: dens,
+          fornecedor: entregaFornecedor,
+          documento: entregaDocumento,
+          observacao: entregaObservacao,
+        })
+        toast({
+          title: "Entrega registrada com sucesso",
+          description: `Brita ${entregaTipoBrita}: ${calculoConversaoAoVivo.qtdM3.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })} m³ adicionados ao mês.`,
+        })
+      }
 
-      toast({
-        title: "Entrega registrada com sucesso",
-        description: `Brita ${entregaTipoBrita}: ${calculoConversaoAoVivo.qtdM3.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })} m³ adicionados ao controle.`,
-      })
       setModalEntregaAberta(false)
+      setEntregaEmEdicao(null)
       carregarDados()
     } catch (err: any) {
       toast({
-        title: "Erro ao registrar entrega",
+        title: entregaEmEdicao
+          ? "Erro ao atualizar entrega"
+          : "Erro ao registrar entrega",
         description: err.message,
         variant: "destructive",
       })
@@ -363,15 +423,15 @@ export function AbaControleBritas({
             </h2>
             <Badge
               variant="outline"
-              className="border-primary/40 text-primary text-xs"
+              className="border-primary/40 text-primary text-xs font-semibold"
             >
-              Fora do estoque normal
+              Compra Única Mensal
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Acompanhe o volume mensal comprado, as entregas recebidas do
-            fornecedor (em m³ ou toneladas com conversão por densidade) e o
-            saldo a receber.
+            A compra é contratada em <strong>volume único mensal</strong> para
+            as duas britas juntas (ex.: 450 m³). Na entrega individual,
+            classifica-se se é Brita 19 ou Brita 12 (com conversão m³ / t).
           </p>
         </div>
 
@@ -407,8 +467,8 @@ export function AbaControleBritas({
           {podeEditar && (
             <Button
               size="sm"
-              onClick={() => abrirModalEntrega()}
-              className="h-8 gap-1 text-xs bg-primary text-primary-foreground font-semibold"
+              onClick={() => abrirModalNovaEntrega()}
+              className="h-8 gap-1 text-xs bg-primary text-primary-foreground font-semibold shadow-sm"
             >
               <Truck className="w-3.5 h-3.5" />
               Registrar Entrega
@@ -417,209 +477,311 @@ export function AbaControleBritas({
         </div>
       </div>
 
-      {/* Dois Cartões Principais: Brita 19 e Brita 12 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {(["19", "12"] as TipoBrita[]).map((tipo) => {
-          const resumo = resumoBritas[tipo]
-          const isExcedente = resumo.entregasExcedentes
-          const progressoPercent =
-            resumo.compraM3 > 0
-              ? Math.min(
-                  100,
-                  Math.round((resumo.totalEntregueM3 / resumo.compraM3) * 100),
-                )
-              : 0
+      {/* Alerta Vermelho de Excedente Geral: se entregue geral > compra total */}
+      {resumo.entregasExcedentes && (
+        <div className="p-4 rounded-xl border-2 border-destructive bg-destructive/15 text-destructive flex items-center justify-between gap-3 animate-pulse">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-6 h-6 shrink-0 text-destructive" />
+            <div className="text-xs space-y-0.5">
+              <p className="font-extrabold text-sm uppercase tracking-wide">
+                ALERTA: O total entregue geral superou a compra do mês!
+              </p>
+              <p className="text-[12px] opacity-90">
+                Foram entregues{" "}
+                <strong>
+                  {resumo.totalEntregueGeralM3.toLocaleString("pt-BR")} m³
+                </strong>{" "}
+                (Brita 19: {resumo.totalEntregue19M3.toLocaleString("pt-BR")} m³
+                | Brita 12: {resumo.totalEntregue12M3.toLocaleString("pt-BR")}{" "}
+                m³) para uma compra total de{" "}
+                <strong>
+                  {resumo.compraTotalM3.toLocaleString("pt-BR")} m³
+                </strong>
+                . Excesso:{" "}
+                <span className="font-mono font-bold">
+                  {Math.abs(resumo.saldoAReceberM3).toLocaleString("pt-BR")} m³
+                </span>
+                .
+              </p>
+            </div>
+          </div>
+          {podeEditar && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={abrirModalCompra}
+              className="border-destructive text-destructive hover:bg-destructive/20 h-8 text-xs shrink-0 font-bold"
+            >
+              Ajustar Compra
+            </Button>
+          )}
+        </div>
+      )}
 
-          return (
-            <Card
-              key={tipo}
-              className={`border relative overflow-hidden shadow-sm transition-all ${
-                isExcedente
-                  ? "border-destructive/60 bg-destructive/5"
-                  : "border-border/60 bg-card/80"
+      {/* Cartão Principal: COMPRA DO MÊS + Indicadores Solicitados */}
+      <Card className="border border-border/60 bg-card/90 shadow-sm overflow-hidden">
+        {/* Barra superior de progresso visual */}
+        <div
+          className={`h-2.5 w-full ${
+            resumo.entregasExcedentes
+              ? "bg-destructive animate-pulse"
+              : resumo.saldoAReceberM3 === 0 && resumo.compraTotalM3 > 0
+                ? "bg-emerald-500"
+                : "bg-primary"
+          }`}
+        />
+
+        <CardHeader className="pb-3 border-b border-border/40">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <ShoppingCart className="w-5 h-5 text-primary" />
+                  <span>Compra Mensal & Atendimento de Britas</span>
+                </CardTitle>
+                <Badge variant="secondary" className="font-mono text-xs">
+                  {competencia}
+                </Badge>
+              </div>
+              <CardDescription className="text-xs mt-0.5">
+                Volume contratado único para Brita 19 e 12 juntas na unidade{" "}
+                <strong className="text-foreground">
+                  {empresaAtiva?.nome}
+                </strong>
+              </CardDescription>
+            </div>
+
+            {podeEditar && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={abrirModalCompra}
+                  className="h-8 text-xs gap-1.5 border-primary/40 text-primary hover:bg-primary/10 font-semibold"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  {resumo.compraTotalM3 > 0
+                    ? "Editar Compra do Mês"
+                    : "Lançar Compra do Mês"}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => abrirModalNovaEntrega()}
+                  className="h-8 text-xs gap-1.5 bg-primary text-primary-foreground font-semibold"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  Lançar Entrega
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+
+        <CardContent className="pt-4 space-y-4">
+          {/* Grid com os 5 Indicadores Oficiais */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {/* 1. COMPRA DO MÊS (ÚNICA) */}
+            <div className="p-3.5 rounded-xl bg-muted/40 border border-border/50 text-center relative flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                  Compra do Mês
+                </span>
+                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground block">
+                  {resumo.compraTotalM3.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+              <div className="mt-2 pt-1 border-t border-border/30 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>m³ contratados</span>
+                {podeEditar && (
+                  <button
+                    type="button"
+                    onClick={abrirModalCompra}
+                    className="text-primary hover:underline text-[10px] font-semibold"
+                    title="Editar volume da compra mensal"
+                  >
+                    Editar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 2. TOTAL ENTREGUE BRITA 19 */}
+            <div className="p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/20 text-center flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
+                  Total Entregue Brita 19
+                </span>
+                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-blue-600 dark:text-blue-400 block">
+                  {resumo.totalEntregue19M3.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+              <div className="mt-2 pt-1 border-t border-blue-500/10 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>Graúdo 19mm</span>
+                <span className="font-mono font-semibold">
+                  {resumo.totalEntregas19Qtd}x
+                </span>
+              </div>
+            </div>
+
+            {/* 3. TOTAL ENTREGUE BRITA 12 */}
+            <div className="p-3.5 rounded-xl bg-purple-500/5 border border-purple-500/20 text-center flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block mb-1">
+                  Total Entregue Brita 12
+                </span>
+                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-purple-600 dark:text-purple-400 block">
+                  {resumo.totalEntregue12M3.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+              <div className="mt-2 pt-1 border-t border-purple-500/10 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>Agregado 12,5mm</span>
+                <span className="font-mono font-semibold">
+                  {resumo.totalEntregas12Qtd}x
+                </span>
+              </div>
+            </div>
+
+            {/* 4. TOTAL ENTREGUE GERAL (m³) */}
+            <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/30 text-center flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary block mb-1">
+                  Total Entregue Geral
+                </span>
+                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-primary block">
+                  {resumo.totalEntregueGeralM3.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+              <div className="mt-2 pt-1 border-t border-primary/20 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>19 + 12 juntas</span>
+                <span className="font-mono font-semibold">
+                  {resumo.totalEntregasQtd} cargas
+                </span>
+              </div>
+            </div>
+
+            {/* 5. SALDO A RECEBER (compra total − entregue geral) */}
+            <div
+              className={`p-3.5 rounded-xl border text-center flex flex-col justify-between col-span-2 md:col-span-1 ${
+                resumo.entregasExcedentes
+                  ? "bg-destructive/15 border-destructive text-destructive"
+                  : resumo.saldoAReceberM3 === 0 && resumo.compraTotalM3 > 0
+                    ? "bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400"
+                    : "bg-muted/40 border-border/50 text-foreground"
               }`}
             >
-              {/* Barra superior de status: Vermelha se excedente, azul/verde se regular */}
-              <div
-                className={`h-2 w-full ${
-                  isExcedente
-                    ? "bg-destructive animate-pulse"
-                    : resumo.saldoAReceberM3 === 0 && resumo.compraM3 > 0
-                      ? "bg-emerald-500"
-                      : "bg-primary"
-                }`}
-              />
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider opacity-80 block mb-1">
+                  Saldo a Receber
+                </span>
+                <span className="text-2xl sm:text-3xl font-extrabold font-mono block">
+                  {resumo.saldoAReceberM3.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+              <div className="mt-2 pt-1 border-t border-current/20 flex items-center justify-between text-[11px] font-medium">
+                <span>
+                  {resumo.entregasExcedentes
+                    ? "Excedente m³"
+                    : resumo.saldoAReceberM3 === 0 && resumo.compraTotalM3 > 0
+                      ? "100% entregue"
+                      : "Pendente m³"}
+                </span>
+                <span className="font-mono text-[10px]">
+                  {resumo.compraTotalM3 > 0 ? `${percentualAtendido}%` : "—"}
+                </span>
+              </div>
+            </div>
+          </div>
 
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-xl font-extrabold flex items-center gap-2">
-                        <span>{resumo.nome}</span>
-                      </CardTitle>
-                      <Badge
-                        variant={isExcedente ? "destructive" : "secondary"}
-                        className="text-xs font-mono"
-                      >
-                        {tipo === "19"
-                          ? "Agregado Graúdo 19mm"
-                          : "Agregado 12,5mm"}
-                      </Badge>
-                    </div>
-                    <CardDescription className="text-xs mt-0.5">
-                      Competência:{" "}
-                      <strong className="text-foreground">{competencia}</strong>
-                    </CardDescription>
-                  </div>
+          {/* Barra de Progresso do Volume Contratado */}
+          <div className="p-3 rounded-lg bg-muted/20 border border-border/30 space-y-1.5">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5 font-medium">
+                <Layers2 className="w-3.5 h-3.5 text-primary" />
+                Atendimento do Volume Mensal Contratado:
+              </span>
+              <span className="font-mono font-bold text-foreground">
+                {resumo.compraTotalM3 > 0
+                  ? `${resumo.totalEntregueGeralM3.toLocaleString("pt-BR")} m³ de ${resumo.compraTotalM3.toLocaleString("pt-BR")} m³ (${percentualAtendido}%)`
+                  : "Volume de compra não cadastrado"}
+              </span>
+            </div>
+            <div className="w-full h-2.5 rounded-full bg-muted overflow-hidden flex">
+              {resumo.compraTotalM3 > 0 ? (
+                <>
+                  {/* Faixa Brita 19 */}
+                  <div
+                    className="h-full bg-blue-500 transition-all duration-300"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (resumo.totalEntregue19M3 / resumo.compraTotalM3) * 100,
+                      )}%`,
+                    }}
+                    title={`Brita 19: ${resumo.totalEntregue19M3} m³`}
+                  />
+                  {/* Faixa Brita 12 */}
+                  <div
+                    className="h-full bg-purple-500 transition-all duration-300"
+                    style={{
+                      width: `${Math.min(
+                        100 -
+                          Math.min(
+                            100,
+                            (resumo.totalEntregue19M3 / resumo.compraTotalM3) *
+                              100,
+                          ),
+                        (resumo.totalEntregue12M3 / resumo.compraTotalM3) * 100,
+                      )}%`,
+                    }}
+                    title={`Brita 12: ${resumo.totalEntregue12M3} m³`}
+                  />
+                </>
+              ) : (
+                <div className="h-full w-full bg-muted" />
+              )}
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block" />
+                  Brita 19: {resumo.totalEntregue19M3.toLocaleString("pt-BR")}{" "}
+                  m³
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-purple-500 inline-block" />
+                  Brita 12: {resumo.totalEntregue12M3.toLocaleString("pt-BR")}{" "}
+                  m³
+                </span>
+              </div>
+              {compraMensal?.observacao && (
+                <span
+                  className="italic truncate max-w-[280px]"
+                  title={compraMensal.observacao}
+                >
+                  Obs: {compraMensal.observacao}
+                </span>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-                  {podeEditar && (
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => abrirModalCompra(tipo)}
-                        className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10"
-                        title="Definir compra mensal contratada"
-                      >
-                        <ShoppingCart className="w-3 h-3" />
-                        Lançar Compra
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => abrirModalEntrega(tipo)}
-                        className="h-7 text-xs gap-1 bg-primary text-primary-foreground"
-                        title={`Registrar entrega de ${resumo.nome}`}
-                      >
-                        <PlusCircle className="w-3 h-3" />
-                        Entrega
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
-
-              <CardContent className="space-y-4">
-                {/* Alerta Vermelho se Entrega > Compra */}
-                {isExcedente && (
-                  <div className="p-3 rounded-lg border border-destructive bg-destructive/15 text-destructive flex items-center gap-2.5">
-                    <AlertTriangle className="w-5 h-5 shrink-0" />
-                    <div className="text-xs">
-                      <p className="font-bold">
-                        ALERTA: Entregas excederam o volume comprado no mês!
-                      </p>
-                      <p className="text-[11px] opacity-90 mt-0.5">
-                        Foram entregues{" "}
-                        <strong>
-                          {resumo.totalEntregueM3.toLocaleString("pt-BR")} m³
-                        </strong>{" "}
-                        para uma compra de{" "}
-                        <strong>
-                          {resumo.compraM3.toLocaleString("pt-BR")} m³
-                        </strong>{" "}
-                        (excesso de{" "}
-                        {Math.abs(resumo.saldoAReceberM3).toLocaleString(
-                          "pt-BR",
-                        )}{" "}
-                        m³).
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Grid com os 3 Indicadores Obrigatórios */}
-                <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-muted/40 border border-border/40 text-center">
-                  {/* COMPRA DO MÊS */}
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                      Compra do Mês
-                    </span>
-                    <span className="text-xl font-extrabold font-mono text-foreground block">
-                      {resumo.compraM3.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-medium">
-                      m³ contratados
-                    </span>
-                  </div>
-
-                  {/* TOTAL ENTREGUE */}
-                  <div className="space-y-1 border-x border-border/40 px-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                      Total Entregue
-                    </span>
-                    <span className="text-xl font-extrabold font-mono text-primary block">
-                      {resumo.totalEntregueM3.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-medium">
-                      m³ recebidos ({resumo.totalEntregasQtd}x)
-                    </span>
-                  </div>
-
-                  {/* SALDO A RECEBER */}
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                      Saldo a Receber
-                    </span>
-                    <span
-                      className={`text-xl font-extrabold font-mono block ${
-                        isExcedente
-                          ? "text-destructive font-black"
-                          : resumo.saldoAReceberM3 === 0 && resumo.compraM3 > 0
-                            ? "text-emerald-500"
-                            : "text-foreground"
-                      }`}
-                    >
-                      {resumo.saldoAReceberM3.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-medium">
-                      {isExcedente
-                        ? "m³ excedentes"
-                        : resumo.saldoAReceberM3 === 0 && resumo.compraM3 > 0
-                          ? "100% entregue"
-                          : "m³ pendentes"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Barra de Progresso da Entrega */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Atendimento da Compra:</span>
-                    <span className="font-semibold text-foreground">
-                      {resumo.compraM3 > 0
-                        ? `${((resumo.totalEntregueM3 / resumo.compraM3) * 100).toFixed(1)}%`
-                        : "Compra não lançada"}
-                    </span>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-300 ${
-                        isExcedente
-                          ? "bg-destructive"
-                          : resumo.totalEntregueM3 >= resumo.compraM3 &&
-                              resumo.compraM3 > 0
-                            ? "bg-emerald-500"
-                            : "bg-primary"
-                      }`}
-                      style={{ width: `${Math.min(100, progressoPercent)}%` }}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
-
-      {/* Histórico das Entregas do Mês com Excluir */}
+      {/* Histórico das Entregas do Mês com NOVA COLUNA 'AÇÕES' (EDITAR e EXCLUIR) */}
       <Card className="border-border/40 bg-card/70">
         <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
@@ -662,7 +824,7 @@ export function AbaControleBritas({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => abrirModalEntrega()}
+                  onClick={() => abrirModalNovaEntrega()}
                   className="gap-1.5 text-xs text-primary"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
@@ -686,7 +848,7 @@ export function AbaControleBritas({
                     <th className="py-2.5 px-3">Documento / NF</th>
                     <th className="py-2.5 px-3">Observação</th>
                     {podeEditar && (
-                      <th className="py-2.5 px-3 text-center w-16">Ações</th>
+                      <th className="py-2.5 px-3 text-center w-24">Ações</th>
                     )}
                   </tr>
                 </thead>
@@ -744,15 +906,26 @@ export function AbaControleBritas({
                       </td>
                       {podeEditar && (
                         <td className="py-2.5 px-3 text-center">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            title="Excluir entrega"
-                            onClick={() => setEntregaParaExcluir(entrega)}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                              title="Editar entrega"
+                              onClick={() => abrirModalEditarEntrega(entrega)}
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              title="Excluir entrega"
+                              onClick={() => setEntregaParaExcluir(entrega)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -764,16 +937,18 @@ export function AbaControleBritas({
         </CardContent>
       </Card>
 
-      {/* Modal Lançar Compra Mensal */}
+      {/* Modal Lançar / Editar Compra Mensal Única */}
       <Dialog open={modalCompraAberta} onOpenChange={setModalCompraAberta}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShoppingCart className="w-5 h-5 text-primary" />
-              Lançar Compra Mensal de Brita
+              {compraMensal
+                ? "Editar Compra Mensal de Britas"
+                : "Lançar Compra Mensal de Britas"}
             </DialogTitle>
             <DialogDescription>
-              Informe o volume total contratado em m³ para a competência{" "}
+              Volume único para as britas 19 e 12 juntas no mês{" "}
               <strong>{competencia}</strong> na unidade{" "}
               <strong>{empresaAtiva?.nome}</strong>.
             </DialogDescription>
@@ -781,24 +956,8 @@ export function AbaControleBritas({
 
           <form onSubmit={handleSalvarCompra} className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="compraTipoBrita">Tipo de Brita *</Label>
-              <Select
-                value={compraTipoBrita}
-                onValueChange={(val: any) => setCompraTipoBrita(val)}
-              >
-                <SelectTrigger id="compraTipoBrita">
-                  <SelectValue placeholder="Selecione a brita" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="19">Brita 19 (Graúdo 19mm)</SelectItem>
-                  <SelectItem value="12">Brita 12 (12,5mm)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="compraVolumeM3">
-                Volume Comprado no Mês (m³) *
+                Volume Comprado no Mês (m³ total) *
               </Label>
               <div className="relative">
                 <Input
@@ -810,14 +969,15 @@ export function AbaControleBritas({
                   onChange={(e) => setCompraVolumeM3(e.target.value)}
                   className="font-mono text-base font-bold pr-12"
                   required
+                  autoFocus
                 />
                 <span className="absolute right-3 top-2.5 text-xs text-muted-foreground font-semibold">
                   m³
                 </span>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Ex.: 450 m³. Este volume servirá de meta para as entregas do
-                mês.
+                Informe o volume total contratado no mês para ambas as britas
+                (ex.: 450 m³).
               </p>
             </div>
 
@@ -844,24 +1004,33 @@ export function AbaControleBritas({
                 disabled={salvandoCompra || !compraVolumeM3.trim()}
                 className="bg-primary text-primary-foreground font-semibold"
               >
-                {salvandoCompra ? "Salvando..." : "Salvar Compra"}
+                {salvandoCompra ? "Salvando..." : "Salvar Compra do Mês"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Modal Registrar Entrega */}
-      <Dialog open={modalEntregaAberta} onOpenChange={setModalEntregaAberta}>
+      {/* Modal Registrar ou Editar Entrega */}
+      <Dialog
+        open={modalEntregaAberta}
+        onOpenChange={(aberto) => {
+          setModalEntregaAberta(aberto)
+          if (!aberto) setEntregaEmEdicao(null)
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Truck className="w-5 h-5 text-primary" />
-              Registrar Entrega de Brita
+              {entregaEmEdicao
+                ? "Editar Entrega de Brita"
+                : "Registrar Entrega de Brita"}
             </DialogTitle>
             <DialogDescription>
-              Lance a carga recebida com conversão em tempo real de m³ ou
-              toneladas (t).
+              {entregaEmEdicao
+                ? "Altere os dados da carga recebida. O volume em m³ é recalculado automaticamente."
+                : "Classifique o tipo recebido (Brita 19 ou Brita 12) e informe a quantidade em m³ ou toneladas (t)."}
             </DialogDescription>
           </DialogHeader>
 
@@ -877,8 +1046,8 @@ export function AbaControleBritas({
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="19">Brita 19</SelectItem>
-                    <SelectItem value="12">Brita 12</SelectItem>
+                    <SelectItem value="19">Brita 19 (Graúdo 19mm)</SelectItem>
+                    <SelectItem value="12">Brita 12 (12,5mm)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1028,7 +1197,10 @@ export function AbaControleBritas({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setModalEntregaAberta(false)}
+                onClick={() => {
+                  setModalEntregaAberta(false)
+                  setEntregaEmEdicao(null)
+                }}
               >
                 Cancelar
               </Button>
@@ -1041,7 +1213,11 @@ export function AbaControleBritas({
                 }
                 className="bg-primary text-primary-foreground font-semibold"
               >
-                {salvandoEntrega ? "Registrando..." : "Registrar Entrega"}
+                {salvandoEntrega
+                  ? "Salvando..."
+                  : entregaEmEdicao
+                    ? "Salvar Alterações"
+                    : "Registrar Entrega"}
               </Button>
             </DialogFooter>
           </form>

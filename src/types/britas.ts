@@ -4,7 +4,6 @@ export type UnidadeBritaEntrega = "m³" | "t"
 export interface ControleBritaCompra {
   id: string
   empresa_id: string
-  tipo_brita: TipoBrita
   competencia: string // 'YYYY-MM'
   volume_m3: number
   observacao?: string | null
@@ -28,12 +27,14 @@ export interface ControleBritaEntrega {
   created_at?: string
 }
 
-export interface ResumoBritaItem {
-  tipo: TipoBrita
-  nome: string // 'Brita 19' ou 'Brita 12'
-  compraM3: number
-  totalEntregueM3: number
-  saldoAReceberM3: number // compraM3 - totalEntregueM3
-  entregasExcedentes: boolean // totalEntregueM3 > compraM3
+export interface ResumoControleBritasMes {
+  compraTotalM3: number
+  totalEntregue19M3: number
+  totalEntregue12M3: number
+  totalEntregueGeralM3: number
+  saldoAReceberM3: number // compraTotalM3 - totalEntregueGeralM3
+  entregasExcedentes: boolean // totalEntregueGeralM3 > compraTotalM3
   totalEntregasQtd: number
+  totalEntregas19Qtd: number
+  totalEntregas12Qtd: number
 }

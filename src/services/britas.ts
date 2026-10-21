@@ -8,50 +8,48 @@ import type {
 
 export class BritasService {
   /**
-   * Busca as compras cadastradas de Brita 19 e 12 da empresa na competência informada
+   * Busca a compra mensal cadastrada (volume único para britas 19 e 12 juntas) da empresa na competência informada
    */
-  static async getComprasCompetencia(
+  static async getCompraCompetencia(
     empresaId: string,
     competencia: string,
-  ): Promise<ControleBritaCompra[]> {
+  ): Promise<ControleBritaCompra | null> {
     const { data, error } = (await supabase
       .from("controle_britas_compras" as any)
       .select("*")
       .eq("empresa_id", empresaId)
-      .eq("competencia", competencia)) as any
+      .eq("competencia", competencia)
+      .maybeSingle()) as any
 
     if (error) {
-      console.error("Erro ao buscar compras de britas:", error)
+      console.error("Erro ao buscar compra de britas:", error)
       throw error
     }
-    return (data || []) as ControleBritaCompra[]
+    return (data || null) as ControleBritaCompra | null
   }
 
   /**
-   * Salva ou atualiza a compra mensal de um tipo de brita na competência
+   * Salva ou atualiza a compra mensal única de britas da empresa na competência
    */
   static async upsertCompra(params: {
     empresa_id: string
-    tipo_brita: TipoBrita
     competencia: string
     volume_m3: number
     observacao?: string | null
   }): Promise<ControleBritaCompra> {
-    const { empresa_id, tipo_brita, competencia, volume_m3, observacao } =
-      params
+    const { empresa_id, competencia, volume_m3, observacao } = params
 
     const { data, error } = (await supabase
       .from("controle_britas_compras" as any)
       .upsert(
         {
           empresa_id,
-          tipo_brita,
           competencia,
           volume_m3,
-          observacao: observacao || null,
+          observacao: observacao?.trim() || null,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "empresa_id,tipo_brita,competencia" },
+        { onConflict: "empresa_id,competencia" },
       )
       .select()
       .single()) as any
@@ -150,6 +148,73 @@ export class BritasService {
 
     if (error) {
       console.error("Erro ao registrar entrega de brita:", error)
+      throw error
+    }
+    return result as ControleBritaEntrega
+  }
+
+  /**
+   * Atualiza uma entrega de brita existente (recalcula quantidade_m3)
+   */
+  static async atualizarEntrega(params: {
+    id: string
+    tipo_brita: TipoBrita
+    competencia?: string
+    data: string
+    quantidade: number
+    unidade: UnidadeBritaEntrega
+    densidade?: number | null
+    fornecedor?: string | null
+    documento?: string | null
+    observacao?: string | null
+  }): Promise<ControleBritaEntrega> {
+    const {
+      id,
+      tipo_brita,
+      competencia,
+      data,
+      quantidade,
+      unidade,
+      densidade,
+      fornecedor,
+      documento,
+      observacao,
+    } = params
+
+    let quantidade_m3 = quantidade
+    let densidadeFinal: number | null = null
+
+    if (unidade === "t") {
+      const dens = densidade && densidade > 0 ? densidade : 1.5
+      densidadeFinal = dens
+      quantidade_m3 = Number((quantidade / dens).toFixed(3))
+    }
+
+    const updatePayload: Record<string, any> = {
+      tipo_brita,
+      data,
+      quantidade,
+      unidade,
+      densidade: densidadeFinal,
+      quantidade_m3,
+      fornecedor: fornecedor?.trim() || null,
+      documento: documento?.trim() || null,
+      observacao: observacao?.trim() || null,
+    }
+
+    if (competencia) {
+      updatePayload.competencia = competencia
+    }
+
+    const { data: result, error } = (await supabase
+      .from("controle_britas_entregas" as any)
+      .update(updatePayload)
+      .eq("id", id)
+      .select()
+      .single()) as any
+
+    if (error) {
+      console.error("Erro ao atualizar entrega de brita:", error)
       throw error
     }
     return result as ControleBritaEntrega
