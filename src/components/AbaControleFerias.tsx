@@ -380,9 +380,25 @@ export function AbaControleFerias() {
     }
   }
 
-  // Disparar Impressão A4 Paisagem
-  const handleImprimir = () => {
-    window.print()
+  // Modo de Impressão: completo (tabela com dados e férias) ou entrega (somente uniforme com assinatura)
+  const [modoImpressao, setModoImpressao] = useState<"completo" | "entrega">(
+    "completo",
+  )
+
+  // Disparar Impressão A4 Paisagem Completo
+  const handleImprimirCompleto = () => {
+    setModoImpressao("completo")
+    setTimeout(() => {
+      window.print()
+    }, 50)
+  }
+
+  // Disparar Impressão da Entrega de Fardamento
+  const handleImprimirEntrega = () => {
+    setModoImpressao("entrega")
+    setTimeout(() => {
+      window.print()
+    }, 50)
   }
 
   return (
@@ -455,12 +471,23 @@ export function AbaControleFerias() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleImprimir}
+                onClick={handleImprimirCompleto}
                 className="h-8 gap-1.5 text-xs font-semibold border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary"
                 title="Imprimir relatório em A4 Paisagem com coluna de assinatura"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>Imprimir A4 Paisagem</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleImprimirEntrega}
+                className="h-8 gap-1.5 text-xs font-semibold border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                title="Imprimir lista de entrega de fardamento com campos em branco para assinatura dos colaboradores"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Imprimir Entrega (Fardamento)</span>
               </Button>
 
               <Button
@@ -793,165 +820,311 @@ export function AbaControleFerias() {
         </CardContent>
       </Card>
 
-      {/* ÁREA DE IMPRESSÃO OFICIAL: A4 PAISAGEM COM ASSINATURA (SÓ VISÍVEL EM PRINT) */}
+      {/* ÁREA DE IMPRESSÃO OFICIAL: A4 PAISAGEM (SÓ VISÍVEL EM PRINT) */}
       <div
-        className="hidden print:block font-sans text-black p-2 bg-white"
+        className="hidden print:block font-sans text-black p-3 bg-white"
         ref={printAreaRef}
       >
-        {/* Cabeçalho da Impressão */}
-        <div className="flex items-center justify-between border-b pb-2 mb-3">
-          <div className="flex items-center gap-3">
-            <img
-              src={LOGO_GC_MIX_HORIZONTAL}
-              alt={LOGO_ALT_TEXT}
-              className="h-10 object-contain"
-            />
-            <div>
-              <h2 className="text-base font-bold uppercase tracking-tight">
-                {empresaAtiva?.razao_social || "GC CONCRETO LTDA"}
-              </h2>
-              <p className="text-[11px] text-gray-700">
-                UNIDADE: {empresaAtiva?.nome?.toUpperCase()} • CONTROLE DE
-                FÉRIAS & UNIFORMES
-              </p>
+        {modoImpressao === "completo" ? (
+          /* ================================================================ */
+          /* MODO 1: CONTROLE DE FÉRIAS COMPLETO (NITIDEZ E BORDAS PRETAS)   */
+          /* ================================================================ */
+          <div>
+            {/* Cabeçalho da Impressão */}
+            <div className="flex items-center justify-between border-b-2 border-black pb-3 mb-3">
+              <div className="flex items-center gap-3">
+                <img
+                  src={LOGO_GC_MIX_HORIZONTAL}
+                  alt={LOGO_ALT_TEXT}
+                  className="h-14 object-contain"
+                />
+                <div>
+                  <h2 className="text-lg font-black uppercase tracking-tight text-black leading-tight">
+                    {empresaAtiva?.razao_social || "GC CONCRETO LTDA"}
+                  </h2>
+                  <p className="text-xs font-semibold text-black mt-0.5">
+                    UNIDADE: {empresaAtiva?.nome?.toUpperCase()} • CONTROLE DE
+                    FÉRIAS & UNIFORMES
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="font-black text-sm uppercase bg-gray-200 px-3 py-1 rounded border-2 border-black inline-block text-black">
+                  CONTROLE DE FÉRIAS
+                </span>
+                <p className="text-[11px] font-medium text-black mt-1">
+                  Impresso em: {new Date().toLocaleDateString("pt-BR")} às{" "}
+                  {new Date().toLocaleTimeString("pt-BR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </div>
+            </div>
+
+            {/* Tabela de Impressão Paisagem Completa */}
+            <table className="w-full border-collapse border-2 border-black text-[11px] leading-tight text-black">
+              <thead className="bg-gray-200 text-black font-black uppercase">
+                <tr className="border-b-2 border-black">
+                  <th className="border border-black p-1.5 text-center w-7 font-black">
+                    Nº
+                  </th>
+                  <th className="border border-black p-1.5 text-left font-black">
+                    NOME
+                  </th>
+                  <th className="border border-black p-1.5 text-left font-black">
+                    FUNÇÃO
+                  </th>
+                  <th className="border border-black p-1.5 text-right font-black">
+                    SALÁRIO 2025
+                  </th>
+                  <th className="border border-black p-1.5 text-center font-black">
+                    ADMISSÃO
+                  </th>
+                  <th className="border border-black p-1.5 text-center font-black">
+                    CPF
+                  </th>
+                  <th className="border border-black p-1.5 text-center font-black">
+                    AGÊNCIA
+                  </th>
+                  <th className="border border-black p-1.5 text-left font-black">
+                    CONTA CORRENTE
+                  </th>
+                  <th className="border border-black p-1.5 text-center font-black">
+                    FÉRIAS
+                  </th>
+                  <th className="border border-black p-1.5 text-center w-8 font-black">
+                    CALÇA
+                  </th>
+                  <th className="border border-black p-1.5 text-center w-8 font-black">
+                    CAM.
+                  </th>
+                  <th className="border border-black p-1.5 text-center w-40 font-black">
+                    ASSINATURA
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {itens.map((it, idx) => (
+                  <tr
+                    key={it.id}
+                    className={`border-b border-black ${
+                      idx % 2 === 1 ? "bg-gray-100" : "bg-white"
+                    }`}
+                  >
+                    <td className="border border-black p-1.5 text-center font-mono font-semibold">
+                      {it.ordem || idx + 1}
+                    </td>
+                    <td className="border border-black p-1.5 font-bold text-black uppercase">
+                      {it.nome}
+                    </td>
+                    <td className="border border-black p-1.5 uppercase font-medium">
+                      {it.funcao || "—"}
+                    </td>
+                    <td className="border border-black p-1.5 text-right font-mono font-bold whitespace-nowrap">
+                      {fmtMoeda(it.salario_2025)}
+                    </td>
+                    <td className="border border-black p-1.5 text-center font-mono whitespace-nowrap">
+                      {formatarDataBr(it.admissao)}
+                    </td>
+                    <td className="border border-black p-1.5 text-center font-mono whitespace-nowrap">
+                      {it.cpf || "—"}
+                    </td>
+                    <td className="border border-black p-1.5 text-center font-mono whitespace-nowrap">
+                      {it.agencia || "—"}
+                    </td>
+                    <td className="border border-black p-1.5 font-mono whitespace-nowrap">
+                      {it.conta_corrente || "—"}
+                    </td>
+                    <td className="border border-black p-1.5 text-center font-mono font-bold whitespace-nowrap">
+                      {formatarDataBr(it.ferias)}
+                    </td>
+                    <td className="border border-black p-1.5 text-center font-bold uppercase">
+                      {it.calca || "—"}
+                    </td>
+                    <td className="border border-black p-1.5 text-center font-bold uppercase">
+                      {it.camisa || "—"}
+                    </td>
+                    <td className="border border-black p-1.5 align-bottom">
+                      <div className="w-full border-b border-black mt-4"></div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-200 font-bold border-t-2 border-black text-black">
+                <tr className="border-t-2 border-black">
+                  <td className="border border-black p-2 text-center font-mono">
+                    —
+                  </td>
+                  <td className="border border-black p-2 uppercase font-black">
+                    TOTAL GERAL ({itens.length} COLABORADORES)
+                  </td>
+                  <td className="border border-black p-2">—</td>
+                  <td className="border border-black p-2 text-right font-mono font-black whitespace-nowrap">
+                    {fmtMoeda(totais.somaSalarios)}
+                  </td>
+                  <td
+                    className="border border-black p-2 text-center font-semibold"
+                    colSpan={4}
+                  >
+                    Prog. Férias: {totais.comFeriasAgendadas}
+                  </td>
+                  <td className="border border-black p-2 text-center font-mono font-black">
+                    {totais.comFeriasAgendadas}
+                  </td>
+                  <td className="border border-black p-2 text-center font-mono font-black">
+                    {totais.comCalca}
+                  </td>
+                  <td className="border border-black p-2 text-center font-mono font-black">
+                    {totais.comCamisa}
+                  </td>
+                  <td className="border border-black p-2"></td>
+                </tr>
+              </tfoot>
+            </table>
+
+            {/* Rodapé da Impressão Completo */}
+            <div className="mt-4 pt-2 border-t-2 border-black text-[11px] text-black font-semibold flex justify-between items-center">
+              <div>
+                <span>
+                  GC MIX • Sistema Integrado de Gestão Operacional & Férias
+                </span>
+              </div>
+              <div>
+                <span>
+                  Visto da Gerência / RH:
+                  _____________________________________________
+                </span>
+              </div>
             </div>
           </div>
-          <div className="text-right">
-            <span className="font-bold text-xs uppercase bg-gray-100 px-3 py-1 rounded border border-gray-300">
-              CONTROLE DE FÉRIAS
-            </span>
-            <p className="text-[10px] text-gray-600 mt-1">
-              Impresso em: {new Date().toLocaleDateString("pt-BR")} às{" "}
-              {new Date().toLocaleTimeString("pt-BR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
-          </div>
-        </div>
-
-        {/* Tabela de Impressão Paisagem */}
-        <table className="w-full border-collapse border border-gray-400 text-[9px] leading-tight">
-          <thead className="bg-gray-100 text-gray-900 font-bold uppercase">
-            <tr>
-              <th className="border border-gray-300 p-1 text-center w-6">Nº</th>
-              <th className="border border-gray-300 p-1 text-left">NOME</th>
-              <th className="border border-gray-300 p-1 text-left">FUNÇÃO</th>
-              <th className="border border-gray-300 p-1 text-right">
-                SALÁRIO 2025
-              </th>
-              <th className="border border-gray-300 p-1 text-center">
-                ADMISSÃO
-              </th>
-              <th className="border border-gray-300 p-1 text-center">CPF</th>
-              <th className="border border-gray-300 p-1 text-center">
-                AGÊNCIA
-              </th>
-              <th className="border border-gray-300 p-1 text-left">
-                CONTA CORRENTE
-              </th>
-              <th className="border border-gray-300 p-1 text-center font-bold">
-                FÉRIAS
-              </th>
-              <th className="border border-gray-300 p-1 text-center w-7">
-                CALÇA
-              </th>
-              <th className="border border-gray-300 p-1 text-center w-7">
-                CAM.
-              </th>
-              <th className="border border-gray-300 p-1 text-center w-36">
-                ASSINATURA
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {itens.map((it, idx) => (
-              <tr key={it.id} className="border-b border-gray-300">
-                <td className="border border-gray-300 p-1 text-center font-mono">
-                  {it.ordem || idx + 1}
-                </td>
-                <td className="border border-gray-300 p-1 font-bold text-gray-900">
-                  {it.nome}
-                </td>
-                <td className="border border-gray-300 p-1 uppercase">
-                  {it.funcao || "—"}
-                </td>
-                <td className="border border-gray-300 p-1 text-right font-mono">
-                  {fmtMoeda(it.salario_2025)}
-                </td>
-                <td className="border border-gray-300 p-1 text-center font-mono">
-                  {formatarDataBr(it.admissao)}
-                </td>
-                <td className="border border-gray-300 p-1 text-center font-mono">
-                  {it.cpf || "—"}
-                </td>
-                <td className="border border-gray-300 p-1 text-center font-mono">
-                  {it.agencia || "—"}
-                </td>
-                <td className="border border-gray-300 p-1 font-mono">
-                  {it.conta_corrente || "—"}
-                </td>
-                <td className="border border-gray-300 p-1 text-center font-mono font-bold bg-gray-50">
-                  {formatarDataBr(it.ferias)}
-                </td>
-                <td className="border border-gray-300 p-1 text-center font-bold uppercase">
-                  {it.calca || "—"}
-                </td>
-                <td className="border border-gray-300 p-1 text-center font-bold uppercase">
-                  {it.camisa || "—"}
-                </td>
-                <td className="border border-gray-300 p-1 border-b border-gray-300">
-                  <div className="w-full border-b border-gray-400 mt-3"></div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot className="bg-gray-100 font-bold border-t-2 border-gray-400">
-            <tr>
-              <td className="border border-gray-300 p-1 text-center font-mono">
-                —
-              </td>
-              <td className="border border-gray-300 p-1 uppercase">
-                TOTAL GERAL ({itens.length} COLABORADORES)
-              </td>
-              <td className="border border-gray-300 p-1">—</td>
-              <td className="border border-gray-300 p-1 text-right font-mono font-black">
-                {fmtMoeda(totais.somaSalarios)}
-              </td>
-              <td
-                className="border border-gray-300 p-1 text-center"
-                colSpan={4}
-              >
-                Prog. Férias: {totais.comFeriasAgendadas}
-              </td>
-              <td className="border border-gray-300 p-1 text-center font-mono">
-                {totais.comFeriasAgendadas}
-              </td>
-              <td className="border border-gray-300 p-1 text-center font-mono">
-                {totais.comCalca}
-              </td>
-              <td className="border border-gray-300 p-1 text-center font-mono">
-                {totais.comCamisa}
-              </td>
-              <td className="border border-gray-300 p-1"></td>
-            </tr>
-          </tfoot>
-        </table>
-
-        {/* Rodapé da Impressão */}
-        <div className="mt-4 pt-2 border-t text-[9px] text-gray-500 flex justify-between items-center">
+        ) : (
+          /* ================================================================ */
+          /* MODO 2: COMPROVANTE DE ENTREGA DE FARDAMENTO (UNIFORMES)         */
+          /* ================================================================ */
           <div>
-            <span>
-              GC MIX • Sistema Integrado de Gestão Operacional & Férias
-            </span>
+            {/* Cabeçalho do Fardamento */}
+            <div className="flex items-center justify-between border-b-2 border-black pb-3 mb-3">
+              <div className="flex items-center gap-3">
+                <img
+                  src={LOGO_GC_MIX_HORIZONTAL}
+                  alt={LOGO_ALT_TEXT}
+                  className="h-14 object-contain"
+                />
+                <div>
+                  <h2 className="text-lg font-black uppercase tracking-tight text-black leading-tight">
+                    {empresaAtiva?.razao_social || "GC CONCRETO LTDA"}
+                  </h2>
+                  <p className="text-xs font-semibold text-black mt-0.5">
+                    UNIDADE: {empresaAtiva?.nome?.toUpperCase()} • COMPROVANTE
+                    DE ENTREGA DE UNIFORMES
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="font-black text-sm uppercase bg-gray-200 px-3 py-1 rounded border-2 border-black inline-block text-black">
+                  ENTREGA DE FARDAMENTO
+                </span>
+                <p className="text-[11px] font-medium text-black mt-1">
+                  Data: {new Date().toLocaleDateString("pt-BR")}
+                </p>
+              </div>
+            </div>
+
+            {/* Tabela de Entrega de Fardamento */}
+            <table className="w-full border-collapse border-2 border-black text-[11px] leading-tight text-black">
+              <thead className="bg-gray-200 text-black font-black uppercase">
+                <tr className="border-b-2 border-black">
+                  <th className="border border-black p-2 text-center w-10 font-black">
+                    Nº
+                  </th>
+                  <th className="border border-black p-2 text-left font-black">
+                    NOME
+                  </th>
+                  <th className="border border-black p-2 text-left font-black w-48">
+                    FUNÇÃO
+                  </th>
+                  <th className="border border-black p-2 text-center font-black w-20">
+                    CALÇA
+                  </th>
+                  <th className="border border-black p-2 text-center font-black w-20">
+                    CAMISA
+                  </th>
+                  <th className="border border-black p-2 text-center font-black w-64">
+                    ASSINATURA
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {itens.map((it, idx) => (
+                  <tr
+                    key={it.id}
+                    className={`border-b border-black ${
+                      idx % 2 === 1 ? "bg-gray-100" : "bg-white"
+                    }`}
+                  >
+                    <td className="border border-black p-2 text-center font-mono font-semibold">
+                      {it.ordem || idx + 1}
+                    </td>
+                    <td className="border border-black p-2 font-bold text-black uppercase">
+                      {it.nome}
+                    </td>
+                    <td className="border border-black p-2 uppercase font-medium">
+                      {it.funcao || "—"}
+                    </td>
+                    <td className="border border-black p-2 text-center font-bold font-mono text-sm uppercase">
+                      {it.calca || "—"}
+                    </td>
+                    <td className="border border-black p-2 text-center font-bold font-mono text-sm uppercase">
+                      {it.camisa || "—"}
+                    </td>
+                    <td className="border border-black p-2 align-bottom">
+                      <div className="w-full border-b border-black mt-5"></div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-200 font-bold border-t-2 border-black text-black">
+                <tr className="border-t-2 border-black">
+                  <td className="border border-black p-2 text-center font-mono">
+                    —
+                  </td>
+                  <td
+                    className="border border-black p-2 uppercase font-black"
+                    colSpan={2}
+                  >
+                    TOTAL DE COLABORADORES: {itens.length}
+                  </td>
+                  <td className="border border-black p-2 text-center font-mono font-black text-xs">
+                    {totais.comCalca} un.
+                  </td>
+                  <td className="border border-black p-2 text-center font-mono font-black text-xs">
+                    {totais.comCamisa} un.
+                  </td>
+                  <td className="border border-black p-2 text-center font-semibold text-[10px]">
+                    Total de Itens: {totais.comCalca + totais.comCamisa} peças
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+
+            {/* Rodapé da Entrega */}
+            <div className="mt-6 pt-3 border-t-2 border-black text-[11px] text-black font-semibold flex justify-between items-center">
+              <div>
+                <span>
+                  GC MIX • Declaro ter recebido os itens de fardamento acima
+                  relacionados em perfeito estado.
+                </span>
+              </div>
+              <div>
+                <span>
+                  Visto da Gerência / RH:
+                  _____________________________________________
+                </span>
+              </div>
+            </div>
           </div>
-          <div>
-            <span>
-              Visto da Gerência / RH:
-              _____________________________________________
-            </span>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* MODAL ADICIONAR NOVO REGISTRO */}
