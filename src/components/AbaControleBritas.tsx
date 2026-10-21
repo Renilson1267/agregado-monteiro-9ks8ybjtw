@@ -43,16 +43,14 @@ import {
   Trash2,
   Edit2,
   AlertTriangle,
-  CheckCircle2,
   RefreshCw,
   Scale,
   Calendar,
-  Building2,
-  FileText,
   Calculator,
-  ArrowDownRight,
-  TrendingDown,
   Layers2,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { BritasService } from "@/services/britas"
@@ -70,11 +68,56 @@ interface AbaControleBritasProps {
   podeEditar?: boolean
 }
 
+const DENSIDADE_PADRAO: Record<TipoBrita, string> = {
+  "12": "1.38",
+  "19": "1.40",
+}
+
+const MESES_NOMES = [
+  "JANEIRO",
+  "FEVEREIRO",
+  "MARÇO",
+  "ABRIL",
+  "MAIO",
+  "JUNHO",
+  "JULHO",
+  "AGOSTO",
+  "SETEMBRO",
+  "OUTUBRO",
+  "NOVEMBRO",
+  "DEZEMBRO",
+]
+
 function getCompetenciaAtual(): string {
   const agora = new Date()
   const ano = agora.getFullYear()
   const mes = String(agora.getMonth() + 1).padStart(2, "0")
   return `${ano}-${mes}`
+}
+
+function formatarCompetenciaRotulo(comp: string): string {
+  const [anoStr, mesStr] = comp.split("-")
+  const mesIdx = Number(mesStr) - 1
+  if (mesIdx >= 0 && mesIdx < 12 && anoStr) {
+    return `${MESES_NOMES[mesIdx]}/${anoStr}`
+  }
+  return comp
+}
+
+function somarMesesCompetencia(comp: string, delta: number): string {
+  const [anoStr, mesStr] = comp.split("-")
+  let ano = Number(anoStr) || new Date().getFullYear()
+  let mes = Number(mesStr) || new Date().getMonth() + 1
+  mes += delta
+  while (mes < 1) {
+    mes += 12
+    ano -= 1
+  }
+  while (mes > 12) {
+    mes -= 12
+    ano += 1
+  }
+  return `${ano}-${String(mes).padStart(2, "0")}`
 }
 
 export function AbaControleBritas({
@@ -97,6 +140,10 @@ export function AbaControleBritas({
   const [compraVolumeM3, setCompraVolumeM3] = useState<string>("")
   const [compraObservacao, setCompraObservacao] = useState<string>("")
 
+  // Diálogo para Replicar Compra para o Próximo Mês
+  const [confirmarReplicarAberto, setConfirmarReplicarAberto] = useState(false)
+  const [replicandoCompra, setReplicandoCompra] = useState(false)
+
   // Modal Registrar ou Editar Entrega
   const [modalEntregaAberta, setModalEntregaAberta] = useState(false)
   const [entregaEmEdicao, setEntregaEmEdicao] =
@@ -109,7 +156,12 @@ export function AbaControleBritas({
   const [entregaQuantidade, setEntregaQuantidade] = useState<string>("")
   const [entregaUnidade, setEntregaUnidade] =
     useState<UnidadeBritaEntrega>("m³")
-  const [entregaDensidade, setEntregaDensidade] = useState<string>("1.5")
+  const [entregaDensidade, setEntregaDensidade] = useState<string>(
+    DENSIDADE_PADRAO["19"],
+  )
+  // Rastreia se o usuário editou manualmente o campo densidade na sessão do modal
+  const [densidadeEditadaManualmente, setDensidadeEditadaManualmente] =
+    useState<boolean>(false)
   const [entregaFornecedor, setEntregaFornecedor] = useState<string>("")
   const [entregaDocumento, setEntregaDocumento] = useState<string>("")
   const [entregaObservacao, setEntregaObservacao] = useState<string>("")
@@ -268,17 +320,109 @@ export function AbaControleBritas({
     }
   }
 
+  // Competência seguinte calculada para o atalho de replicação
+  const proximaCompetencia = useMemo(
+    () => somarMesesCompetencia(competencia, 1),
+    [competencia],
+  )
+  const anteriorCompetencia = useMemo(
+    () => somarMesesCompetencia(competencia, -1),
+    [competencia],
+  )
+
+  // Handlers de navegação entre meses
+  const irMesAnterior = () => {
+    setCompetencia(anteriorCompetencia)
+  }
+
+  const irProximoMes = () => {
+    setCompetencia(proximaCompetencia)
+  }
+
+  // Replicar compra da competência atual para a próxima
+  const handleConfirmarReplicacao = async () => {
+    if (!empresaAtiva?.id) return
+    const vol = compraMensal ? Number(compraMensal.volume_m3) || 0 : 0
+    if (vol <= 0) {
+      toast({
+        title: "Nenhuma compra para replicar",
+        description: `Cadastre primeiro um volume de compra em ${formatarCompetenciaRotulo(competencia)}.`,
+        variant: "destructive",
+      })
+      setConfirmarReplicarAberto(false)
+      return
+    }
+
+    setReplicandoCompra(true)
+    try {
+      await BritasService.upsertCompra({
+        empresa_id: empresaAtiva.id,
+        competencia: proximaCompetencia,
+        volume_m3: vol,
+        observacao: compraMensal?.observacao
+          ? `Replicado de ${formatarCompetenciaRotulo(competencia)}: ${compraMensal.observacao}`
+          : `Replicado de ${formatarCompetenciaRotulo(competencia)}`,
+      })
+
+      toast({
+        title: "Compra replicada com sucesso",
+        description: `Volume de ${vol.toLocaleString("pt-BR")} m³ copiado para ${formatarCompetenciaRotulo(proximaCompetencia)}. Avançando para o mês...`,
+      })
+
+      setConfirmarReplicarAberto(false)
+      // Avança a tela diretamente para a competência criada
+      setCompetencia(proximaCompetencia)
+    } catch (err: any) {
+      toast({
+        title: "Erro ao replicar compra",
+        description: err.message,
+        variant: "destructive",
+      })
+    } finally {
+      setReplicandoCompra(false)
+    }
+  }
+
+  // Obter data padrão de entrega dentro do mês selecionado
+  const obterDataPadraoParaCompetencia = (comp: string): string => {
+    const hoje = new Date()
+    const hojeStr = hoje.toISOString().split("T")[0]
+    if (hojeStr.startsWith(comp)) {
+      return hojeStr
+    }
+    return `${comp}-01`
+  }
+
+  // Troca de tipo de brita no modal com atualização da densidade padrão se a unidade for "t"
+  const handleTrocarTipoBritaModal = (novoTipo: TipoBrita) => {
+    setEntregaTipoBrita(novoTipo)
+    // Se a unidade for "t" e o usuário não tiver digitado um valor manualmente nesta edição
+    if (entregaUnidade === "t" && !densidadeEditadaManualmente) {
+      setEntregaDensidade(DENSIDADE_PADRAO[novoTipo])
+    }
+  }
+
+  // Troca de unidade no modal com pré-preenchimento da densidade padrão para "t"
+  const handleTrocarUnidadeModal = (novaUnidade: UnidadeBritaEntrega) => {
+    setEntregaUnidade(novaUnidade)
+    if (novaUnidade === "t" && !densidadeEditadaManualmente) {
+      setEntregaDensidade(DENSIDADE_PADRAO[entregaTipoBrita])
+    }
+  }
+
   // Abrir modal de entrega para CRIAR
   const abrirModalNovaEntrega = (tipo?: TipoBrita) => {
+    const tipoInicial = tipo || "19"
     setEntregaEmEdicao(null)
-    setEntregaTipoBrita(tipo || "19")
+    setEntregaTipoBrita(tipoInicial)
     setEntregaQuantidade("")
     setEntregaUnidade("m³")
-    setEntregaDensidade("1.5")
+    setEntregaDensidade(DENSIDADE_PADRAO[tipoInicial])
+    setDensidadeEditadaManualmente(false)
     setEntregaFornecedor("")
     setEntregaDocumento("")
     setEntregaObservacao("")
-    setEntregaData(new Date().toISOString().split("T")[0])
+    setEntregaData(obterDataPadraoParaCompetencia(competencia))
     setModalEntregaAberta(true)
   }
 
@@ -289,9 +433,13 @@ export function AbaControleBritas({
     setEntregaData(entrega.data)
     setEntregaQuantidade(String(entrega.quantidade))
     setEntregaUnidade(entrega.unidade)
-    setEntregaDensidade(
-      entrega.densidade != null ? String(entrega.densidade) : "1.5",
-    )
+    if (entrega.densidade != null) {
+      setEntregaDensidade(String(entrega.densidade))
+      setDensidadeEditadaManualmente(true)
+    } else {
+      setEntregaDensidade(DENSIDADE_PADRAO[entrega.tipo_brita])
+      setDensidadeEditadaManualmente(false)
+    }
     setEntregaFornecedor(entrega.fornecedor || "")
     setEntregaDocumento(entrega.documento || "")
     setEntregaObservacao(entrega.observacao || "")
@@ -436,18 +584,62 @@ export function AbaControleBritas({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          {/* Seletor de Competência */}
-          <div className="flex items-center gap-1.5 bg-background border border-border/50 rounded-lg px-2.5 py-1.5 shadow-sm">
-            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-            <Label htmlFor="competencia-britas" className="text-xs font-medium">
-              Mês:
-            </Label>
+          {/* Seletor de Competência com Navegação ‹ anterior / › próximo */}
+          <div className="flex items-center bg-background border border-border/60 rounded-lg shadow-sm p-0.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={irMesAnterior}
+              title={`Mês anterior (${formatarCompetenciaRotulo(anteriorCompetencia)})`}
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+
+            <div className="flex items-center gap-1.5 px-2">
+              <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+              <div className="flex flex-col items-center">
+                <span className="text-xs font-extrabold tracking-wider font-mono uppercase text-foreground whitespace-nowrap">
+                  {formatarCompetenciaRotulo(competencia)}
+                </span>
+                <input
+                  type="month"
+                  value={competencia}
+                  onChange={(e) => {
+                    if (e.target.value) setCompetencia(e.target.value)
+                  }}
+                  className="sr-only"
+                  id="competencia-britas-hidden"
+                  tabIndex={-1}
+                  aria-label="Selecionar competência"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={irProximoMes}
+              title={`Próximo mês (${formatarCompetenciaRotulo(proximaCompetencia)})`}
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Input month nativo para pular direto a qualquer ano/mês */}
+          <div className="hidden lg:flex items-center bg-background border border-border/50 rounded-lg px-2 py-1 shadow-sm">
             <Input
               id="competencia-britas"
               type="month"
               value={competencia}
-              onChange={(e) => setCompetencia(e.target.value)}
-              className="h-7 w-36 text-xs font-mono font-semibold border-none shadow-none focus-visible:ring-0 p-0"
+              onChange={(e) => {
+                if (e.target.value) setCompetencia(e.target.value)
+              }}
+              className="h-6 w-32 text-[11px] font-mono border-none shadow-none focus-visible:ring-0 p-0"
+              title="Selecione diretamente o mês/ano"
             />
           </div>
 
@@ -539,20 +731,41 @@ export function AbaControleBritas({
                   <ShoppingCart className="w-5 h-5 text-primary" />
                   <span>Compra Mensal & Atendimento de Britas</span>
                 </CardTitle>
-                <Badge variant="secondary" className="font-mono text-xs">
-                  {competencia}
+                <Badge
+                  variant="secondary"
+                  className="font-mono text-xs uppercase font-bold"
+                >
+                  {formatarCompetenciaRotulo(competencia)}
                 </Badge>
               </div>
               <CardDescription className="text-xs mt-0.5">
                 Volume contratado único para Brita 19 e 12 juntas na unidade{" "}
                 <strong className="text-foreground">
                   {empresaAtiva?.nome}
+                </strong>{" "}
+                em{" "}
+                <strong className="text-primary font-mono">
+                  {formatarCompetenciaRotulo(competencia)}
                 </strong>
               </CardDescription>
             </div>
 
             {podeEditar && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                {/* Atalho Replicar Compra para o Próximo Mês */}
+                {resumo.compraTotalM3 > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmarReplicarAberto(true)}
+                    className="h-8 text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold"
+                    title={`Replicar ${resumo.compraTotalM3.toLocaleString("pt-BR")} m³ para ${formatarCompetenciaRotulo(proximaCompetencia)}`}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Replicar para o Próximo Mês
+                  </Button>
+                )}
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -564,6 +777,7 @@ export function AbaControleBritas({
                     ? "Editar Compra do Mês"
                     : "Lançar Compra do Mês"}
                 </Button>
+
                 <Button
                   size="sm"
                   onClick={() => abrirModalNovaEntrega()}
@@ -787,11 +1001,13 @@ export function AbaControleBritas({
           <div>
             <CardTitle className="text-base flex items-center gap-2">
               <Truck className="w-4 h-4 text-primary" />
-              Histórico das Entregas do Mês ({competencia})
+              Histórico das Entregas do Mês (
+              {formatarCompetenciaRotulo(competencia)})
             </CardTitle>
             <CardDescription className="text-xs">
               Registros individuais de cargas recebidas de Brita 19 e Brita 12
-              com conversão automática para m³
+              na competência {formatarCompetenciaRotulo(competencia)} com
+              conversão automática para m³
             </CardDescription>
           </div>
 
@@ -819,7 +1035,10 @@ export function AbaControleBritas({
           {entregasFiltradas.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground text-xs space-y-2">
               <Truck className="w-8 h-8 mx-auto opacity-30" />
-              <p>Nenhuma entrega registrada para o mês {competencia}.</p>
+              <p>
+                Nenhuma entrega registrada para o mês de{" "}
+                <strong>{formatarCompetenciaRotulo(competencia)}</strong>.
+              </p>
               {podeEditar && (
                 <Button
                   variant="outline"
@@ -828,7 +1047,8 @@ export function AbaControleBritas({
                   className="gap-1.5 text-xs text-primary"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
-                  Registrar Primeira Entrega
+                  Registrar Primeira Entrega de{" "}
+                  {formatarCompetenciaRotulo(competencia)}
                 </Button>
               )}
             </div>
@@ -949,7 +1169,8 @@ export function AbaControleBritas({
             </DialogTitle>
             <DialogDescription>
               Volume único para as britas 19 e 12 juntas no mês{" "}
-              <strong>{competencia}</strong> na unidade{" "}
+              <strong>{formatarCompetenciaRotulo(competencia)}</strong> (
+              <span className="font-mono">{competencia}</span>) na unidade{" "}
               <strong>{empresaAtiva?.nome}</strong>.
             </DialogDescription>
           </DialogHeader>
@@ -1016,7 +1237,10 @@ export function AbaControleBritas({
         open={modalEntregaAberta}
         onOpenChange={(aberto) => {
           setModalEntregaAberta(aberto)
-          if (!aberto) setEntregaEmEdicao(null)
+          if (!aberto) {
+            setEntregaEmEdicao(null)
+            setDensidadeEditadaManualmente(false)
+          }
         }}
       >
         <DialogContent className="max-w-lg">
@@ -1030,7 +1254,7 @@ export function AbaControleBritas({
             <DialogDescription>
               {entregaEmEdicao
                 ? "Altere os dados da carga recebida. O volume em m³ é recalculado automaticamente."
-                : "Classifique o tipo recebido (Brita 19 ou Brita 12) e informe a quantidade em m³ ou toneladas (t)."}
+                : `Classifique o tipo (Brita 19 ou Brita 12) e informe a quantidade para o mês de ${formatarCompetenciaRotulo(competencia)}.`}
             </DialogDescription>
           </DialogHeader>
 
@@ -1040,7 +1264,9 @@ export function AbaControleBritas({
                 <Label htmlFor="entregaTipoBrita">Tipo de Brita *</Label>
                 <Select
                   value={entregaTipoBrita}
-                  onValueChange={(val: any) => setEntregaTipoBrita(val)}
+                  onValueChange={(val: TipoBrita) =>
+                    handleTrocarTipoBritaModal(val)
+                  }
                 >
                   <SelectTrigger id="entregaTipoBrita">
                     <SelectValue placeholder="Selecione" />
@@ -1071,7 +1297,7 @@ export function AbaControleBritas({
                 <Select
                   value={entregaUnidade}
                   onValueChange={(val: UnidadeBritaEntrega) =>
-                    setEntregaUnidade(val)
+                    handleTrocarUnidadeModal(val)
                   }
                 >
                   <SelectTrigger id="entregaUnidade">
@@ -1101,7 +1327,7 @@ export function AbaControleBritas({
               </div>
             </div>
 
-            {/* Se unidade for Toneladas (t), campo Densidade OBRIGATÓRIO (sugerido 1,5) */}
+            {/* Se unidade for Toneladas (t), campo Densidade pré-preenchido conforme tipo de brita */}
             {entregaUnidade === "t" && (
               <div className="p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 space-y-2">
                 <div className="flex items-center justify-between">
@@ -1110,25 +1336,45 @@ export function AbaControleBritas({
                     className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5"
                   >
                     <Scale className="w-3.5 h-3.5" />
-                    Densidade da Brita (t/m³) * Obrigatório
+                    Densidade da Brita {entregaTipoBrita} (t/m³) * Obrigatório
                   </Label>
-                  <span className="text-[11px] text-muted-foreground">
-                    Sugerido: 1,5
+                  <span className="text-[11px] text-muted-foreground font-mono font-semibold">
+                    Padrão Brita {entregaTipoBrita}:{" "}
+                    {DENSIDADE_PADRAO[entregaTipoBrita].replace(".", ",")}
                   </span>
                 </div>
                 <Input
                   id="entregaDensidade"
                   type="text"
                   inputMode="decimal"
-                  placeholder="1.5"
+                  placeholder={DENSIDADE_PADRAO[entregaTipoBrita]}
                   value={entregaDensidade}
-                  onChange={(e) => setEntregaDensidade(e.target.value)}
+                  onChange={(e) => {
+                    setEntregaDensidade(e.target.value)
+                    setDensidadeEditadaManualmente(true)
+                  }}
                   className="bg-background font-mono font-bold text-xs"
                   required
                 />
-                <p className="text-[11px] text-muted-foreground">
-                  Fórmula de conversão: Volume (m³) = Quantidade (t) ÷ Densidade
-                </p>
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>
+                    Fórmula de conversão: Volume (m³) = Quantidade (t) ÷
+                    Densidade
+                  </span>
+                  {densidadeEditadaManualmente && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEntregaDensidade(DENSIDADE_PADRAO[entregaTipoBrita])
+                        setDensidadeEditadaManualmente(false)
+                      }}
+                      className="text-primary hover:underline text-[10px] font-semibold"
+                    >
+                      Restaurar padrão (
+                      {DENSIDADE_PADRAO[entregaTipoBrita].replace(".", ",")})
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1223,6 +1469,70 @@ export function AbaControleBritas({
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog de Confirmação para Replicar Compra para o Próximo Mês */}
+      <AlertDialog
+        open={confirmarReplicarAberto}
+        onOpenChange={setConfirmarReplicarAberto}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-foreground">
+              <Copy className="w-5 h-5 text-emerald-600" />
+              Replicar Compra para o Próximo Mês
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              Deseja copiar o volume de compra do mês atual (
+              <strong>{formatarCompetenciaRotulo(competencia)}</strong>) para a
+              competência seguinte (
+              <strong className="text-foreground">
+                {formatarCompetenciaRotulo(proximaCompetencia)}
+              </strong>
+              )?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="p-3 rounded-lg border border-border/40 bg-muted/30 space-y-2 text-xs font-mono">
+            <div className="flex justify-between">
+              <span className="font-sans text-muted-foreground">Unidade:</span>
+              <span className="font-bold font-sans">{empresaAtiva?.nome}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-sans text-muted-foreground">
+                Mês Origem:
+              </span>
+              <span>{formatarCompetenciaRotulo(competencia)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-sans text-muted-foreground">
+                Mês Destino:
+              </span>
+              <span className="text-primary font-bold">
+                {formatarCompetenciaRotulo(proximaCompetencia)}
+              </span>
+            </div>
+            <div className="flex justify-between text-base font-bold text-foreground pt-1 border-t border-border/30">
+              <span className="font-sans text-xs text-muted-foreground self-center">
+                Volume Contratado:
+              </span>
+              <span>{resumo.compraTotalM3.toLocaleString("pt-BR")} m³</span>
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={replicandoCompra}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={replicandoCompra}
+              onClick={handleConfirmarReplicacao}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+            >
+              {replicandoCompra ? "Replicando..." : "Sim, Replicar Compra"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* AlertDialog de Confirmação para Excluir Entrega */}
       <AlertDialog
