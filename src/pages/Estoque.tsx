@@ -64,10 +64,12 @@ import { toast } from "@/hooks/use-toast"
 import { Link } from "react-router-dom"
 import { AlertaPedidoCimento } from "@/components/AlertaPedidoCimento"
 import { AbaAcoesEstoque } from "@/components/AbaAcoesEstoque"
+import { AbaControleBritas } from "@/components/AbaControleBritas"
 import {
   LIMITE_AVISO_PEDIDO_CIMENTO_KG,
   gerarLinkWhatsAppPedidoCimento,
 } from "@/lib/pedido-cimento"
+import { Layers } from "lucide-react"
 
 export default function Estoque() {
   const { empresaAtiva } = useEmpresa()
@@ -578,7 +580,7 @@ export default function Estoque() {
         </div>
       </div>
 
-      {/* Abas Principais de Estoque: Visão Geral vs Ações (Correção de Movimentações) */}
+      {/* Abas Principais de Estoque: Visão Geral vs Controle de Britas vs Ações */}
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="space-y-4">
         <TabsList className="bg-muted/60 p-1 border border-border/40">
           <TabsTrigger
@@ -587,6 +589,20 @@ export default function Estoque() {
           >
             <Boxes className="w-4 h-4 text-primary" />
             <span>Visão Geral do Estoque</span>
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="britas"
+            className="text-xs gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground font-medium"
+          >
+            <Layers className="w-4 h-4 text-primary" />
+            <span>CONTROLE DE BRITAS</span>
+            <Badge
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 h-4 border-primary/30 text-primary bg-primary/10 font-semibold"
+            >
+              Brita 19 & 12
+            </Badge>
           </TabsTrigger>
 
           {podeAcessarAcoes && (
@@ -1400,6 +1416,13 @@ export default function Estoque() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+        </TabsContent>
+
+        <TabsContent value="britas" className="space-y-4 mt-0">
+          <AbaControleBritas
+            empresaAtiva={empresaAtiva}
+            podeEditar={!isBalanceiro || isAdministrador || isGestor}
+          />
         </TabsContent>
 
         {podeAcessarAcoes && (
