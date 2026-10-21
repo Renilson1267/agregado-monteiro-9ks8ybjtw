@@ -99,7 +99,7 @@ import {
 
 export default function Relatorios() {
   const { empresaAtiva } = useEmpresa()
-  const { isAdministrador, isBalanceiro } = useUsuario()
+  const { isAdministrador, isBalanceiro, isAuxiliarAdm } = useUsuario()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const tabParam = searchParams.get("tab")
@@ -1124,7 +1124,15 @@ export default function Relatorios() {
                 </span>
                 <Select
                   value={visaoGerencialEmpresa}
-                  onValueChange={setVisaoGerencialEmpresa}
+                  onValueChange={(v) => {
+                    if (
+                      isAuxiliarAdm &&
+                      (v === "caico" || v === "patos" || v === "todas")
+                    ) {
+                      return
+                    }
+                    setVisaoGerencialEmpresa(v)
+                  }}
                 >
                   <SelectTrigger className="h-8 text-xs min-w-[200px]">
                     <SelectValue />
@@ -1134,11 +1142,15 @@ export default function Relatorios() {
                     <SelectItem value="sje">
                       Unidade São José do Egito
                     </SelectItem>
-                    <SelectItem value="caico">Unidade Caicó</SelectItem>
-                    <SelectItem value="patos">Unidade Patos</SelectItem>
-                    <SelectItem value="todas">
-                      Consolidado (Todas as Unidades)
-                    </SelectItem>
+                    {!isAuxiliarAdm && (
+                      <>
+                        <SelectItem value="caico">Unidade Caicó</SelectItem>
+                        <SelectItem value="patos">Unidade Patos</SelectItem>
+                        <SelectItem value="todas">
+                          Consolidado (Todas as Unidades)
+                        </SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
 
@@ -1157,80 +1169,90 @@ export default function Relatorios() {
                   Atualizar
                 </Button>
 
-                {/* BOTÃO DO RELATÓRIO CONSOLIDADO GERAL (4 UNIDADES) */}
-                <Button
-                  onClick={() =>
-                    abrirRelatorioConsolidado(competenciaGerencial)
-                  }
-                  className="h-8 text-xs font-semibold gap-1.5 bg-blue-700 hover:bg-blue-800 text-white shadow-sm"
-                  title="Gera um único documento A4 consolidando as 4 unidades (Monteiro, SJE, Patos e Caicó) na competência selecionada"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  RELATÓRIO CONSOLIDADO GERAL (4 UNIDADES)
-                </Button>
+                {/* BOTÃO DO RELATÓRIO CONSOLIDADO GERAL (4 UNIDADES) — apenas para não auxiliar_adm */}
+                {!isAuxiliarAdm && (
+                  <Button
+                    onClick={() =>
+                      abrirRelatorioConsolidado(competenciaGerencial)
+                    }
+                    className="h-8 text-xs font-semibold gap-1.5 bg-blue-700 hover:bg-blue-800 text-white shadow-sm"
+                    title="Gera um único documento A4 consolidando as 4 unidades (Monteiro, SJE, Patos e Caicó) na competência selecionada"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    RELATÓRIO CONSOLIDADO GERAL (4 UNIDADES)
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
 
           {/* CARDS DE RELATÓRIO CONSOLIDADO & ENVIAR PDF POR WHATSAPP */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 no-print">
-            {/* CARD 1: RECURSO ENVIAR PDF PATOS (WhatsApp) */}
-            <Card className="border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20">
-              <CardContent className="p-3.5 flex flex-col justify-between h-full gap-3">
-                <div className="flex items-start gap-2.5">
-                  <div className="p-2 rounded-lg bg-emerald-600 text-white shrink-0 mt-0.5">
-                    <Send className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h3 className="text-xs font-bold text-foreground uppercase tracking-wide">
-                        Consolidado Patos
-                      </h3>
-                      <span className="text-[9px] font-mono font-semibold px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                        (83) 98150-3316
-                      </span>
+          <div
+            className={`grid gap-3 no-print ${
+              isAuxiliarAdm ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"
+            }`}
+          >
+            {/* CARD 1: RECURSO ENVIAR PDF PATOS (WhatsApp) — Oculto para auxiliar_adm (Patos fora de alcance) */}
+            {!isAuxiliarAdm && (
+              <Card className="border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20">
+                <CardContent className="p-3.5 flex flex-col justify-between h-full gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <div className="p-2 rounded-lg bg-emerald-600 text-white shrink-0 mt-0.5">
+                      <Send className="w-4 h-4" />
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                      Gera PDF A4 só de Patos e compartilha direto via WhatsApp
-                      com o texto do fechamento.
-                    </p>
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h3 className="text-xs font-bold text-foreground uppercase tracking-wide">
+                          Consolidado Patos
+                        </h3>
+                        <span className="text-[9px] font-mono font-semibold px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                          (83) 98150-3316
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                        Gera PDF A4 só de Patos e compartilha direto via
+                        WhatsApp com o texto do fechamento.
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    onClick={() => handleEnviarPdfWhatsApp("patos")}
-                    disabled={enviandoPdfPatos || loadingGerencial}
-                    size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 flex-1 shadow-sm"
-                    title="Gera o PDF consolidado de Patos e compartilha no WhatsApp (wa.me/5583981503316)"
-                  >
-                    {enviandoPdfPatos ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        Gerando PDF...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-3.5 h-3.5" />
-                        ENVIAR PDF PATOS (WhatsApp)
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    title="Pré-visualizar Relatório de Patos"
-                    onClick={() =>
-                      abrirRelatorioConsolidado(competenciaGerencial, ["patos"])
-                    }
-                  >
-                    <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      onClick={() => handleEnviarPdfWhatsApp("patos")}
+                      disabled={enviandoPdfPatos || loadingGerencial}
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 flex-1 shadow-sm"
+                      title="Gera o PDF consolidado de Patos e compartilha no WhatsApp (wa.me/5583981503316)"
+                    >
+                      {enviandoPdfPatos ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          Gerando PDF...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          ENVIAR PDF PATOS (WhatsApp)
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      title="Pré-visualizar Relatório de Patos"
+                      onClick={() =>
+                        abrirRelatorioConsolidado(competenciaGerencial, [
+                          "patos",
+                        ])
+                      }
+                    >
+                      <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* CARD 3: NOVO RECURSO ENVIAR PDF SJE+MONTEIRO (WhatsApp) */}
             <Card className="border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/20">

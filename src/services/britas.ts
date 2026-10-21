@@ -14,6 +14,90 @@ export class BritasService {
    * (compra do mês anterior − entregue geral do mês anterior).
    * Se não houver compra nem entrega no mês anterior, repasse = 0.
    */
+  static async getAnosDisponiveis(empresaId: string): Promise<number[]> {
+    const anoAtual = new Date().getFullYear()
+    try {
+      const [comprasRes, entregasRes] = await Promise.all([
+        (supabase as any)
+          .from("controle_britas_compras")
+          .select("competencia")
+          .eq("empresa_id", empresaId),
+        (supabase as any)
+          .from("controle_britas_entregas")
+          .select("competencia, data")
+          .eq("empresa_id", empresaId),
+      ])
+
+      const anosSet = new Set<number>()
+      anosSet.add(anoAtual)
+
+      if (comprasRes.data) {
+        comprasRes.data.forEach((c: any) => {
+          if (c.competencia && c.competencia.length >= 4) {
+            const ano = Number(c.competencia.substring(0, 4))
+            if (!isNaN(ano) && ano > 2000) anosSet.add(ano)
+          }
+        })
+      }
+
+      if (entregasRes.data) {
+        entregasRes.data.forEach((e: any) => {
+          if (e.competencia && e.competencia.length >= 4) {
+            const ano = Number(e.competencia.substring(0, 4))
+            if (!isNaN(ano) && ano > 2000) anosSet.add(ano)
+          }
+          if (e.data && e.data.length >= 4) {
+            const ano = Number(e.data.substring(0, 4))
+            if (!isNaN(ano) && ano > 2000) anosSet.add(ano)
+          }
+        })
+      }
+
+      return Array.from(anosSet).sort((a, b) => b - a)
+    } catch (err) {
+      console.error("Erro ao buscar anos disponíveis de britas:", err)
+      return [anoAtual]
+    }
+  }
+
+  static async getComprasAno(
+    empresaId: string,
+    ano: number,
+  ): Promise<ControleBritaCompra[]> {
+    const { data, error } = await (supabase as any)
+      .from("controle_britas_compras")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .gte("competencia", `${ano}-01`)
+      .lte("competencia", `${ano}-12`)
+      .order("competencia", { ascending: true })
+
+    if (error) {
+      console.error("Erro ao buscar compras do ano de britas:", error)
+      throw error
+    }
+    return data || []
+  }
+
+  static async getEntregasAno(
+    empresaId: string,
+    ano: number,
+  ): Promise<ControleBritaEntrega[]> {
+    const { data, error } = await (supabase as any)
+      .from("controle_britas_entregas")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .gte("data", `${ano}-01-01`)
+      .lte("data", `${ano}-12-31`)
+      .order("data", { ascending: false })
+
+    if (error) {
+      console.error("Erro ao buscar entregas do ano de britas:", error)
+      throw error
+    }
+    return data || []
+  }
+
   static async getSaldoCompetenciaAnterior(
     empresaId: string,
     competenciaAtual: string,

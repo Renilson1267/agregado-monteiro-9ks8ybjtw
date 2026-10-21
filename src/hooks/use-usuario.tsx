@@ -123,17 +123,23 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
     user?.email?.split("@")[0] ||
     "Usuário"
   const emailUsuario = usuarioApp?.email || user?.email || ""
-  // Administrador tem acesso irrestrito e multicompany (pode alternar livremente entre Monteiro, SJE ou qualquer outra unidade).
-  // Balanceiro, Gestor e Auxiliar Administrativo ficam estritamente restritos à sua empresa vinculada.
+  // Administrador tem acesso irrestrito e multicompany (pode alternar livremente entre Monteiro, SJE, Patos, Caicó).
+  // Auxiliar Administrativo (Patricia Lima): pode alternar SOMENTE entre Monteiro e SJE (Patos e Caicó ficam fora).
+  // Balanceiro e Gestor ficam estritamente restritos à sua única empresa vinculada.
   const empresaVinculadaId =
-    isBalanceiro || isGestor || isAuxiliarAdm
+    isBalanceiro || isGestor
       ? usuarioApp?.empresa_id || null
-      : null
+      : isAuxiliarAdm
+        ? usuarioApp?.empresa_id || null
+        : null
   const empresaVinculadaNome =
-    isBalanceiro || isGestor || isAuxiliarAdm
+    isBalanceiro || isGestor
       ? usuarioApp?.empresa_nome || null
-      : null
-  const podeTrocarEmpresa = isAdministrador
+      : isAuxiliarAdm
+        ? usuarioApp?.empresa_nome || null
+        : null
+  // podeTrocarEmpresa: Administrador (irrestrito) ou Auxiliar Administrativo (restrito a Monteiro e SJE)
+  const podeTrocarEmpresa = isAdministrador || isAuxiliarAdm
 
   return (
     <UsuarioContext.Provider

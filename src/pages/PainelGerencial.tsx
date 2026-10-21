@@ -92,7 +92,7 @@ function fmtDataBr(iso?: string | null): string {
 
 export function PainelGerencial() {
   const { empresas, empresaAtiva } = useEmpresa()
-  const { isBalanceiro } = useUsuario()
+  const { isBalanceiro, isAuxiliarAdm } = useUsuario()
 
   // Helper para resolver os dados cadastrais da empresa por slug/nome
   const obterEmpresaPorUnidade = useCallback(
@@ -117,12 +117,12 @@ export function PainelGerencial() {
     [empresas, empresaAtiva],
   )
 
-  // Determinar visão inicial de empresa (consolidada por padrão se admin, ou vinculada à selecionada)
+  // Determinar visão inicial de empresa (para auxiliar_adm sempre inicia na empresa ativa permitida: monteiro ou sje)
   const [modoVisao, setModoVisao] = useState<string>(() => {
     if (empresaAtiva?.slug) return empresaAtiva.slug.toLowerCase()
     if (empresaAtiva?.id === ID_EMPRESA_MONTEIRO) return "monteiro"
     if (empresaAtiva?.id === ID_EMPRESA_SJE) return "sje"
-    return "todas"
+    return isAuxiliarAdm ? "sje" : "todas"
   })
 
   // Sincroniza com seletor do topo quando o usuário altera no Header
@@ -602,37 +602,58 @@ export function PainelGerencial() {
           {/* Seletor de Visão de Empresa (Consolidada ou Individual: Monteiro, SJE, Caicó, Patos) */}
           <Tabs
             value={modoVisao}
-            onValueChange={(v) => setModoVisao(v)}
+            onValueChange={(v) => {
+              if (
+                isAuxiliarAdm &&
+                (v === "caico" || v === "patos" || v === "todas")
+              ) {
+                return
+              }
+              setModoVisao(v)
+            }}
             className="w-full sm:w-auto"
           >
-            <TabsList className="grid grid-cols-5 h-9 text-xs">
-              <TabsTrigger
-                value="todas"
-                className="px-2 font-bold text-[11px] sm:text-xs"
-              >
-                Consolidado
-              </TabsTrigger>
+            <TabsList
+              className={`grid h-9 text-xs ${
+                isAuxiliarAdm ? "grid-cols-2" : "grid-cols-5"
+              }`}
+            >
+              {!isAuxiliarAdm && (
+                <TabsTrigger
+                  value="todas"
+                  className="px-2 font-bold text-[11px] sm:text-xs"
+                >
+                  Consolidado
+                </TabsTrigger>
+              )}
               <TabsTrigger
                 value="monteiro"
-                className="px-2 text-[11px] sm:text-xs"
+                className="px-2 text-[11px] sm:text-xs font-semibold"
               >
                 Monteiro
               </TabsTrigger>
-              <TabsTrigger value="sje" className="px-2 text-[11px] sm:text-xs">
+              <TabsTrigger
+                value="sje"
+                className="px-2 text-[11px] sm:text-xs font-semibold"
+              >
                 SJE
               </TabsTrigger>
-              <TabsTrigger
-                value="caico"
-                className="px-2 text-[11px] sm:text-xs"
-              >
-                Caicó
-              </TabsTrigger>
-              <TabsTrigger
-                value="patos"
-                className="px-2 text-[11px] sm:text-xs"
-              >
-                Patos
-              </TabsTrigger>
+              {!isAuxiliarAdm && (
+                <>
+                  <TabsTrigger
+                    value="caico"
+                    className="px-2 text-[11px] sm:text-xs"
+                  >
+                    Caicó
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="patos"
+                    className="px-2 text-[11px] sm:text-xs"
+                  >
+                    Patos
+                  </TabsTrigger>
+                </>
+              )}
             </TabsList>
           </Tabs>
 

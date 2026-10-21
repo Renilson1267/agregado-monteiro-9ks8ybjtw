@@ -141,6 +141,21 @@ export function AbaControleBritas({
   podeEditar = true,
 }: AbaControleBritasProps) {
   const [competencia, setCompetencia] = useState<string>(getCompetenciaAtual)
+  const anoCompetenciaAtual = useMemo(() => {
+    return Number(competencia.substring(0, 4)) || new Date().getFullYear()
+  }, [competencia])
+
+  // Seletor de ANO: lista de anos com registros + ano corrente
+  const [anosDisponiveis, setAnosDisponiveis] = useState<number[]>([
+    new Date().getFullYear(),
+  ])
+  const [anoSelecionado, setAnoSelecionado] =
+    useState<number>(anoCompetenciaAtual)
+
+  // Quando o ano selecionado for diferente do ano da competência navegada,
+  // ou quando o usuário optar por visão de ano completo
+  const modoVisaoAnoCompleto = anoSelecionado !== anoCompetenciaAtual
+
   const [compraMensal, setCompraMensal] = useState<ControleBritaCompra | null>(
     null,
   )
@@ -150,7 +165,11 @@ export function AbaControleBritas({
     useState<SaldoCompetenciaAnterior | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
 
-  // Filtros das entregas do mês
+  // Dados acumulados quando em visão ANO COMPLETO
+  const [comprasAno, setComprasAno] = useState<ControleBritaCompra[]>([])
+  const [entregasAno, setEntregasAno] = useState<ControleBritaEntrega[]>([])
+
+  // Filtros das entregas (funcionam tanto no mês quanto no ano completo)
   const [filtroTipoBrita, setFiltroTipoBrita] = useState<"ALL" | TipoBrita>(
     "ALL",
   )
@@ -210,29 +229,59 @@ export function AbaControleBritas({
     useState<ControleBritaCheque | null>(null)
   const [excluindoCheque, setExcluindoCheque] = useState(false)
 
+  // Carregar lista de anos disponíveis (registros + ano corrente)
+  const carregarAnos = useCallback(async () => {
+    if (!empresaAtiva?.id) return
+    try {
+      const lista = await BritasService.getAnosDisponiveis(empresaAtiva.id)
+      setAnosDisponiveis(lista)
+    } catch (err) {
+      console.error("Erro ao carregar anos disponíveis:", err)
+    }
+  }, [empresaAtiva?.id])
+
+  useEffect(() => {
+    carregarAnos()
+  }, [carregarAnos])
+
   const carregarDados = async () => {
     if (!empresaAtiva?.id) return
     setLoading(true)
     try {
-      const [compraRes, entregasRes, saldoAntRes, chequesRes] =
-        await Promise.all([
-          BritasService.getCompraCompetencia(empresaAtiva.id, competencia),
-          BritasService.getEntregasCompetencia(empresaAtiva.id, competencia),
-          BritasService.getSaldoCompetenciaAnterior(
-            empresaAtiva.id,
-            competencia,
-          ),
-          BritasService.getChequesCompetencia(empresaAtiva.id, competencia),
+      if (modoVisaoAnoCompleto) {
+        // Carrega todas as compras e entregas do ano selecionado
+        const [comprasAnoRes, entregasAnoRes, anosRes] = await Promise.all([
+          BritasService.getComprasAno(empresaAtiva.id, anoSelecionado),
+          BritasService.getEntregasAno(empresaAtiva.id, anoSelecionado),
+          BritasService.getAnosDisponiveis(empresaAtiva.id),
         ])
-      setCompraMensal(compraRes)
-      setEntregas(entregasRes)
-      setSaldoAnterior(saldoAntRes)
-      setCheques(chequesRes)
+        setComprasAno(comprasAnoRes)
+        setEntregasAno(entregasAnoRes)
+        setAnosDisponiveis(anosRes)
+      } else {
+        // Visão do mês normal
+        const [compraRes, entregasRes, saldoAntRes, chequesRes, anosRes] =
+          await Promise.all([
+            BritasService.getCompraCompetencia(empresaAtiva.id, competencia),
+            BritasService.getEntregasCompetencia(empresaAtiva.id, competencia),
+            BritasService.getSaldoCompetenciaAnterior(
+              empresaAtiva.id,
+              competencia,
+            ),
+            BritasService.getChequesCompetencia(empresaAtiva.id, competencia),
+            BritasService.getAnosDisponiveis(empresaAtiva.id),
+          ])
+        setCompraMensal(compraRes)
+        setEntregas(entregasRes)
+        setSaldoAnterior(saldoAntRes)
+        setCheques(chequesRes)
+        setAnosDisponiveis(anosRes)
+      }
     } catch (err: any) {
       console.error(err)
       toast({
         title: "Erro ao carregar controle de britas",
-        description: err.message || "Falha ao buscar registros do mês.",
+        description: err.message || "Falha ao buscar registros.",
         variant: "destructive",
       })
     } finally {
@@ -243,7 +292,7 @@ export function AbaControleBritas({
   useEffect(() => {
     carregarDados()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empresaAtiva?.id, competencia])
+  }, [empresaAtiva?.id, competencia, modoVisaoAnoCompleto, anoSelecionado])
 
   // Cálculo da conversão ao vivo para o modal de entrega (criar ou editar)
   const calculoConversaoAoVivo = useMemo(() => {
@@ -267,10 +316,60 @@ export function AbaControleBritas({
     }
   }, [entregaQuantidade, entregaUnidade, entregaDensidade])
 
-  // Resumo Geral: Compra do Mês, Repasse Anterior, Entregas Brita 19, Brita 12, Total Geral e Saldo a Receber
-  // Regra: SALDO A RECEBER = compra do mês + repasse − entregue do mês
-  // (repasse positivo soma, negativo subtrai; se não houver compra nem entrega no mês anterior, repasse = 0)
+  // Lista de entregas ativas para visualização:
+  // Se modoVisaoAnoCompleto, usa entregasAno; senão usa entregas do mês
+  const entregasAtivas = useMemo(() => {
+    return modoVisaoAnoCompleto ? entregasAno : entregas
+  }, [modoVisaoAnoCompleto, entregasAno, entregas])
+
+  // Resumo Geral: Compra do Mês/Ano, Repasse Anterior, Entregas Brita 19, Brita 12, Total Geral e Saldo a Receber
+  // Quando em ANO COMPLETO: soma compras de todas as competências do ano e entregas do ano
   const resumo: ResumoControleBritasMes = useMemo(() => {
+    if (modoVisaoAnoCompleto) {
+      const compraTotalM3 = comprasAno.reduce(
+        (acc, c) => acc + (Number(c.volume_m3) || 0),
+        0,
+      )
+      const saldoRepasseM3 = 0 // Na visão ano, as compras somam todas as competências
+      const totalDisponivelM3 = compraTotalM3
+
+      const entregas19 = entregasAno.filter((e) => e.tipo_brita === "19")
+      const entregas12 = entregasAno.filter((e) => e.tipo_brita === "12")
+
+      const totalEntregue19M3 = Number(
+        entregas19
+          .reduce((acc, cur) => acc + (Number(cur.quantidade_m3) || 0), 0)
+          .toFixed(3),
+      )
+      const totalEntregue12M3 = Number(
+        entregas12
+          .reduce((acc, cur) => acc + (Number(cur.quantidade_m3) || 0), 0)
+          .toFixed(3),
+      )
+      const totalEntregueGeralM3 = Number(
+        (totalEntregue19M3 + totalEntregue12M3).toFixed(3),
+      )
+
+      const saldoAReceberM3 = Number(
+        (totalDisponivelM3 - totalEntregueGeralM3).toFixed(3),
+      )
+      const entregasExcedentes = totalEntregueGeralM3 > totalDisponivelM3
+
+      return {
+        compraTotalM3,
+        saldoRepasseM3,
+        totalDisponivelM3,
+        totalEntregue19M3,
+        totalEntregue12M3,
+        totalEntregueGeralM3,
+        saldoAReceberM3,
+        entregasExcedentes,
+        totalEntregasQtd: entregasAno.length,
+        totalEntregas19Qtd: entregas19.length,
+        totalEntregas12Qtd: entregas12.length,
+      }
+    }
+
     const compraTotalM3 = compraMensal ? Number(compraMensal.volume_m3) || 0 : 0
     const saldoRepasseM3 = saldoAnterior
       ? Number(saldoAnterior.saldoRepasseM3) || 0
@@ -316,7 +415,14 @@ export function AbaControleBritas({
       totalEntregas19Qtd: entregas19.length,
       totalEntregas12Qtd: entregas12.length,
     }
-  }, [compraMensal, entregas, saldoAnterior])
+  }, [
+    modoVisaoAnoCompleto,
+    comprasAno,
+    entregasAno,
+    compraMensal,
+    entregas,
+    saldoAnterior,
+  ])
 
   // Totalizadores de cheques da competência
   const totaisCheques = useMemo(() => {
@@ -757,9 +863,9 @@ export function AbaControleBritas({
     }
   }
 
-  // Filtragem no histórico de entregas do mês
+  // Filtragem no histórico de entregas (mês ou ano completo)
   const entregasFiltradas = useMemo(() => {
-    return entregas.filter((e) => {
+    return entregasAtivas.filter((e) => {
       // Filtro tipo de brita
       if (filtroTipoBrita !== "ALL" && e.tipo_brita !== filtroTipoBrita) {
         return false
@@ -781,7 +887,7 @@ export function AbaControleBritas({
       return true
     })
   }, [
-    entregas,
+    entregasAtivas,
     filtroTipoBrita,
     filtroFornecedor,
     filtroDataInicio,
@@ -826,14 +932,18 @@ export function AbaControleBritas({
         compraMensal={compraMensal}
         resumo={resumo}
         entregas={entregasFiltradas}
-        cheques={cheques}
-        totalCheques={totaisCheques.total}
-        totalChequesPagos={totaisCheques.pagos}
-        totalChequesPendentes={totaisCheques.pendentes}
+        cheques={modoVisaoAnoCompleto ? [] : cheques}
+        totalCheques={modoVisaoAnoCompleto ? 0 : totaisCheques.total}
+        totalChequesPagos={modoVisaoAnoCompleto ? 0 : totaisCheques.pagos}
+        totalChequesPendentes={
+          modoVisaoAnoCompleto ? 0 : totaisCheques.pendentes
+        }
         filtroTipoBrita={filtroTipoBrita}
         filtroFornecedor={filtroFornecedor}
         filtroDataInicio={filtroDataInicio}
         filtroDataFim={filtroDataFim}
+        modoVisao={modoVisaoAnoCompleto ? "ano" : "mes"}
+        anoSelecionado={anoSelecionado}
       />
 
       {/* =========================================================================
@@ -862,13 +972,57 @@ export function AbaControleBritas({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* Seletor de ANO: lista os anos com registros + ano corrente */}
+          <div className="flex items-center bg-background border border-border/60 rounded-lg px-2 py-1 shadow-xs gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span className="text-[11px] font-semibold text-muted-foreground">
+              Ano:
+            </span>
+            <Select
+              value={String(anoSelecionado)}
+              onValueChange={(val) => {
+                const anoNum = Number(val)
+                setAnoSelecionado(anoNum)
+              }}
+            >
+              <SelectTrigger className="h-6 border-none bg-transparent text-xs font-bold font-mono focus:ring-0 p-0 w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {anosDisponiveis.map((a) => (
+                  <SelectItem
+                    key={a}
+                    value={String(a)}
+                    className="font-mono text-xs"
+                  >
+                    {a}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {modoVisaoAnoCompleto && (
+              <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-mono text-[9px] px-1 py-0 uppercase">
+                Ano Completo
+              </Badge>
+            )}
+          </div>
+
           {/* Seletor de Competência com Navegação ‹ anterior / › próximo */}
-          <div className="flex items-center bg-background border border-border/60 rounded-lg shadow-xs p-0.5">
+          <div
+            className={`flex items-center bg-background border rounded-lg shadow-xs p-0.5 ${
+              modoVisaoAnoCompleto
+                ? "border-amber-500/50 bg-amber-500/5 opacity-80"
+                : "border-border/60"
+            }`}
+          >
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              onClick={irMesAnterior}
+              onClick={() => {
+                irMesAnterior()
+                setAnoSelecionado(Number(anteriorCompetencia.substring(0, 4)))
+              }}
               title={`Mês anterior (${formatarCompetenciaRotulo(anteriorCompetencia)})`}
               className="h-7 w-7 text-muted-foreground hover:text-foreground"
             >
@@ -876,7 +1030,6 @@ export function AbaControleBritas({
             </Button>
 
             <div className="flex items-center gap-1.5 px-2">
-              <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
               <div className="flex flex-col items-center">
                 <span className="text-xs font-extrabold tracking-wider font-mono uppercase text-foreground whitespace-nowrap">
                   {formatarCompetenciaRotulo(competencia)}
@@ -885,7 +1038,10 @@ export function AbaControleBritas({
                   type="month"
                   value={competencia}
                   onChange={(e) => {
-                    if (e.target.value) setCompetencia(e.target.value)
+                    if (e.target.value) {
+                      setCompetencia(e.target.value)
+                      setAnoSelecionado(Number(e.target.value.substring(0, 4)))
+                    }
                   }}
                   className="sr-only"
                   id="competencia-britas-hidden"
@@ -899,13 +1055,29 @@ export function AbaControleBritas({
               type="button"
               variant="ghost"
               size="icon"
-              onClick={irProximoMes}
+              onClick={() => {
+                irProximoMes()
+                setAnoSelecionado(Number(proximaCompetencia.substring(0, 4)))
+              }}
               title={`Próximo mês (${formatarCompetenciaRotulo(proximaCompetencia)})`}
               className="h-7 w-7 text-muted-foreground hover:text-foreground"
             >
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
+
+          {/* Botão para retornar ao mês navegado caso esteja na visão Ano Completo */}
+          {modoVisaoAnoCompleto && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAnoSelecionado(anoCompetenciaAtual)}
+              className="h-8 gap-1 text-xs border-amber-500 text-amber-700 dark:text-amber-300 bg-amber-500/10 font-bold"
+              title={`Voltar para a visão do mês de ${formatarCompetenciaRotulo(competencia)}`}
+            >
+              Voltar ao Mês ({formatarCompetenciaRotulo(competencia)})
+            </Button>
+          )}
 
           {/* Input month nativo para pular direto a qualquer ano/mês */}
           <div className="hidden lg:flex items-center bg-background border border-border/50 rounded-lg px-2 py-1 shadow-xs">
@@ -914,7 +1086,10 @@ export function AbaControleBritas({
               type="month"
               value={competencia}
               onChange={(e) => {
-                if (e.target.value) setCompetencia(e.target.value)
+                if (e.target.value) {
+                  setCompetencia(e.target.value)
+                  setAnoSelecionado(Number(e.target.value.substring(0, 4)))
+                }
               }}
               className="h-6 w-32 text-[11px] font-mono border-none shadow-none focus-visible:ring-0 p-0"
               title="Selecione diretamente o mês/ano"
@@ -1026,24 +1201,48 @@ export function AbaControleBritas({
               <div className="flex items-center gap-2">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                   <ShoppingCart className="w-5 h-5 text-primary" />
-                  <span>Compra Mensal &amp; Atendimento de Britas</span>
+                  <span>
+                    {modoVisaoAnoCompleto
+                      ? `Controle de Britas — Visão ANO COMPLETO ${anoSelecionado}`
+                      : "Compra Mensal & Atendimento de Britas"}
+                  </span>
                 </CardTitle>
                 <Badge
-                  variant="secondary"
-                  className="font-mono text-xs uppercase font-bold"
+                  variant={modoVisaoAnoCompleto ? "default" : "secondary"}
+                  className={`font-mono text-xs uppercase font-bold ${
+                    modoVisaoAnoCompleto ? "bg-amber-600 text-white" : ""
+                  }`}
                 >
-                  {formatarCompetenciaRotulo(competencia)}
+                  {modoVisaoAnoCompleto
+                    ? `Ano Completo ${anoSelecionado}`
+                    : formatarCompetenciaRotulo(competencia)}
                 </Badge>
               </div>
               <CardDescription className="text-xs mt-0.5">
-                Volume contratado único para Brita 19 e 12 juntas na unidade{" "}
-                <strong className="text-foreground">
-                  {empresaAtiva?.nome}
-                </strong>{" "}
-                em{" "}
-                <strong className="text-primary font-mono">
-                  {formatarCompetenciaRotulo(competencia)}
-                </strong>
+                {modoVisaoAnoCompleto ? (
+                  <>
+                    Totalizadores de todas as competências do ano{" "}
+                    <strong className="text-foreground font-mono">
+                      {anoSelecionado}
+                    </strong>{" "}
+                    na unidade{" "}
+                    <strong className="text-foreground">
+                      {empresaAtiva?.nome}
+                    </strong>
+                    .
+                  </>
+                ) : (
+                  <>
+                    Volume contratado único para Brita 19 e 12 juntas na unidade{" "}
+                    <strong className="text-foreground">
+                      {empresaAtiva?.nome}
+                    </strong>{" "}
+                    em{" "}
+                    <strong className="text-primary font-mono">
+                      {formatarCompetenciaRotulo(competencia)}
+                    </strong>
+                  </>
+                )}
               </CardDescription>
             </div>
 
@@ -1106,11 +1305,11 @@ export function AbaControleBritas({
         <CardContent className="pt-4 space-y-4">
           {/* Grid com os 6 Indicadores Oficiais (incluindo SALDO ANTERIOR REPASSE) */}
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-            {/* 1. COMPRA DO MÊS (ÚNICA) */}
+            {/* 1. COMPRA DO MÊS / ANO */}
             <div className="p-3 rounded-xl bg-muted/40 border border-border/50 text-center relative flex flex-col justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
-                  Compra do Mês
+                  {modoVisaoAnoCompleto ? "Comprado (Ano)" : "Compra do Mês"}
                 </span>
                 <span className="text-xl sm:text-2xl font-extrabold font-mono text-foreground block">
                   {resumo.compraTotalM3.toLocaleString("pt-BR", {
@@ -1121,7 +1320,7 @@ export function AbaControleBritas({
               </div>
               <div className="mt-2 pt-1 border-t border-border/30 flex items-center justify-between text-[11px] text-muted-foreground">
                 <span>m³ contratados</span>
-                {podeEditar && (
+                {podeEditar && !modoVisaoAnoCompleto && (
                   <button
                     type="button"
                     onClick={abrirModalCompra}
@@ -1131,10 +1330,16 @@ export function AbaControleBritas({
                     Editar
                   </button>
                 )}
+                {modoVisaoAnoCompleto && (
+                  <span className="text-[10px] font-mono text-muted-foreground">
+                    {comprasAno.length}{" "}
+                    {comprasAno.length === 1 ? "mês" : "meses"}
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* 2. NOVO INDICADOR: SALDO ANTERIOR (REPASSE) */}
+            {/* 2. NOVO INDICADOR: SALDO ANTERIOR (REPASSE) / TOTAL DISPONÍVEL */}
             <div
               className={`p-3 rounded-xl border text-center flex flex-col justify-between ${
                 resumo.saldoRepasseM3 > 0
@@ -1146,26 +1351,41 @@ export function AbaControleBritas({
             >
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider block mb-1">
-                  Saldo Anterior (Repasse)
+                  {modoVisaoAnoCompleto
+                    ? "Total Contratado"
+                    : "Saldo Anterior (Repasse)"}
                 </span>
                 <span className="text-xl sm:text-2xl font-extrabold font-mono block">
-                  {resumo.saldoRepasseM3 > 0 ? "+" : ""}
-                  {resumo.saldoRepasseM3.toLocaleString("pt-BR", {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 2,
-                  })}
+                  {modoVisaoAnoCompleto ? (
+                    resumo.totalDisponivelM3.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 2,
+                    })
+                  ) : (
+                    <>
+                      {resumo.saldoRepasseM3 > 0 ? "+" : ""}
+                      {resumo.saldoRepasseM3.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 2,
+                      })}
+                    </>
+                  )}
                 </span>
               </div>
               <div className="mt-2 pt-1 border-t border-current/20 flex items-center justify-between text-[11px] font-medium">
                 <span className="text-[10px] truncate">
-                  {formatarCompetenciaRotulo(anteriorCompetencia)}
+                  {modoVisaoAnoCompleto
+                    ? `Ano ${anoSelecionado}`
+                    : formatarCompetenciaRotulo(anteriorCompetencia)}
                 </span>
                 <span className="font-mono text-[10px]">
-                  {resumo.saldoRepasseM3 > 0
-                    ? "soma"
-                    : resumo.saldoRepasseM3 < 0
-                      ? "subtrai"
-                      : "0"}
+                  {modoVisaoAnoCompleto
+                    ? "m³ ano"
+                    : resumo.saldoRepasseM3 > 0
+                      ? "soma"
+                      : resumo.saldoRepasseM3 < 0
+                        ? "subtrai"
+                        : "0"}
                 </span>
               </div>
             </div>
@@ -1245,7 +1465,7 @@ export function AbaControleBritas({
             >
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider opacity-80 block mb-1">
-                  Saldo a Receber
+                  {modoVisaoAnoCompleto ? "Saldo do Ano" : "Saldo a Receber"}
                 </span>
                 <span className="text-xl sm:text-2xl font-extrabold font-mono block">
                   {resumo.saldoAReceberM3.toLocaleString("pt-BR", {
@@ -1261,7 +1481,9 @@ export function AbaControleBritas({
                     : resumo.saldoAReceberM3 === 0 &&
                         resumo.totalDisponivelM3 > 0
                       ? "100% entregue"
-                      : "Pendente m³"}
+                      : modoVisaoAnoCompleto
+                        ? "Saldo m³"
+                        : "Pendente m³"}
                 </span>
                 <span className="font-mono text-[10px]">
                   {resumo.totalDisponivelM3 > 0
@@ -1524,14 +1746,15 @@ export function AbaControleBritas({
               <CardTitle className="text-base flex items-center gap-2">
                 <Truck className="w-4 h-4 text-primary" />
                 <span>
-                  Histórico das Entregas do Mês (
-                  {formatarCompetenciaRotulo(competencia)})
+                  {modoVisaoAnoCompleto
+                    ? `Histórico das Entregas do Ano Completo (${anoSelecionado})`
+                    : `Histórico das Entregas do Mês (${formatarCompetenciaRotulo(competencia)})`}
                 </span>
               </CardTitle>
               <CardDescription className="text-xs">
-                Registros individuais de cargas recebidas de Brita 19 e Brita 12
-                na competência {formatarCompetenciaRotulo(competencia)} com
-                conversão automática para m³
+                {modoVisaoAnoCompleto
+                  ? `Registros individuais de todas as cargas de Brita 19 e Brita 12 entregues em ${anoSelecionado} (todas as competências)`
+                  : `Registros individuais de cargas recebidas de Brita 19 e Brita 12 na competência ${formatarCompetenciaRotulo(competencia)} com conversão automática para m³`}
               </CardDescription>
             </div>
 
@@ -1645,7 +1868,8 @@ export function AbaControleBritas({
               <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/20">
                 <span>
                   Exibindo <strong>{entregasFiltradas.length}</strong> de{" "}
-                  <strong>{entregas.length}</strong> entregas do mês
+                  <strong>{entregasAtivas.length}</strong> entregas{" "}
+                  {modoVisaoAnoCompleto ? `do ano ${anoSelecionado}` : "do mês"}
                 </span>
                 <span className="font-mono font-bold text-foreground">
                   Volume Filtrado:{" "}
@@ -1700,6 +1924,9 @@ export function AbaControleBritas({
                 <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 sticky top-0 border-b border-border/40 backdrop-blur">
                   <tr>
                     <th className="py-2.5 px-3">Data</th>
+                    {modoVisaoAnoCompleto && (
+                      <th className="py-2.5 px-3">Competência</th>
+                    )}
                     <th className="py-2.5 px-3">Tipo de Brita</th>
                     <th className="py-2.5 px-3">Qtd. Informada</th>
                     <th className="py-2.5 px-3">Densidade</th>
@@ -1723,6 +1950,13 @@ export function AbaControleBritas({
                       <td className="py-2.5 px-3 text-muted-foreground font-mono">
                         {entrega.data.split("-").reverse().join("/")}
                       </td>
+                      {modoVisaoAnoCompleto && (
+                        <td className="py-2.5 px-3 font-mono font-semibold text-primary">
+                          {entrega.competencia
+                            ? formatarCompetenciaRotulo(entrega.competencia)
+                            : "—"}
+                        </td>
+                      )}
                       <td className="py-2.5 px-3 font-semibold">
                         <Badge
                           variant="outline"
@@ -1797,7 +2031,7 @@ export function AbaControleBritas({
                 <tfoot className="bg-muted/50 font-bold border-t-2 border-border/60 text-xs">
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={modoVisaoAnoCompleto ? 5 : 4}
                       className="py-2.5 px-3 uppercase text-foreground"
                     >
                       Total ({entregasFiltradas.length}{" "}
@@ -1814,7 +2048,9 @@ export function AbaControleBritas({
                       colSpan={podeEditar ? 4 : 3}
                       className="py-2.5 px-3 text-muted-foreground text-[11px]"
                     >
-                      Geral do mês:{" "}
+                      {modoVisaoAnoCompleto
+                        ? "Geral do ano: "
+                        : "Geral do mês: "}
                       {resumo.totalEntregueGeralM3.toLocaleString("pt-BR", {
                         minimumFractionDigits: 2,
                       })}{" "}

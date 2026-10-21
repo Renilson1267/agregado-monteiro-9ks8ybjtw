@@ -23,6 +23,8 @@ export interface ImpressaoControleBritasProps {
   filtroFornecedor: string
   filtroDataInicio: string
   filtroDataFim: string
+  modoVisao?: "mes" | "ano"
+  anoSelecionado?: number
 }
 
 function formatarDataBr(iso?: string | null): string {
@@ -55,6 +57,8 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
     filtroFornecedor,
     filtroDataInicio,
     filtroDataFim,
+    modoVisao = "mes",
+    anoSelecionado,
   }) => {
     const nomeUnidade =
       empresaAtiva?.razao_social ||
@@ -103,7 +107,9 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
                   GC MIX CONCRETO USINADO
                 </h1>
                 <p className="text-[10px] font-bold uppercase tracking-wide text-gray-800">
-                  CONTROLE MENSAL DE BRITAS (BRITA 19 &amp; BRITA 12)
+                  {modoVisao === "ano"
+                    ? `CONTROLE DE BRITAS — ANO COMPLETO ${anoSelecionado || competencia.substring(0, 4)}`
+                    : "CONTROLE MENSAL DE BRITAS (BRITA 19 & BRITA 12)"}
                 </p>
                 <p className="text-[10px] font-semibold text-gray-900">
                   UNIDADE: {nomeUnidade}
@@ -114,7 +120,9 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
 
             <div className="text-right text-[9px] leading-tight text-gray-700">
               <p className="font-extrabold text-black text-xs uppercase font-mono">
-                COMPETÊNCIA: {rotuloCompetencia} ({competencia})
+                {modoVisao === "ano"
+                  ? `EXERCÍCIO: ANO ${anoSelecionado || competencia.substring(0, 4)} COMPLETO`
+                  : `COMPETÊNCIA: ${rotuloCompetencia} (${competencia})`}
               </p>
               <p className="font-semibold text-gray-800 mt-0.5">
                 EMISSÃO: {agoraTexto}
@@ -131,9 +139,11 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
           <div className="flex justify-between items-center border-b border-gray-300 pb-1.5 mb-2">
             <div className="flex items-center gap-2">
               <strong className="text-[11px] uppercase font-black text-black tracking-wide">
-                Resumo da Compra &amp; Saldos da Competência
+                {modoVisao === "ano"
+                  ? `Totalizadores Anuais & Saldos — Exercício ${anoSelecionado || competencia.substring(0, 4)}`
+                  : "Resumo da Compra & Saldos da Competência"}
               </strong>
-              {compraMensal?.observacao && (
+              {compraMensal?.observacao && modoVisao !== "ano" && (
                 <span className="text-[9px] text-gray-600 italic">
                   (Obs: {compraMensal.observacao})
                 </span>
@@ -146,10 +156,10 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
 
           {/* Grid de Indicadores */}
           <div className="grid grid-cols-6 gap-2 text-center">
-            {/* Compra do Mês */}
+            {/* Compra do Mês / Ano */}
             <div className="border border-gray-300 rounded p-1.5 bg-white">
               <span className="text-[8px] font-bold uppercase text-gray-600 block">
-                Compra do Mês
+                {modoVisao === "ano" ? "Comprado (Ano)" : "Compra do Mês"}
               </span>
               <span className="text-sm font-black font-mono text-black block">
                 {resumo.compraTotalM3.toLocaleString("pt-BR", {
@@ -163,7 +173,9 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
             {/* Saldo Anterior (Repasse) */}
             <div className="border border-gray-300 rounded p-1.5 bg-white">
               <span className="text-[8px] font-bold uppercase text-gray-600 block">
-                Saldo Anterior (Repasse)
+                {modoVisao === "ano"
+                  ? "Repasse Anterior"
+                  : "Saldo Anterior (Repasse)"}
               </span>
               <span
                 className={`text-sm font-black font-mono block ${
@@ -248,7 +260,7 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
               }`}
             >
               <span className="text-[8px] font-bold uppercase block">
-                Saldo a Receber
+                {modoVisao === "ano" ? "Saldo do Ano" : "Saldo a Receber"}
               </span>
               <span className="text-sm font-black font-mono block">
                 {resumo.saldoAReceberM3.toLocaleString("pt-BR", {
@@ -387,6 +399,9 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
             <thead>
               <tr className="bg-gray-100 text-black border-y-2 border-black font-bold uppercase text-[8px]">
                 <th className="py-1.5 px-1.5 text-left w-20">Data</th>
+                {modoVisao === "ano" && (
+                  <th className="py-1.5 px-1.5 text-left w-20">Competência</th>
+                )}
                 <th className="py-1.5 px-1.5 text-left w-20">Tipo</th>
                 <th className="py-1.5 px-1.5 text-left w-28">Qtd. Informada</th>
                 <th className="py-1.5 px-1.5 text-left w-20">Densidade</th>
@@ -402,7 +417,7 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
               {entregas.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={modoVisao === "ano" ? 9 : 8}
                     className="py-6 text-center text-gray-500 italic text-[10px]"
                   >
                     Nenhuma entrega encontrada para os critérios informados.
@@ -418,6 +433,11 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
                     <td className="py-1 px-1.5 font-mono text-gray-800">
                       {formatarDataBr(ent.data)}
                     </td>
+                    {modoVisao === "ano" && (
+                      <td className="py-1 px-1.5 font-mono font-bold text-gray-800">
+                        {ent.competencia || "—"}
+                      </td>
+                    )}
                     <td className="py-1 px-1.5 font-bold">
                       <span
                         className={`inline-block px-1.5 py-0.2 rounded text-[8px] font-extrabold ${
@@ -463,7 +483,10 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
             </tbody>
             <tfoot>
               <tr className="bg-gray-100 text-black border-t-2 border-black font-bold uppercase text-[9px]">
-                <td colSpan={4} className="py-1.5 px-1.5 text-left">
+                <td
+                  colSpan={modoVisao === "ano" ? 5 : 4}
+                  className="py-1.5 px-1.5 text-left"
+                >
                   TOTAIS DAS ENTREGAS LISTADAS ({entregas.length} CARGAS)
                 </td>
                 <td className="py-1.5 px-1.5 text-right font-mono font-black">
@@ -474,7 +497,7 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
                   m³
                 </td>
                 <td colSpan={3} className="py-1.5 px-1.5 text-right text-[8px]">
-                  Geral Mês:{" "}
+                  {modoVisao === "ano" ? "Geral Ano: " : "Geral Mês: "}
                   {resumo.totalEntregueGeralM3.toLocaleString("pt-BR", {
                     minimumFractionDigits: 2,
                   })}{" "}
