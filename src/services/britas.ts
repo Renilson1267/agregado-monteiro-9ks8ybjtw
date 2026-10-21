@@ -308,14 +308,15 @@ export class BritasService {
       observacao,
     } = params
 
-    // Se unidade for 't', calcula quantidade / densidade. Senão, a própria quantidade já está em m³
+    // Se unidade for 't', calcula quantidade_em_t * 1000 / densidade (kg/m³). Senão, a própria quantidade já está em m³
     let quantidade_m3 = quantidade
     let densidadeFinal: number | null = null
 
     if (unidade === "t") {
-      const dens = densidade && densidade > 0 ? densidade : 1.5
+      const dens = densidade && densidade > 0 ? densidade : 1440
       densidadeFinal = dens
-      quantidade_m3 = Number((quantidade / dens).toFixed(3))
+      // Gravando o valor completo em quantidade_m3
+      quantidade_m3 = (quantidade * 1000) / dens
     }
 
     const { data: result, error } = (await supabase
@@ -375,9 +376,10 @@ export class BritasService {
     let densidadeFinal: number | null = null
 
     if (unidade === "t") {
-      const dens = densidade && densidade > 0 ? densidade : 1.5
+      const dens = densidade && densidade > 0 ? densidade : 1440
       densidadeFinal = dens
-      quantidade_m3 = Number((quantidade / dens).toFixed(3))
+      // Gravando o valor completo em quantidade_m3
+      quantidade_m3 = (quantidade * 1000) / dens
     }
 
     const updatePayload: Record<string, any> = {

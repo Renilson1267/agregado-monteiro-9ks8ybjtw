@@ -78,8 +78,8 @@ interface AbaControleBritasProps {
 }
 
 const DENSIDADE_PADRAO: Record<TipoBrita, string> = {
-  "12": "1.38",
-  "19": "1.40",
+  "12": "1380",
+  "19": "1440",
 }
 
 const MESES_NOMES = [
@@ -317,13 +317,15 @@ export function AbaControleBritas({
       }
     }
 
-    const densNum = Number(entregaDensidade.replace(",", ".")) || 1.5
+    const densNum = Number(entregaDensidade.replace(",", ".")) || 1440
     if (densNum <= 0) return { qtdM3: 0, formula: "Densidade inválida" }
 
-    const m3 = Number((qtdNum / densNum).toFixed(3))
+    // Conversão para m³: quantidade_em_t × 1000 ÷ densidade
+    // Exibição ao vivo com arredondamento para 2 casas decimais
+    const m3Exibicao = Number(((qtdNum * 1000) / densNum).toFixed(2))
     return {
-      qtdM3: m3,
-      formula: `${qtdNum.toLocaleString("pt-BR")} t ÷ ${densNum.toLocaleString("pt-BR")} = ${m3.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 })} m³`,
+      qtdM3: m3Exibicao,
+      formula: `${qtdNum.toLocaleString("pt-BR")} t × 1000 ÷ ${densNum.toLocaleString("pt-BR")} kg/m³ = ${m3Exibicao.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m³`,
     }
   }, [entregaQuantidade, entregaUnidade, entregaDensidade])
 
@@ -750,7 +752,7 @@ export function AbaControleBritas({
         toast({
           title: "Densidade obrigatória",
           description:
-            "Para entregas em toneladas (t), informe a densidade (Brita 12: 1,38; Brita 19: 1,40).",
+            "Para entregas em toneladas (t), informe a densidade (Brita 12: 1380; Brita 19: 1440 kg/m³).",
           variant: "destructive",
         })
         return
@@ -2402,7 +2404,7 @@ export function AbaControleBritas({
                       </td>
                       <td className="py-2.5 px-3 font-mono text-muted-foreground">
                         {entrega.unidade === "t"
-                          ? (entrega.densidade ?? 1.5).toLocaleString("pt-BR")
+                          ? (entrega.densidade ?? 1440).toLocaleString("pt-BR")
                           : "—"}
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-primary">
@@ -2699,11 +2701,11 @@ export function AbaControleBritas({
                     className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5"
                   >
                     <Scale className="w-3.5 h-3.5" />
-                    Densidade da Brita {entregaTipoBrita} (t/m³) * Obrigatório
+                    Densidade da Brita {entregaTipoBrita} (kg/m³) * Obrigatório
                   </Label>
                   <span className="text-[11px] text-muted-foreground font-mono font-semibold">
                     Padrão Brita {entregaTipoBrita}:{" "}
-                    {DENSIDADE_PADRAO[entregaTipoBrita].replace(".", ",")}
+                    {DENSIDADE_PADRAO[entregaTipoBrita]} kg/m³
                   </span>
                 </div>
                 <Input
@@ -2721,8 +2723,8 @@ export function AbaControleBritas({
                 />
                 <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                   <span>
-                    Fórmula de conversão: Volume (m³) = Quantidade (t) ÷
-                    Densidade
+                    Fórmula de conversão: Volume (m³) = Quantidade (t) × 1000 ÷
+                    Densidade (kg/m³)
                   </span>
                   {densidadeEditadaManualmente && (
                     <button
@@ -2733,8 +2735,7 @@ export function AbaControleBritas({
                       }}
                       className="text-primary hover:underline text-[10px] font-semibold"
                     >
-                      Restaurar padrão (
-                      {DENSIDADE_PADRAO[entregaTipoBrita].replace(".", ",")})
+                      Restaurar padrão ({DENSIDADE_PADRAO[entregaTipoBrita]})
                     </button>
                   )}
                 </div>
@@ -2758,10 +2759,11 @@ export function AbaControleBritas({
                   VOLUME FINAL
                 </span>
                 <span className="text-xl font-extrabold font-mono text-primary block">
-                  {calculoConversaoAoVivo.qtdM3 > 0
+                  {calculoConversaoAoVivo.qtdM3 > 0 ||
+                  Number(entregaQuantidade) > 0
                     ? `${calculoConversaoAoVivo.qtdM3.toLocaleString("pt-BR", {
                         minimumFractionDigits: 2,
-                        maximumFractionDigits: 3,
+                        maximumFractionDigits: 2,
                       })} m³`
                     : "0,00 m³"}
                 </span>

@@ -472,7 +472,7 @@ export const ImpressaoControleBritas: React.FC<ImpressaoControleBritasProps> =
                     </td>
                     <td className="py-1 px-1.5 font-mono text-gray-600">
                       {ent.unidade === "t"
-                        ? (ent.densidade ?? 1.5).toLocaleString("pt-BR")
+                        ? (ent.densidade ?? 1440).toLocaleString("pt-BR")
                         : "—"}
                     </td>
                     <td className="py-1 px-1.5 font-mono font-bold text-right text-black">
