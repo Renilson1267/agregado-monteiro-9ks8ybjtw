@@ -66,6 +66,16 @@ function calcularDataHoje(): string {
   return new Date().toISOString().split("T")[0]
 }
 
+function limparObservacaoParaEdicao(obs?: string | null): string {
+  if (!obs) return ""
+  return obs
+    .replace(/\[Corrigido em\b[^\]]*\]/gi, "")
+    .replace(/\[Obs:\s*[^\]]*\]/gi, "")
+    .replace(/\s*[—–-]\s*[—–-]+\s*/g, " — ")
+    .replace(/^[\s—–-]+|[\s—–-]+$/g, "")
+    .trim()
+}
+
 export function AbaAcoesEstoque({
   empresaAtiva,
   materiais,
@@ -95,7 +105,7 @@ export function AbaAcoesEstoque({
     useState<boolean>(false)
   const [precoUnitarioInput, setPrecoUnitarioInput] = useState<string>("")
   const [valorTotalInput, setValorTotalInput] = useState<string>("")
-  const [observacaoAdicional, setObservacaoAdicional] = useState<string>("")
+  const [observacaoEditada, setObservacaoEditada] = useState<string>("")
   const [confirmouAlertaPlausibilidade, setConfirmouAlertaPlausibilidade] =
     useState<boolean>(false)
   const [salvando, setSalvando] = useState<boolean>(false)
@@ -154,7 +164,7 @@ export function AbaAcoesEstoque({
       mov.preco_unitario != null ? String(mov.preco_unitario) : "",
     )
     setValorTotalInput(mov.valor_total != null ? String(mov.valor_total) : "")
-    setObservacaoAdicional("")
+    setObservacaoEditada(limparObservacaoParaEdicao(mov.observacao))
     setConfirmouAlertaPlausibilidade(false)
     setModalAberta(true)
   }
@@ -244,41 +254,21 @@ export function AbaAcoesEstoque({
     setSalvando(true)
     try {
       const hojeBr = new Date().toLocaleDateString("pt-BR")
-      const precoAntigoFmt =
-        movEditando.preco_unitario != null
-          ? `R$ ${Number(movEditando.preco_unitario).toFixed(4)}`
-          : "não informado"
-      const totalAntigoFmt =
-        movEditando.valor_total != null
-          ? `R$ ${Number(movEditando.valor_total).toFixed(2)}`
-          : "não informado"
-      const precoNovoFmt = `R$ ${valoresCalculados.precoUnitario.toFixed(4)}`
-      const totalNovoFmt = `R$ ${valoresCalculados.valorTotal.toFixed(2)}`
+      const trilhaCurta = `[Corrigido em ${hojeBr} por ${nomeUsuario || "usuário"}]`
+      const textoDigitado = observacaoEditada.trim()
+      const novaObservacao = textoDigitado
+        ? `${textoDigitado} — ${trilhaCurta}`
+        : trilhaCurta
 
-      const trilha = `Corrigido em ${hojeBr} por ${nomeUsuario || "usuário"}: preço/valor ajustados de ${precoAntigoFmt} (${totalAntigoFmt}) para ${precoNovoFmt} (${totalNovoFmt})`
+      await ConcreteiraService.atualizarValoresMovimentacao({
+        movimentacaoId: movEditando.id,
+        preco_unitario: Number(valoresCalculados.precoUnitario.toFixed(6)),
+        valor_total: Number(valoresCalculados.valorTotal.toFixed(2)),
+        observacao: novaObservacao,
+      })
 
-      const observacaoBase = (movEditando.observacao || "").trim()
-      const observacaoExtra = observacaoAdicional.trim()
-
-      const partesObs: string[] = []
-      if (observacaoBase) partesObs.push(observacaoBase)
-      if (observacaoExtra) partesObs.push(`[Obs: ${observacaoExtra}]`)
-      partesObs.push(`[${trilha}]`)
-
-      const novaObservacao = partesObs.join(" — ")
-
-      const movAtualizada =
-        await ConcreteiraService.atualizarValoresMovimentacao({
-          movimentacaoId: movEditando.id,
-          preco_unitario: Number(valoresCalculados.precoUnitario.toFixed(6)),
-          valor_total: Number(valoresCalculados.valorTotal.toFixed(2)),
-          observacao: novaObservacao,
-        })
-
-      // Atualiza na listagem local sem recarregar tudo
-      setMovimentacoes((prev) =>
-        prev.map((item) => (item.id === movEditando.id ? movAtualizada : item)),
-      )
+      // Recarrega movimentações para o novo texto aparecer imediatamente na tabela
+      await carregarMovimentacoes()
 
       toast({
         title: "Movimentação corrigida com sucesso!",
@@ -926,20 +916,20 @@ export function AbaAcoesEstoque({
                 </div>
               )}
 
-              {/* Observação Adicional Opcional */}
+              {/* Fornecedor / Observação */}
               <div className="space-y-1.5">
                 <Label
-                  htmlFor="obs-adicional"
+                  htmlFor="obs-editada"
                   className="text-xs text-muted-foreground"
                 >
-                  Motivo da Correção / Observação Adicional (opcional)
+                  Fornecedor / Observação
                 </Label>
                 <Input
-                  id="obs-adicional"
+                  id="obs-editada"
                   type="text"
-                  placeholder="Ex: Correção de digitação de R$/ton para R$/kg conforme NF"
-                  value={observacaoAdicional}
-                  onChange={(e) => setObservacaoAdicional(e.target.value)}
+                  placeholder="Ex: CSN, MIZU, Reposição de estoque..."
+                  value={observacaoEditada}
+                  onChange={(e) => setObservacaoEditada(e.target.value)}
                   className="h-8 text-xs"
                 />
               </div>
