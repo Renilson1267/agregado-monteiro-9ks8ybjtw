@@ -96,6 +96,7 @@ export function Sidebar({
     perfil,
     isBalanceiro,
     isGestor,
+    isAuxiliarAdm,
     isAdministrador,
     nomePerfil,
     nomeUsuario,
@@ -288,9 +289,25 @@ export function Sidebar({
       "/estoque",
     ])
 
+    // Regra do Auxiliar ADM: acesso EXATAMENTE a 6 itens:
+    // Painel Gerencial (/painel), Relatórios (/relatorios), Estoque (/estoque),
+    // Controle de Férias (/cadastros?tab=ferias ou /ferias), Folha de Pagamento (/folha), Exames (/exames)
+    const ROTAS_PERMITIDAS_AUXILIAR_ADM = new Set([
+      "/painel",
+      "/relatorios",
+      "/estoque",
+      "/cadastros?tab=ferias",
+      "/ferias",
+      "/folha",
+      "/exames",
+    ])
+
     const gruposVisiveis = navGroups
       .map((grupo) => {
         const itensVisiveis = grupo.items.filter((item) => {
+          if (isAuxiliarAdm) {
+            return ROTAS_PERMITIDAS_AUXILIAR_ADM.has(item.path)
+          }
           if (isGestor) {
             return ROTAS_PERMITIDAS_GESTOR.has(item.path)
           }
@@ -668,6 +685,8 @@ export function Sidebar({
                           <Scale className="w-2.5 h-2.5 text-amber-500 shrink-0" />
                         ) : isGestor ? (
                           <LayoutDashboard className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
+                        ) : isAuxiliarAdm ? (
+                          <Briefcase className="w-2.5 h-2.5 text-blue-500 shrink-0" />
                         ) : (
                           <ShieldCheck className="w-2.5 h-2.5 text-primary shrink-0" />
                         )}

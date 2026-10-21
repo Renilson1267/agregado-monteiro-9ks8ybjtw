@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { ConcreteiraService } from "@/services/concreteira"
 import type { UsuarioApp } from "@/types/concreteira"
 
-export type PerfilUsuario = "administrador" | "balanceiro" | "gestor"
+export type PerfilUsuario = "administrador" | "balanceiro" | "gestor" | "auxiliar_adm"
 
 interface UsuarioContextType {
   usuarioApp: UsuarioApp | null
@@ -18,6 +18,7 @@ interface UsuarioContextType {
   perfil: PerfilUsuario
   isBalanceiro: boolean
   isGestor: boolean
+  isAuxiliarAdm: boolean
   isAdministrador: boolean
   nomePerfil: string
   nomeUsuario: string
@@ -107,12 +108,15 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
 
   const isBalanceiro = perfilAtivo === "balanceiro"
   const isGestor = perfilAtivo === "gestor"
+  const isAuxiliarAdm = perfilAtivo === "auxiliar_adm"
   const isAdministrador = perfilAtivo === "administrador"
   const nomePerfil = isBalanceiro
     ? "Balanceiro"
     : isGestor
       ? "Gestor"
-      : "Administrador"
+      : isAuxiliarAdm
+        ? "Auxiliar Administrativo"
+        : "Administrador"
   const nomeUsuario =
     usuarioApp?.nome ||
     user?.user_metadata?.name ||
@@ -120,11 +124,15 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
     "Usuário"
   const emailUsuario = usuarioApp?.email || user?.email || ""
   // Administrador tem acesso irrestrito e multicompany (pode alternar livremente entre Monteiro, SJE ou qualquer outra unidade).
-  // Balanceiro e Gestor ficam estritamente restritos à sua empresa vinculada.
+  // Balanceiro, Gestor e Auxiliar Administrativo ficam estritamente restritos à sua empresa vinculada.
   const empresaVinculadaId =
-    isBalanceiro || isGestor ? usuarioApp?.empresa_id || null : null
+    isBalanceiro || isGestor || isAuxiliarAdm
+      ? usuarioApp?.empresa_id || null
+      : null
   const empresaVinculadaNome =
-    isBalanceiro || isGestor ? usuarioApp?.empresa_nome || null : null
+    isBalanceiro || isGestor || isAuxiliarAdm
+      ? usuarioApp?.empresa_nome || null
+      : null
   const podeTrocarEmpresa = isAdministrador
 
   return (
@@ -135,6 +143,7 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
         perfil: perfilAtivo,
         isBalanceiro,
         isGestor,
+        isAuxiliarAdm,
         isAdministrador,
         nomePerfil,
         nomeUsuario,

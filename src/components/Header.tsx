@@ -13,6 +13,7 @@ import {
   Menu,
   KeyRound,
   Users,
+  Briefcase,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { usePwaInstall } from "@/hooks/use-pwa-install"
@@ -53,14 +54,14 @@ export function Header({
     perfil,
     isBalanceiro,
     isGestor,
+    isAuxiliarAdm,
     isAdministrador,
     nomePerfil,
     nomeUsuario,
     emailUsuario,
-    empresaVinculadaNome,
     podeTrocarEmpresa,
-  } = useUsuario()
-  const [modalEmpresasOpen, setModalEmpresasOpen] = useState(false)
+    empresaVinculadaNome,
+  } = useUsuario()  const [modalEmpresasOpen, setModalEmpresasOpen] = useState(false)
   const [modalTrocarSenhaOpen, setModalTrocarSenhaOpen] = useState(false)
 
   const nomeEmpresa = empresaAtiva?.nome || "Selecione"
@@ -248,13 +249,17 @@ export function Header({
                 ? "border-amber-500/40 bg-amber-500/5 text-amber-600 dark:text-amber-400"
                 : isGestor
                   ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400"
-                  : "border-primary/40 bg-primary/5 text-primary"
+                  : isAuxiliarAdm
+                    ? "border-blue-500/40 bg-blue-500/5 text-blue-600 dark:text-blue-400"
+                    : "border-primary/40 bg-primary/5 text-primary"
             }`}
           >
             {isBalanceiro ? (
               <Scale className="w-3 h-3 shrink-0" />
             ) : isGestor ? (
               <Users className="w-3 h-3 shrink-0" />
+            ) : isAuxiliarAdm ? (
+              <Briefcase className="w-3 h-3 shrink-0" />
             ) : (
               <ShieldCheck className="w-3 h-3 shrink-0" />
             )}

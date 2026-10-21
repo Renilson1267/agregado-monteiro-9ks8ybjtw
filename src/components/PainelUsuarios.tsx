@@ -47,6 +47,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Trash2,
+  Briefcase,
 } from "lucide-react"
 import {
   AlertDialog,
@@ -356,6 +357,7 @@ export function PainelUsuarios() {
                   {usuariosFiltrados.map((u) => {
                     const isAdm = u.perfil === "administrador"
                     const isGestorUser = u.perfil === "gestor"
+                    const isAuxAdm = u.perfil === "auxiliar_adm"
                     return (
                       <tr
                         key={u.id}
@@ -370,7 +372,9 @@ export function PainelUsuarios() {
                                 ? "bg-primary/20 text-primary"
                                 : isGestorUser
                                   ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                                  : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                                  : isAuxAdm
+                                    ? "bg-blue-500/20 text-blue-600 dark:text-blue-400"
+                                    : "bg-amber-500/20 text-amber-600 dark:text-amber-400"
                             }`}
                           >
                             {u.nome.slice(0, 1).toUpperCase()}
@@ -388,13 +392,17 @@ export function PainelUsuarios() {
                                 ? "bg-primary text-primary-foreground"
                                 : isGestorUser
                                   ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                                  : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                                  : isAuxAdm
+                                    ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30"
+                                    : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30"
                             }`}
                           >
                             {isAdm ? (
                               <ShieldCheck className="w-3 h-3" />
                             ) : isGestorUser ? (
                               <Users className="w-3 h-3" />
+                            ) : isAuxAdm ? (
+                              <Briefcase className="w-3 h-3" />
                             ) : (
                               <Scale className="w-3 h-3" />
                             )}
@@ -402,7 +410,9 @@ export function PainelUsuarios() {
                               ? "Administrador"
                               : isGestorUser
                                 ? "Gestor"
-                                : "Balanceiro"}
+                                : isAuxAdm
+                                  ? "Auxiliar ADM"
+                                  : "Balanceiro"}
                           </Badge>
                         </td>
                         <td className="py-2.5 px-3">
@@ -576,10 +586,12 @@ export function PainelUsuarios() {
                       // Sugere multicompany para administrador
                       setEmpresaId("todas")
                     } else if (
-                      (val === "balanceiro" || val === "gestor") &&
+                      (val === "balanceiro" ||
+                        val === "gestor" ||
+                        val === "auxiliar_adm") &&
                       empresaId === "todas"
                     ) {
-                      // Força seleção de uma empresa específica para balanceiro e gestor
+                      // Força seleção de uma empresa específica para balanceiro, gestor e auxiliar_adm
                       setEmpresaId(empresas[0]?.id || "")
                     }
                   }}
@@ -589,6 +601,9 @@ export function PainelUsuarios() {
                     <SelectValue placeholder="Selecione o perfil" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="auxiliar_adm">
+                      Auxiliar ADM (auxiliar_adm)
+                    </SelectItem>
                     <SelectItem value="gestor">
                       Gestor (Painel, Relatórios, Cargas e Estoque da Unidade)
                     </SelectItem>
@@ -628,7 +643,9 @@ export function PainelUsuarios() {
                     {empresas.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id}>
                         {emp.nome}{" "}
-                        {perfil === "balanceiro" || perfil === "gestor"
+                        {perfil === "balanceiro" ||
+                        perfil === "gestor" ||
+                        perfil === "auxiliar_adm"
                           ? "(Obrigatório)"
                           : "(Unidade inicial)"}
                       </SelectItem>
@@ -638,7 +655,28 @@ export function PainelUsuarios() {
               </div>
             </div>
 
-            {perfil === "gestor" ? (
+            {perfil === "auxiliar_adm" ? (
+              <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-700 dark:text-blue-300 space-y-1">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <strong>Regra Auxiliar ADM:</strong> Acesso a 6 módulos da
+                  unidade vinculada
+                </div>
+                <p>
+                  Entrada padrão em <strong>/painel</strong> (Painel Gerencial).
+                  Acesso liberado exclusivamente a: <strong>/painel</strong>,{" "}
+                  <strong>/relatorios</strong>, <strong>/estoque</strong>,{" "}
+                  <strong>/ferias</strong> (Controle de Férias),{" "}
+                  <strong>/folha</strong> (Folha de Pagamento) e{" "}
+                  <strong>/exames</strong> (Controle de Exames). Fica FIXA na
+                  unidade vinculada (
+                  {empresas.find((e) => e.id === empresaId)?.nome ||
+                    "Selecione acima"}
+                  ), sem troca de empresa e sem acesso a Lançamentos, Ordens,
+                  Cadastros gerais ou Usuários.
+                </p>
+              </div>
+            ) : perfil === "gestor" ? (
               <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-300 space-y-1">
                 <div className="font-semibold flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />

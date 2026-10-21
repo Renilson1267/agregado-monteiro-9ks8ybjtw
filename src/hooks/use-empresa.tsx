@@ -48,12 +48,13 @@ export const encontrarEmpresaPadrao = (lista: Empresa[]): Empresa | null => {
 }
 
 export const EmpresaProvider = ({ children }: { children: ReactNode }) => {
-  const { empresaVinculadaId, isBalanceiro, isGestor } = useUsuario()
+  const { empresaVinculadaId, isBalanceiro, isGestor, isAuxiliarAdm } =
+    useUsuario()
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [empresaAtiva, setEmpresaAtiva] = useState<Empresa | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const ehUsuarioRestrito = isBalanceiro || isGestor
+  const ehUsuarioRestrito = isBalanceiro || isGestor || isAuxiliarAdm
 
   const carregarEmpresas = useCallback(async () => {
     try {

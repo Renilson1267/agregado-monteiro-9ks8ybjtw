@@ -3078,7 +3078,7 @@ export const ConcreteiraService = {
     user_id?: string | null
     nome: string
     email: string
-    perfil: "administrador" | "balanceiro" | "gestor"
+    perfil: "administrador" | "balanceiro" | "gestor" | "auxiliar_adm"
     empresa_id?: string | null
     ativo?: boolean
   }): Promise<any> {

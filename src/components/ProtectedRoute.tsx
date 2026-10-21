@@ -6,14 +6,16 @@ import { Loader2 } from "lucide-react"
 interface ProtectedRouteProps {
   permitirApenasAdmin?: boolean
   permitirGestor?: boolean
+  permitirAuxiliarAdm?: boolean
 }
 
 export function ProtectedRoute({
   permitirApenasAdmin = false,
   permitirGestor = false,
+  permitirAuxiliarAdm = false,
 }: ProtectedRouteProps) {
   const { user, loading: authLoading } = useAuth()
-  const { isBalanceiro, isGestor, loadingUsuario } = useUsuario()
+  const { isBalanceiro, isGestor, isAuxiliarAdm, loadingUsuario } = useUsuario()
   const location = useLocation()
   if (authLoading || loadingUsuario) {
     return (
@@ -29,6 +31,15 @@ export function ProtectedRoute({
   // Não autenticado -> redireciona para login
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  // Auxiliar Administrativo: acesso EXCLUSIVO a 6 rotas:
+  // /painel, /relatorios, /estoque, /ferias, /folha, /exames
+  // Qualquer outra rota deve ser redirecionada para /painel sem criar loop.
+  if (isAuxiliarAdm) {
+    if (permitirApenasAdmin || !permitirAuxiliarAdm) {
+      return <Navigate to="/painel" replace />
+    }
   }
 
   // Se for rota restrita para Gestor (gestor tem acesso APENAS a /painel, /relatorios, /lancamentos, /estoque)

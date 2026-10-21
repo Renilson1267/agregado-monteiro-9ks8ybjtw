@@ -34,6 +34,7 @@ function RotaRaizRedirect() {
   const {
     isBalanceiro,
     isGestor,
+    isAuxiliarAdm,
     isAdministrador,
     loadingUsuario,
     usuarioApp,
@@ -53,10 +54,14 @@ function RotaRaizRedirect() {
   // Destino único por perfil. A raiz NUNCA devolve para si mesma nem para
   // rotas bloqueadas pelo perfil do usuário — qualquer um dos destinos abaixo
   // existe na árvore de rotas para o perfil em questão, o que elimina o loop.
-  //  - administrador / gestor  -> /painel (ambos liberados no grupo acima)
-  //  - balanceiro / fallback   -> /dashboard (bloqueado para gestor)
+  //  - administrador / gestor / auxiliar_adm  -> /painel
+  //  - balanceiro                             -> /dashboard
   const destino =
-    usuarioApp && !isAdministrador && !isGestor && isBalanceiro
+    usuarioApp &&
+    !isAdministrador &&
+    !isGestor &&
+    !isAuxiliarAdm &&
+    isBalanceiro
       ? "/dashboard"
       : "/painel"
   return <Navigate to={destino} replace />
@@ -79,49 +84,102 @@ const App = () => (
                 <Route path="/login" element={<Login />} />
 
                 {/* Rotas Protegidas Globais (Requer estar logado) */}
-                <Route element={<ProtectedRoute permitirGestor={true} />}>
+                <Route
+                  element={
+                    <ProtectedRoute
+                      permitirGestor={true}
+                      permitirAuxiliarAdm={true}
+                    />
+                  }
+                >
                   <Route element={<Layout />}>
-                    {/* Rota Raiz: redireciona conforme o perfil (Balanceiro -> /lancamentos, Admin -> /painel) */}
+                    {/* Rota Raiz: redireciona conforme o perfil (Balanceiro -> /dashboard, Admin/Gestor/AuxiliarAdm -> /painel) */}
                     <Route path="/" element={<RotaRaizRedirect />} />
-                    {/* 4 Telas permitidas para Gestor: /painel, /relatorios, /lancamentos, /estoque */}
-                    {/* Lançamentos e Estoque: liberados para Gestor, Balanceiro e Administrador */}
-                    <Route element={<ProtectedRoute permitirGestor={true} />}>
-                      <Route
-                        path="/lancamentos"
-                        element={<LancamentoCargas />}
-                      />
-                      <Route path="/estoque" element={<Estoque />} />
-                    </Route>
-                    {/* Painel Gerencial e Relatórios: liberados para Gestor e Administrador (bloqueados para Balanceiro) */}
+
+                    {/* Painel Gerencial e Relatórios: liberados para Auxiliar Adm, Gestor e Admin */}
                     <Route
                       element={
                         <ProtectedRoute
                           permitirApenasAdmin={false}
                           permitirGestor={true}
+                          permitirAuxiliarAdm={true}
                         />
                       }
                     >
                       <Route path="/painel" element={<PainelGerencial />} />
                       <Route path="/relatorios" element={<Relatorios />} />
                     </Route>
-                    {/* Módulos permitidos para Balanceiro e Admin (Gestor NÃO tem acesso a /dashboard nem /ordens) */}
+
+                    {/* Estoque de Insumos: liberado para Auxiliar Adm, Gestor, Balanceiro e Admin */}
+                    <Route
+                      element={
+                        <ProtectedRoute
+                          permitirApenasAdmin={false}
+                          permitirGestor={true}
+                          permitirAuxiliarAdm={true}
+                        />
+                      }
+                    >
+                      <Route path="/estoque" element={<Estoque />} />
+                    </Route>
+
+                    {/* Folha, Exames e Férias: liberados para Auxiliar Adm e Admin (bloqueados para Gestor e Balanceiro) */}
                     <Route
                       element={
                         <ProtectedRoute
                           permitirApenasAdmin={false}
                           permitirGestor={false}
+                          permitirAuxiliarAdm={true}
+                        />
+                      }
+                    >
+                      <Route path="/exames" element={<ControleExames />} />
+                      <Route path="/folha" element={<FolhaPagamento />} />
+                      <Route
+                        path="/ferias"
+                        element={
+                          <Navigate to="/cadastros?tab=ferias" replace />
+                        }
+                      />
+                    </Route>
+
+                    {/* Lançamento de Cargas: liberado para Gestor, Balanceiro e Admin (BLOQUEADO para Auxiliar Adm) */}
+                    <Route
+                      element={
+                        <ProtectedRoute
+                          permitirApenasAdmin={false}
+                          permitirGestor={true}
+                          permitirAuxiliarAdm={false}
+                        />
+                      }
+                    >
+                      <Route
+                        path="/lancamentos"
+                        element={<LancamentoCargas />}
+                      />
+                    </Route>
+
+                    {/* Módulos permitidos apenas para Balanceiro e Admin (Gestor e Auxiliar Adm NÃO têm acesso) */}
+                    <Route
+                      element={
+                        <ProtectedRoute
+                          permitirApenasAdmin={false}
+                          permitirGestor={false}
+                          permitirAuxiliarAdm={false}
                         />
                       }
                     >
                       <Route path="/dashboard" element={<Index />} />
                       <Route path="/ordens" element={<Ordens />} />
                     </Route>
-                    {/* Rotas Restritas a Administrador (Gestor e Balanceiro BLOQUEADOS / redirecionados) */}
+
+                    {/* Rotas Restritas a Administrador (Gestor, Balanceiro e Auxiliar Adm BLOQUEADOS / redirecionados) */}
                     <Route
                       element={
                         <ProtectedRoute
                           permitirApenasAdmin={true}
                           permitirGestor={false}
+                          permitirAuxiliarAdm={false}
                         />
                       }
                     >
@@ -136,8 +194,6 @@ const App = () => (
                           <Navigate to="/relatorios?tab=comparativo" replace />
                         }
                       />
-                      <Route path="/exames" element={<ControleExames />} />
-                      <Route path="/folha" element={<FolhaPagamento />} />
                       <Route path="/cadastros" element={<Cadastros />} />
                       <Route
                         path="/usuarios"
@@ -145,13 +201,7 @@ const App = () => (
                           <Navigate to="/cadastros?tab=usuarios" replace />
                         }
                       />
-                      <Route
-                        path="/ferias"
-                        element={
-                          <Navigate to="/cadastros?tab=ferias" replace />
-                        }
-                      />
-                    </Route>{" "}
+                    </Route>
                   </Route>
                 </Route>
 
