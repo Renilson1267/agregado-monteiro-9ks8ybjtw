@@ -62,7 +62,9 @@ import {
   User,
   Clock,
   Sparkles,
+  Layers,
 } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/hooks/use-toast"
 
 export default function Ordens() {
@@ -117,6 +119,16 @@ export default function Ordens() {
       discriminacao: "FCK 25 BRITA 0 / 1 SLUMP 12+-2 SJE NAC",
     },
   ])
+
+  // Insumos do traço no recibo
+  const [exibirInsumos, setExibirInsumos] = useState<boolean>(true)
+  const [insumosDetalhados, setInsumosDetalhados] = useState<Array<{
+    material: string
+    quantidade: number
+    unidade: string
+  }>>([])
+  const [insumosEditadosManualmente, setInsumosEditadosManualmente] =
+    useState<boolean>(false)
 
   // Slump Central & Peça
   const [slumpCentralMedido, setSlumpCentralMedido] = useState("12+-2")
@@ -187,6 +199,140 @@ export default function Ordens() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaAtiva?.id])
 
+  // Função auxiliar para montar insumos de uma carga vinculada
+  const montarInsumosDaCarga = (carga: Carga) => {
+    return [
+      {
+        material: "Cimento",
+        quantidade: Number(carga.consumo_cimento || 0),
+        unidade: "kg",
+      },
+      {
+        material: "Aditivo",
+        quantidade: Number(carga.consumo_aditivo || 0),
+        unidade: "L",
+      },
+      {
+        material: "Água",
+        quantidade: Number(carga.consumo_agua || 0),
+        unidade: "L",
+      },
+      {
+        material: "Areia",
+        quantidade: Number(carga.consumo_areia || 0),
+        unidade: "kg",
+      },
+      {
+        material: "Brita 12",
+        quantidade: Number(carga.consumo_brita12 || 0),
+        unidade: "kg",
+      },
+      {
+        material: "Brita 19",
+        quantidade: Number(carga.consumo_brita19 || 0),
+        unidade: "kg",
+      },
+      {
+        material: "Pó de Pedra",
+        quantidade: Number(carga.consumo_po_pedra || 0),
+        unidade: "kg",
+      },
+    ].filter((ins) => ins.quantidade > 0)
+  }
+
+  // Função auxiliar para localizar o traço pelo nome discriminado no item
+  const encontrarTracoPorDescricao = (discriminacao?: string) => {
+    if (!discriminacao) return undefined
+    const disc = discriminacao.trim().toLowerCase()
+
+    // 1. Tentar correspondência exata de nome ou nome contido
+    let tEncontrado = tracos.find((t) => {
+      const tNome = (t.nome || "").trim().toLowerCase()
+      return tNome === disc || disc.includes(tNome)
+    })
+    if (tEncontrado) return tEncontrado
+
+    // 2. Tentar por FCK se constar "FCK 25", "FCK 30", etc.
+    const matchFck = disc.match(/(?:fck\s*|f-?|f)(\d{2})\b/i)
+    if (matchFck) {
+      const fckNum = Number(matchFck[1])
+      tEncontrado = tracos.find((t) => Number(t.fck_mpa) === fckNum)
+      if (tEncontrado) return tEncontrado
+    }
+
+    return undefined
+  }
+
+  // Função auxiliar para calcular insumos a partir do traço e volume dos itens
+  const calcularInsumosDoTraco = (itensLista: ItemOrdemServico[]) => {
+    // Procura o traço no primeiro item que tiver traço reconhecido ou no primeiro item
+    const primeiroItem = itensLista[0]
+    const volumeItem = Number(primeiroItem?.quantidade || 0)
+    const tracoEncontrado = encontrarTracoPorDescricao(
+      primeiroItem?.discriminacao,
+    )
+
+    if (!tracoEncontrado || volumeItem <= 0) {
+      return []
+    }
+
+    const calc = [
+      {
+        material: "Cimento",
+        quantidade: Math.round(
+          Number(tracoEncontrado.consumo_cimento || 0) * volumeItem,
+        ),
+        unidade: "kg",
+      },
+      {
+        material: "Aditivo",
+        quantidade: Number(
+          (Number(tracoEncontrado.consumo_aditivo || 0) * volumeItem).toFixed(
+            2,
+          ),
+        ),
+        unidade: "L",
+      },
+      {
+        material: "Água",
+        quantidade: Math.round(
+          Number(tracoEncontrado.consumo_agua || 0) * volumeItem,
+        ),
+        unidade: "L",
+      },
+      {
+        material: "Areia",
+        quantidade: Math.round(
+          Number(tracoEncontrado.consumo_areia || 0) * volumeItem,
+        ),
+        unidade: "kg",
+      },
+      {
+        material: "Brita 12",
+        quantidade: Math.round(
+          Number(tracoEncontrado.consumo_brita12 || 0) * volumeItem,
+        ),
+        unidade: "kg",
+      },
+      {
+        material: "Brita 19",
+        quantidade: Math.round(
+          Number(tracoEncontrado.consumo_brita19 || 0) * volumeItem,
+        ),
+        unidade: "kg",
+      },
+      {
+        material: "Pó de Pedra",
+        quantidade: Math.round(
+          Number(tracoEncontrado.consumo_po_pedra || 0) * volumeItem,
+        ),
+        unidade: "kg",
+      },
+    ].filter((ins) => ins.quantidade > 0)
+
+    return calc
+  }
+
   // Preenche dados do cliente selecionado no formulário
   const handleSelecionarCliente = (clienteId: string) => {
     setClienteSelecionadoId(clienteId)
@@ -207,6 +353,7 @@ export default function Ordens() {
     setDestinatarioCidade(cli.cidade || "")
     setDestinatarioUf(cli.uf || "PB")
     setDestinatarioCep(cli.cep || "")
+    setExibirInsumos(cli.exibir_insumos_os ?? true)
   }
 
   // Cargas sem OS vinculada (ou que já é a carga vinculada à OS em edição)
@@ -221,10 +368,14 @@ export default function Ordens() {
     return cargas.filter((c) => !idsCargasComOS.has(c.id))
   }, [cargas, ordens, ordemEditando?.carga_id])
 
-  // Vincula dados de uma carga existente (pré-preenche volume, motorista, placa e destino)
+  // Vincula dados de uma carga existente (pré-preenche volume, motorista, placa, destino e insumos)
   const handleVincularCarga = (cargaId: string) => {
     setCargaSelecionadaId(cargaId)
-    if (cargaId === "none") return
+    if (cargaId === "none") {
+      setInsumosEditadosManualmente(false)
+      setInsumosDetalhados(calcularInsumosDoTraco(itens))
+      return
+    }
 
     const carga = cargas.find((c) => c.id === cargaId)
     if (!carga) return
@@ -244,13 +395,18 @@ export default function Ordens() {
     const descTraco =
       carga.traco_nome || "FCK 25 BRITA 0 / 1 SLUMP 12+-2 SJE NAC"
 
-    setItens([
+    const novosItens = [
       {
         quantidade: vol,
         unidade: "m3",
         discriminacao: descTraco,
       },
-    ])
+    ]
+    setItens(novosItens)
+
+    // Monta os insumos a partir dos consumos reais da carga
+    setInsumosEditadosManualmente(false)
+    setInsumosDetalhados(montarInsumosDaCarga(carga))
   }
 
   // Abertura para nova OS
@@ -312,6 +468,17 @@ export default function Ordens() {
       setBombaEstacionaria("")
       setObservacoes("")
 
+      const itensPadrao = [
+        {
+          quantidade: 8.0,
+          unidade: "m3",
+          discriminacao: `FCK 25 BRITA 0 / 1 SLUMP 12+-2 ${empresaAtiva.slug?.toUpperCase() || ""} NAC`,
+        },
+      ]
+      setExibirInsumos(true)
+      setInsumosEditadosManualmente(false)
+      setInsumosDetalhados(calcularInsumosDoTraco(itensPadrao))
+
       setModalOpen(true)
     } finally {
       setLoading(false)
@@ -372,19 +539,58 @@ export default function Ordens() {
     setBombaEstacionaria(os.bomba_estacionaria || "")
     setObservacoes(os.observacoes || "")
 
+    // Carregar insumos_detalhados e exibir_insumos_os
+    setExibirInsumos(os.exibir_insumos_os ?? true)
+    const insumosExistentes = os.insumos_detalhados || []
+    if (insumosExistentes.length > 0) {
+      setInsumosDetalhados(insumosExistentes)
+      setInsumosEditadosManualmente(true)
+    } else {
+      // Se não tinha insumos salvos, tentar calcular
+      if (os.carga_id) {
+        const cVinculada = cargas.find((c) => c.id === os.carga_id)
+        if (cVinculada) {
+          setInsumosDetalhados(montarInsumosDaCarga(cVinculada))
+        } else {
+          setInsumosDetalhados(
+            calcularInsumosDoTraco(
+              os.itens && os.itens.length > 0
+                ? os.itens
+                : [{ quantidade: 8, unidade: "m3", discriminacao: "FCK 25" }],
+            ),
+          )
+        }
+      } else {
+        setInsumosDetalhados(
+          calcularInsumosDoTraco(
+            os.itens && os.itens.length > 0
+              ? os.itens
+              : [{ quantidade: 8, unidade: "m3", discriminacao: "FCK 25" }],
+          ),
+        )
+      }
+      setInsumosEditadosManualmente(false)
+    }
+
     setModalOpen(true)
   }
 
   // Manipulação de linhas de itens
   const handleAddItem = () => {
-    setItens((prev) => [
-      ...prev,
-      {
-        quantidade: 8.0,
-        unidade: "m3",
-        discriminacao: "FCK 25 BRITA 0 / 1 SLUMP 12+-2",
-      },
-    ])
+    setItens((prev) => {
+      const novos = [
+        ...prev,
+        {
+          quantidade: 8.0,
+          unidade: "m3",
+          discriminacao: "FCK 25 BRITA 0 / 1 SLUMP 12+-2",
+        },
+      ]
+      if (!insumosEditadosManualmente && cargaSelecionadaId === "none") {
+        setInsumosDetalhados(calcularInsumosDoTraco(novos))
+      }
+      return novos
+    })
   }
 
   const handleUpdateItem = (
@@ -395,13 +601,53 @@ export default function Ordens() {
     setItens((prev) => {
       const copy = [...prev]
       copy[index] = { ...copy[index], [field]: val }
+      if (!insumosEditadosManualmente && cargaSelecionadaId === "none") {
+        setInsumosDetalhados(calcularInsumosDoTraco(copy))
+      }
       return copy
     })
   }
 
   const handleRemoveItem = (index: number) => {
     if (itens.length <= 1) return
-    setItens((prev) => prev.filter((_, i) => i !== index))
+    setItens((prev) => {
+      const copy = prev.filter((_, i) => i !== index)
+      if (!insumosEditadosManualmente && cargaSelecionadaId === "none") {
+        setInsumosDetalhados(calcularInsumosDoTraco(copy))
+      }
+      return copy
+    })
+  }
+
+  // Edição manual de insumos
+  const handleUpdateInsumo = (
+    index: number,
+    field: "material" | "quantidade" | "unidade",
+    val: any,
+  ) => {
+    setInsumosEditadosManualmente(true)
+    setInsumosDetalhados((prev) => {
+      const copy = [...prev]
+      copy[index] = { ...copy[index], [field]: val }
+      return copy
+    })
+  }
+
+  const handleRemoveInsumo = (index: number) => {
+    setInsumosEditadosManualmente(true)
+    setInsumosDetalhados((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleRecalcularInsumos = () => {
+    setInsumosEditadosManualmente(false)
+    if (cargaSelecionadaId !== "none") {
+      const carga = cargas.find((c) => c.id === cargaSelecionadaId)
+      if (carga) {
+        setInsumosDetalhados(montarInsumosDaCarga(carga))
+        return
+      }
+    }
+    setInsumosDetalhados(calcularInsumosDoTraco(itens))
   }
 
   // Executar a gravação de fato da OS após confirmação
@@ -429,6 +675,8 @@ export default function Ordens() {
         destinatario_cep: destinatarioCep.trim() || null,
 
         itens,
+        exibir_insumos_os: exibirInsumos,
+        insumos_detalhados: insumosDetalhados,
 
         slump_central_medido: slumpCentralMedido.trim() || null,
         slump_central_saida: slumpCentralSaida.trim() || null,
@@ -1010,6 +1258,163 @@ export default function Ordens() {
               </div>
             </div>
 
+            {/* Bloco 2.1: INSUMOS DO TRAÇO NO RECIBO (OPÇÃO CONDICIONAL E TABELA EDITÁVEL) */}
+            <div className="p-3.5 rounded-lg border border-border/40 bg-card/60 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/30 pb-2">
+                <div className="flex items-center gap-2.5">
+                  <Checkbox
+                    id="chkExibirInsumos"
+                    checked={exibirInsumos}
+                    onCheckedChange={(checked) =>
+                      setExibirInsumos(Boolean(checked))
+                    }
+                  />
+                  <div>
+                    <Label
+                      htmlFor="chkExibirInsumos"
+                      className="text-xs font-bold text-foreground uppercase tracking-wider cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Layers className="w-3.5 h-3.5 text-primary" />
+                      Exibir insumos do traço
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Imprime a tabela detalhada de quilos e litros no recibo
+                      oficial A4 (Cimento, Britas, Areia, etc.)
+                    </p>
+                  </div>
+                </div>
+
+                {exibirInsumos && (
+                  <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRecalcularInsumos}
+                      className="h-7 text-xs gap-1"
+                      title="Recalcula as quantidades com base no traço e volume dos itens ou na carga vinculada"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Recalcular do Traço
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setInsumosEditadosManualmente(true)
+                        setInsumosDetalhados((prev) => [
+                          ...prev,
+                          { material: "", quantidade: 0, unidade: "kg" },
+                        ])
+                      }}
+                      className="h-7 text-xs gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Adicionar Insumo
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {exibirInsumos && (
+                <div className="space-y-2 pt-1">
+                  {insumosDetalhados.length === 0 ? (
+                    <div className="py-4 text-center text-xs text-muted-foreground italic border border-dashed rounded p-3">
+                      Nenhum insumo calculado ou listado. Clique em "Recalcular
+                      do Traço" ou selecione uma carga/cliente com traço válido.
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="grid grid-cols-12 gap-2 text-[10px] uppercase font-semibold text-muted-foreground px-1">
+                        <div className="col-span-5 sm:col-span-6">Material</div>
+                        <div className="col-span-4 sm:col-span-3 text-right">
+                          Quantidade
+                        </div>
+                        <div className="col-span-2 sm:col-span-2 text-center">
+                          Unidade
+                        </div>
+                        <div className="col-span-1 text-center">Ação</div>
+                      </div>
+
+                      {insumosDetalhados.map((ins, idx) => (
+                        <div
+                          key={idx}
+                          className="grid grid-cols-12 gap-2 items-center"
+                        >
+                          <div className="col-span-5 sm:col-span-6">
+                            <Input
+                              value={ins.material}
+                              onChange={(e) =>
+                                handleUpdateInsumo(
+                                  idx,
+                                  "material",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="Nome do Insumo"
+                              className="h-8 text-xs font-medium"
+                            />
+                          </div>
+                          <div className="col-span-4 sm:col-span-3">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={ins.quantidade}
+                              onChange={(e) =>
+                                handleUpdateInsumo(
+                                  idx,
+                                  "quantidade",
+                                  Number(e.target.value),
+                                )
+                              }
+                              placeholder="0"
+                              className="h-8 text-xs font-mono text-right font-semibold"
+                            />
+                          </div>
+                          <div className="col-span-2 sm:col-span-2">
+                            <Input
+                              value={ins.unidade}
+                              onChange={(e) =>
+                                handleUpdateInsumo(
+                                  idx,
+                                  "unidade",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="kg / L"
+                              className="h-8 text-xs font-mono text-center uppercase"
+                            />
+                          </div>
+                          <div className="col-span-1 flex justify-center">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveInsumo(idx)}
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              title="Remover linha deste insumo"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {insumosEditadosManualmente && (
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400 italic pt-1">
+                          * As quantidades de insumos foram editadas manualmente
+                          e não serão recalculadas automaticamente ao alterar o
+                          volume. Use o botão "Recalcular do Traço" para
+                          restaurar o cálculo automático.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Bloco 3: VERIFICAÇÃO SLUMP (CENTRAL E PEÇA CONCRETADA) */}
             <div className="p-3.5 rounded-lg border border-border/40 bg-card/60 space-y-3">
               <div className="text-xs font-bold text-foreground uppercase tracking-wider border-b border-border/30 pb-1.5">
@@ -1416,6 +1821,22 @@ export default function Ordens() {
                   <span>{motoristaNome}</span>
                 </div>
               )}
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-sans">
+                  Insumos no Recibo:
+                </span>
+                <span
+                  className={
+                    exibirInsumos
+                      ? "text-emerald-600 dark:text-emerald-400 font-semibold"
+                      : "text-muted-foreground"
+                  }
+                >
+                  {exibirInsumos
+                    ? `Sim (${insumosDetalhados.length} insumos)`
+                    : "Não"}
+                </span>
+              </div>
             </div>
           </div>
 
