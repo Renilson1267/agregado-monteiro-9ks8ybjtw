@@ -87,6 +87,10 @@ export default function Ordens() {
   const [salvando, setSalvando] = useState(false)
   const [ordemEditando, setOrdemEditando] = useState<OrdemServico | null>(null)
   const [modalConfirmarAberta, setModalConfirmarAberta] = useState(false)
+  const [ordemParaExcluir, setOrdemParaExcluir] = useState<OrdemServico | null>(
+    null,
+  )
+  const [excluindo, setExcluindo] = useState(false)
 
   // Documento selecionado para impressão
   const [ordemParaImprimir, setOrdemParaImprimir] =
@@ -131,16 +135,16 @@ export default function Ordens() {
     useState<boolean>(false)
 
   // Slump Central & Peça
-  const [slumpCentralMedido, setSlumpCentralMedido] = useState("12+-2")
-  const [slumpCentralSaida, setSlumpCentralSaida] = useState("12+-2")
+  const [slumpCentralMedido, setSlumpCentralMedido] = useState("")
+  const [slumpCentralSaida, setSlumpCentralSaida] = useState("")
   const [aguaAdicCentral, setAguaAdicCentral] = useState<number>(0)
-  const [moldagemCentral, setMoldagemCentral] = useState("SIM")
+  const [moldagemCentral, setMoldagemCentral] = useState("")
   const [vistoMotoristaCentral, setVistoMotoristaCentral] = useState("")
 
-  const [slumpPecaMedido, setSlumpPecaMedido] = useState("12+-2")
-  const [slumpPecaSaida, setSlumpPecaSaida] = useState("12+-2")
+  const [slumpPecaMedido, setSlumpPecaMedido] = useState("")
+  const [slumpPecaSaida, setSlumpPecaSaida] = useState("")
   const [aguaAdicPeca, setAguaAdicPeca] = useState<number>(0)
-  const [pecaConcretada, setPecaConcretada] = useState("PISO / ESTRUTURAL")
+  const [pecaConcretada, setPecaConcretada] = useState("")
   const [vistoMotoristaPeca, setVistoMotoristaPeca] = useState("")
 
   // Transporte & Horários
@@ -437,16 +441,16 @@ export default function Ordens() {
         },
       ])
 
-      setSlumpCentralMedido("12+-2")
-      setSlumpCentralSaida("12+-2")
+      setSlumpCentralMedido("")
+      setSlumpCentralSaida("")
       setAguaAdicCentral(0)
-      setMoldagemCentral("SIM")
+      setMoldagemCentral("")
       setVistoMotoristaCentral("")
 
-      setSlumpPecaMedido("12+-2")
-      setSlumpPecaSaida("12+-2")
+      setSlumpPecaMedido("")
+      setSlumpPecaSaida("")
       setAguaAdicPeca(0)
-      setPecaConcretada("PISO / ESTRUTURAL")
+      setPecaConcretada("")
       setVistoMotoristaPeca("")
 
       setVeiculoPlaca("")
@@ -508,16 +512,16 @@ export default function Ordens() {
         : [{ quantidade: 8, unidade: "m3", discriminacao: "FCK 25" }],
     )
 
-    setSlumpCentralMedido(os.slump_central_medido || "12+-2")
-    setSlumpCentralSaida(os.slump_central_saida || "12+-2")
+    setSlumpCentralMedido(os.slump_central_medido || "")
+    setSlumpCentralSaida(os.slump_central_saida || "")
     setAguaAdicCentral(Number(os.agua_adic_central || 0))
-    setMoldagemCentral(os.moldagem_central || "SIM")
+    setMoldagemCentral(os.moldagem_central || "")
     setVistoMotoristaCentral(os.visto_motorista_central || "")
 
-    setSlumpPecaMedido(os.slump_peca_medido || "12+-2")
-    setSlumpPecaSaida(os.slump_peca_saida || "12+-2")
+    setSlumpPecaMedido(os.slump_peca_medido || "")
+    setSlumpPecaSaida(os.slump_peca_saida || "")
     setAguaAdicPeca(Number(os.agua_adic_peca || 0))
-    setPecaConcretada(os.peca_concretada || "PISO / ESTRUTURAL")
+    setPecaConcretada(os.peca_concretada || "")
     setVistoMotoristaPeca(os.visto_motorista_peca || "")
 
     setVeiculoPlaca(os.veiculo_placa || "")
@@ -732,6 +736,31 @@ export default function Ordens() {
       })
     } finally {
       setSalvando(false)
+    }
+  }
+
+  // Confirmação e execução da exclusão de Ordem de Serviço
+  const handleConfirmarExclusao = async () => {
+    if (!ordemParaExcluir) return
+    setExcluindo(true)
+    try {
+      await ConcreteiraService.excluirOrdemServico(ordemParaExcluir.id)
+      toast({
+        title: `Recibo Nº ${ordemParaExcluir.numero_os} excluído com sucesso!`,
+        description:
+          "A Ordem de Serviço foi removida e a carga vinculada (se houver) voltou a ficar disponível.",
+      })
+      setOrdemParaExcluir(null)
+      carregarDados()
+    } catch (err: any) {
+      toast({
+        title: "Erro ao excluir Ordem de Serviço",
+        description:
+          err.message || "Não foi possível excluir a Ordem de Serviço.",
+        variant: "destructive",
+      })
+    } finally {
+      setExcluindo(false)
     }
   }
 
@@ -960,6 +989,16 @@ export default function Ordens() {
                               title="Editar Ordem"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => setOrdemParaExcluir(os)}
+                              title="Excluir Ordem"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           </div>
                         </td>
@@ -1742,6 +1781,38 @@ export default function Ordens() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog de Confirmação para Excluir OS */}
+      <AlertDialog
+        open={Boolean(ordemParaExcluir)}
+        onOpenChange={(aberta) => {
+          if (!aberta && !excluindo) setOrdemParaExcluir(null)
+        }}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-base font-bold text-destructive">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              Excluir o Recibo Nº {ordemParaExcluir?.numero_os}?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              Excluir o Recibo Nº {ordemParaExcluir?.numero_os}? Esta ação não
+              pode ser desfeita. Se houver uma carga associada, o vínculo será
+              desfeito e ela voltará a constar como carga sem OS.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={excluindo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={excluindo}
+              onClick={handleConfirmarExclusao}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold"
+            >
+              {excluindo ? "Excluindo..." : "Excluir Recibo"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* AlertDialog de Confirmação com Resumo Antes de Gravar a OS */}
       <AlertDialog

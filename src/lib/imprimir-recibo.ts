@@ -108,6 +108,10 @@ export async function printElementInIsolatedIframe(
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
+      .page-break-after-always {
+        page-break-after: always !important;
+        break-after: page !important;
+      }
       table {
         table-layout: fixed !important;
         width: 100% !important;

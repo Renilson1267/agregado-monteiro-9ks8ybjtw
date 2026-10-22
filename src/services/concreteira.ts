@@ -3011,10 +3011,46 @@ export const ConcreteiraService = {
     }
   },
 
-  async excluirOrdemServico(_id: string): Promise<void> {
-    throw new Error(
-      "O Recibo/OS sequencial não pode ser excluído para não quebrar a sequência contínua de numeração da empresa.",
-    )
+  async excluirOrdemServico(id: string): Promise<void> {
+    // 1. Buscar a OS para checar se está vinculada a alguma carga
+    const { data: osExistente, error: errBusca } = await (supabase as any)
+      .from("ordens_servico")
+      .select("id, carga_id, numero_os")
+      .eq("id", id)
+      .maybeSingle()
+
+    if (errBusca) throw errBusca
+    if (!osExistente) {
+      throw new Error("Ordem de Serviço / Recibo não encontrado.")
+    }
+
+    // 2. Se a OS tiver carga_id, limpar o vínculo na carga ou em qualquer carga que a referencie
+    // Como cargas sem OS no sistema são filtradas por ordens_servico.carga_id e a relação é através dessa FK,
+    // garantimos também se houver colunas legadas em cargas ou simplesmente desvinculando.
+    if (osExistente.carga_id) {
+      try {
+        await (supabase as any)
+          .from("cargas")
+          .update({
+            // Caso as colunas existam na view/tabela
+            ordem_servico_id: null,
+            numero_os: null,
+          })
+          .eq("id", osExistente.carga_id)
+      } catch (errCarga) {
+        // Se as colunas não existirem fisicamente na tabela cargas (pois numero_os/ordem_servico_id são computados do join com ordens_servico),
+        // não bloqueia a exclusão da OS.
+        console.warn("Aviso ao desvincular carga:", errCarga)
+      }
+    }
+
+    // 3. Excluir a linha em ordens_servico
+    const { error: errDel } = await (supabase as any)
+      .from("ordens_servico")
+      .delete()
+      .eq("id", id)
+
+    if (errDel) throw errDel
   },
 
   // ==========================================
