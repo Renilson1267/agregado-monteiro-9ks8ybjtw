@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react"
+import { SW_REGISTRATION_URL } from "@/lib/pwa-version"
+
+const SW_RELOAD_FLAG_KEY = "sw-reload-ja-feito"
+const TEMPO_MINIMO_CARGA_MS = 5000 // Só recarrega se a página já estiver carregada há pelo menos 5s
 
 /**
  * Banner de atualização do PWA GC MIX.
@@ -7,11 +11,12 @@ import { useEffect, useState } from "react"
  * (estado "installed" com controller existente) e mostra um banner
  * fixo na parte inferior da tela: "Nova versão disponível — Toque para atualizar".
  *
- * Ao tocar: envia SKIP_WAITING ao SW novo e recarrega a página,
- * garantindo que o aparelho passe a rodar a versão mais recente.
+ * Ao tocar: envia SKIP_WAITING ao SW novo.
  *
- * Também verifica periodicamente (a cada 60 min) se há atualização,
- * cobrindo o caso de aparelho que fica aberto por muito tempo.
+ * Proteções contra loop infinito de recarga:
+ * 1) No 'controllerchange', só recarrega UMA vez por sessão (flag em sessionStorage com auto-limpeza)
+ * 2) Nunca recarrega se a página acabou de carregar (menos de ~5s)
+ * 3) Sem setTimeout incondicional de 3s
  */
 export function AtualizacaoPwaBanner() {
   const [precisaAtualizar, setPrecisaAtualizar] = useState(false)
@@ -22,6 +27,7 @@ export function AtualizacaoPwaBanner() {
       return
     }
 
+    const momentoInicioPagina = performance.now()
     let swRegistro: ServiceWorkerRegistration | null = null
 
     const aoEncontrarAtualizacao = () => {
@@ -50,7 +56,7 @@ export function AtualizacaoPwaBanner() {
     }
 
     navigator.serviceWorker
-      .register("/sw.js?v=gcmix-pwa-v50", { scope: "/" })
+      .register(SW_REGISTRATION_URL, { scope: "/" })
       .then((registro) => {
         vigiarRegistro(registro)
         // Verificação periódica (a cada 60 min) enquanto o app estiver aberto
@@ -70,13 +76,46 @@ export function AtualizacaoPwaBanner() {
     navigator.serviceWorker.ready.then(vigiarRegistro).catch(() => {})
 
     // Quando o SW novo assumir o controle, recarrega para carregar o bundle novo
+    // Proteções anti-loop:
+    // - Recarregar no máximo 1 vez por sessão via sessionStorage
+    // - Nunca recarregar se a página acabou de abrir (< 5s de uptime)
     let recarregandoFlag = false
     const aoTrocarController = () => {
-      if (!recarregandoFlag) {
-        recarregandoFlag = true
-        window.location.reload()
+      if (recarregandoFlag) return
+
+      const uptime = performance.now() - momentoInicioPagina
+      if (uptime < TEMPO_MINIMO_CARGA_MS) {
+        console.warn(
+          `[PWA] controllerchange ignorado: página carregada há apenas ${Math.round(uptime)}ms (< ${TEMPO_MINIMO_CARGA_MS}ms).`,
+        )
+        return
       }
+
+      try {
+        const jaRecarregou = sessionStorage.getItem(SW_RELOAD_FLAG_KEY)
+        if (jaRecarregou) {
+          console.warn(
+            "[PWA] controllerchange ignorado: reload já executado nesta sessão.",
+          )
+          return
+        }
+        sessionStorage.setItem(SW_RELOAD_FLAG_KEY, "true")
+        // Limpar após 15 segundos para não bloquear atualizações futuras em sessões longas
+        setTimeout(() => {
+          try {
+            sessionStorage.removeItem(SW_RELOAD_FLAG_KEY)
+          } catch {
+            /* intentionally ignored */
+          }
+        }, 15000)
+      } catch {
+        /* intentionally ignored */
+      }
+
+      recarregandoFlag = true
+      window.location.reload()
     }
+
     navigator.serviceWorker.addEventListener(
       "controllerchange",
       aoTrocarController,
@@ -95,13 +134,16 @@ export function AtualizacaoPwaBanner() {
     setRecarregando(true)
     navigator.serviceWorker.ready
       .then((registro) => {
-        registro.waiting?.postMessage({ type: "SKIP_WAITING" })
+        if (registro.waiting) {
+          registro.waiting.postMessage({ type: "SKIP_WAITING" })
+        } else {
+          // Se não houver waiting explícito, aciona reload controlado
+          window.location.reload()
+        }
       })
-      .catch(() => {})
-    // Garantia: se o controllerchange não disparar em 3s, recarrega direto
-    window.setTimeout(() => {
-      window.location.reload()
-    }, 3000)
+      .catch(() => {
+        window.location.reload()
+      })
   }
 
   if (!precisaAtualizar) return null

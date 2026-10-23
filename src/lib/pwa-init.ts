@@ -3,6 +3,7 @@
 // e substitui/injeta nas tags de favicon e apple-touch-icon dinamicamente
 
 import { LOGO_GC_MIX_QUADRADA } from "@/assets/logos"
+import { VERSAO_PWA_CACHE, SW_REGISTRATION_URL } from "@/lib/pwa-version"
 
 export function initializePwaAssets() {
   if (typeof window === "undefined") return
@@ -37,7 +38,7 @@ export function initializePwaAssets() {
         // requisições a /pwa-192x192.png e /pwa-512x512.png respondam com o PNG
         canvas.toBlob((blob) => {
           if (blob && "caches" in window) {
-            caches.open("gcmix-pwa-v43").then((cache) => {
+            caches.open(VERSAO_PWA_CACHE).then((cache) => {
               const headers = new Headers({
                 "Content-Type": "image/png",
                 "Cache-Control": "public, max-age=31536000",
@@ -96,9 +97,9 @@ export function registerPwaServiceWorker() {
   // Apenas registrar após o carregamento da janela para não impactar a inicialização do app
   window.addEventListener("load", () => {
     navigator.serviceWorker
-      .register("/sw.js?v=gcmix-pwa-v50", { scope: "/" })
+      .register(SW_REGISTRATION_URL, { scope: "/" })
       .then((registration) => {
-        // Verificar atualizações periódicas
+        // Log informativo de nova versão; controle de ativação é delegado ao AtualizacaoPwaBanner
         registration.addEventListener("updatefound", () => {
           const installingWorker = registration.installing
           if (installingWorker == null) return
@@ -109,10 +110,8 @@ export function registerPwaServiceWorker() {
               navigator.serviceWorker.controller
             ) {
               console.log(
-                "Nova versão do GC MIX PWA disponível. Pronto para atualizar.",
+                "[PWA] Nova versão do GC MIX instalada e aguardando acionamento pelo usuário.",
               )
-              // Notificar o SW para pular espera
-              installingWorker.postMessage({ type: "SKIP_WAITING" })
             }
           })
         })
@@ -121,16 +120,12 @@ export function registerPwaServiceWorker() {
         console.warn("Falha no registro do Service Worker:", error)
       })
 
-    // Ao mudar o controller (SW assumiu uma nova versão)
+    // Ao mudar o controller, apenas loga aqui (o banner cuida do reload protegido)
     let refreshing = false
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (!refreshing) {
         refreshing = true
-        // Não força recarregamento abrupto enquanto o usuário está preenchendo um formulário,
-        // mas avisa nos logs e na próxima navegação ou recarregamento a nova versão estará ativa
-        console.log(
-          "GC MIX PWA atualizado com sucesso para a versão mais recente.",
-        )
+        console.log("[PWA] GC MIX PWA controller atualizado com sucesso.")
       }
     })
   })

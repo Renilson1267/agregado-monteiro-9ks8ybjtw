@@ -1,6 +1,6 @@
 // Service Worker simples e seguro para o PWA GC MIX Concreto Usinado
-// Versão do cache: alterar para invalidar cache estático (build v104 - 0.0.367)
-const CACHE_NAME = "gcmix-pwa-v104"
+// Versão do cache: alterar para invalidar cache estático (build v105 - 0.0.369)
+const CACHE_NAME = "gcmix-pwa-v105"
 // Recursos estáticos básicos essenciais para abrir o shell do app offline
 const PRECACHE_ASSETS = [
   "/",
@@ -13,17 +13,14 @@ const PRECACHE_ASSETS = [
   "/apple-touch-icon.png",
 ]
 
-// Instalação: pré-carrega os recursos básicos e força ativação imediata
+// Instalação: pré-carrega os recursos básicos (não chama skipWaiting automático para não causar loop)
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_ASSETS))
-      .then(() => self.skipWaiting()),
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_ASSETS)),
   )
 })
 
-// Ativação: limpa versões antigas do cache e assume controle de abas abertas
+// Ativação: limpa versões antigas do cache (sem clients.claim automático para só assumir após reload intencional)
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
@@ -34,8 +31,7 @@ self.addEventListener("activate", (event) => {
             .filter((name) => name !== CACHE_NAME)
             .map((name) => caches.delete(name)),
         ),
-      )
-      .then(() => self.clients.claim()),
+      ),
   )
 })
 
