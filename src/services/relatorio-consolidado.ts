@@ -173,16 +173,22 @@ function calcularFolhaUnidadeComparativo(
           c.nome &&
           c.nome.trim().toUpperCase() === t.nome.trim().toUpperCase()),
     )
+    const isRaimundo = (t.nome || "").toUpperCase().includes("RAIMUNDO")
     const ehVendedor = Boolean(
-      cadastrado?.eh_vendedor ||
-        (t.nome && t.nome.toUpperCase().includes("MARCIO LUAN")),
+      (cadastrado?.eh_vendedor ||
+        (t.nome && t.nome.toUpperCase().includes("MARCIO LUAN"))) &&
+        !isRaimundo,
     )
     const valorMes = ehVendedor
       ? Number(t.comissao || 0) + Number(t.ajuda_custo || 0)
       : Number(t.salario_liquido || t.bruto || 0)
-    totalTerceiros += valorMes
 
-    if (ehVendedor && !t.nome.toUpperCase().includes("RAIMUNDO")) {
+    // Vendedor terceiro (Márcio Luan) conta SOMENTE em Vendas/Comissões, NUNCA em Terceiros
+    if (!ehVendedor) {
+      totalTerceiros += valorMes
+    }
+
+    if (ehVendedor) {
       const vComissao = Number(t.comissao || 0)
       comissoesVendas += vComissao
     }

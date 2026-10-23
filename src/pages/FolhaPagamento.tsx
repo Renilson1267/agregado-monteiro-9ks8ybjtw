@@ -1466,6 +1466,10 @@ export function FolhaPagamento() {
     )
   }, [linhasGeralProcessadasParaTotais])
 
+  // Helper para identificar Márcio Luan / vendedor terceiro (deve ficar fora das abas de terceiros e contar apenas em VENDAS)
+  const isMarcioLuan = (nome: string | undefined | null) =>
+    (nome || "").toUpperCase().includes("MARCIO LUAN")
+
   // TOTAIS TERCEIROS (exclui vendedores terceiros como Márcio Luan, que contam SOMENTE em Vendas/Comissão)
   const totaisTerceiros = useMemo(() => {
     return terceirosProcessados
@@ -1496,10 +1500,6 @@ export function FolhaPagamento() {
         },
       )
   }, [terceirosProcessados])
-
-  // Helper para identificar Márcio Luan / vendedor terceiro (deve ficar fora das abas de terceiros e contar apenas em VENDAS)
-  const isMarcioLuan = (nome: string | undefined | null) =>
-    (nome || "").toUpperCase().includes("MARCIO LUAN")
 
   // Terceiros exibidos nas tabelas de Terceiros e somados em Terceiros (exclui vendedores / Márcio Luan — comissão dele fica só na aba VENDAS)
   const terceirosNaoVendedores = useMemo(() => {
@@ -7340,7 +7340,7 @@ export function FolhaPagamento() {
                   </td>
                   <td className="border p-1" colSpan={2}></td>
                 </tr>
-                {terceirosProcessados.length > 0 && (
+                {terceirosNaoVendedores.length > 0 && (
                   <tr className="bg-gray-200 font-bold border-t-2 border-gray-400">
                     <td className="border p-1 text-center">-</td>
                     <td className="border p-1 uppercase">
@@ -7348,7 +7348,7 @@ export function FolhaPagamento() {
                     </td>
                     <td className="border p-1">
                       {linhasGeralProcessadas.length +
-                        terceirosProcessados.length}{" "}
+                        terceirosNaoVendedores.length}{" "}
                       pess.
                     </td>
                     <td className="border p-1 text-right font-mono">
@@ -7381,7 +7381,7 @@ export function FolhaPagamento() {
               </tfoot>
             </table>
 
-            {terceirosProcessados.length > 0 && (
+            {terceirosNaoVendedores.length > 0 && (
               <div className="space-y-1 pt-2">
                 <div className="font-bold text-[10px] uppercase">
                   TERCEIROS (QUINZENA {Math.round(percentualQuinzena * 100)}% /
@@ -7406,7 +7406,7 @@ export function FolhaPagamento() {
                     </tr>
                   </thead>
                   <tbody>
-                    {terceirosProcessados.map((t, idx) => (
+                    {terceirosNaoVendedores.map((t, idx) => (
                       <tr key={t.id}>
                         <td className="border p-1 text-center font-mono">
                           {idx + 1}
@@ -7435,7 +7435,7 @@ export function FolhaPagamento() {
                     <tr>
                       <td className="border p-1.5 text-center">-</td>
                       <td className="border p-1.5">
-                        TOTAL TERCEIROS ({terceirosProcessados.length})
+                        TOTAL TERCEIROS ({terceirosNaoVendedores.length})
                       </td>
                       <td className="border p-1.5 text-right font-mono">
                         {fmtMoeda(totaisTerceiros.valorMes)}
@@ -7796,7 +7796,7 @@ export function FolhaPagamento() {
               </tfoot>
             </table>
 
-            {!isMonteiro && terceirosProcessados.length > 0 && (
+            {!isMonteiro && terceirosNaoVendedores.length > 0 && (
               <div className="space-y-1.5 pt-2">
                 <h4 className="text-[11px] font-bold uppercase text-gray-800">
                   QUINZENA TERCEIROS ({Math.round(percentualQuinzena * 100)}%)
@@ -7823,7 +7823,7 @@ export function FolhaPagamento() {
                     </tr>
                   </thead>
                   <tbody>
-                    {terceirosProcessados.map((t: any, idx) => {
+                    {terceirosNaoVendedores.map((t: any, idx) => {
                       const adiantamentoValor = Number(
                         t.adiantamentoTotal || t.adiantamento || 0,
                       )
@@ -7870,7 +7870,7 @@ export function FolhaPagamento() {
                     <tr>
                       <td className="border p-1.5 text-center">-</td>
                       <td className="border p-1.5">
-                        TOTAL TERCEIROS ({terceirosProcessados.length})
+                        TOTAL TERCEIROS ({terceirosNaoVendedores.length})
                       </td>
                       <td className="border p-1.5 text-right font-mono">
                         {fmtMoeda(totaisTerceiros.quinzena)}
