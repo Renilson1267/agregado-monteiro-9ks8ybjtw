@@ -121,8 +121,23 @@ function contarPessoasUnidade(
 ): number {
   const funcs = (linhasEmpresa || []).filter((l) => l.tipo !== "Terceiro")
   const tercs = (linhasEmpresa || []).filter((l) => l.tipo === "Terceiro")
-  if (tercs.length > 0) return funcs.length + tercs.length
-  return funcs.length + (terceirosEmpresa?.length || 0)
+  // Excluir vendedor terceiro (Márcio Luan) da contagem de terceiros da folha
+  const ehVendedorTerc = (t: FolhaPagamentoLinha | FolhaTerceiro) => {
+    const nome = (t.nome || "").toUpperCase()
+    if (nome.includes("RAIMUNDO")) return false
+    if (nome.includes("MARCIO LUAN")) return true
+    if ("eh_vendedor" in t && (t as any).eh_vendedor) return true
+    return false
+  }
+
+  if (tercs.length > 0) {
+    const tercsNaoVendedores = tercs.filter((t) => !ehVendedorTerc(t))
+    return funcs.length + tercsNaoVendedores.length
+  }
+  const tercsCadNaoVendedores = (terceirosEmpresa || []).filter(
+    (t) => !ehVendedorTerc(t),
+  )
+  return funcs.length + tercsCadNaoVendedores.length
 }
 
 function calcularAjudaCustoTerceiros(
@@ -212,6 +227,7 @@ function calcularValorRealEmpresa(
   let totalTerceiros = 0
   let totalVendasTercs = 0
   let totalComissoesTercs = 0
+  let qtdTerceirosContados = 0
   tercs.forEach((t) => {
     const cadastrado = terceirosCadastradosEmpresa.find(
       (c) =>
@@ -220,16 +236,23 @@ function calcularValorRealEmpresa(
           c.nome &&
           c.nome.trim().toUpperCase() === t.nome.trim().toUpperCase()),
     )
+    const isRaimundo = (t.nome || "").toUpperCase().includes("RAIMUNDO")
     const ehVendedor = Boolean(
-      cadastrado?.eh_vendedor ||
-        (t.nome && t.nome.toUpperCase().includes("MARCIO LUAN")),
+      (cadastrado?.eh_vendedor ||
+        (t.nome && t.nome.toUpperCase().includes("MARCIO LUAN"))) &&
+        !isRaimundo,
     )
     const valorMes = ehVendedor
       ? Number(t.comissao || 0) + Number(t.ajuda_custo || 0)
       : Number(t.salario_liquido || t.bruto || 0)
-    totalTerceiros += valorMes
 
-    if (ehVendedor && !t.nome.toUpperCase().includes("RAIMUNDO")) {
+    // Vendedor terceiro (Márcio Luan) conta SOMENTE em Vendas/Comissões, NUNCA em Terceiros
+    if (!ehVendedor) {
+      totalTerceiros += valorMes
+      qtdTerceirosContados++
+    }
+
+    if (ehVendedor) {
       const vComissao = Number(t.comissao || 0)
       totalVendasTercs += Number(t.vendas_obra || 0)
       totalComissoesTercs += vComissao
@@ -256,7 +279,7 @@ function calcularValorRealEmpresa(
     producaoAPagar,
     comissoesVendas,
     qtdFuncionarios: funcs.length,
-    qtdTerceiros: tercs.length,
+    qtdTerceiros: qtdTerceirosContados,
     linhasCount: linhasEmpresa.length,
   }
 }
@@ -1443,48 +1466,57 @@ export function FolhaPagamento() {
     )
   }, [linhasGeralProcessadasParaTotais])
 
-  // TOTAIS TERCEIROS
+  // TOTAIS TERCEIROS (exclui vendedores terceiros como Márcio Luan, que contam SOMENTE em Vendas/Comissão)
   const totaisTerceiros = useMemo(() => {
-    return terceirosProcessados.reduce(
-      (acc, t: any) => {
-        acc.valorMes += t.valorMes
-        acc.quinzena += t.quinzena
-        acc.mensal += t.mensal
-        const adiantamentoValor = Number(
-          t.adiantamentoTotal || t.adiantamento || 0,
-        )
-        const destino = t.adiantamento_destino || "producao"
-        const aReceber =
-          destino === "quinzena"
-            ? Math.round((t.quinzena - adiantamentoValor) * 100) / 100
-            : t.quinzena
-        acc.adiantamento += adiantamentoValor
-        acc.aReceberQuinzena += aReceber
-        return acc
-      },
-      {
-        valorMes: 0,
-        quinzena: 0,
-        mensal: 0,
-        adiantamento: 0,
-        aReceberQuinzena: 0,
-      },
-    )
+    return terceirosProcessados
+      .filter((t: any) => !t.ehVendedor && !isMarcioLuan(t.nome))
+      .reduce(
+        (acc, t: any) => {
+          acc.valorMes += t.valorMes
+          acc.quinzena += t.quinzena
+          acc.mensal += t.mensal
+          const adiantamentoValor = Number(
+            t.adiantamentoTotal || t.adiantamento || 0,
+          )
+          const destino = t.adiantamento_destino || "producao"
+          const aReceber =
+            destino === "quinzena"
+              ? Math.round((t.quinzena - adiantamentoValor) * 100) / 100
+              : t.quinzena
+          acc.adiantamento += adiantamentoValor
+          acc.aReceberQuinzena += aReceber
+          return acc
+        },
+        {
+          valorMes: 0,
+          quinzena: 0,
+          mensal: 0,
+          adiantamento: 0,
+          aReceberQuinzena: 0,
+        },
+      )
   }, [terceirosProcessados])
 
-  // Helper para identificar Márcio Luan (deve ficar fora da aba MENSAL e de seus totais)
+  // Helper para identificar Márcio Luan / vendedor terceiro (deve ficar fora das abas de terceiros e contar apenas em VENDAS)
   const isMarcioLuan = (nome: string | undefined | null) =>
     (nome || "").toUpperCase().includes("MARCIO LUAN")
 
-  // Terceiros exibidos e somados na aba MENSAL (exclui Márcio Luan — ele fica só na aba VENDAS)
-  const terceirosMensal = useMemo(() => {
-    return terceirosProcessados.filter((t) => !isMarcioLuan(t.nome))
+  // Terceiros exibidos nas tabelas de Terceiros e somados em Terceiros (exclui vendedores / Márcio Luan — comissão dele fica só na aba VENDAS)
+  const terceirosNaoVendedores = useMemo(() => {
+    return terceirosProcessados.filter(
+      (t: any) => !t.ehVendedor && !isMarcioLuan(t.nome),
+    )
   }, [terceirosProcessados])
+
+  // Terceiros exibidos e somados na aba MENSAL (exclui Márcio Luan / vendedores — ele fica só na aba VENDAS)
+  const terceirosMensal = useMemo(() => {
+    return terceirosNaoVendedores
+  }, [terceirosNaoVendedores])
 
   // Totais de terceiros para a aba MENSAL (sem Márcio Luan)
   const totaisTerceirosMensal = useMemo(() => {
     return terceirosMensal.reduce(
-      (acc, t) => {
+      (acc, t: any) => {
         acc.valorMes += t.valorMes
         acc.quinzena += t.quinzena
         acc.mensal += t.mensal
@@ -1582,7 +1614,7 @@ export function FolhaPagamento() {
         producaoAPagar: Math.round(totaisProducao.aPagar * 100) / 100,
         comissoesVendas: Math.round(totaisVendas.comissao * 100) / 100,
         qtdFuncionarios: linhasGeralProcessadas.length,
-        qtdTerceiros: terceirosProcessados.length,
+        qtdTerceiros: terceirosNaoVendedores.length,
         linhasCount: linhas.length,
       }
     } else {
@@ -1609,7 +1641,7 @@ export function FolhaPagamento() {
         producaoAPagar: Math.round(totaisProducao.aPagar * 100) / 100,
         comissoesVendas: Math.round(totaisVendas.comissao * 100) / 100,
         qtdFuncionarios: linhasGeralProcessadas.length,
-        qtdTerceiros: terceirosProcessados.length,
+        qtdTerceiros: terceirosNaoVendedores.length,
         linhasCount: linhas.length,
       }
     } else {
@@ -1685,7 +1717,7 @@ export function FolhaPagamento() {
     totaisVendas.vendas_obra,
     totaisVendas.comissao,
     linhasGeralProcessadas.length,
-    terceirosProcessados.length,
+    terceirosNaoVendedores.length,
     linhas.length,
     linhasConsolidacaoMonteiro,
     terceirosMonteiro,
@@ -3742,7 +3774,7 @@ export function FolhaPagamento() {
                       </td>
                       <td className="py-2.5 px-3" colSpan={4}></td>
                     </tr>
-                    {terceirosProcessados.length > 0 && (
+                    {terceirosNaoVendedores.length > 0 && (
                       <tr className="border-t-2 border-primary/30 bg-primary/10 text-xs font-bold text-foreground">
                         <td className="py-2.5 px-2 text-center">-</td>
                         <td className="py-2.5 px-3 sticky left-0 bg-primary/15 z-10 border-r font-bold text-primary uppercase">
@@ -3750,7 +3782,7 @@ export function FolhaPagamento() {
                         </td>
                         <td className="py-2.5 px-2 text-muted-foreground font-normal">
                           {linhasGeralProcessadas.length +
-                            terceirosProcessados.length}{" "}
+                            terceirosNaoVendedores.length}{" "}
                           pessoas
                         </td>
                         <td className="py-2.5 px-2 text-right font-mono text-muted-foreground font-semibold">
@@ -3882,7 +3914,7 @@ export function FolhaPagamento() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {terceirosProcessados.length === 0 ? (
+                      {terceirosNaoVendedores.length === 0 ? (
                         <tr>
                           <td
                             colSpan={7}
@@ -3892,7 +3924,7 @@ export function FolhaPagamento() {
                           </td>
                         </tr>
                       ) : (
-                        terceirosProcessados.map((t) => (
+                        terceirosNaoVendedores.map((t) => (
                           <tr key={t.id} className="hover:bg-muted/30">
                             <td className="py-2 px-3 font-semibold text-foreground">
                               {t.nome}
@@ -3941,7 +3973,7 @@ export function FolhaPagamento() {
                     <tfoot className="bg-purple-100/40 dark:bg-purple-950/40 font-bold border-t">
                       <tr>
                         <td className="py-2 px-3">
-                          TOTAL TERCEIROS ({terceirosProcessados.length})
+                          TOTAL TERCEIROS ({terceirosNaoVendedores.length})
                         </td>
                         <td className="py-2 px-2 text-right font-mono">
                           {fmtMoeda(totaisTerceiros.valorMes)}
@@ -3976,7 +4008,7 @@ export function FolhaPagamento() {
 
                   <div className="p-3.5 rounded-lg border bg-purple-50/50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800 text-card-foreground shadow-sm">
                     <span className="text-xs text-purple-700 dark:text-purple-300 font-medium block">
-                      Total Terceiros ({terceirosProcessados.length})
+                      Total Terceiros ({terceirosNaoVendedores.length})
                     </span>
                     <span className="text-lg font-bold font-mono text-purple-900 dark:text-purple-200 mt-1 block">
                       {fmtMoeda(totaisTerceiros.valorMes)}
@@ -4571,7 +4603,7 @@ export function FolhaPagamento() {
                       </td>
                       <td className="py-2.5 px-3" colSpan={2}></td>
                     </tr>
-                    {!isMonteiro && terceirosProcessados.length > 0 && (
+                    {!isMonteiro && terceirosNaoVendedores.length > 0 && (
                       <tr className="border-t border-border/60 bg-muted/70 text-xs">
                         <td className="py-2 px-2 text-center">-</td>
                         <td className="py-2 px-3 sticky left-0 bg-muted/95 z-10 border-r font-semibold">
@@ -4579,7 +4611,7 @@ export function FolhaPagamento() {
                         </td>
                         <td className="py-2 px-2 text-muted-foreground">
                           {linhasGeralProcessadas.length +
-                            terceirosProcessados.length}{" "}
+                            terceirosNaoVendedores.length}{" "}
                           pessoas
                         </td>
                         <td className="py-2 px-2 text-right font-mono font-bold text-blue-700 dark:text-blue-400 bg-blue-100/60 dark:bg-blue-950/40">
@@ -4623,7 +4655,7 @@ export function FolhaPagamento() {
               </div>
 
               {/* TABELA DE TERCEIROS NA ABA QUINZENA (SEM BRUTO, 40% AUTOMÁTICO) — EXCETO UNIDADE MONTEIRO */}
-              {!isMonteiro && terceirosProcessados.length > 0 && (
+              {!isMonteiro && terceirosNaoVendedores.length > 0 && (
                 <div className="border-t p-4 space-y-3">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-purple-900 dark:text-purple-300 flex items-center gap-2">
                     <Badge className="bg-purple-600 text-white hover:bg-purple-700 text-[10px]">
@@ -4652,7 +4684,7 @@ export function FolhaPagamento() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
-                        {terceirosProcessados.map((t: any, idx) => {
+                        {terceirosNaoVendedores.map((t: any, idx) => {
                           const adiantamentoValor = Number(
                             t.adiantamentoTotal || t.adiantamento || 0,
                           )
@@ -4705,7 +4737,7 @@ export function FolhaPagamento() {
                         <tr>
                           <td className="py-2 px-2 text-center">-</td>
                           <td className="py-2 px-3">
-                            TOTAL TERCEIROS ({terceirosProcessados.length})
+                            TOTAL TERCEIROS ({terceirosNaoVendedores.length})
                           </td>
                           <td className="py-2 px-2 text-right font-mono text-blue-600">
                             {fmtMoeda(totaisTerceiros.quinzena)}

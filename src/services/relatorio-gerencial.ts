@@ -261,7 +261,10 @@ export function calcularResumoFolhaUnidade(params: {
         ? Number(t.comissao || 0) + Number(t.ajuda_custo || 0)
         : Number(t.salario_liquido || t.bruto || 0)
 
-    terceirosFolha += valorMes
+    // Vendedor terceiro (Márcio Luan) conta SOMENTE em Vendas/Comissões, NUNCA em Terceiros
+    if (!ehVendedor || isRaimundo) {
+      terceirosFolha += valorMes
+    }
 
     // Vendas terceiros: Márcio Luan só na VENDAS da Monteiro
     if (ehVendedor && !isRaimundo) {
