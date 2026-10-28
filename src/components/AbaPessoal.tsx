@@ -488,27 +488,25 @@ export function AbaPessoal() {
     }
 
     setSalvandoNovo(true)
-    const valorBruto = Number(
-      String(novoColab.salario).replace(/\./g, "").replace(",", "."),
-    ) || 0
+    const valorBruto =
+      Number(String(novoColab.salario).replace(/\./g, "").replace(",", ".")) ||
+      0
 
     try {
       if (novoColab.tipo === "Funcionário") {
-        const { error } = await (supabase as any)
-          .from("funcionarios")
-          .insert({
-            empresa_id: empresaAtiva.id,
-            nome: novoColab.nome.trim().toUpperCase(),
-            funcao: novoColab.funcao.trim().toUpperCase() || "GERAL",
-            cpf: novoColab.cpf.trim() || null,
-            data_admissao: novoColab.data_admissao || null,
-            bruto: valorBruto,
-            agencia: novoColab.agencia.trim() || null,
-            conta: novoColab.conta.trim() || null,
-            pix: novoColab.pix.trim() || null,
-            ativo: true,
-            oculto: false,
-          })
+        const { error } = await (supabase as any).from("funcionarios").insert({
+          empresa_id: empresaAtiva.id,
+          nome: novoColab.nome.trim().toUpperCase(),
+          funcao: novoColab.funcao.trim().toUpperCase() || "GERAL",
+          cpf: novoColab.cpf.trim() || null,
+          data_admissao: novoColab.data_admissao || null,
+          bruto: valorBruto,
+          agencia: novoColab.agencia.trim() || null,
+          conta: novoColab.conta.trim() || null,
+          pix: novoColab.pix.trim() || null,
+          ativo: true,
+          oculto: false,
+        })
         if (error) throw error
       } else {
         const { error } = await (supabase as any)
@@ -1234,11 +1232,15 @@ export function AbaPessoal() {
               Novo Colaborador — {empresaAtiva?.nome}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Cadastre um novo funcionário ou terceiro no quadro de pessoal desta unidade.
+              Cadastre um novo funcionário ou terceiro no quadro de pessoal
+              desta unidade.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSalvarNovoColaborador} className="space-y-3 py-2">
+          <form
+            onSubmit={handleSalvarNovoColaborador}
+            className="space-y-3 py-2"
+          >
             <div className="space-y-1">
               <Label className="text-xs font-semibold">
                 Nome Completo <span className="text-destructive">*</span>
@@ -1304,7 +1306,10 @@ export function AbaPessoal() {
                   type="date"
                   value={novoColab.data_admissao}
                   onChange={(e) =>
-                    setNovoColab({ ...novoColab, data_admissao: e.target.value })
+                    setNovoColab({
+                      ...novoColab,
+                      data_admissao: e.target.value,
+                    })
                   }
                   className="h-9 text-xs"
                 />
@@ -1312,7 +1317,9 @@ export function AbaPessoal() {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-semibold">Salário Bruto (R$)</Label>
+              <Label className="text-xs font-semibold">
+                Salário Bruto (R$)
+              </Label>
               <Input
                 type="number"
                 step="0.01"
@@ -1415,10 +1422,14 @@ export function AbaPessoal() {
                   {colaboradorParaExcluir?.nome}
                 </strong>{" "}
                 ({colaboradorParaExcluir?.tipo}) na unidade{" "}
-                <strong className="text-foreground">{empresaAtiva?.nome}</strong>.
+                <strong className="text-foreground">
+                  {empresaAtiva?.nome}
+                </strong>
+                .
               </p>
               <p className="bg-destructive/10 p-2.5 rounded-lg border border-destructive/30 text-destructive text-[11px] font-medium">
-                Linhas associadas na folha de pagamento da competência atual em diante também serão removidas para não deixar registros órfãos.
+                Linhas associadas na folha de pagamento da competência atual em
+                diante também serão removidas para não deixar registros órfãos.
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
