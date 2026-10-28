@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { supabase } from "@/lib/supabase/client"
 import { useEmpresa } from "@/hooks/use-empresa"
+import { useUsuario } from "@/hooks/use-usuario"
 import { useToast } from "@/hooks/use-toast"
 import {
   Users,
@@ -67,24 +68,34 @@ export interface ColaboradorUnificado {
   empresa_id: string
 }
 
-export interface ConfrontoResultado {
-  competencia: string
-  soNaFolha: { nome: string; cargo: string; salario: number; cpf?: string }[]
-  soNasFerias: {
-    nome: string
-    funcao: string
-    salario: number
-    ferias?: string | null
-  }[]
-  salarioDivergente: {
-    nome: string
-    funcao: string
-    salarioFolha: number
-    salarioFerias: number
-    diferenca: number
-  }[]
+export interface ConfrontoLinhaFolha {
+  nome: string
+  cargo: string
+  salario: number
+  cpf?: string
 }
 
+export interface ConfrontoLinhaFerias {
+  nome: string
+  funcao: string
+  salario: number
+  ferias?: string | null
+}
+
+export interface ConfrontoLinhaDivergente {
+  nome: string
+  funcao: string
+  salarioFolha: number
+  salarioFerias: number
+  diferenca: number
+}
+
+export interface ConfrontoResultado {
+  competencia: string
+  soNaFolha: ConfrontoLinhaFolha[]
+  soNasFerias: ConfrontoLinhaFerias[]
+  salarioDivergente: ConfrontoLinhaDivergente[]
+}
 function normalizarTexto(txt: string | null | undefined): string {
   if (!txt) return ""
   return txt
@@ -101,8 +112,8 @@ function normalizarCpf(cpf: string | null | undefined): string {
 }
 
 export function AbaPessoal() {
-  const { empresaAtiva, empresas, podeTrocarEmpresa, selecionarEmpresa } =
-    useEmpresa()
+  const { empresaAtiva, empresas, selecionarEmpresa } = useEmpresa()
+  const { podeTrocarEmpresa } = useUsuario()
   const { toast } = useToast()
 
   const [loading, setLoading] = useState(false)
@@ -153,7 +164,11 @@ export function AbaPessoal() {
         .select("nome, cpf, agencia, conta_corrente")
         .eq("empresa_id", empresaAtiva.id)
 
-      const mapaBancario = new Map<string, { agencia: string; conta: string }>()
+      interface InfoBancaria {
+        agencia: string
+        conta: string
+      }
+      const mapaBancario = new Map<string, InfoBancaria>()
       if (dataFerias) {
         for (const row of dataFerias) {
           const normNome = normalizarTexto(row.nome)
