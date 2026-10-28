@@ -37,6 +37,7 @@ export class FeriasService {
       ferias: row.ferias || null,
       calca: row.calca || "",
       camisa: row.camisa || "",
+      bota: row.bota || "",
       observacoes: row.observacoes || "",
       created_at: row.created_at,
       updated_at: row.updated_at,

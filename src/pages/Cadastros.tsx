@@ -14,6 +14,7 @@ import { useSearchParams } from "react-router-dom"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PainelUsuarios } from "@/components/PainelUsuarios"
 import { AbaControleFerias } from "@/components/AbaControleFerias"
+import { AbaPessoal } from "@/components/AbaPessoal"
 import { UserCog } from "lucide-react"
 import {
   Dialog,
@@ -110,8 +111,9 @@ export default function Cadastros() {
   const abaUrl = searchParams.get("tab")
   const [abaAtiva, setAbaAtiva] = useState<string>(() => {
     const permitidas = [
-      "usuarios",
+      "pessoal",
       "ferias",
+      "usuarios",
       "silos-tanques",
       "estoques-minimos",
       "metas",
@@ -121,13 +123,14 @@ export default function Cadastros() {
       "veiculos",
       "cidades",
     ]
-    return abaUrl && permitidas.includes(abaUrl) ? abaUrl : "ferias"
+    return abaUrl && permitidas.includes(abaUrl) ? abaUrl : "pessoal"
   })
 
   useEffect(() => {
     const permitidas = [
-      "usuarios",
+      "pessoal",
       "ferias",
+      "usuarios",
       "silos-tanques",
       "estoques-minimos",
       "metas",
@@ -1054,10 +1057,17 @@ export default function Cadastros() {
         <TabsList
           className={`grid ${
             isPatos
-              ? "grid-cols-3 sm:grid-cols-5 md:grid-cols-10"
-              : "grid-cols-3 sm:grid-cols-5 md:grid-cols-9"
+              ? "grid-cols-3 sm:grid-cols-6 md:grid-cols-11"
+              : "grid-cols-3 sm:grid-cols-5 md:grid-cols-10"
           } w-full max-w-6xl`}
         >
+          <TabsTrigger
+            value="pessoal"
+            className="gap-1.5 text-xs font-semibold text-primary"
+          >
+            <Users className="w-4 h-4 text-primary" />
+            Pessoal
+          </TabsTrigger>
           <TabsTrigger value="ferias" className="gap-1.5 text-xs font-semibold">
             <CalendarDays className="w-4 h-4 text-primary" />
             Controle de Férias
@@ -1107,6 +1117,11 @@ export default function Cadastros() {
             Cidades ({cidades.length})
           </TabsTrigger>
         </TabsList>
+
+        {/* TAB PESSOAL */}
+        <TabsContent value="pessoal" className="mt-6 space-y-4">
+          <AbaPessoal />
+        </TabsContent>
 
         {/* TAB CONTROLE DE FÉRIAS */}
         <TabsContent value="ferias" className="mt-6 space-y-4">

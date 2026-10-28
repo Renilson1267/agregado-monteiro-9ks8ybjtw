@@ -70,6 +70,7 @@ export function AbaControleFerias() {
   const [novaFerias, setNovaFerias] = useState("")
   const [novaCalca, setNovaCalca] = useState("")
   const [novaCamisa, setNovaCamisa] = useState("")
+  const [novaBota, setNovaBota] = useState("")
   const [salvandoNovo, setSalvandoNovo] = useState(false)
 
   // Modal Edição com Confirmação
@@ -87,6 +88,7 @@ export function AbaControleFerias() {
   const [editFerias, setEditFerias] = useState("")
   const [editCalca, setEditCalca] = useState("")
   const [editCamisa, setEditCamisa] = useState("")
+  const [editBota, setEditBota] = useState("")
   const [openConfirmacaoSalvar, setOpenConfirmacaoSalvar] = useState(false)
   const [salvandoEdicao, setSalvandoEdicao] = useState(false)
 
@@ -146,7 +148,8 @@ export function AbaControleFerias() {
         it.funcao.toLowerCase().includes(termo) ||
         (it.cpf && it.cpf.includes(termo)) ||
         (it.calca && it.calca.toLowerCase().includes(termo)) ||
-        (it.camisa && it.camisa.toLowerCase().includes(termo))
+        (it.camisa && it.camisa.toLowerCase().includes(termo)) ||
+        (it.bota && it.bota.toLowerCase().includes(termo))
       )
     })
   }, [itens, busca])
@@ -164,12 +167,16 @@ export function AbaControleFerias() {
     const comCamisa = itensFiltrados.filter(
       (it) => !!it.camisa && it.camisa.trim() !== "",
     ).length
+    const comBota = itensFiltrados.filter(
+      (it) => !!it.bota && it.bota.trim() !== "",
+    ).length
     return {
       quantidade: itensFiltrados.length,
       somaSalarios,
       comFeriasAgendadas,
       comCalca,
       comCamisa,
+      comBota,
     }
   }, [itensFiltrados])
 
@@ -240,6 +247,7 @@ export function AbaControleFerias() {
         ferias: novaFerias || null,
         calca: novaCalca.trim() || null,
         camisa: novaCamisa.trim() || null,
+        bota: novaBota.trim() || null,
       })
 
       toast({
@@ -258,6 +266,7 @@ export function AbaControleFerias() {
       setNovaFerias("")
       setNovaCalca("")
       setNovaCamisa("")
+      setNovaBota("")
       setOpenModalNovo(false)
 
       await carregarDados()
@@ -313,6 +322,7 @@ export function AbaControleFerias() {
     setEditFerias(item.ferias || "")
     setEditCalca(item.calca || "")
     setEditCamisa(item.camisa || "")
+    setEditBota(item.bota || "")
     setOpenModalEditar(true)
   }
 
@@ -350,6 +360,7 @@ export function AbaControleFerias() {
         ferias: editFerias || null,
         calca: editCalca.trim().toUpperCase() || null,
         camisa: editCamisa.trim().toUpperCase() || null,
+        bota: editBota.trim().toUpperCase() || null,
       }
 
       await FeriasService.atualizarItemFerias(
@@ -556,6 +567,7 @@ export function AbaControleFerias() {
                     <th className="py-2.5 px-3 min-w-[130px] bg-primary/5 text-primary font-bold">
                       FÉRIAS
                     </th>
+                    <th className="py-2.5 px-2 text-center w-16">BOTA</th>
                     <th className="py-2.5 px-2 text-center w-16">CALÇA</th>
                     <th className="py-2.5 px-2 text-center w-16">CAM.</th>
                     <th className="py-2.5 px-2 text-right w-12">AÇÕES</th>
@@ -714,6 +726,24 @@ export function AbaControleFerias() {
                         </div>
                       </td>
 
+                      {/* BOTA */}
+                      <td className="py-2 px-2 text-center">
+                        <input
+                          type="text"
+                          defaultValue={it.bota || ""}
+                          onBlur={(e) =>
+                            handleAtualizarInline(
+                              it.id,
+                              "bota",
+                              e.target.value.trim().toUpperCase(),
+                            )
+                          }
+                          className="w-12 text-center font-bold text-xs uppercase bg-transparent hover:bg-background/80 focus:bg-background rounded px-1 py-0.5 border border-transparent focus:border-primary/50 outline-none transition-all"
+                          placeholder="—"
+                          title="Número da bota"
+                        />
+                      </td>
+
                       {/* CALÇA */}
                       <td className="py-2 px-2 text-center">
                         <input
@@ -805,6 +835,12 @@ export function AbaControleFerias() {
                     <td className="py-2.5 px-3 bg-primary/10 text-primary font-mono text-center">
                       {totais.comFeriasAgendadas} prog.
                     </td>
+                    <td
+                      className="py-2.5 px-2 text-center font-mono text-[11px]"
+                      title="Botas informadas"
+                    >
+                      {totais.comBota} par
+                    </td>
                     <td className="py-2.5 px-2 text-center font-mono text-[11px]">
                       {totais.comCalca} un.
                     </td>
@@ -894,6 +930,9 @@ export function AbaControleFerias() {
                     FÉRIAS
                   </th>
                   <th className="border border-black p-1.5 text-center w-8 font-black">
+                    BOTA
+                  </th>
+                  <th className="border border-black p-1.5 text-center w-8 font-black">
                     CALÇA
                   </th>
                   <th className="border border-black p-1.5 text-center w-8 font-black">
@@ -940,6 +979,9 @@ export function AbaControleFerias() {
                       {formatarDataBr(it.ferias)}
                     </td>
                     <td className="border border-black p-1.5 text-center font-bold uppercase">
+                      {it.bota || "—"}
+                    </td>
+                    <td className="border border-black p-1.5 text-center font-bold uppercase">
                       {it.calca || "—"}
                     </td>
                     <td className="border border-black p-1.5 text-center font-bold uppercase">
@@ -971,6 +1013,9 @@ export function AbaControleFerias() {
                   </td>
                   <td className="border border-black p-2 text-center font-mono font-black">
                     {totais.comFeriasAgendadas}
+                  </td>
+                  <td className="border border-black p-2 text-center font-mono font-black">
+                    {totais.comBota}
                   </td>
                   <td className="border border-black p-2 text-center font-mono font-black">
                     {totais.comCalca}
@@ -1044,10 +1089,13 @@ export function AbaControleFerias() {
                   <th className="border border-black p-2 text-left font-black w-48">
                     FUNÇÃO
                   </th>
-                  <th className="border border-black p-2 text-center font-black w-20">
+                  <th className="border border-black p-2 text-center font-black w-16">
+                    BOTA
+                  </th>
+                  <th className="border border-black p-2 text-center font-black w-16">
                     CALÇA
                   </th>
-                  <th className="border border-black p-2 text-center font-black w-20">
+                  <th className="border border-black p-2 text-center font-black w-16">
                     CAMISA
                   </th>
                   <th className="border border-black p-2 text-center font-black w-64">
@@ -1073,6 +1121,9 @@ export function AbaControleFerias() {
                       {it.funcao || "—"}
                     </td>
                     <td className="border border-black p-2 text-center font-bold font-mono text-sm uppercase">
+                      {it.bota || "—"}
+                    </td>
+                    <td className="border border-black p-2 text-center font-bold font-mono text-sm uppercase">
                       {it.calca || "—"}
                     </td>
                     <td className="border border-black p-2 text-center font-bold font-mono text-sm uppercase">
@@ -1096,13 +1147,17 @@ export function AbaControleFerias() {
                     TOTAL DE COLABORADORES: {itens.length}
                   </td>
                   <td className="border border-black p-2 text-center font-mono font-black text-xs">
+                    {totais.comBota} par
+                  </td>
+                  <td className="border border-black p-2 text-center font-mono font-black text-xs">
                     {totais.comCalca} un.
                   </td>
                   <td className="border border-black p-2 text-center font-mono font-black text-xs">
                     {totais.comCamisa} un.
                   </td>
                   <td className="border border-black p-2 text-center font-semibold text-[10px]">
-                    Total de Itens: {totais.comCalca + totais.comCamisa} peças
+                    Total de Itens:{" "}
+                    {totais.comBota + totais.comCalca + totais.comCamisa} peças
                   </td>
                 </tr>
               </tfoot>
@@ -1251,6 +1306,19 @@ export function AbaControleFerias() {
                   value={novaFerias}
                   onChange={(e) => setNovaFerias(e.target.value)}
                   className="h-9 text-xs font-mono font-bold border-primary/40"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="nova-bota" className="text-xs font-semibold">
+                  Bota (Número)
+                </Label>
+                <Input
+                  id="nova-bota"
+                  placeholder="Ex: 40, 41, 42"
+                  value={novaBota}
+                  onChange={(e) => setNovaBota(e.target.value)}
+                  className="h-9 text-xs uppercase"
                 />
               </div>
 
@@ -1440,6 +1508,19 @@ export function AbaControleFerias() {
                   value={editFerias}
                   onChange={(e) => setEditFerias(e.target.value)}
                   className="h-9 text-xs font-mono font-bold border-primary/40"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="edit-bota" className="text-xs font-semibold">
+                  Bota (Número)
+                </Label>
+                <Input
+                  id="edit-bota"
+                  placeholder="Ex: 40, 41, 42"
+                  value={editBota}
+                  onChange={(e) => setEditBota(e.target.value)}
+                  className="h-9 text-xs uppercase"
                 />
               </div>
 
