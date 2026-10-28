@@ -88,7 +88,7 @@ export default function Estoque() {
   const [materialEntradaId, setMaterialEntradaId] = useState("")
   const [recipienteDestinoId, setRecipienteDestinoId] = useState("")
   const [quantidadeEntrada, setQuantidadeEntrada] = useState<number>(0)
-  const [precoUnitarioEntrada, setPrecoUnitarioEntrada] = useState<string>("")
+  const [valorNotaEntrada, setValorNotaEntrada] = useState<string>("")
   const [dataEntrada, setDataEntrada] = useState(
     new Date().toISOString().split("T")[0],
   )
@@ -188,17 +188,19 @@ export default function Estoque() {
 
   const precisaRecipienteDestino = recipientesFiltradosEntrada.length > 0
 
-  // Parse preco unitario numérico
-  const precoUnitarioNum = Number(precoUnitarioEntrada.replace(",", ".")) || 0
-  const valorTotalCalculado =
-    quantidadeEntrada > 0 && precoUnitarioNum > 0
-      ? Number((quantidadeEntrada * precoUnitarioNum).toFixed(2))
+  // Parse valor total da nota numérico e cálculo do preço unitário (nota ÷ quantidade)
+  const valorNotaNum =
+    Number(valorNotaEntrada.replace(/\./g, "").replace(",", ".")) || 0
+  const precoUnitarioCalculado =
+    quantidadeEntrada > 0 && valorNotaNum > 0
+      ? Number((valorNotaNum / quantidadeEntrada).toFixed(4))
       : 0
+  const valorTotalCalculado = valorNotaNum > 0 ? valorNotaNum : 0
   const isFormEntradaValido =
     Boolean(materialEntradaId) &&
     quantidadeEntrada > 0 &&
-    precoUnitarioEntrada.trim() !== "" &&
-    precoUnitarioNum > 0 &&
+    valorNotaEntrada.trim() !== "" &&
+    valorNotaNum > 0 &&
     (!precisaRecipienteDestino || Boolean(recipienteDestinoId))
 
   const executarSalvarEntrada = async () => {
@@ -210,7 +212,7 @@ export default function Estoque() {
         empresa_id: empresaAtiva?.id,
         material_id: materialEntradaId,
         quantidade: quantidadeEntrada,
-        preco_unitario: precoUnitarioNum,
+        preco_unitario: precoUnitarioCalculado,
         valor_total: valorTotalCalculado,
         data: dataEntrada,
         documento: documentoEntrada || undefined,
@@ -229,7 +231,7 @@ export default function Estoque() {
       setModalConfirmarEntradaAberta(false)
       setOpenEntrada(false)
       setQuantidadeEntrada(0)
-      setPrecoUnitarioEntrada("")
+      setValorNotaEntrada("")
       setDocumentoEntrada("")
       setObsEntrada("")
       carregarDados()
@@ -266,10 +268,10 @@ export default function Estoque() {
       return
     }
 
-    if (!precoUnitarioEntrada.trim() || precoUnitarioNum <= 0) {
+    if (!valorNotaEntrada.trim() || valorNotaNum <= 0) {
       toast({
         title: "Atenção",
-        description: "Informe um preço unitário válido maior que zero.",
+        description: "Informe o valor total da nota válido maior que zero.",
         variant: "destructive",
       })
       return
@@ -476,21 +478,34 @@ export default function Estoque() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="precoUnitario">Preço unitário (R$) *</Label>
+                    <Label htmlFor="valorNota">
+                      Valor total da nota (R$) *
+                    </Label>
                     <Input
-                      id="precoUnitario"
+                      id="valorNota"
                       type="text"
                       inputMode="decimal"
-                      value={precoUnitarioEntrada}
-                      onChange={(e) => setPrecoUnitarioEntrada(e.target.value)}
-                      placeholder="Ex: 0.72 ou 18.50"
+                      value={valorNotaEntrada}
+                      onChange={(e) => setValorNotaEntrada(e.target.value)}
+                      placeholder="Ex: 21600,00"
                       required
                     />
                     <p className="text-[11px] text-muted-foreground">
-                      Por{" "}
-                      {materiais.find((m) => m.id === materialEntradaId)
-                        ?.unidade || "unidade"}{" "}
-                      (varia por entrega)
+                      Preço unitário calculado:{" "}
+                      <span className="font-semibold text-foreground">
+                        {precoUnitarioCalculado > 0
+                          ? `R$ ${precoUnitarioCalculado.toLocaleString(
+                              "pt-BR",
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 4,
+                              },
+                            )} / ${
+                              materiais.find((m) => m.id === materialEntradaId)
+                                ?.unidade || "un"
+                            }`
+                          : "R$ 0,00"}
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -508,8 +523,8 @@ export default function Estoque() {
                       {materiais.find((m) => m.id === materialEntradaId)
                         ?.unidade || "kg"}{" "}
                       × R${" "}
-                      {precoUnitarioNum > 0
-                        ? precoUnitarioNum.toLocaleString("pt-BR", {
+                      {precoUnitarioCalculado > 0
+                        ? precoUnitarioCalculado.toLocaleString("pt-BR", {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 4,
                           })
@@ -1278,10 +1293,10 @@ export default function Estoque() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground font-sans">
-                      Preço Unitário:
+                      Preço Unitário (Calculado):
                     </span>
                     <span className="font-semibold">
-                      {precoUnitarioNum.toLocaleString("pt-BR", {
+                      {precoUnitarioCalculado.toLocaleString("pt-BR", {
                         style: "currency",
                         currency: "BRL",
                       })}
@@ -1289,7 +1304,7 @@ export default function Estoque() {
                   </div>
                   <div className="flex justify-between border-t border-border/40 pt-1">
                     <span className="text-muted-foreground font-sans">
-                      Valor Total:
+                      Valor Total da Nota:
                     </span>
                     <span className="font-bold text-emerald-600">
                       {valorTotalCalculado.toLocaleString("pt-BR", {

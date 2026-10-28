@@ -13,6 +13,7 @@ export interface ItemControleFerias {
   ferias: string | null // YYYY-MM-DD
   calca: string | null
   camisa: string | null
+  bota: string | null
   observacoes?: string | null
   created_at?: string
   updated_at?: string
