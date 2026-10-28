@@ -20,10 +20,13 @@ import {
   DollarSign,
   AlertCircle,
   CheckCircle2,
+  UserPlus,
+  Trash2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
 import {
   Card,
   CardHeader,
@@ -45,6 +48,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -127,6 +131,26 @@ export function AbaPessoal() {
     useState<ColaboradorUnificado | null>(null)
   const [demitindo, setDemitindo] = useState(false)
 
+  // Modal Exclusão Definitiva
+  const [colaboradorParaExcluir, setColaboradorParaExcluir] =
+    useState<ColaboradorUnificado | null>(null)
+  const [excluindo, setExcluindo] = useState(false)
+
+  // Modal Novo Colaborador
+  const [modalNovoAberto, setModalNovoAberto] = useState(false)
+  const [salvandoNovo, setSalvandoNovo] = useState(false)
+  const [novoColab, setNovoColab] = useState({
+    nome: "",
+    tipo: "Funcionário" as "Funcionário" | "Terceiro",
+    funcao: "",
+    cpf: "",
+    data_admissao: "",
+    salario: "",
+    agencia: "",
+    conta: "",
+    pix: "",
+  })
+
   // Importar da Folha
   const [importandoFolha, setImportandoFolha] = useState(false)
 
@@ -184,8 +208,11 @@ export function AbaPessoal() {
 
       const lista: ColaboradorUnificado[] = []
 
-      // Montar funcionários
+      // Montar funcionários (excluir oculto=true do Quadro de Pessoal)
       for (const f of dataFuncs || []) {
+        if (f.oculto === true) {
+          continue
+        }
         const normNome = normalizarTexto(f.nome)
         const normCpf = normalizarCpf(f.cpf)
         const bancario =
@@ -298,11 +325,13 @@ export function AbaPessoal() {
     return { ativos, demitidos, funcionarios, terceiros, somaSalariosAtivos }
   }, [colaboradores])
 
-  // Executar Demissão
+  // Executar Demissão (sai do Quadro ativo + sai das linhas da folha da competência corrente em diante)
   const handleConfirmarDemissao = async () => {
-    if (!colaboradorParaDemitir) return
+    if (!colaboradorParaDemitir || !empresaAtiva?.id) return
     setDemitindo(true)
-    const hojeIso = new Date().toISOString().split("T")[0]
+    const hoje = new Date()
+    const hojeIso = hoje.toISOString().split("T")[0]
+    const compAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`
 
     try {
       if (colaboradorParaDemitir.origem === "funcionario") {
@@ -328,9 +357,37 @@ export function AbaPessoal() {
         if (error) throw error
       }
 
+      // Remover linhas da folha com competencia >= mes corrente
+      const normAlvo = normalizarTexto(colaboradorParaDemitir.nome)
+      const tipoFolha =
+        colaboradorParaDemitir.origem === "funcionario"
+          ? "Funcionario"
+          : "Terceiro"
+
+      const { data: linhasAtuais } = await (supabase as any)
+        .from("folha_pagamento_linhas")
+        .select("id, nome, competencia")
+        .eq("empresa_id", empresaAtiva.id)
+        .eq("tipo", tipoFolha)
+        .gte("competencia", compAtual)
+
+      const idsParaRemover: string[] = []
+      for (const row of linhasAtuais || []) {
+        if (normalizarTexto(row.nome) === normAlvo) {
+          idsParaRemover.push(row.id)
+        }
+      }
+
+      if (idsParaRemover.length > 0) {
+        await (supabase as any)
+          .from("folha_pagamento_linhas")
+          .delete()
+          .in("id", idsParaRemover)
+      }
+
       toast({
         title: "Demissão registrada",
-        description: `${colaboradorParaDemitir.nome} foi desativado e não aparecerá mais nas listas ativas.`,
+        description: `${colaboradorParaDemitir.nome} saiu também da folha da competência atual (${compAtual}) em diante.`,
       })
 
       setColaboradorParaDemitir(null)
@@ -344,6 +401,158 @@ export function AbaPessoal() {
       })
     } finally {
       setDemitindo(false)
+    }
+  }
+
+  // Executar Exclusão Definitiva
+  const handleConfirmarExclusao = async () => {
+    if (!colaboradorParaExcluir || !empresaAtiva?.id) return
+    setExcluindo(true)
+    const hoje = new Date()
+    const compAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`
+
+    try {
+      // 1. Apagar cadastro de origem
+      if (colaboradorParaExcluir.origem === "funcionario") {
+        const { error } = await (supabase as any)
+          .from("funcionarios")
+          .delete()
+          .eq("id", colaboradorParaExcluir.id)
+        if (error) throw error
+      } else {
+        const { error } = await (supabase as any)
+          .from("folha_terceiros")
+          .delete()
+          .eq("id", colaboradorParaExcluir.id)
+        if (error) throw error
+      }
+
+      // 2. Apagar linhas da folha >= mes corrente
+      const normAlvo = normalizarTexto(colaboradorParaExcluir.nome)
+      const tipoFolha =
+        colaboradorParaExcluir.origem === "funcionario"
+          ? "Funcionario"
+          : "Terceiro"
+
+      const { data: linhasAtuais } = await (supabase as any)
+        .from("folha_pagamento_linhas")
+        .select("id, nome, competencia")
+        .eq("empresa_id", empresaAtiva.id)
+        .eq("tipo", tipoFolha)
+        .gte("competencia", compAtual)
+
+      const idsParaRemover: string[] = []
+      for (const row of linhasAtuais || []) {
+        if (normalizarTexto(row.nome) === normAlvo) {
+          idsParaRemover.push(row.id)
+        }
+      }
+
+      if (idsParaRemover.length > 0) {
+        await (supabase as any)
+          .from("folha_pagamento_linhas")
+          .delete()
+          .in("id", idsParaRemover)
+      }
+
+      toast({
+        title: "Colaborador excluído",
+        description: `${colaboradorParaExcluir.nome} foi removido do cadastro e da folha da competência ${compAtual}.`,
+      })
+
+      setColaboradorParaExcluir(null)
+      await carregarDados()
+    } catch (err: any) {
+      console.error("Erro ao excluir colaborador:", err)
+      toast({
+        title: "Erro ao excluir colaborador",
+        description: err.message,
+        variant: "destructive",
+      })
+    } finally {
+      setExcluindo(false)
+    }
+  }
+
+  // Salvar Novo Colaborador
+  const handleSalvarNovoColaborador = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!empresaAtiva?.id) return
+    if (!novoColab.nome.trim()) {
+      toast({
+        title: "Nome obrigatório",
+        description: "Informe o nome do colaborador.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSalvandoNovo(true)
+    const valorBruto = Number(
+      String(novoColab.salario).replace(/\./g, "").replace(",", "."),
+    ) || 0
+
+    try {
+      if (novoColab.tipo === "Funcionário") {
+        const { error } = await (supabase as any)
+          .from("funcionarios")
+          .insert({
+            empresa_id: empresaAtiva.id,
+            nome: novoColab.nome.trim().toUpperCase(),
+            funcao: novoColab.funcao.trim().toUpperCase() || "GERAL",
+            cpf: novoColab.cpf.trim() || null,
+            data_admissao: novoColab.data_admissao || null,
+            bruto: valorBruto,
+            agencia: novoColab.agencia.trim() || null,
+            conta: novoColab.conta.trim() || null,
+            pix: novoColab.pix.trim() || null,
+            ativo: true,
+            oculto: false,
+          })
+        if (error) throw error
+      } else {
+        const { error } = await (supabase as any)
+          .from("folha_terceiros")
+          .insert({
+            empresa_id: empresaAtiva.id,
+            nome: novoColab.nome.trim().toUpperCase(),
+            bruto: valorBruto,
+            conta: novoColab.conta.trim() || null,
+            pix: novoColab.pix.trim() || null,
+            obs: novoColab.funcao.trim().toUpperCase() || "TERCEIRO PRESTADOR",
+            ativo: true,
+            unidade: empresaAtiva.slug?.toUpperCase() || "SJE",
+          })
+        if (error) throw error
+      }
+
+      toast({
+        title: "Colaborador cadastrado!",
+        description: `${novoColab.nome.toUpperCase()} foi adicionado com sucesso.`,
+      })
+
+      setModalNovoAberto(false)
+      setNovoColab({
+        nome: "",
+        tipo: "Funcionário",
+        funcao: "",
+        cpf: "",
+        data_admissao: "",
+        salario: "",
+        agencia: "",
+        conta: "",
+        pix: "",
+      })
+      await carregarDados()
+    } catch (err: any) {
+      console.error("Erro ao cadastrar colaborador:", err)
+      toast({
+        title: "Erro ao cadastrar",
+        description: err.message,
+        variant: "destructive",
+      })
+    } finally {
+      setSalvandoNovo(false)
     }
   }
 
@@ -646,6 +855,17 @@ export function AbaPessoal() {
               )}
 
               <Button
+                variant="default"
+                size="sm"
+                onClick={() => setModalNovoAberto(true)}
+                className="h-8 gap-1.5 text-xs bg-primary text-primary-foreground font-semibold"
+                title="Incluir novo colaborador na unidade"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                Novo Colaborador
+              </Button>
+
+              <Button
                 variant="outline"
                 size="sm"
                 onClick={carregarDados}
@@ -914,19 +1134,31 @@ export function AbaPessoal() {
 
                       {/* AÇÕES */}
                       <td className="py-2.5 px-2 text-right">
-                        {c.ativo && (
+                        <div className="flex items-center justify-end gap-1">
+                          {c.ativo && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setColaboradorParaDemitir(c)}
+                              className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 font-semibold gap-1"
+                              title={`Registrar demissão de ${c.nome}`}
+                            >
+                              <UserX className="w-3.5 h-3.5" />
+                              Demitir
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            onClick={() => setColaboradorParaDemitir(c)}
-                            className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 font-semibold gap-1"
-                            title={`Registrar demissão de ${c.nome}`}
+                            onClick={() => setColaboradorParaExcluir(c)}
+                            className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            title={`Excluir ${c.nome} definitivamente`}
                           >
-                            <UserX className="w-3.5 h-3.5" />
-                            Demitir
+                            <Trash2 className="w-3.5 h-3.5" />
                           </Button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -986,6 +1218,228 @@ export function AbaPessoal() {
                 <>
                   <UserX className="w-3.5 h-3.5" />
                   Sim, Demitir Colaborador
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* MODAL NOVO COLABORADOR */}
+      <Dialog open={modalNovoAberto} onOpenChange={setModalNovoAberto}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <UserPlus className="w-5 h-5 text-primary" />
+              Novo Colaborador — {empresaAtiva?.nome}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Cadastre um novo funcionário ou terceiro no quadro de pessoal desta unidade.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSalvarNovoColaborador} className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">
+                Nome Completo <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                required
+                placeholder="Ex: JOÃO SILVA DOS SANTOS"
+                value={novoColab.nome}
+                onChange={(e) =>
+                  setNovoColab({ ...novoColab, nome: e.target.value })
+                }
+                className="h-9 text-xs uppercase"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Tipo</Label>
+                <select
+                  value={novoColab.tipo}
+                  onChange={(e) =>
+                    setNovoColab({
+                      ...novoColab,
+                      tipo: e.target.value as "Funcionário" | "Terceiro",
+                    })
+                  }
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="Funcionário">Funcionário (CLT)</option>
+                  <option value="Terceiro">Terceiro / Prestador</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Função / Cargo</Label>
+                <Input
+                  placeholder="Ex: AJUDANTE, MOTORISTA"
+                  value={novoColab.funcao}
+                  onChange={(e) =>
+                    setNovoColab({ ...novoColab, funcao: e.target.value })
+                  }
+                  className="h-9 text-xs uppercase"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">CPF</Label>
+                <Input
+                  placeholder="000.000.000-00"
+                  value={novoColab.cpf}
+                  onChange={(e) =>
+                    setNovoColab({ ...novoColab, cpf: e.target.value })
+                  }
+                  className="h-9 text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Data Admissão</Label>
+                <Input
+                  type="date"
+                  value={novoColab.data_admissao}
+                  onChange={(e) =>
+                    setNovoColab({ ...novoColab, data_admissao: e.target.value })
+                  }
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Salário Bruto (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="1720,00"
+                value={novoColab.salario}
+                onChange={(e) =>
+                  setNovoColab({ ...novoColab, salario: e.target.value })
+                }
+                className="h-9 text-xs font-mono"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Agência</Label>
+                <Input
+                  placeholder="Ex: 0001"
+                  value={novoColab.agencia}
+                  onChange={(e) =>
+                    setNovoColab({ ...novoColab, agencia: e.target.value })
+                  }
+                  className="h-9 text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Conta Corrente</Label>
+                <Input
+                  placeholder="Ex: 12345-6"
+                  value={novoColab.conta}
+                  onChange={(e) =>
+                    setNovoColab({ ...novoColab, conta: e.target.value })
+                  }
+                  className="h-9 text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Chave PIX</Label>
+              <Input
+                placeholder="CPF, Telefone, E-mail ou Chave aleatória"
+                value={novoColab.pix}
+                onChange={(e) =>
+                  setNovoColab({ ...novoColab, pix: e.target.value })
+                }
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setModalNovoAberto(false)}
+                disabled={salvandoNovo}
+                className="text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={salvandoNovo}
+                className="text-xs font-semibold gap-1 bg-primary text-primary-foreground"
+              >
+                {salvandoNovo ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Cadastrar
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      <AlertDialog
+        open={!!colaboradorParaExcluir}
+        onOpenChange={(open) => !open && setColaboradorParaExcluir(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive text-base">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              Excluir {colaboradorParaExcluir?.nome} do quadro?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground space-y-2">
+              <p>
+                Esta ação apaga o cadastro de{" "}
+                <strong className="text-foreground">
+                  {colaboradorParaExcluir?.nome}
+                </strong>{" "}
+                ({colaboradorParaExcluir?.tipo}) na unidade{" "}
+                <strong className="text-foreground">{empresaAtiva?.nome}</strong>.
+              </p>
+              <p className="bg-destructive/10 p-2.5 rounded-lg border border-destructive/30 text-destructive text-[11px] font-medium">
+                Linhas associadas na folha de pagamento da competência atual em diante também serão removidas para não deixar registros órfãos.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluindo} className="text-xs">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmarExclusao}
+              disabled={excluindo}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs font-semibold gap-1.5"
+            >
+              {excluindo ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Sim, Excluir Cadastro
                 </>
               )}
             </AlertDialogAction>
