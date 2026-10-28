@@ -1568,7 +1568,7 @@ export function AbaPessoal() {
                           <th className="py-2 px-3 text-center">
                             Férias Agendadas
                           </th>
-                          <th className="py-2 px-3 text-right">Salário 2025</th>
+                          <th className="py-2 px-3 text-right">Salário 2026</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/20 font-mono">
@@ -1603,7 +1603,7 @@ export function AbaPessoal() {
                     {resultadoConfronto.salarioDivergente.length})
                   </h4>
                   <span className="text-[11px] text-muted-foreground">
-                    Diferença entre o salário base da folha e o Salário 2025 de
+                    Diferença entre o salário base da folha e o Salário 2026 de
                     Férias
                   </span>
                 </div>
@@ -1621,7 +1621,7 @@ export function AbaPessoal() {
                           <th className="py-2 px-3">Função</th>
                           <th className="py-2 px-3 text-right">Folha (Base)</th>
                           <th className="py-2 px-3 text-right">
-                            Férias (2025)
+                            Férias (2026)
                           </th>
                           <th className="py-2 px-3 text-right">Diferença</th>
                         </tr>

@@ -47,7 +47,11 @@ import {
   RotateCcw,
   Sparkles,
   AlertCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react"
+
+const STORAGE_KEY_OCULTAR_SALARIOS = "gcmix-ocultar-salarios"
 
 export function AbaControleFerias() {
   const { empresaAtiva, empresas, selecionarEmpresa } = useEmpresa()
@@ -57,6 +61,35 @@ export function AbaControleFerias() {
   const [loading, setLoading] = useState(false)
   const [busca, setBusca] = useState("")
   const [salvandoInline, setSalvandoInline] = useState<string | null>(null)
+
+  // Ocultar salários (default true, persistido em localStorage 'gcmix-ocultar-salarios')
+  const [salariosOcultos, setSalariosOcultos] = useState<boolean>(() => {
+    try {
+      const salvo = localStorage.getItem(STORAGE_KEY_OCULTAR_SALARIOS)
+      if (salvo !== null) {
+        const parsed = JSON.parse(salvo)
+        if (typeof parsed === "boolean") return parsed
+      }
+    } catch {
+      // Ignora falhas de parsing/acesso e mantém o default
+    }
+    return true
+  })
+
+  const toggleSalariosOcultos = () => {
+    setSalariosOcultos((prev) => {
+      const proximo = !prev
+      try {
+        localStorage.setItem(
+          STORAGE_KEY_OCULTAR_SALARIOS,
+          JSON.stringify(proximo),
+        )
+      } catch {
+        // Ignora erros de localStorage
+      }
+      return proximo
+    })
+  }
 
   // Modal Novo Registro
   const [openModalNovo, setOpenModalNovo] = useState(false)
@@ -502,6 +535,26 @@ export function AbaControleFerias() {
               </Button>
 
               <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleSalariosOcultos}
+                className="h-8 gap-1.5 text-xs font-medium"
+                title="Ocultar/Exibir salários"
+              >
+                {salariosOcultos ? (
+                  <>
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Exibir Salários</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="w-3.5 h-3.5" />
+                    <span>Ocultar Salários</span>
+                  </>
+                )}
+              </Button>
+
+              <Button
                 size="sm"
                 onClick={() => setOpenModalNovo(true)}
                 className="h-8 gap-1.5 bg-primary text-primary-foreground text-xs font-semibold shadow-xs"
@@ -530,7 +583,7 @@ export function AbaControleFerias() {
               </span>{" "}
               colaboradores • Total Folha:{" "}
               <span className="font-mono font-bold text-foreground">
-                {fmtMoeda(totais.somaSalarios)}
+                {salariosOcultos ? "•••" : fmtMoeda(totais.somaSalarios)}
               </span>
               • Férias Agendadas:{" "}
               <Badge variant="secondary" className="font-mono text-[10px]">
@@ -556,7 +609,7 @@ export function AbaControleFerias() {
                     <th className="py-2.5 px-3 min-w-[200px]">NOME</th>
                     <th className="py-2.5 px-3 min-w-[120px]">FUNÇÃO</th>
                     <th className="py-2.5 px-3 text-right min-w-[110px]">
-                      SALÁRIO 2025
+                      SALÁRIO 2026
                     </th>
                     <th className="py-2.5 px-3 min-w-[110px]">ADMISSÃO</th>
                     <th className="py-2.5 px-3 min-w-[120px]">CPF</th>
@@ -618,25 +671,34 @@ export function AbaControleFerias() {
                         />
                       </td>
 
-                      {/* SALÁRIO 2025 */}
+                      {/* SALÁRIO 2026 */}
                       <td className="py-2 px-3 text-right font-mono text-foreground font-semibold">
-                        <input
-                          type="text"
-                          defaultValue={it.salario_2025
-                            .toFixed(2)
-                            .replace(".", ",")}
-                          onBlur={(e) => {
-                            const val =
-                              Number(
-                                e.target.value
-                                  .replace(/\./g, "")
-                                  .replace(",", "."),
-                              ) || 0
-                            handleAtualizarInline(it.id, "salario_2025", val)
-                          }}
-                          className="w-24 text-right bg-transparent hover:bg-background/80 focus:bg-background rounded px-1.5 py-0.5 border border-transparent focus:border-primary/50 outline-none font-mono font-semibold transition-all"
-                          title="Salário 2025"
-                        />
+                        {salariosOcultos ? (
+                          <span
+                            className="font-mono text-muted-foreground select-none"
+                            title="Salário oculto"
+                          >
+                            •••
+                          </span>
+                        ) : (
+                          <input
+                            type="text"
+                            defaultValue={it.salario_2025
+                              .toFixed(2)
+                              .replace(".", ",")}
+                            onBlur={(e) => {
+                              const val =
+                                Number(
+                                  e.target.value
+                                    .replace(/\./g, "")
+                                    .replace(",", "."),
+                                ) || 0
+                              handleAtualizarInline(it.id, "salario_2025", val)
+                            }}
+                            className="w-24 text-right bg-transparent hover:bg-background/80 focus:bg-background rounded px-1.5 py-0.5 border border-transparent focus:border-primary/50 outline-none font-mono font-semibold transition-all"
+                            title="Salário 2026"
+                          />
+                        )}
                       </td>
 
                       {/* ADMISSÃO */}
@@ -822,7 +884,7 @@ export function AbaControleFerias() {
                     </td>
                     <td className="py-2.5 px-3 text-muted-foreground">—</td>
                     <td className="py-2.5 px-3 text-right font-mono text-foreground font-black">
-                      {fmtMoeda(totais.somaSalarios)}
+                      {salariosOcultos ? "•••" : fmtMoeda(totais.somaSalarios)}
                     </td>
                     <td
                       className="py-2.5 px-3 text-muted-foreground"
@@ -912,7 +974,7 @@ export function AbaControleFerias() {
                     FUNÇÃO
                   </th>
                   <th className="border border-black p-1.5 text-right font-black">
-                    SALÁRIO 2025
+                    SALÁRIO 2026
                   </th>
                   <th className="border border-black p-1.5 text-center font-black">
                     ADMISSÃO
@@ -961,7 +1023,7 @@ export function AbaControleFerias() {
                       {it.funcao || "—"}
                     </td>
                     <td className="border border-black p-1.5 text-right font-mono font-bold whitespace-nowrap">
-                      {fmtMoeda(it.salario_2025)}
+                      {salariosOcultos ? "•••" : fmtMoeda(it.salario_2025)}
                     </td>
                     <td className="border border-black p-1.5 text-center font-mono whitespace-nowrap">
                       {formatarDataBr(it.admissao)}
@@ -1003,7 +1065,7 @@ export function AbaControleFerias() {
                   </td>
                   <td className="border border-black p-2">—</td>
                   <td className="border border-black p-2 text-right font-mono font-black whitespace-nowrap">
-                    {fmtMoeda(totais.somaSalarios)}
+                    {salariosOcultos ? "•••" : fmtMoeda(totais.somaSalarios)}
                   </td>
                   <td
                     className="border border-black p-2 text-center font-semibold"
@@ -1227,7 +1289,7 @@ export function AbaControleFerias() {
 
               <div className="space-y-1">
                 <Label htmlFor="novo-salario" className="text-xs font-semibold">
-                  Salário 2025 (R$)
+                  Salário 2026 (R$)
                 </Label>
                 <Input
                   id="novo-salario"
@@ -1429,7 +1491,7 @@ export function AbaControleFerias() {
 
               <div className="space-y-1">
                 <Label htmlFor="edit-salario" className="text-xs font-semibold">
-                  Salário 2025 (R$)
+                  Salário 2026 (R$)
                 </Label>
                 <Input
                   id="edit-salario"
