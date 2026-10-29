@@ -4969,6 +4969,12 @@ export function FolhaPagamento() {
                       <th className="py-2.5 px-2 text-right">INSS</th>
                       <th className="py-2.5 px-2 text-right">FAMÍLIA</th>
                       <th className="py-2.5 px-2 text-right">IRRF</th>
+                      <th
+                        className="py-2.5 px-2 text-right text-rose-600"
+                        title="Empréstimo Consignado descontado em folha"
+                      >
+                        CONSIGNADO (−)
+                      </th>
                       <th className="py-2.5 px-2 text-right font-bold text-primary bg-primary/5">
                         MENSAL (LÍQUIDO)
                       </th>
@@ -5002,6 +5008,11 @@ export function FolhaPagamento() {
                         </td>
                         <td className="py-2 px-2 text-right font-mono">
                           {l.irrfFinal > 0 ? fmtMoeda(l.irrfFinal) : "-"}
+                        </td>
+                        <td className="py-2 px-2 text-right font-mono text-rose-600">
+                          {l.consignadoFinal > 0
+                            ? `−${fmtMoeda(l.consignadoFinal)}`
+                            : "-"}
                         </td>
                         <td className="py-2 px-2 text-right font-mono font-bold text-primary bg-primary/5 whitespace-nowrap">
                           {fmtMoeda(l.mensalFinal)}
@@ -5045,6 +5056,11 @@ export function FolhaPagamento() {
                       <td className="py-2.5 px-2 text-right font-mono">
                         {fmtMoeda(totaisGeral.irrf)}
                       </td>
+                      <td className="py-2.5 px-2 text-right font-mono text-rose-600">
+                        {(totaisGeral.consignado || 0) > 0
+                          ? `−${fmtMoeda(totaisGeral.consignado || 0)}`
+                          : fmtMoeda(0)}
+                      </td>
                       <td className="py-2.5 px-2 text-right font-mono text-primary bg-primary/10">
                         {fmtMoeda(totaisGeral.mensal)}
                       </td>
@@ -5075,6 +5091,9 @@ export function FolhaPagamento() {
                         </td>
                         <td className="py-2 px-2 text-right font-mono">
                           {fmtMoeda(totaisGeral.irrf)}
+                        </td>
+                        <td className="py-2 px-2 text-right font-mono text-rose-600">
+                          {fmtMoeda(totaisGeral.consignado || 0)}
                         </td>
                         <td className="py-2 px-2 text-right font-mono font-bold text-primary bg-primary/20">
                           {fmtMoeda(
@@ -8140,6 +8159,9 @@ export function FolhaPagamento() {
                   <th className="border p-1 text-right">INSS</th>
                   <th className="border p-1 text-right">FAMÍLIA</th>
                   <th className="border p-1 text-right">IRRF</th>
+                  <th className="border p-1 text-right text-rose-600">
+                    CONSIGNADO
+                  </th>
                   <th className="border p-1 text-right font-bold">
                     MENSAL (LÍQUIDO)
                   </th>
@@ -8167,6 +8189,11 @@ export function FolhaPagamento() {
                     <td className="border p-1 text-right font-mono">
                       {l.irrfFinal > 0 ? fmtMoeda(l.irrfFinal) : "-"}
                     </td>
+                    <td className="border p-1 text-right font-mono text-rose-600">
+                      {l.consignadoFinal > 0
+                        ? `−${fmtMoeda(l.consignadoFinal)}`
+                        : "-"}
+                    </td>
                     <td className="border p-1 text-right font-mono font-bold">
                       {fmtMoeda(l.mensalFinal)}
                     </td>
@@ -8193,6 +8220,11 @@ export function FolhaPagamento() {
                   </td>
                   <td className="border p-1 text-right font-mono">
                     {fmtMoeda(totaisGeral.irrf)}
+                  </td>
+                  <td className="border p-1 text-right font-mono text-rose-600">
+                    {(totaisGeral.consignado || 0) > 0
+                      ? `−${fmtMoeda(totaisGeral.consignado || 0)}`
+                      : fmtMoeda(0)}
                   </td>
                   <td className="border p-1 text-right font-mono">
                     {fmtMoeda(totaisGeral.mensal)}
