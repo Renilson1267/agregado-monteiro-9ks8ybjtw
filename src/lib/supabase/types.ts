@@ -784,6 +784,7 @@ export type Database = {
           comissoes: number
           competencia: string
           competencia_id: string
+          consignado: number
           conta: string | null
           cpf: string | null
           created_at: string
@@ -861,6 +862,7 @@ export type Database = {
           comissoes?: number
           competencia: string
           competencia_id: string
+          consignado?: number
           conta?: string | null
           cpf?: string | null
           created_at?: string
@@ -938,6 +940,7 @@ export type Database = {
           comissoes?: number
           competencia?: string
           competencia_id?: string
+          consignado?: number
           conta?: string | null
           cpf?: string | null
           created_at?: string
