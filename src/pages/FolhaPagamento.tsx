@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   Plus,
+  Pencil,
   Edit2,
   Trash2,
   Printer,
@@ -54,6 +55,10 @@ import { LOGO_GC_MIX_HORIZONTAL } from "@/assets/logos"
 import { AbaTabelasOficiais } from "@/components/AbaTabelasOficiais"
 import { AbaBackupFolha } from "@/components/AbaBackupFolha"
 import { AbaDecimoTerceiro } from "@/components/AbaDecimoTerceiro"
+import {
+  ModalEditarLinhaFolha,
+  AbaContextoFolha,
+} from "@/components/ModalEditarLinhaFolha"
 import { Gift } from "lucide-react"
 import { Database } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -352,7 +357,14 @@ export function FolhaPagamento() {
     setLinhasExpandidas(mapa)
   }
 
-  // Modal Edição / Criação
+  // Modal Edição Inline por Aba (ModalEditarLinhaFolha)
+  const [modalEditarAbaAberto, setModalEditarAbaAberto] = useState(false)
+  const [linhaEditarAba, setLinhaEditarAba] =
+    useState<FolhaPagamentoLinha | null>(null)
+  const [contextoAbaEdicao, setContextoAbaEdicao] =
+    useState<AbaContextoFolha>("geral")
+
+  // Modal Edição / Criação Completa Legada
   const [modalAberto, setModalAberto] = useState(false)
   const [linhaEmEdicao, setLinhaEmEdicao] =
     useState<Partial<FolhaPagamentoLinha> | null>(null)
@@ -444,6 +456,31 @@ export function FolhaPagamento() {
     }
     carregarTabelaEComissoes()
   }, [empresaAtiva?.id])
+
+  // Função para abrir o Modal de Edição Inline conforme a Aba
+  const abrirModalEditarAba = (
+    linha: FolhaPagamentoLinha,
+    contexto: AbaContextoFolha,
+  ) => {
+    setLinhaEditarAba(linha)
+    setContextoAbaEdicao(contexto)
+    setModalEditarAbaAberto(true)
+  }
+
+  // Função para recarregar as linhas da competência
+  const recarregarFolha = async () => {
+    if (!empresaAtiva?.id || !competencia) return
+    try {
+      const [compData, dataLinhas] = await Promise.all([
+        FolhaService.getCompetencia(empresaAtiva.id, competencia),
+        FolhaService.getLinhasCompetencia(empresaAtiva.id, competencia),
+      ])
+      setCompetenciaObj(compData)
+      setLinhas(dataLinhas)
+    } catch (err) {
+      console.warn("Erro ao recarregar folha:", err)
+    }
+  }
 
   // 3. Carregar dados da competência (data e % quinzena) e linhas
   useEffect(() => {
@@ -3528,9 +3565,20 @@ export function FolhaPagamento() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
+                                    className="h-7 w-7 text-primary hover:text-primary hover:bg-primary/10"
+                                    onClick={() =>
+                                      abrirModalEditarAba(l, "geral")
+                                    }
+                                    title="Editar Linha (Geral)"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
                                     className="h-7 w-7 text-muted-foreground hover:text-foreground"
                                     onClick={() => abrirModalEdicao(l)}
-                                    title="Editar"
+                                    title="Editar Completo"
                                   >
                                     <Edit2 className="h-3.5 w-3.5" />
                                   </Button>
@@ -3949,9 +3997,20 @@ export function FolhaPagamento() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  className="h-7 w-7 text-purple-700 hover:text-purple-800 hover:bg-purple-100/60"
+                                  onClick={() =>
+                                    abrirModalEditarAba(t, "geral")
+                                  }
+                                  title="Editar Terceiro (Geral)"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   className="h-7 w-7 text-muted-foreground hover:text-foreground"
                                   onClick={() => abrirModalEdicao(t)}
-                                  title="Editar"
+                                  title="Editar Completo"
                                 >
                                   <Edit2 className="h-3.5 w-3.5" />
                                 </Button>
@@ -4435,6 +4494,9 @@ export function FolhaPagamento() {
                       </th>
                       <th className="py-2.5 px-3">AGÊNCIA / C/C</th>
                       <th className="py-2.5 px-3">PIX</th>
+                      <th className="py-2.5 px-2 text-center print:hidden">
+                        AÇÕES
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -4571,6 +4633,17 @@ export function FolhaPagamento() {
                           <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
                             {l.pix || l.chave_pix || "-"}
                           </td>
+                          <td className="py-2 px-2 text-center print:hidden">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-primary hover:text-primary hover:bg-primary/10"
+                              onClick={() => abrirModalEditarAba(l, "quinzena")}
+                              title="Editar Linha (Quinzena)"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </td>
                         </tr>
                       )
                     })}
@@ -4601,7 +4674,7 @@ export function FolhaPagamento() {
                           ? "R$ 0,00"
                           : fmtMoeda(totaisGeral.aReceberQuinzena)}
                       </td>
-                      <td className="py-2.5 px-3" colSpan={2}></td>
+                      <td className="py-2.5 px-3" colSpan={3}></td>
                     </tr>
                     {!isMonteiro && terceirosNaoVendedores.length > 0 && (
                       <tr className="border-t border-border/60 bg-muted/70 text-xs">
@@ -4619,7 +4692,7 @@ export function FolhaPagamento() {
                             totaisGeral.quinzena + totaisTerceiros.quinzena,
                           )}
                         </td>
-                        <td className="py-2.5 px-2 text-right font-mono">
+                        <td className="py-2 px-2 text-right font-mono">
                           {totaisGeral.adiantamento +
                             totaisTerceiros.adiantamento >
                           0
@@ -4647,10 +4720,10 @@ export function FolhaPagamento() {
                                   totaisTerceiros.aReceberQuinzena,
                               )}
                         </td>
-                        <td className="py-2.5 px-3" colSpan={2}></td>
+                        <td className="py-2.5 px-3" colSpan={3}></td>
                       </tr>
                     )}
-                  </tfoot>
+                  </tfoot>{" "}
                 </table>
               </div>
 
@@ -4681,6 +4754,9 @@ export function FolhaPagamento() {
                           </th>
                           <th className="py-2 px-3">PIX</th>
                           <th className="py-2 px-3">OBS</th>
+                          <th className="py-2 px-2 text-center print:hidden">
+                            AÇÕES
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -4729,6 +4805,19 @@ export function FolhaPagamento() {
                               <td className="py-2 px-3 text-muted-foreground text-[11px]">
                                 {t.observacao_linha || "-"}
                               </td>
+                              <td className="py-2 px-2 text-center print:hidden">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-purple-700 hover:text-purple-800 hover:bg-purple-100/60"
+                                  onClick={() =>
+                                    abrirModalEditarAba(t, "quinzena")
+                                  }
+                                  title="Editar Terceiro (Quinzena)"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                              </td>
                             </tr>
                           )
                         })}
@@ -4758,7 +4847,7 @@ export function FolhaPagamento() {
                               ? "R$ 0,00"
                               : fmtMoeda(totaisTerceiros.aReceberQuinzena)}
                           </td>
-                          <td className="py-2 px-3" colSpan={2}></td>
+                          <td className="py-2 px-3" colSpan={3}></td>
                         </tr>
                       </tfoot>
                     </table>
@@ -4837,6 +4926,9 @@ export function FolhaPagamento() {
                       </th>
                       <th className="py-2.5 px-3">AGÊNCIA / C/C</th>
                       <th className="py-2.5 px-3">PIX</th>
+                      <th className="py-2.5 px-2 text-center print:hidden">
+                        AÇÕES
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -4872,6 +4964,17 @@ export function FolhaPagamento() {
                         <td className="py-2 px-3 text-muted-foreground font-mono text-[11px] truncate max-w-[130px]">
                           {l.pix || l.chave_pix || "-"}
                         </td>
+                        <td className="py-2 px-2 text-center print:hidden">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-primary hover:text-primary hover:bg-primary/10"
+                            onClick={() => abrirModalEditarAba(l, "mensal")}
+                            title="Editar Linha (Mensal)"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -4897,7 +5000,7 @@ export function FolhaPagamento() {
                       <td className="py-2.5 px-2 text-right font-mono text-primary bg-primary/10">
                         {fmtMoeda(totaisGeral.mensal)}
                       </td>
-                      <td className="py-2.5 px-3" colSpan={2}></td>
+                      <td className="py-2.5 px-3" colSpan={3}></td>
                     </tr>
                     {terceirosMensal.length > 0 && (
                       <tr className="border-t border-border/60 bg-muted/70 text-xs">
@@ -4930,10 +5033,10 @@ export function FolhaPagamento() {
                             totaisGeral.mensal + totaisTerceirosMensal.mensal,
                           )}
                         </td>
-                        <td className="py-2 px-3" colSpan={2}></td>
+                        <td className="py-2.5 px-3" colSpan={3}></td>
                       </tr>
                     )}
-                  </tfoot>
+                  </tfoot>{" "}
                 </table>
               </div>
 
@@ -4960,6 +5063,9 @@ export function FolhaPagamento() {
                           </th>
                           <th className="py-2 px-3">PIX</th>
                           <th className="py-2 px-3">OBS</th>
+                          <th className="py-2 px-2 text-center print:hidden">
+                            AÇÕES
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -4983,6 +5089,17 @@ export function FolhaPagamento() {
                             <td className="py-2 px-3 text-muted-foreground text-[11px]">
                               {t.observacao_linha || "-"}
                             </td>
+                            <td className="py-2 px-2 text-center print:hidden">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-purple-700 hover:text-purple-800 hover:bg-purple-100/60"
+                                onClick={() => abrirModalEditarAba(t, "mensal")}
+                                title="Editar Terceiro (Mensal)"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -4998,7 +5115,7 @@ export function FolhaPagamento() {
                           <td className="py-2 px-2 text-right font-mono text-primary">
                             {fmtMoeda(totaisTerceirosMensal.mensal)}
                           </td>
-                          <td className="py-2 px-3" colSpan={2}></td>
+                          <td className="py-2 px-3" colSpan={3}></td>
                         </tr>
                       </tfoot>
                     </table>
@@ -5626,16 +5743,27 @@ export function FolhaPagamento() {
                         <td className="py-2 px-3 text-muted-foreground font-mono text-[11px] truncate max-w-[130px]">
                           {l.pix || l.chave_pix || "-"}
                         </td>
-                        <td className="py-2 px-2 text-center print:hidden">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                            onClick={() => abrirModalEdicao(l)}
-                            title="Editar produção"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Button>
+                        <td className="py-2 px-2 text-center print:hidden whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-primary hover:text-primary hover:bg-primary/10"
+                              onClick={() => abrirModalEditarAba(l, "producao")}
+                              title="Editar Linha (Produção)"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={() => abrirModalEdicao(l)}
+                              title="Editar Completo"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -5737,15 +5865,30 @@ export function FolhaPagamento() {
                       </CardDescription>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5 text-xs border-amber-400 hover:bg-amber-100/50"
-                    onClick={() => abrirModalEdicao(dadosLancadorVendas.linha)}
-                  >
-                    <Edit2 className="h-3.5 w-3.5 text-amber-700" />
-                    Editar Dados de Vendas
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs border-amber-500 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300"
+                      onClick={() =>
+                        abrirModalEditarAba(dadosLancadorVendas.linha, "vendas")
+                      }
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
+                      Editar (Vendas)
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs border-amber-400 hover:bg-amber-100/50"
+                      onClick={() =>
+                        abrirModalEdicao(dadosLancadorVendas.linha)
+                      }
+                    >
+                      <Edit2 className="h-3.5 w-3.5 text-amber-700" />
+                      Editar Completo
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="p-4 space-y-4">
@@ -6018,15 +6161,26 @@ export function FolhaPagamento() {
                                 </CardDescription>
                               </div>
                             </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 gap-1.5 text-xs border-amber-400 hover:bg-amber-100/50"
-                              onClick={() => abrirModalEdicao(l, "Terceiro")}
-                            >
-                              <Edit2 className="h-3.5 w-3.5 text-amber-700" />
-                              Editar Dados de Vendas
-                            </Button>
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 text-xs border-amber-500 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300"
+                                onClick={() => abrirModalEditarAba(l, "vendas")}
+                              >
+                                <Pencil className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
+                                Editar (Vendas)
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 text-xs border-amber-400 hover:bg-amber-100/50"
+                                onClick={() => abrirModalEdicao(l, "Terceiro")}
+                              >
+                                <Edit2 className="h-3.5 w-3.5 text-amber-700" />
+                                Editar Completo
+                              </Button>
+                            </div>
                           </div>
                         </CardHeader>
                         <CardContent className="p-4 space-y-4">
@@ -6375,16 +6529,29 @@ export function FolhaPagamento() {
                               <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
                                 {l.pix || l.chave_pix || "-"}
                               </td>
-                              <td className="py-2 px-2 text-center print:hidden">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                  onClick={() => abrirModalEdicao(l)}
-                                  title="Editar vendas"
-                                >
-                                  <Edit2 className="h-3.5 w-3.5" />
-                                </Button>
+                              <td className="py-2 px-2 text-center print:hidden whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-primary hover:text-primary hover:bg-primary/10"
+                                    onClick={() =>
+                                      abrirModalEditarAba(l, "vendas")
+                                    }
+                                    title="Editar Linha (Vendas)"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                    onClick={() => abrirModalEdicao(l)}
+                                    title="Editar Completo"
+                                  >
+                                    <Edit2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           ))
@@ -6880,6 +7047,21 @@ export function FolhaPagamento() {
           </TabsContent>
         )}
       </Tabs>
+
+      {/* MODAL DE EDIÇÃO INLINE POR ABA (GERAL, QUINZENA, MENSAL, PRODUÇÃO, VENDAS) */}
+      <ModalEditarLinhaFolha
+        aberto={modalEditarAbaAberto}
+        onOpenChange={setModalEditarAbaAberto}
+        linha={linhaEditarAba}
+        abaContexto={contextoAbaEdicao}
+        tabelaOficial={tabelaOficial}
+        percentualQuinzena={percentualQuinzena}
+        isMonteiro={isMonteiro}
+        faixasComissao={faixasComissao}
+        onSalvo={async () => {
+          await recarregarFolha()
+        }}
+      />
 
       {/* MODAL DE EDIÇÃO / CRIAÇÃO DE LINHA */}
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>

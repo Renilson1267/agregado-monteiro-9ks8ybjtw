@@ -24,12 +24,7 @@ import {
   calcularComissaoVendas,
 } from "@/lib/folha-calculos"
 
-export type AbaContextoFolha =
-  | "geral"
-  | "quinzena"
-  | "mensal"
-  | "producao"
-  | "vendas"
+export type AbaContextoFolha = "geral" | "quinzena" | "mensal" | "producao" | "vendas"
 
 interface ModalEditarLinhaFolhaProps {
   aberto: boolean
@@ -120,7 +115,8 @@ export function ModalEditarLinhaFolha({
   // Recálculo automático de apoio para o usuário (botões de auto-preenchimento)
   const recalcularFiscais = () => {
     const inssCalc = calcularInssProgressivo(bruto, tabelaOficial) ?? inss
-    const famCalc = calcularSalarioFamilia(bruto, filhos, tabelaOficial) ?? familia
+    const famCalc =
+      calcularSalarioFamilia(bruto, filhos, tabelaOficial) ?? familia
     const irCalc = calcularIrrf(bruto, inssCalc, tabelaOficial) ?? ir
     const qCalc = calcularQuinzena(bruto, percentualQuinzena)
     const liqCalc = calcularMensalSemProducao(
@@ -129,7 +125,7 @@ export function ModalEditarLinhaFolha({
       famCalc,
       irCalc,
       qCalc,
-      { quinzena_2: quinzena2 }
+      { quinzena_2: quinzena2 },
     )
 
     setInss(Math.round(inssCalc * 100) / 100)
@@ -144,7 +140,8 @@ export function ModalEditarLinhaFolha({
     setSalvando(true)
 
     try {
-      const calculoProducao = Math.round(Number(obras || 0) * Number(valorObra || 20) * 100) / 100
+      const calculoProducao =
+        Math.round(Number(obras || 0) * Number(valorObra || 20) * 100) / 100
 
       const dadosUpdate: Record<string, any> = {
         updated_at: new Date().toISOString(),
@@ -232,7 +229,9 @@ export function ModalEditarLinhaFolha({
     } catch (err: any) {
       toast({
         title: "Erro ao salvar linha",
-        description: err.message || "Não foi possível gravar as alterações no banco de dados.",
+        description:
+          err.message ||
+          "Não foi possível gravar as alterações no banco de dados.",
         variant: "destructive",
       })
     } finally {
@@ -259,7 +258,10 @@ export function ModalEditarLinhaFolha({
             <DialogTitle className="text-base font-bold text-foreground">
               {tituloAba}
             </DialogTitle>
-            <Badge variant="outline" className="text-xs uppercase font-semibold">
+            <Badge
+              variant="outline"
+              className="text-xs uppercase font-semibold"
+            >
               Aba: {abaContexto}
             </Badge>
           </div>
@@ -276,7 +278,9 @@ export function ModalEditarLinhaFolha({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <div>
-              <Label className="text-[11px] text-muted-foreground">Nome Completo</Label>
+              <Label className="text-[11px] text-muted-foreground">
+                Nome Completo
+              </Label>
               <Input
                 value={nomeColaborador}
                 disabled
@@ -284,7 +288,9 @@ export function ModalEditarLinhaFolha({
               />
             </div>
             <div>
-              <Label className="text-[11px] text-muted-foreground">Função / Cargo</Label>
+              <Label className="text-[11px] text-muted-foreground">
+                Função / Cargo
+              </Label>
               <div className="flex items-center gap-2 mt-1">
                 <Input
                   value={cargoColaborador}
@@ -316,7 +322,9 @@ export function ModalEditarLinhaFolha({
                     type="number"
                     step="0.01"
                     value={quinzena}
-                    onChange={(e) => setQuinzena(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setQuinzena(parseFloat(e.target.value) || 0)
+                    }
                     className="mt-1 h-8 text-xs font-mono font-bold text-blue-600"
                   />
                   <span className="text-[10px] text-muted-foreground">
@@ -329,7 +337,9 @@ export function ModalEditarLinhaFolha({
                     type="number"
                     step="0.01"
                     value={quinzena2}
-                    onChange={(e) => setQuinzena2(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setQuinzena2(parseFloat(e.target.value) || 0)
+                    }
                     className="mt-1 h-8 text-xs font-mono"
                   />
                   <span className="text-[10px] text-muted-foreground">
@@ -344,7 +354,9 @@ export function ModalEditarLinhaFolha({
                     type="number"
                     step="0.01"
                     value={adiantamento}
-                    onChange={(e) => setAdiantamento(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setAdiantamento(parseFloat(e.target.value) || 0)
+                    }
                     className="mt-1 h-8 text-xs font-mono text-red-600 font-semibold"
                   />
                   <span className="text-[10px] text-muted-foreground">
@@ -358,10 +370,13 @@ export function ModalEditarLinhaFolha({
                   Líquido previsto a receber na Quinzena:
                 </span>
                 <span className="font-mono font-bold text-sm text-blue-700 dark:text-blue-300">
-                  {(quinzena + quinzena2 - adiantamento).toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
+                  {(quinzena + quinzena2 - adiantamento).toLocaleString(
+                    "pt-BR",
+                    {
+                      style: "currency",
+                      currency: "BRL",
+                    },
+                  )}
                 </span>
               </div>
             </div>
@@ -388,7 +403,9 @@ export function ModalEditarLinhaFolha({
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold">Salário Bruto (R$)</Label>
+                  <Label className="text-xs font-semibold">
+                    Salário Bruto (R$)
+                  </Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -402,17 +419,23 @@ export function ModalEditarLinhaFolha({
                   <Input
                     type="number"
                     value={filhos}
-                    onChange={(e) => setFilhos(parseInt(e.target.value, 10) || 0)}
+                    onChange={(e) =>
+                      setFilhos(parseInt(e.target.value, 10) || 0)
+                    }
                     className="mt-1 h-8 text-xs font-mono"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-blue-600">Quinzena Deduzida</Label>
+                  <Label className="text-xs text-blue-600">
+                    Quinzena Deduzida
+                  </Label>
                   <Input
                     type="number"
                     step="0.01"
                     value={quinzena}
-                    onChange={(e) => setQuinzena(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setQuinzena(parseFloat(e.target.value) || 0)
+                    }
                     className="mt-1 h-8 text-xs font-mono text-blue-600"
                   />
                 </div>
@@ -422,7 +445,9 @@ export function ModalEditarLinhaFolha({
                     type="number"
                     step="0.01"
                     value={familia}
-                    onChange={(e) => setFamilia(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setFamilia(parseFloat(e.target.value) || 0)
+                    }
                     className="mt-1 h-8 text-xs font-mono text-emerald-600 font-medium"
                   />
                 </div>
@@ -430,7 +455,9 @@ export function ModalEditarLinhaFolha({
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-xs text-red-600">INSS Retido (R$)</Label>
+                  <Label className="text-xs text-red-600">
+                    INSS Retido (R$)
+                  </Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -440,7 +467,9 @@ export function ModalEditarLinhaFolha({
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-red-600">IRRF Retido (R$)</Label>
+                  <Label className="text-xs text-red-600">
+                    IRRF Retido (R$)
+                  </Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -486,7 +515,9 @@ export function ModalEditarLinhaFolha({
                     type="number"
                     step="0.01"
                     value={valorObra}
-                    onChange={(e) => setValorObra(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setValorObra(parseFloat(e.target.value) || 0)
+                    }
                     className="mt-1 h-8 text-xs font-mono"
                   />
                 </div>
@@ -496,7 +527,9 @@ export function ModalEditarLinhaFolha({
                     type="number"
                     step="0.01"
                     value={limpeza}
-                    onChange={(e) => setLimpeza(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setLimpeza(parseFloat(e.target.value) || 0)
+                    }
                     className="mt-1 h-8 text-xs font-mono"
                   />
                 </div>
@@ -519,7 +552,9 @@ export function ModalEditarLinhaFolha({
                     type="number"
                     step="0.01"
                     value={feriado}
-                    onChange={(e) => setFeriado(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setFeriado(parseFloat(e.target.value) || 0)
+                    }
                     className="mt-1 h-8 text-xs font-mono"
                   />
                 </div>
@@ -529,7 +564,9 @@ export function ModalEditarLinhaFolha({
                     type="number"
                     step="0.01"
                     value={ajudaCusto}
-                    onChange={(e) => setAjudaCusto(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setAjudaCusto(parseFloat(e.target.value) || 0)
+                    }
                     className="mt-1 h-8 text-xs font-mono"
                   />
                 </div>
@@ -636,7 +673,9 @@ export function ModalEditarLinhaFolha({
                     type="number"
                     step="0.01"
                     value={comissao}
-                    onChange={(e) => setComissao(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setComissao(parseFloat(e.target.value) || 0)
+                    }
                     className="mt-1 h-8 text-xs font-mono font-bold text-amber-600"
                   />
                   <span className="text-[10px] text-muted-foreground">
@@ -674,7 +713,7 @@ export function ModalEditarLinhaFolha({
                     {
                       style: "currency",
                       currency: "BRL",
-                    }
+                    },
                   )}
                 </span>
               </div>
@@ -707,7 +746,9 @@ export function ModalEditarLinhaFolha({
                       type="number"
                       step="0.01"
                       value={bruto}
-                      onChange={(e) => setBruto(parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setBruto(parseFloat(e.target.value) || 0)
+                      }
                       className="mt-1 h-7 text-xs font-mono font-bold"
                     />
                   </div>
@@ -717,7 +758,9 @@ export function ModalEditarLinhaFolha({
                       type="number"
                       step="0.01"
                       value={quinzena}
-                      onChange={(e) => setQuinzena(parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setQuinzena(parseFloat(e.target.value) || 0)
+                      }
                       className="mt-1 h-7 text-xs font-mono text-blue-600 font-semibold"
                     />
                   </div>
@@ -750,7 +793,9 @@ export function ModalEditarLinhaFolha({
                       type="number"
                       step="0.01"
                       value={familia}
-                      onChange={(e) => setFamilia(parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setFamilia(parseFloat(e.target.value) || 0)
+                      }
                       className="mt-1 h-7 text-xs font-mono text-emerald-600"
                     />
                   </div>
@@ -771,7 +816,9 @@ export function ModalEditarLinhaFolha({
                     <Input
                       type="number"
                       value={filhos}
-                      onChange={(e) => setFilhos(parseInt(e.target.value, 10) || 0)}
+                      onChange={(e) =>
+                        setFilhos(parseInt(e.target.value, 10) || 0)
+                      }
                       className="mt-1 h-7 text-xs font-mono"
                     />
                   </div>
@@ -802,7 +849,9 @@ export function ModalEditarLinhaFolha({
                     <Input
                       type="number"
                       value={obras}
-                      onChange={(e) => setObras(parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setObras(parseFloat(e.target.value) || 0)
+                      }
                       className="mt-1 h-7 text-xs font-mono"
                     />
                   </div>
@@ -824,7 +873,9 @@ export function ModalEditarLinhaFolha({
                       type="number"
                       step="0.01"
                       value={limpeza}
-                      onChange={(e) => setLimpeza(parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setLimpeza(parseFloat(e.target.value) || 0)
+                      }
                       className="mt-1 h-7 text-xs font-mono"
                     />
                   </div>
