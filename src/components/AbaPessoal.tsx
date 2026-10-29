@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   UserPlus,
   Trash2,
+  Pencil,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -68,6 +69,7 @@ export interface ColaboradorUnificado {
   agencia: string
   conta: string
   pix: string
+  filhos?: number
   ativo: boolean
   empresa_id: string
 }
@@ -127,6 +129,23 @@ export function AbaPessoal() {
   const [colaboradorParaExcluir, setColaboradorParaExcluir] =
     useState<ColaboradorUnificado | null>(null)
   const [excluindo, setExcluindo] = useState(false)
+
+  // Modal Editar Colaborador
+  const [colaboradorParaEditar, setColaboradorParaEditar] =
+    useState<ColaboradorUnificado | null>(null)
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false)
+  const [formEdicao, setFormEdicao] = useState({
+    nome: "",
+    tipo: "Funcionário" as "Funcionário" | "Terceiro",
+    funcao: "",
+    cpf: "",
+    data_admissao: "",
+    salario: "",
+    agencia: "",
+    conta: "",
+    pix: "",
+    filhos: "0",
+  })
 
   // Modal Novo Colaborador
   const [modalNovoAberto, setModalNovoAberto] = useState(false)
@@ -228,6 +247,7 @@ export function AbaPessoal() {
           agencia: agenciaFinal,
           conta: contaFinal,
           pix: f.pix || "",
+          filhos: Number(f.filhos) || 0,
           ativo: f.ativo !== false && !f.data_demissao,
           empresa_id: f.empresa_id,
         })
@@ -254,6 +274,7 @@ export function AbaPessoal() {
           agencia: bancario?.agencia || "",
           conta: t.conta || bancario?.conta || "",
           pix: t.pix || "",
+          filhos: 0,
           ativo: t.ativo !== false,
           empresa_id: t.empresa_id,
         })
@@ -463,6 +484,96 @@ export function AbaPessoal() {
       })
     } finally {
       setExcluindo(false)
+    }
+  }
+
+  // Abrir Modal de Edição com dados preenchidos
+  const handleAbrirEdicao = (c: ColaboradorUnificado) => {
+    setColaboradorParaEditar(c)
+    setFormEdicao({
+      nome: c.nome || "",
+      tipo: c.tipo,
+      funcao: c.funcao === "—" ? "" : c.funcao || "",
+      cpf: c.cpf || "",
+      data_admissao: c.data_admissao || "",
+      salario: c.salario ? String(c.salario) : "",
+      agencia: c.agencia || "",
+      conta: c.conta || "",
+      pix: c.pix || "",
+      filhos: String(c.filhos || 0),
+    })
+  }
+
+  // Salvar Edição de Colaborador (UPDATE no banco)
+  const handleSalvarEdicao = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!colaboradorParaEditar || !empresaAtiva?.id) return
+    if (!formEdicao.nome.trim()) {
+      toast({
+        title: "Nome obrigatório",
+        description: "Informe o nome do colaborador.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSalvandoEdicao(true)
+    const valorBruto =
+      Number(String(formEdicao.salario).replace(/\./g, "").replace(",", ".")) ||
+      0
+    const qtdFilhos = parseInt(formEdicao.filhos, 10) || 0
+
+    try {
+      if (colaboradorParaEditar.origem === "funcionario") {
+        const { error } = await (supabase as any)
+          .from("funcionarios")
+          .update({
+            nome: formEdicao.nome.trim().toUpperCase(),
+            funcao: formEdicao.funcao.trim().toUpperCase() || "GERAL",
+            cpf: formEdicao.cpf.trim() || null,
+            data_admissao: formEdicao.data_admissao || null,
+            bruto: valorBruto,
+            agencia: formEdicao.agencia.trim() || null,
+            conta: formEdicao.conta.trim() || null,
+            pix: formEdicao.pix.trim() || null,
+            filhos: qtdFilhos,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", colaboradorParaEditar.id)
+
+        if (error) throw error
+      } else {
+        const { error } = await (supabase as any)
+          .from("folha_terceiros")
+          .update({
+            nome: formEdicao.nome.trim().toUpperCase(),
+            bruto: valorBruto,
+            conta: formEdicao.conta.trim() || null,
+            pix: formEdicao.pix.trim() || null,
+            obs: formEdicao.funcao.trim().toUpperCase() || "TERCEIRO PRESTADOR",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", colaboradorParaEditar.id)
+
+        if (error) throw error
+      }
+
+      toast({
+        title: "Colaborador atualizado!",
+        description: `${formEdicao.nome.toUpperCase()} foi atualizado com sucesso.`,
+      })
+
+      setColaboradorParaEditar(null)
+      await carregarDados()
+    } catch (err: any) {
+      console.error("Erro ao atualizar colaborador:", err)
+      toast({
+        title: "Erro ao atualizar",
+        description: err.message,
+        variant: "destructive",
+      })
+    } finally {
+      setSalvandoEdicao(false)
     }
   }
 
@@ -1125,6 +1236,16 @@ export function AbaPessoal() {
                       {/* AÇÕES */}
                       <td className="py-2.5 px-2 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleAbrirEdicao(c)}
+                            className="h-7 w-7 p-0 text-primary hover:text-primary hover:bg-primary/10"
+                            title={`Editar cadastro de ${c.nome}`}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
                           {c.ativo && (
                             <Button
                               type="button"
@@ -1214,6 +1335,212 @@ export function AbaPessoal() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* MODAL EDITAR COLABORADOR */}
+      <Dialog
+        open={!!colaboradorParaEditar}
+        onOpenChange={(open) => !open && setColaboradorParaEditar(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <Pencil className="w-5 h-5 text-primary" />
+              Editar Colaborador — {empresaAtiva?.nome}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Atualize os dados cadastrais e bancários do colaborador.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSalvarEdicao} className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">
+                Nome Completo <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                required
+                placeholder="Ex: JOÃO SILVA DOS SANTOS"
+                value={formEdicao.nome}
+                onChange={(e) =>
+                  setFormEdicao({ ...formEdicao, nome: e.target.value })
+                }
+                className="h-9 text-xs uppercase"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Tipo</Label>
+                <Input
+                  disabled
+                  value={formEdicao.tipo}
+                  className="h-9 text-xs bg-muted cursor-not-allowed"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Função / Cargo</Label>
+                <Input
+                  placeholder="Ex: AJUDANTE, MOTORISTA"
+                  value={formEdicao.funcao}
+                  onChange={(e) =>
+                    setFormEdicao({ ...formEdicao, funcao: e.target.value })
+                  }
+                  className="h-9 text-xs uppercase"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">CPF</Label>
+                <Input
+                  placeholder="000.000.000-00"
+                  value={formEdicao.cpf}
+                  onChange={(e) =>
+                    setFormEdicao({ ...formEdicao, cpf: e.target.value })
+                  }
+                  className="h-9 text-xs font-mono"
+                  disabled={formEdicao.tipo === "Terceiro"}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Data Admissão</Label>
+                <Input
+                  type="date"
+                  value={formEdicao.data_admissao}
+                  onChange={(e) =>
+                    setFormEdicao({
+                      ...formEdicao,
+                      data_admissao: e.target.value,
+                    })
+                  }
+                  className="h-9 text-xs"
+                  disabled={formEdicao.tipo === "Terceiro"}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">
+                  Salário Bruto (R$)
+                </Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="1720,00"
+                  value={formEdicao.salario}
+                  onChange={(e) =>
+                    setFormEdicao({ ...formEdicao, salario: e.target.value })
+                  }
+                  className="h-9 text-xs font-mono"
+                />
+              </div>
+
+              {formEdicao.tipo === "Funcionário" ? (
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">
+                    Filhos (&lt;14)
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={formEdicao.filhos}
+                    onChange={(e) =>
+                      setFormEdicao({ ...formEdicao, filhos: e.target.value })
+                    }
+                    className="h-9 text-xs font-mono"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Origem
+                  </Label>
+                  <Input
+                    disabled
+                    value="Terceiro Prestador"
+                    className="h-9 text-xs bg-muted cursor-not-allowed"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Agência</Label>
+                <Input
+                  placeholder="Ex: 0001"
+                  value={formEdicao.agencia}
+                  onChange={(e) =>
+                    setFormEdicao({ ...formEdicao, agencia: e.target.value })
+                  }
+                  className="h-9 text-xs font-mono"
+                  disabled={formEdicao.tipo === "Terceiro"}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Conta Corrente</Label>
+                <Input
+                  placeholder="Ex: 12345-6"
+                  value={formEdicao.conta}
+                  onChange={(e) =>
+                    setFormEdicao({ ...formEdicao, conta: e.target.value })
+                  }
+                  className="h-9 text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Chave PIX</Label>
+              <Input
+                placeholder="CPF, Telefone, E-mail ou Chave aleatória"
+                value={formEdicao.pix}
+                onChange={(e) =>
+                  setFormEdicao({ ...formEdicao, pix: e.target.value })
+                }
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setColaboradorParaEditar(null)}
+                disabled={salvandoEdicao}
+                className="text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={salvandoEdicao}
+                className="text-xs font-semibold gap-1 bg-primary text-primary-foreground"
+              >
+                {salvandoEdicao ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Salvar Alterações
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* MODAL NOVO COLABORADOR */}
       <Dialog open={modalNovoAberto} onOpenChange={setModalNovoAberto}>

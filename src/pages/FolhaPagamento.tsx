@@ -564,13 +564,13 @@ export function FolhaPagamento() {
     carregarConsolidacao()
   }, [competencia])
 
-  // Separação de funcionários e terceiros
+  // Separação de funcionários e terceiros (exclui inativos, ex: José Pedro da Silva out/2026)
   const funcionariosLinhas = useMemo(() => {
-    return linhas.filter((l) => l.tipo !== "Terceiro")
+    return linhas.filter((l) => l.tipo !== "Terceiro" && !l.inativo)
   }, [linhas])
 
   const terceirosLinhas = useMemo(() => {
-    return linhas.filter((l) => l.tipo === "Terceiro")
+    return linhas.filter((l) => l.tipo === "Terceiro" && !l.inativo)
   }, [linhas])
 
   // LISTAS BASE:

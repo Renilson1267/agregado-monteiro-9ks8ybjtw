@@ -54,6 +54,7 @@ export function ModalEditarLinhaFolha({
   const [quinzena, setQuinzena] = useState<number>(0)
   const [quinzena2, setQuinzena2] = useState<number>(0)
   const [adiantamento, setAdiantamento] = useState<number>(0)
+  const [consignado, setConsignado] = useState<number>(0)
   const [inss, setInss] = useState<number>(0)
   const [familia, setFamilia] = useState<number>(0)
   const [ir, setIr] = useState<number>(0)
@@ -83,6 +84,7 @@ export function ModalEditarLinhaFolha({
       setFilhos(Number(linha.filhos || 0))
       setQuinzena(Number(linha.quinzena || 0))
       setQuinzena2(Number(linha.quinzena_2 || 0))
+      setConsignado(Number((linha as any).consignado || 0))
       setAdiantamento(Number(linha.adiantamento || 0))
       setInss(Number(linha.inss || 0))
       setFamilia(Number(linha.familia || 0))
@@ -125,7 +127,7 @@ export function ModalEditarLinhaFolha({
       famCalc,
       irCalc,
       qCalc,
-      { quinzena_2: quinzena2 },
+      { quinzena_2: quinzena2, consignado },
     )
 
     setInss(Math.round(inssCalc * 100) / 100)
@@ -162,6 +164,7 @@ export function ModalEditarLinhaFolha({
         dadosUpdate.familia = isTerceiro ? 0 : Number(familia || 0)
         dadosUpdate.ir = isTerceiro ? 0 : Number(ir || 0)
         dadosUpdate.quinzena = Number(quinzena || 0)
+        dadosUpdate.consignado = Number(consignado || 0)
         dadosUpdate.mensal_liquido = Number(mensalLiquido || 0)
         dadosUpdate.salario_liquido = Number(mensalLiquido || 0)
       } else if (abaContexto === "producao") {
@@ -187,6 +190,7 @@ export function ModalEditarLinhaFolha({
         dadosUpdate.filhos = Number(filhos || 0)
         dadosUpdate.quinzena = Number(quinzena || 0)
         dadosUpdate.quinzena_2 = Number(quinzena2 || 0)
+        dadosUpdate.consignado = Number(consignado || 0)
         dadosUpdate.adiantamento = Number(adiantamento || 0)
         dadosUpdate.inss = isTerceiro ? 0 : Number(inss || 0)
         dadosUpdate.familia = isTerceiro ? 0 : Number(familia || 0)
@@ -433,9 +437,19 @@ export function ModalEditarLinhaFolha({
                     type="number"
                     step="0.01"
                     value={quinzena}
-                    onChange={(e) =>
-                      setQuinzena(parseFloat(e.target.value) || 0)
-                    }
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value) || 0
+                      setQuinzena(v)
+                      const liq = calcularMensalSemProducao(
+                        bruto,
+                        inss,
+                        familia,
+                        ir,
+                        v,
+                        { quinzena_2: quinzena2, consignado },
+                      )
+                      setMensalLiquido(liq)
+                    }}
                     className="mt-1 h-8 text-xs font-mono text-blue-600"
                   />
                 </div>
@@ -453,7 +467,31 @@ export function ModalEditarLinhaFolha({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <Label className="text-xs text-red-600">
+                    Consignado (R$)
+                  </Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={consignado}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value) || 0
+                      setConsignado(v)
+                      const liq = calcularMensalSemProducao(
+                        bruto,
+                        inss,
+                        familia,
+                        ir,
+                        quinzena,
+                        { quinzena_2: quinzena2, consignado: v },
+                      )
+                      setMensalLiquido(liq)
+                    }}
+                    className="mt-1 h-8 text-xs font-mono text-red-600 font-medium"
+                  />
+                </div>
                 <div>
                   <Label className="text-xs text-red-600">
                     INSS Retido (R$)
@@ -800,6 +838,30 @@ export function ModalEditarLinhaFolha({
                     />
                   </div>
                   <div>
+                    <Label className="text-[11px] text-red-600">
+                      Consignado (−)
+                    </Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={consignado}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value) || 0
+                        setConsignado(v)
+                        const liq = calcularMensalSemProducao(
+                          bruto,
+                          inss,
+                          familia,
+                          ir,
+                          quinzena,
+                          { quinzena_2: quinzena2, consignado: v },
+                        )
+                        setMensalLiquido(liq)
+                      }}
+                      className="mt-1 h-7 text-xs font-mono text-red-600"
+                    />
+                  </div>
+                  <div>
                     <Label className="text-[11px]">Adiantamento (−)</Label>
                     <Input
                       type="number"
@@ -809,17 +871,6 @@ export function ModalEditarLinhaFolha({
                         setAdiantamento(parseFloat(e.target.value) || 0)
                       }
                       className="mt-1 h-7 text-xs font-mono text-red-600"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[11px]">Filhos (&lt;14)</Label>
-                    <Input
-                      type="number"
-                      value={filhos}
-                      onChange={(e) =>
-                        setFilhos(parseInt(e.target.value, 10) || 0)
-                      }
-                      className="mt-1 h-7 text-xs font-mono"
                     />
                   </div>
                   <div>

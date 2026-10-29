@@ -168,6 +168,7 @@ export function calcularMensalSemProducao(
     gratificacao?: number
     adiantamento?: number
     quinzena_2?: number
+    consignado?: number
     comissao?: number
     vendas_ajuda?: number
   },
@@ -178,8 +179,9 @@ export function calcularMensalSemProducao(
   const ir = Number(irrf || 0)
   const q = Number(quinzena || 0)
   const q2 = Number(extras?.quinzena_2 || 0)
+  const consignado = Number(extras?.consignado || 0)
 
-  const total = b - i - ir + fam - q - q2
+  const total = b - i - ir + fam - q - q2 - consignado
   return Math.round(total * 100) / 100
 }
 
@@ -209,6 +211,7 @@ export function calcularMensalGeral(
     gratificacao?: number
     adiantamento?: number
     quinzena_2?: number
+    consignado?: number
     comissao?: number
     vendas_ajuda?: number
   },

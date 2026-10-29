@@ -26,6 +26,7 @@ export interface SalvarLinhaFolhaPayload {
   ir: number
   quinzena: number
   quinzena_2?: number
+  consignado?: number
   adiantamento: number
   gratificacao: number
   mensal_liquido: number
@@ -194,6 +195,7 @@ export class FolhaService {
       ir: Number(l.ir || 0),
       quinzena: Number(l.quinzena || 0),
       quinzena_2: Number(l.quinzena_2 || 0),
+      consignado: Number(l.consignado || 0),
       adiantamento: Number(l.adiantamento || 0),
       gratificacao: Number(l.gratificacao || 0),
       obras: Number(l.obras || 0),
@@ -253,6 +255,7 @@ export class FolhaService {
       ir: isTerceiro ? 0 : Number(payload.ir || 0),
       quinzena: Number(payload.quinzena || 0),
       quinzena_2: Number(payload.quinzena_2 || 0),
+      consignado: Number(payload.consignado || 0),
       adiantamento: isTerceiro ? 0 : Number(payload.adiantamento || 0),
       gratificacao: Number(payload.gratificacao || 0),
       obras: isTerceiro ? 0 : Number(payload.obras || 0),
