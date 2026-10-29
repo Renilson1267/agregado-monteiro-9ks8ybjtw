@@ -146,7 +146,7 @@ function contarPessoasUnidade(
   return funcs.length + tercsCadNaoVendedores.length
 }
 
-function calcularAjudaCustoTerceiros(
+function calcularAjudaCustoVendedores(
   linhasEmpresa: FolhaPagamentoLinha[] = [],
   terceirosEmpresa: FolhaTerceiro[] = [],
 ): number {
@@ -156,8 +156,29 @@ function calcularAjudaCustoTerceiros(
     const val = Number(t.ajuda_custo ?? t.vendas_ajuda ?? 0)
     ajuda += val
   })
+  const funcs = (linhasEmpresa || []).filter((l) => l.tipo !== "Terceiro")
+  funcs.forEach((f) => {
+    const n = (f.nome || "").toUpperCase()
+    const func = (f.funcao || "").toUpperCase()
+    const c = (f.cargo || "").toUpperCase()
+    if (
+      n.includes("VALDERCLEITON") ||
+      func.includes("VENDEDOR") ||
+      c.includes("VENDEDOR")
+    ) {
+      const val = Number(
+        f.vendas_ajuda !== undefined &&
+          f.vendas_ajuda !== null &&
+          Number(f.vendas_ajuda) > 0
+          ? f.vendas_ajuda
+          : f.ajuda_custo || 0,
+      )
+      ajuda += val
+    }
+  })
   return Math.round(ajuda * 100) / 100
 }
+const calcularAjudaCustoTerceiros = calcularAjudaCustoVendedores
 
 function calcularValorRealEmpresa(
   linhasEmpresa: FolhaPagamentoLinha[],
@@ -1863,13 +1884,48 @@ export function FolhaPagamento() {
     const irrfRetido = Math.round(totaisGeral.irrf * 100) / 100
     const salarioFamiliaPago = Math.round(totaisGeral.familia * 100) / 100
 
-    // Total Geral do Mês = Subtotal Folha (Quinzena + Mensal Líquido + Produção a pagar + Comissões) + Terceiros (folha à parte) + Adiantamentos
+    // Total Geral do Mês = Subtotal Folha (Quinzena + Mensal Líquido + Produção a pagar + Comissões) + Terceiros (folha à parte) + Adiantamentos + Ajuda de Custo Vendedores
     // Como a Produção e Comissões já foram incorporadas no subtotalFolha, NÃO são somadas em duplicidade no total.
     const comissaoTerceirosVendedores =
       Math.round(totaisVendasTerceiros.comissao * 100) / 100
+
+    // Ajuda de custo dos vendedores (terceiros + funcionários vendedores como Valdercleiton)
+    // vendas_ajuda prevalece sobre ajuda_custo campo a campo
+    const ajudaFuncsVendedores = linhasGeralProcessadasParaTotais
+      .filter((l) => {
+        const n = (l.nome || "").toUpperCase()
+        const f = (l.funcao || "").toUpperCase()
+        const c = (l.cargo || "").toUpperCase()
+        return (
+          n.includes("VALDERCLEITON") ||
+          f.includes("VENDEDOR") ||
+          c.includes("VENDEDOR")
+        )
+      })
+      .reduce((acc, l) => {
+        const val = Number(
+          l.vendas_ajuda !== undefined &&
+            l.vendas_ajuda !== null &&
+            Number(l.vendas_ajuda) > 0
+            ? l.vendas_ajuda
+            : l.ajuda_custo || 0,
+        )
+        return acc + val
+      }, 0)
+
+    const ajudaVendedores =
+      Math.round(
+        (totaisVendasTerceiros.ajuda_custo + ajudaFuncsVendedores) * 100,
+      ) / 100
+
     const totalGeralDoMes =
-      Math.round((subtotalFolha + terceirosFolha + totalAdiantamentos) * 100) /
-      100
+      Math.round(
+        (subtotalFolha +
+          terceirosFolha +
+          totalAdiantamentos +
+          ajudaVendedores) *
+          100,
+      ) / 100
 
     return {
       pessoasNaFolha,
@@ -1881,6 +1937,7 @@ export function FolhaPagamento() {
       terceirosFolha,
       adiantamentos: totalAdiantamentos,
       comissaoTerceirosVendedores,
+      ajudaVendedores,
       inssRetido,
       irrfRetido,
       salarioFamiliaPago,
@@ -1893,6 +1950,7 @@ export function FolhaPagamento() {
     totaisTerceiros,
     totaisVendasTerceiros,
     linhasGeralProcessadas.length,
+    linhasGeralProcessadasParaTotais,
     totalAdiantamentos,
   ])
 
@@ -1904,19 +1962,19 @@ export function FolhaPagamento() {
     const m = consolidacaoDuasFolhas.monteiro
     const s = consolidacaoDuasFolhas.sje
 
-    // Ajuda de custo dos vendedores terceiros (VENDAS) por unidade — vem do consolidado das duas folhas
+    // Ajuda de custo dos vendedores (VENDAS) por unidade — vem do consolidado das duas folhas
     const ajudaMonteiro =
       consolidacaoDuasFolhas.temMonteiro &&
       empresaAtiva?.id === ID_EMPRESA_MONTEIRO
-        ? Math.round(totaisVendasTerceiros.ajuda_custo * 100) / 100
-        : calcularAjudaCustoTerceiros(
+        ? resumo.ajudaVendedores
+        : calcularAjudaCustoVendedores(
             linhasConsolidacaoMonteiro,
             terceirosMonteiro,
           )
     const ajudaSje =
       consolidacaoDuasFolhas.temSje && empresaAtiva?.id === ID_EMPRESA_SJE
-        ? Math.round(totaisVendasTerceiros.ajuda_custo * 100) / 100
-        : calcularAjudaCustoTerceiros(linhasConsolidacaoSje, terceirosSje)
+        ? resumo.ajudaVendedores
+        : calcularAjudaCustoVendedores(linhasConsolidacaoSje, terceirosSje)
 
     // Pessoas na folha por unidade (funcionários + terceiros da competência)
     const pessoasMonteiro = contarPessoasUnidade(
@@ -1930,7 +1988,7 @@ export function FolhaPagamento() {
         (m.salariosQuinzena +
           m.salariosMensal +
           m.producaoAPagar +
-          m.comissoesVendas +
+          (m.comissoesVendas + ajudaMonteiro) +
           totalAdiantamentosMonteiro) *
           100,
       ) / 100
@@ -1939,7 +1997,7 @@ export function FolhaPagamento() {
         (s.salariosQuinzena +
           s.salariosMensal +
           s.producaoAPagar +
-          s.comissoesVendas +
+          (s.comissoesVendas + ajudaSje) +
           totalAdiantamentosSje) *
           100,
       ) / 100
@@ -1970,7 +2028,7 @@ export function FolhaPagamento() {
     }
   }, [
     consolidacaoDuasFolhas,
-    totaisVendasTerceiros,
+    resumo.ajudaVendedores,
     linhasConsolidacaoMonteiro,
     linhasConsolidacaoSje,
     terceirosMonteiro,
@@ -6932,6 +6990,14 @@ export function FolhaPagamento() {
                         {fmtMoeda(resumo.adiantamentos)}
                       </span>
                     </div>
+                    <div className="flex items-center justify-between py-2.5 px-4 bg-amber-50/50 dark:bg-amber-950/20">
+                      <span className="text-amber-900 dark:text-amber-200 font-semibold">
+                        AJUDA DE CUSTO
+                      </span>
+                      <span className="font-mono font-bold text-amber-700 dark:text-amber-300">
+                        {fmtMoeda(resumo.ajudaVendedores)}
+                      </span>
+                    </div>
                     <div className="flex items-center justify-between py-2.5 px-4 bg-primary/10 font-bold border-t-2">
                       <span className="text-primary text-sm uppercase">
                         TOTAL DA UNIDADE
@@ -9207,6 +9273,14 @@ export function FolhaPagamento() {
                       </td>
                       <td className="border p-2 text-right font-mono font-semibold">
                         {fmtMoeda(resumo.adiantamentos)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-2 font-semibold">
+                        AJUDA DE CUSTO
+                      </td>
+                      <td className="border p-2 text-right font-mono font-semibold">
+                        {fmtMoeda(resumo.ajudaVendedores)}
                       </td>
                     </tr>
                     <tr className="bg-gray-200 font-bold text-xs">
