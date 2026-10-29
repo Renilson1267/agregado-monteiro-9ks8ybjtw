@@ -215,7 +215,10 @@ export function calcularValorRealEmpresa(
     const b = Number(l.bruto || 0)
     const i = Number(l.inss || 0)
     const ir = Number(l.ir || 0)
-    const q = Number(l.quinzena || 0)
+    const q =
+      l.quinzena !== undefined && l.quinzena !== null
+        ? Number(l.quinzena)
+        : Math.round(b * 0.4 * 100) / 100
     const q2 = Number(l.quinzena_2 || 0)
     const mensal = Math.round((b - i - ir - q - q2) * 100) / 100
     totalFuncionarios += mensal + producaoCompleta - adiantamento

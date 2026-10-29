@@ -203,7 +203,10 @@ function calcularValorRealEmpresa(
     const b = Number(l.bruto || 0)
     const i = Number(l.inss || 0)
     const ir = Number(l.ir || 0)
-    const q = Number(l.quinzena || 0)
+    const q =
+      l.quinzena !== undefined && l.quinzena !== null
+        ? Number(l.quinzena)
+        : Math.round(b * 0.4 * 100) / 100
     const q2 = Number(l.quinzena_2 || 0)
     const mensal = Math.round((b - i - ir - q - q2) * 100) / 100
     const aPagarProd = isValdercleiton
@@ -771,13 +774,9 @@ export function FolhaPagamento() {
     const inssFinal = Number(l.inss ?? inssCalc ?? 0)
     const familiaFinal = Number(l.familia ?? familiaCalc ?? 0)
     const irrfFinal = Number(l.ir ?? irrfCalc ?? 0)
-    // Quinzena: se modo_calculo for 'Digitado' e houver valor digitado pelo usuário, respeita;
-    // caso contrário (modo_calculo <> 'Digitado'), sempre calcula automaticamente (bruto × % da competência)
+    // Quinzena: respeita o valor gravado quando ele existe (incluindo 0), usando 40% apenas quando nulo/indefinido
     const quinzenaFinal =
-      l.modo_calculo === "Digitado" &&
-      l.quinzena !== undefined &&
-      l.quinzena !== null &&
-      Number(l.quinzena) > 0
+      l.quinzena !== undefined && l.quinzena !== null
         ? Number(l.quinzena)
         : quinzenaCalc
 
@@ -872,7 +871,8 @@ export function FolhaPagamento() {
       Math.abs(irrfFinal - irrfCalc) > 0.05 &&
       irrfFinal > 0
     const isQuinzenaSobrescrita =
-      l.modo_calculo === "Digitado" &&
+      l.quinzena !== undefined &&
+      l.quinzena !== null &&
       Math.abs(quinzenaFinal - quinzenaCalc) > 0.05
     const isMensalSobrescrito = Math.abs(mensalFinal - mensalCalc) > 0.05
 
