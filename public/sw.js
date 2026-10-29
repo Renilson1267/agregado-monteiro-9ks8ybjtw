@@ -1,7 +1,7 @@
 // Service Worker simples e seguro para o PWA GC MIX Concreto Usinado
-// Versão do cache: alterar para invalidar cache estático (build v122 - 0.0.391)
+// Versão do cache: alterar para invalidar cache estático (build v123 - 0.0.392)
 // Verificação de segurança: sem skipWaiting ou clients.claim automáticos no sw.js
-const CACHE_NAME = "gcmix-pwa-v122"
+const CACHE_NAME = "gcmix-pwa-v123"
 // Recursos estáticos básicos essenciais para abrir o shell do app offline
 const PRECACHE_ASSETS = [
   "/",
