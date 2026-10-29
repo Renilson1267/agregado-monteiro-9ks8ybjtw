@@ -204,11 +204,18 @@ function calcularValorRealEmpresa(
     const i = Number(l.inss || 0)
     const ir = Number(l.ir || 0)
     const q =
-      l.quinzena !== undefined && l.quinzena !== null
+      l.modo_calculo === "Digitado" &&
+      l.quinzena !== null &&
+      l.quinzena !== undefined
         ? Number(l.quinzena)
         : Math.round(b * 0.4 * 100) / 100
     const q2 = Number(l.quinzena_2 || 0)
-    const mensal = Math.round((b - i - ir - q - q2) * 100) / 100
+    const mensal =
+      l.modo_calculo === "Digitado" &&
+      l.mensal_liquido !== null &&
+      l.mensal_liquido !== undefined
+        ? Number(l.mensal_liquido)
+        : Math.round((b - i - ir - q - q2) * 100) / 100
     const aPagarProd = isValdercleiton
       ? 0
       : Math.max(0, producaoCompleta - adiantamento)
@@ -635,9 +642,8 @@ export function FolhaPagamento() {
     const quinzena = ehVendedor
       ? 0
       : t.modo_calculo === "Digitado" &&
-          t.quinzena !== undefined &&
           t.quinzena !== null &&
-          Number(t.quinzena) > 0
+          t.quinzena !== undefined
         ? Number(t.quinzena)
         : quinzenaAuto
     const mensal = ehVendedor
@@ -774,9 +780,11 @@ export function FolhaPagamento() {
     const inssFinal = Number(l.inss ?? inssCalc ?? 0)
     const familiaFinal = Number(l.familia ?? familiaCalc ?? 0)
     const irrfFinal = Number(l.ir ?? irrfCalc ?? 0)
-    // Quinzena: respeita o valor gravado quando ele existe (incluindo 0), usando 40% apenas quando nulo/indefinido
+    // Quinzena: respeita o valor gravado se modo_calculo='Digitado' (incluindo 0), mantendo quinzenaCalc quando modo_calculo !== 'Digitado' ou campo nulo/undefined
     const quinzenaFinal =
-      l.quinzena !== undefined && l.quinzena !== null
+      l.modo_calculo === "Digitado" &&
+      l.quinzena !== null &&
+      l.quinzena !== undefined
         ? Number(l.quinzena)
         : quinzenaCalc
 
@@ -836,7 +844,12 @@ export function FolhaPagamento() {
       },
     )
 
-    const mensalPuro = mensalCalculadoSemProd
+    const mensalPuro =
+      l.modo_calculo === "Digitado" &&
+      l.mensal_liquido !== null &&
+      l.mensal_liquido !== undefined
+        ? Number(l.mensal_liquido)
+        : mensalCalculadoSemProd
     const mensalFinal =
       destinoAdiantamento === "mensal"
         ? Math.round((mensalPuro - adiantamentoTotal) * 100) / 100
