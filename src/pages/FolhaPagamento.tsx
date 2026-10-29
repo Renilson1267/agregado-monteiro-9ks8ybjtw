@@ -7069,9 +7069,7 @@ export function FolhaPagamento() {
         abaContexto={contextoAbaEdicao}
         tabelaOficial={tabelaOficial}
         percentualQuinzena={percentualQuinzena}
-        isMonteiro={isMonteiro}
-        faixasComissao={faixasComissao}
-        onSalvo={async () => {
+        onSalvoSucesso={async () => {
           await recarregarFolha()
         }}
       />
