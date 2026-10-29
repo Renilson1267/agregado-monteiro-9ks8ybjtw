@@ -176,9 +176,15 @@
   @page {
     size: A4 landscape;
     margin: 6mm 8mm;
+    background-color: #ffffff !important;
   }
+
+  /* Força branco total no elemento raiz html e body mesmo com tema dark ativo */
   html,
-  body {
+  html.dark,
+  html[class*="dark"],
+  body,
+  body.dark {
     background: #ffffff !important;
     background-color: #ffffff !important;
     color: #000000 !important;
@@ -194,7 +200,9 @@
   }
 
   /* Neutraliza temas dark em modo de impressão */
-  .dark {
+  .dark,
+  :root.dark,
+  [data-theme='dark'] {
     --background: 0 0% 100% !important;
     --foreground: 0 0% 0% !important;
     --card: 0 0% 100% !important;
@@ -204,10 +212,12 @@
     --border: 0 0% 80% !important;
   }
 
-  /* Reset de layout do app para evitar páginas em branco antes do recibo */
+  /* Reset de layout do app para evitar páginas em branco antes do recibo e vazamento de fundo escuro */
   #root,
   #root > div,
   #root > div > div,
+  div.min-h-screen,
+  [class*="min-h-screen"],
   main,
   .container {
     min-height: 0 !important;
@@ -219,6 +229,7 @@
     box-shadow: none !important;
     border: none !important;
     background: #ffffff !important;
+    background-color: #ffffff !important;
     color: #000000 !important;
     overflow: visible !important;
   }
@@ -240,7 +251,7 @@
     margin: 0 !important;
   }
 
-  /* Ocultar elementos de navegação e UI que nunca devem ser impressos */
+  /* Ocultar elementos de navegação e UI que nunca devem ser impressos e anular seus fundos escuros */
   header,
   aside,
   nav,
@@ -251,13 +262,19 @@
   .introjs-helperLayer,
   div[data-radix-focus-guard] {
     display: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
   }
 
-  /* Esconde overlay escuro do dialog do Radix (shadcn DialogOverlay) */
+  /* Anular e ocultar elementos com position:fixed e overlays escuros que possam vazar para as margens da impressão */
+  [class*='fixed'][class*='bg-'],
+  [class*='fixed'][class*='dark'],
+  div[data-state='open'][class*='fixed'],
   [data-radix-portal] [class*='fixed'][class*='bg-black'],
   div[data-state='open'][class*='fixed'][class*='bg-black'] {
     display: none !important;
     background: transparent !important;
+    background-color: transparent !important;
   }
 
   /* Radix Portal quando contém Dialog de impressão */

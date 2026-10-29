@@ -85,13 +85,18 @@ export async function printElementInIsolatedIframe(
       @page {
         size: A4 ${pageOrientation};
         margin: ${pageMargin};
+        background-color: #ffffff !important;
       }
       * {
         box-sizing: border-box;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
-      html, body {
+      html,
+      html.dark,
+      html[class*="dark"],
+      body,
+      body.dark {
         margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
@@ -103,6 +108,11 @@ export async function printElementInIsolatedIframe(
         width: 100% !important;
         min-height: 0 !important;
         height: auto !important;
+      }
+      .dark,
+      :root.dark {
+        --background: 0 0% 100% !important;
+        --foreground: 0 0% 0% !important;
       }
       .page-break-inside-avoid {
         page-break-inside: avoid !important;
