@@ -100,15 +100,7 @@ export interface ConfrontoResultado {
   soNasFerias: ConfrontoLinhaFerias[]
   salarioDivergente: ConfrontoLinhaDivergente[]
 }
-function normalizarTexto(txt: string | null | undefined): string {
-  if (!txt) return ""
-  return txt
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, " ")
-}
+import { normalizarTexto } from "@/lib/utils"
 
 function normalizarCpf(cpf: string | null | undefined): string {
   if (!cpf) return ""
