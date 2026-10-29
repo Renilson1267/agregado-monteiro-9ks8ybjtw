@@ -3344,6 +3344,12 @@ export function FolhaPagamento() {
                         IRRF (−)
                       </th>
                       <th
+                        className="py-2.5 px-2 text-right text-rose-600"
+                        title="Desconto Empréstimo Consignado"
+                      >
+                        CONSIGNADO (−)
+                      </th>
+                      <th
                         className="py-2.5 px-2 text-right font-bold text-primary bg-primary/10"
                         title="Líquido total a receber na Geral (Mensal + Produção)"
                       >
@@ -3541,6 +3547,15 @@ export function FolhaPagamento() {
                                     </Badge>
                                   )}
                                 </div>
+                              </td>
+
+                              {/* CONSIGNADO */}
+                              <td className="py-2 px-2 text-right font-mono whitespace-nowrap text-rose-600">
+                                <span>
+                                  {l.consignadoFinal > 0
+                                    ? `−${fmtMoeda(l.consignadoFinal)}`
+                                    : "-"}
+                                </span>
                               </td>
 
                               {/* LÍQUIDO A RECEBER (MENSAL + PRODUÇÃO) */}
@@ -3747,6 +3762,12 @@ export function FolhaPagamento() {
                                           − {fmtMoeda(l.irrfFinal)} (IRRF)
                                         </span>
                                       )}
+                                      {l.consignadoFinal > 0 && (
+                                        <span>
+                                          − {fmtMoeda(l.consignadoFinal)}{" "}
+                                          (Consignado)
+                                        </span>
+                                      )}
                                       {l.quinzenaFinal > 0 && (
                                         <span>
                                           − {fmtMoeda(l.quinzenaFinal)}{" "}
@@ -3830,6 +3851,11 @@ export function FolhaPagamento() {
                           ? `−${fmtMoeda(totaisGeral.irrf)}`
                           : fmtMoeda(0)}
                       </td>
+                      <td className="py-2.5 px-2 text-right font-mono text-rose-600">
+                        {(totaisGeral.consignado || 0) > 0
+                          ? `−${fmtMoeda(totaisGeral.consignado || 0)}`
+                          : fmtMoeda(0)}
+                      </td>
                       <td className="py-2.5 px-2 text-right font-mono text-primary bg-primary/20 text-sm">
                         {fmtMoeda(totaisGeral.liquidoGeral)}
                       </td>
@@ -3869,6 +3895,9 @@ export function FolhaPagamento() {
                         <td className="py-2.5 px-2 text-right font-mono text-red-600">
                           {fmtMoeda(totaisGeral.irrf)}
                         </td>
+                        <td className="py-2.5 px-2 text-right font-mono text-rose-600">
+                          {fmtMoeda(totaisGeral.consignado || 0)}
+                        </td>
                         <td className="py-2.5 px-2 text-right font-mono font-bold text-primary bg-primary/25 text-sm">
                           {fmtMoeda(
                             totaisGeral.liquidoGeral + totaisTerceiros.valorMes,
@@ -3893,6 +3922,12 @@ export function FolhaPagamento() {
                           {totaisGeral.irrf > 0 && (
                             <span className="text-red-600">
                               IRRF: −{fmtMoeda(totaisGeral.irrf)}
+                            </span>
+                          )}
+                          {(totaisGeral.consignado || 0) > 0 && (
+                            <span className="text-rose-600">
+                              Consignado: −
+                              {fmtMoeda(totaisGeral.consignado || 0)}
                             </span>
                           )}
                           {totaisGeral.quinzena > 0 && (
