@@ -36,6 +36,7 @@ import {
   FolhaTabelaOficial,
   FaixaComissaoProgressiva,
   FolhaTerceiro,
+  FolhaAdiantamento,
 } from "@/types/folha"
 import {
   calcularInssProgressivo,
@@ -410,6 +411,15 @@ export function FolhaPagamento() {
   const [terceirosSje, setTerceirosSje] = useState<FolhaTerceiro[]>([])
   const [carregandoConsolidacao, setCarregandoConsolidacao] = useState(false)
 
+  // Adiantamentos da empresa ativa + competência
+  const [adiantamentos, setAdiantamentos] = useState<FolhaAdiantamento[]>([])
+  const [
+    adiantamentosConsolidacaoMonteiro,
+    setAdiantamentosConsolidacaoMonteiro,
+  ] = useState<FolhaAdiantamento[]>([])
+  const [adiantamentosConsolidacaoSje, setAdiantamentosConsolidacaoSje] =
+    useState<FolhaAdiantamento[]>([])
+
   // 1. Carregar lista de competências disponíveis
   useEffect(() => {
     async function carregarCompetencias() {
@@ -481,12 +491,14 @@ export function FolhaPagamento() {
   const recarregarFolha = async () => {
     if (!empresaAtiva?.id || !competencia) return
     try {
-      const [compData, dataLinhas] = await Promise.all([
+      const [compData, dataLinhas, dataAdiantamentos] = await Promise.all([
         FolhaService.getCompetencia(empresaAtiva.id, competencia),
         FolhaService.getLinhasCompetencia(empresaAtiva.id, competencia),
+        FolhaService.getAdiantamentos(empresaAtiva.id, competencia),
       ])
       setCompetenciaObj(compData)
       setLinhas(dataLinhas)
+      setAdiantamentos(dataAdiantamentos || [])
     } catch (err) {
       console.warn("Erro ao recarregar folha:", err)
     }
@@ -498,9 +510,10 @@ export function FolhaPagamento() {
       if (!empresaAtiva?.id || !competencia) return
       setCarregando(true)
       try {
-        const [compData, dataLinhas] = await Promise.all([
+        const [compData, dataLinhas, dataAdiantamentos] = await Promise.all([
           FolhaService.getCompetencia(empresaAtiva.id, competencia),
           FolhaService.getLinhasCompetencia(empresaAtiva.id, competencia),
+          FolhaService.getAdiantamentos(empresaAtiva.id, competencia),
         ])
 
         setCompetenciaObj(compData)
@@ -523,6 +536,7 @@ export function FolhaPagamento() {
         }
 
         setLinhas(dataLinhas)
+        setAdiantamentos(dataAdiantamentos || [])
       } catch (err: any) {
         toast({
           title: "Erro ao carregar folha",
@@ -543,18 +557,28 @@ export function FolhaPagamento() {
       if (!competencia) return
       setCarregandoConsolidacao(true)
       try {
-        const [linhasMont, linhasSjeData, tercsMont, tercsSjeData] =
-          await Promise.all([
-            FolhaService.getLinhasCompetencia(ID_EMPRESA_MONTEIRO, competencia),
-            FolhaService.getLinhasCompetencia(ID_EMPRESA_SJE, competencia),
-            FolhaService.getTerceiros(ID_EMPRESA_MONTEIRO),
-            FolhaService.getTerceiros(ID_EMPRESA_SJE),
-          ])
+        const [
+          linhasMont,
+          linhasSjeData,
+          tercsMont,
+          tercsSjeData,
+          adMont,
+          adSje,
+        ] = await Promise.all([
+          FolhaService.getLinhasCompetencia(ID_EMPRESA_MONTEIRO, competencia),
+          FolhaService.getLinhasCompetencia(ID_EMPRESA_SJE, competencia),
+          FolhaService.getTerceiros(ID_EMPRESA_MONTEIRO),
+          FolhaService.getTerceiros(ID_EMPRESA_SJE),
+          FolhaService.getAdiantamentos(ID_EMPRESA_MONTEIRO, competencia),
+          FolhaService.getAdiantamentos(ID_EMPRESA_SJE, competencia),
+        ])
 
         setLinhasConsolidacaoMonteiro(linhasMont || [])
         setLinhasConsolidacaoSje(linhasSjeData || [])
         setTerceirosMonteiro(tercsMont || [])
         setTerceirosSje(tercsSjeData || [])
+        setAdiantamentosConsolidacaoMonteiro(adMont || [])
+        setAdiantamentosConsolidacaoSje(adSje || [])
       } catch (err) {
         console.warn("Erro ao carregar dados consolidados da folha:", err)
       } finally {
@@ -1775,6 +1799,46 @@ export function FolhaPagamento() {
     terceirosSje,
   ])
 
+  // Soma dos adiantamentos da competência atual da empresa ativa
+  const totalAdiantamentos = useMemo(() => {
+    return (
+      Math.round(
+        (adiantamentos || []).reduce(
+          (acc, a) => acc + Number(a.valor_extra || 0),
+          0,
+        ) * 100,
+      ) / 100
+    )
+  }, [adiantamentos])
+
+  const totalAdiantamentosMonteiro = useMemo(() => {
+    if (empresaAtiva?.id === ID_EMPRESA_MONTEIRO) {
+      return totalAdiantamentos
+    }
+    return (
+      Math.round(
+        (adiantamentosConsolidacaoMonteiro || []).reduce(
+          (acc, a) => acc + Number(a.valor_extra || 0),
+          0,
+        ) * 100,
+      ) / 100
+    )
+  }, [empresaAtiva?.id, totalAdiantamentos, adiantamentosConsolidacaoMonteiro])
+
+  const totalAdiantamentosSje = useMemo(() => {
+    if (empresaAtiva?.id === ID_EMPRESA_SJE) {
+      return totalAdiantamentos
+    }
+    return (
+      Math.round(
+        (adiantamentosConsolidacaoSje || []).reduce(
+          (acc, a) => acc + Number(a.valor_extra || 0),
+          0,
+        ) * 100,
+      ) / 100
+    )
+  }, [empresaAtiva?.id, totalAdiantamentos, adiantamentosConsolidacaoSje])
+
   // RESUMO GERAL CONSOLIDADO (Aba 6)
   const resumo = useMemo(() => {
     const pessoasNaFolha = linhasGeralProcessadas.length
@@ -1799,12 +1863,13 @@ export function FolhaPagamento() {
     const irrfRetido = Math.round(totaisGeral.irrf * 100) / 100
     const salarioFamiliaPago = Math.round(totaisGeral.familia * 100) / 100
 
-    // Total Geral do Mês = Subtotal Folha (Quinzena + Mensal Líquido + Produção a pagar + Comissões) + Terceiros (folha à parte)
+    // Total Geral do Mês = Subtotal Folha (Quinzena + Mensal Líquido + Produção a pagar + Comissões) + Terceiros (folha à parte) + Adiantamentos
     // Como a Produção e Comissões já foram incorporadas no subtotalFolha, NÃO são somadas em duplicidade no total.
     const comissaoTerceirosVendedores =
       Math.round(totaisVendasTerceiros.comissao * 100) / 100
     const totalGeralDoMes =
-      Math.round((subtotalFolha + terceirosFolha) * 100) / 100
+      Math.round((subtotalFolha + terceirosFolha + totalAdiantamentos) * 100) /
+      100
 
     return {
       pessoasNaFolha,
@@ -1814,6 +1879,7 @@ export function FolhaPagamento() {
       producaoAPagar,
       vendasComissoes,
       terceirosFolha,
+      adiantamentos: totalAdiantamentos,
       comissaoTerceirosVendedores,
       inssRetido,
       irrfRetido,
@@ -1827,6 +1893,7 @@ export function FolhaPagamento() {
     totaisTerceiros,
     totaisVendasTerceiros,
     linhasGeralProcessadas.length,
+    totalAdiantamentos,
   ])
 
   // COMPARATIVO RESUMO: MONTEIRO × SJE (cada unidade com SEUS números da competência selecionada)
@@ -1863,7 +1930,8 @@ export function FolhaPagamento() {
         (m.salariosQuinzena +
           m.salariosMensal +
           m.producaoAPagar +
-          m.comissoesVendas) *
+          m.comissoesVendas +
+          totalAdiantamentosMonteiro) *
           100,
       ) / 100
     const totalSje =
@@ -1871,7 +1939,8 @@ export function FolhaPagamento() {
         (s.salariosQuinzena +
           s.salariosMensal +
           s.producaoAPagar +
-          s.comissoesVendas) *
+          s.comissoesVendas +
+          totalAdiantamentosSje) *
           100,
       ) / 100
 
@@ -1884,6 +1953,7 @@ export function FolhaPagamento() {
         comissoesAjuda:
           Math.round((m.comissoesVendas + ajudaMonteiro) * 100) / 100,
         terceiros: m.totalTerceiros,
+        adiantamentos: totalAdiantamentosMonteiro,
         totalUnidade: totalMonteiro,
       },
       sje: {
@@ -1893,6 +1963,7 @@ export function FolhaPagamento() {
         producaoAPagar: s.producaoAPagar,
         comissoesAjuda: Math.round((s.comissoesVendas + ajudaSje) * 100) / 100,
         terceiros: s.totalTerceiros,
+        adiantamentos: totalAdiantamentosSje,
         totalUnidade: totalSje,
       },
       totalGeralGcMix: Math.round((totalMonteiro + totalSje) * 100) / 100,
@@ -1905,6 +1976,8 @@ export function FolhaPagamento() {
     terceirosMonteiro,
     terceirosSje,
     empresaAtiva?.id,
+    totalAdiantamentosMonteiro,
+    totalAdiantamentosSje,
   ])
 
   // Abrir Modal de Edição / Criação
@@ -2503,7 +2576,7 @@ export function FolhaPagamento() {
 
       // Salva / sincroniza também na tabela folha_adiantamentos
       try {
-        await FolhaService.salvarAdiantamento({
+        const adiantamentoSalvo = await FolhaService.salvarAdiantamento({
           empresa_id: empresaAtiva.id,
           competencia,
           colaborador_id: linhaAtual.funcionario_id || linhaAtual.id,
@@ -2511,6 +2584,20 @@ export function FolhaPagamento() {
           nome: linhaAtual.nome,
           valor_extra: numNovo,
           pago: false,
+        })
+        setAdiantamentos((prev) => {
+          const colabId = linhaAtual.funcionario_id || linhaAtual.id
+          const idx = prev.findIndex(
+            (a) =>
+              a.colaborador_id === colabId ||
+              a.nome.toUpperCase() === linhaAtual.nome.toUpperCase(),
+          )
+          if (idx >= 0) {
+            const copia = [...prev]
+            copia[idx] = adiantamentoSalvo
+            return copia
+          }
+          return [...prev, adiantamentoSalvo]
         })
       } catch (errAdiantamento) {
         console.warn(
@@ -2864,7 +2951,7 @@ export function FolhaPagamento() {
 
       // Espelho / sincronização em folha_adiantamentos
       try {
-        await FolhaService.salvarAdiantamento({
+        const adiantamentoEspelho = await FolhaService.salvarAdiantamento({
           empresa_id: empresaAtiva.id,
           competencia,
           colaborador_id: linhaAtual.funcionario_id || linhaAtual.id,
@@ -2872,6 +2959,20 @@ export function FolhaPagamento() {
           nome: linhaAtual.nome,
           valor_extra: Number(linhaAtual.adiantamento || 0),
           pago: false,
+        })
+        setAdiantamentos((prev) => {
+          const colabId = linhaAtual.funcionario_id || linhaAtual.id
+          const idx = prev.findIndex(
+            (a) =>
+              a.colaborador_id === colabId ||
+              a.nome.toUpperCase() === linhaAtual.nome.toUpperCase(),
+          )
+          if (idx >= 0) {
+            const copia = [...prev]
+            copia[idx] = adiantamentoEspelho
+            return copia
+          }
+          return [...prev, adiantamentoEspelho]
         })
       } catch (errSync) {
         console.warn("Aviso ao espelhar em folha_adiantamentos:", errSync)
@@ -6823,6 +6924,14 @@ export function FolhaPagamento() {
                         {fmtMoeda(resumo.terceirosFolha)}
                       </span>
                     </div>
+                    <div className="flex items-center justify-between py-2.5 px-4 bg-orange-50/50 dark:bg-orange-950/20">
+                      <span className="text-orange-900 dark:text-orange-200 font-semibold">
+                        ADIANTAMENTOS
+                      </span>
+                      <span className="font-mono font-bold text-orange-700 dark:text-orange-300">
+                        {fmtMoeda(resumo.adiantamentos)}
+                      </span>
+                    </div>
                     <div className="flex items-center justify-between py-2.5 px-4 bg-primary/10 font-bold border-t-2">
                       <span className="text-primary text-sm uppercase">
                         TOTAL DA UNIDADE
@@ -6938,6 +7047,17 @@ export function FolhaPagamento() {
                           </td>
                           <td className="py-2 px-3 text-right font-mono font-bold text-purple-700 dark:text-purple-300">
                             {fmtMoeda(resumoComparativo.sje.terceiros)}
+                          </td>
+                        </tr>
+                        <tr className="bg-orange-50/40 dark:bg-orange-950/20">
+                          <td className="py-2 px-3 text-orange-900 dark:text-orange-200 font-semibold">
+                            ADIANTAMENTOS
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-orange-700 dark:text-orange-300">
+                            {fmtMoeda(resumoComparativo.monteiro.adiantamentos)}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-orange-700 dark:text-orange-300">
+                            {fmtMoeda(resumoComparativo.sje.adiantamentos)}
                           </td>
                         </tr>
                         <tr className="bg-muted/70 font-bold border-t-2 border-border">
@@ -9081,6 +9201,14 @@ export function FolhaPagamento() {
                         {fmtMoeda(resumo.terceirosFolha)}
                       </td>
                     </tr>
+                    <tr>
+                      <td className="border p-2 font-semibold">
+                        ADIANTAMENTOS
+                      </td>
+                      <td className="border p-2 text-right font-mono font-semibold">
+                        {fmtMoeda(resumo.adiantamentos)}
+                      </td>
+                    </tr>
                     <tr className="bg-gray-200 font-bold text-xs">
                       <td className="border p-2">TOTAL DA UNIDADE</td>
                       <td className="border p-2 text-right font-mono">
@@ -9167,6 +9295,17 @@ export function FolhaPagamento() {
                       </td>
                       <td className="border p-1.5 text-right font-mono">
                         {fmtMoeda(resumoComparativo.sje.terceiros)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-1.5 font-semibold">
+                        ADIANTAMENTOS
+                      </td>
+                      <td className="border p-1.5 text-right font-mono font-semibold">
+                        {fmtMoeda(resumoComparativo.monteiro.adiantamentos)}
+                      </td>
+                      <td className="border p-1.5 text-right font-mono font-semibold">
+                        {fmtMoeda(resumoComparativo.sje.adiantamentos)}
                       </td>
                     </tr>
                     <tr className="bg-gray-100 font-bold">
