@@ -149,7 +149,7 @@ export function calcularQuinzena(
 /**
  * Calcula o valor Líquido Mensal da aba MENSAL (sem produção):
  * REGRA OFICIAL GC MIX:
- * MENSAL (LÍQUIDO) = Salário Bruto − INSS − IRRF − Quinzena − Quinzena 2 (se houver)
+ * MENSAL (LÍQUIDO) = Salário Bruto − INSS + FAMÍLIA − IRRF − Quinzena − Quinzena 2 (se houver)
  * Sem adicionais (Gratificação, Limpeza, Sábado, Feriado, Férias, Ajuda, Comissão, Vendas/Ajuda).
  * O Adiantamento desconta exclusivamente no "A Pagar" da Produção.
  */
@@ -174,11 +174,12 @@ export function calcularMensalSemProducao(
 ): number {
   const b = Number(bruto || 0)
   const i = Number(inss || 0)
+  const fam = Number(familia || 0)
   const ir = Number(irrf || 0)
   const q = Number(quinzena || 0)
   const q2 = Number(extras?.quinzena_2 || 0)
 
-  const total = b - i - ir - q - q2
+  const total = b - i - ir + fam - q - q2
   return Math.round(total * 100) / 100
 }
 
