@@ -116,6 +116,7 @@ interface CalculoUnidadeConsolidada {
   salariosMensal: number
   producaoAPagar: number
   comissoesVendas: number
+  ajudaVendedores: number
   qtdFuncionarios: number
   qtdTerceiros: number
   linhasCount: number
@@ -195,6 +196,7 @@ function calcularValorRealEmpresa(
       salariosMensal: 0,
       producaoAPagar: 0,
       comissoesVendas: 0,
+      ajudaVendedores: 0,
       qtdFuncionarios: 0,
       qtdTerceiros: 0,
       linhasCount: 0,
@@ -299,7 +301,15 @@ function calcularValorRealEmpresa(
   totalTerceiros = Math.round(totalTerceiros * 100) / 100
   comissoesVendas = Math.round(comissoesVendas * 100) / 100
 
-  const valorReal = Math.round((totalFuncionarios + totalTerceiros) * 100) / 100
+  // Ajuda de custo dos vendedores da unidade (terceiros + funcionários vendedores como Valdercleiton)
+  const ajudaVendedores = calcularAjudaCustoVendedores(
+    linhasEmpresa,
+    terceirosCadastradosEmpresa,
+  )
+
+  const valorReal =
+    Math.round((totalFuncionarios + totalTerceiros + ajudaVendedores) * 100) /
+    100
   const totalVendas =
     Math.round((totalVendasFuncs + totalVendasTercs) * 100) / 100
   const totalComissoes =
@@ -315,6 +325,7 @@ function calcularValorRealEmpresa(
     salariosMensal,
     producaoAPagar,
     comissoesVendas,
+    ajudaVendedores,
     qtdFuncionarios: funcs.length,
     qtdTerceiros: qtdTerceirosContados,
     linhasCount: linhasEmpresa.length,
@@ -1692,15 +1703,25 @@ export function FolhaPagamento() {
     const isAtivaMonteiro = empresaAtiva?.id === ID_EMPRESA_MONTEIRO
     const isAtivaSje = empresaAtiva?.id === ID_EMPRESA_SJE
 
+    // Ajuda de custo da empresa ativa reativa da tela (mesma fórmula canônica do resumo)
+    const ajudaAtiva = calcularAjudaCustoVendedores(
+      linhasGeralProcessadasParaTotais,
+      terceirosCadastrados,
+    )
+
     // Cálculo Monteiro
     let monteiro: CalculoUnidadeConsolidada
     if (isAtivaMonteiro) {
+      const ajudaMonteiro = ajudaAtiva
       monteiro = {
         totalFuncionarios: Math.round(totaisGeral.liquidoGeral * 100) / 100,
         totalTerceiros: Math.round(totaisTerceiros.valorMes * 100) / 100,
         valorReal:
           Math.round(
-            (totaisGeral.liquidoGeral + totaisTerceiros.valorMes) * 100,
+            (totaisGeral.liquidoGeral +
+              totaisTerceiros.valorMes +
+              ajudaMonteiro) *
+              100,
           ) / 100,
         totalVendas: Math.round(totaisVendas.vendas_obra * 100) / 100,
         totalComissoes: Math.round(totaisVendas.comissao * 100) / 100,
@@ -1708,6 +1729,7 @@ export function FolhaPagamento() {
         salariosMensal: Math.round(totaisGeral.mensal * 100) / 100,
         producaoAPagar: Math.round(totaisProducao.aPagar * 100) / 100,
         comissoesVendas: Math.round(totaisVendas.comissao * 100) / 100,
+        ajudaVendedores: ajudaMonteiro,
         qtdFuncionarios: linhasGeralProcessadas.length,
         qtdTerceiros: terceirosNaoVendedores.length,
         linhasCount: linhas.length,
@@ -1722,12 +1744,14 @@ export function FolhaPagamento() {
     // Cálculo SJE
     let sje: CalculoUnidadeConsolidada
     if (isAtivaSje) {
+      const ajudaSje = ajudaAtiva
       sje = {
         totalFuncionarios: Math.round(totaisGeral.liquidoGeral * 100) / 100,
         totalTerceiros: Math.round(totaisTerceiros.valorMes * 100) / 100,
         valorReal:
           Math.round(
-            (totaisGeral.liquidoGeral + totaisTerceiros.valorMes) * 100,
+            (totaisGeral.liquidoGeral + totaisTerceiros.valorMes + ajudaSje) *
+              100,
           ) / 100,
         totalVendas: Math.round(totaisVendas.vendas_obra * 100) / 100,
         totalComissoes: Math.round(totaisVendas.comissao * 100) / 100,
@@ -1735,6 +1759,7 @@ export function FolhaPagamento() {
         salariosMensal: Math.round(totaisGeral.mensal * 100) / 100,
         producaoAPagar: Math.round(totaisProducao.aPagar * 100) / 100,
         comissoesVendas: Math.round(totaisVendas.comissao * 100) / 100,
+        ajudaVendedores: ajudaSje,
         qtdFuncionarios: linhasGeralProcessadas.length,
         qtdTerceiros: terceirosNaoVendedores.length,
         linhasCount: linhas.length,
@@ -1752,7 +1777,7 @@ export function FolhaPagamento() {
     const totalComissoesConsolidado =
       Math.round((monteiro.totalComissoes + sje.totalComissoes) * 100) / 100
 
-    // Componentes somados (Monteiro + SJE) das 4 linhas discriminadas
+    // Componentes somados (Monteiro + SJE) das 5 linhas discriminadas
     const salariosQuinzenaConsolidado =
       Math.round(
         ((temMonteiro ? monteiro.salariosQuinzena : 0) +
@@ -1777,14 +1802,21 @@ export function FolhaPagamento() {
           (temSje ? sje.comissoesVendas : 0)) *
           100,
       ) / 100
+    const ajudaCustoConsolidado =
+      Math.round(
+        ((temMonteiro ? monteiro.ajudaVendedores : 0) +
+          (temSje ? sje.ajudaVendedores : 0)) *
+          100,
+      ) / 100
 
-    // SOMATÓRIO GERAL = soma das 4 linhas discriminadas
+    // SOMATÓRIO GERAL = soma das 5 linhas discriminadas (inclui ajuda de custo dos vendedores)
     const somatorioGeral =
       Math.round(
         (salariosQuinzenaConsolidado +
           salariosMensalConsolidado +
           producaoAPagarConsolidado +
-          comissoesVendasConsolidado) *
+          comissoesVendasConsolidado +
+          ajudaCustoConsolidado) *
           100,
       ) / 100
 
@@ -1800,6 +1832,7 @@ export function FolhaPagamento() {
       salariosMensalConsolidado,
       producaoAPagarConsolidado,
       comissoesVendasConsolidado,
+      ajudaCustoConsolidado,
       somatorioGeral,
     }
   }, [
@@ -1812,6 +1845,8 @@ export function FolhaPagamento() {
     totaisVendas.vendas_obra,
     totaisVendas.comissao,
     linhasGeralProcessadas.length,
+    linhasGeralProcessadasParaTotais,
+    terceirosCadastrados,
     terceirosNaoVendedores.length,
     linhas.length,
     linhasConsolidacaoMonteiro,
@@ -4384,6 +4419,15 @@ export function FolhaPagamento() {
                                   )}
                                 </span>
                               </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Ajuda de custo:</span>
+                                <span className="font-mono font-medium text-amber-600 dark:text-amber-400">
+                                  {fmtMoeda(
+                                    consolidacaoDuasFolhas.monteiro
+                                      .ajudaVendedores,
+                                  )}
+                                </span>
+                              </div>
                             </div>
                             <div className="flex justify-between pt-1">
                               <span>Líquido func.:</span>
@@ -4482,6 +4526,14 @@ export function FolhaPagamento() {
                                 <span className="font-mono font-medium text-amber-600 dark:text-amber-400">
                                   {fmtMoeda(
                                     consolidacaoDuasFolhas.sje.comissoesVendas,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Ajuda de custo:</span>
+                                <span className="font-mono font-medium text-amber-600 dark:text-amber-400">
+                                  {fmtMoeda(
+                                    consolidacaoDuasFolhas.sje.ajudaVendedores,
                                   )}
                                 </span>
                               </div>
@@ -4601,6 +4653,14 @@ export function FolhaPagamento() {
                                   (consolidacaoDuasFolhas.temSje
                                     ? consolidacaoDuasFolhas.sje.comissoesVendas
                                     : 0),
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>Ajuda de custo (Monteiro + SJE):</span>
+                            <span className="font-mono font-medium text-amber-600 dark:text-amber-400">
+                              {fmtMoeda(
+                                consolidacaoDuasFolhas.ajudaCustoConsolidado,
                               )}
                             </span>
                           </div>
