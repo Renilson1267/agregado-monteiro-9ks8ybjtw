@@ -2,9 +2,14 @@
 import { createRoot } from "react-dom/client"
 import App from "./App.tsx"
 import "./main.css"
-import { initializePwaAssets, registerPwaServiceWorker } from "./lib/pwa-init"
+import {
+  initializePwaAssets,
+  registerPwaServiceWorker,
+  configurarTratamentoFalhaModulos,
+} from "./lib/pwa-init"
 import { FolhaService } from "./services/folha"
 
+configurarTratamentoFalhaModulos()
 initializePwaAssets()
 registerPwaServiceWorker()
 

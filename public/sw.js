@@ -1,7 +1,6 @@
 // Service Worker simples e seguro para o PWA GC MIX Concreto Usinado
-// Versão do cache: alterar para invalidar cache estático (build v126 - 0.0.397)
-// Verificação de segurança: sem skipWaiting ou clients.claim automáticos no sw.js
-const CACHE_NAME = "gcmix-pwa-v126"
+// Versão do cache: alterar para invalidar cache estático (build v127 - 0.0.398)
+const CACHE_NAME = "gcmix-pwa-v127"
 // Recursos estáticos básicos essenciais para abrir o shell do app offline
 const PRECACHE_ASSETS = [
   "/",
@@ -14,14 +13,15 @@ const PRECACHE_ASSETS = [
   "/apple-touch-icon.png",
 ]
 
-// Instalação: pré-carrega os recursos básicos (não chama skipWaiting automático para não causar loop)
+// Instalação: pré-carrega os recursos básicos e aciona skipWaiting para não travar em versões defasadas
 self.addEventListener("install", (event) => {
+  self.skipWaiting()
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_ASSETS)),
   )
 })
 
-// Ativação: limpa versões antigas do cache (sem clients.claim automático para só assumir após reload intencional)
+// Ativação: limpa versões antigas do cache e assume o controle imediatamente dos clientes (clientsClaim)
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
@@ -32,7 +32,8 @@ self.addEventListener("activate", (event) => {
             .filter((name) => name !== CACHE_NAME)
             .map((name) => caches.delete(name)),
         ),
-      ),
+      )
+      .then(() => self.clients.claim()),
   )
 })
 
@@ -99,28 +100,77 @@ self.addEventListener("fetch", (event) => {
 
   // Para assets estáticos da mesma origem (CSS, JS com hash do Vite, imagens, ícones)
   if (url.origin === self.location.origin) {
-    event.respondWith(caches.match(request).then((cachedResponse) => {
-        // Se já temos no cache, retornamos e atualizamos em segundo plano se necessário
-        const fetchPromise = fetch(request)
-          .then((networkResponse) => {
-            if (
-              networkResponse &&
-              networkResponse.status === 200 &&
-              networkResponse.type === "basic"
-            ) {
-              const responseToCache = networkResponse.clone()
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(request, responseToCache)
-              })
-            }
+    event.respondWith(caches.match(request).then(async (cachedResponse) => {
+        try {
+          const networkResponse = await fetch(request)
+          if (
+            networkResponse &&
+            networkResponse.status === 200 &&
+            networkResponse.type === "basic"
+          ) {
+            const responseToCache = networkResponse.clone()
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseToCache)
+            })
             return networkResponse
-          })
-          .catch(() => {
-            // Em caso de falha de rede ao buscar asset, cachedResponse já cuidará se existir
-            return null
-          })
+          }
 
-        return cachedResponse || fetchPromise
+          // Se a rede respondeu 404/410/500 para um asset JS/CSS (ex.: chunk antigo que não existe mais no servidor)
+          if (
+            networkResponse &&
+            (networkResponse.status === 404 || networkResponse.status === 410)
+          ) {
+            // Se tiver no cache, ainda podemos tentar; se não houver cache do asset:
+            if (!cachedResponse) {
+              // Limpar caches antigos para que a próxima requisição não pegue lixo
+              const cacheNames = await caches.keys()
+              await Promise.all(
+                cacheNames
+                  .filter((name) => name !== CACHE_NAME)
+                  .map((name) => caches.delete(name)),
+              )
+
+              // Para requisições JS/CSS ou assets que falharam na rede com 404, devolver index.html como fallback
+              // forçando a aplicação/navegador a recarregar a versão nova
+              const cache = await caches.open(CACHE_NAME)
+              const fallbackIndex =
+                (await cache.match("/index.html")) || (await cache.match("/"))
+              if (fallbackIndex) {
+                return fallbackIndex
+              }
+            }
+          }
+
+          return cachedResponse || networkResponse
+        } catch (_fetchErr) {
+          // Falha total de rede (offline ou conexão perdida)
+          if (cachedResponse) {
+            return cachedResponse
+          }
+
+          // Cache miss + rede falhando: limpar caches antigos e devolver index.html como fallback
+          try {
+            const cacheNames = await caches.keys()
+            await Promise.all(
+              cacheNames
+                .filter((name) => name !== CACHE_NAME)
+                .map((name) => caches.delete(name)),
+            )
+            const cache = await caches.open(CACHE_NAME)
+            const fallbackIndex =
+              (await cache.match("/index.html")) || (await cache.match("/"))
+            if (fallbackIndex) {
+              return fallbackIndex
+            }
+          } catch {
+            /* ignore fallback error */
+          }
+
+          return new Response("Asset indisponível offline", {
+            status: 503,
+            headers: { "Content-Type": "text/plain" },
+          })
+        }
       }))
     return
   }

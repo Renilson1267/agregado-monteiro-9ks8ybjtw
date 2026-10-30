@@ -89,10 +89,107 @@ export function initializePwaAssets() {
 }
 
 // Registro e gerenciamento do Service Worker com ciclo de vida seguro
+const RELOAD_PRELOAD_KEY = "pwa-reload-vite-preload"
+
+/**
+ * Trata erros de import dinâmico do Vite (ex.: chunk antigo que não existe mais após novo deploy).
+ * Limpa todos os caches do Service Worker, desregistra os workers ativos e força um reload UMA única vez.
+ */
+export async function recuperarDeFalhaModuloDinamico(
+  origemErro: string,
+  detalheErro?: any,
+) {
+  if (typeof window === "undefined") return
+
+  try {
+    const jaRecarregou = sessionStorage.getItem(RELOAD_PRELOAD_KEY)
+    if (jaRecarregou) {
+      console.warn(
+        `[PWA] Falha de módulo dinâmico detectada (${origemErro}), mas a página já foi recarregada nesta sessão. Ignorando loop.`,
+        detalheErro,
+      )
+      return
+    }
+
+    sessionStorage.setItem(RELOAD_PRELOAD_KEY, "true")
+    console.warn(
+      `[PWA] Falha ao carregar módulo dinâmico (${origemErro}). Limpando caches e atualizando para a versão nova...`,
+      detalheErro,
+    )
+
+    // 1. Limpa todos os caches do Cache Storage
+    if ("caches" in window) {
+      const chaves = await caches.keys()
+      await Promise.all(chaves.map((k) => caches.delete(k)))
+    }
+
+    // 2. Desregistra todos os Service Workers registrados
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(registrations.map((reg) => reg.unregister()))
+    }
+
+    // 3. Recarrega a página forçando bypass de cache
+    window.location.reload()
+  } catch (err) {
+    console.error("[PWA] Erro ao recuperar de falha de módulo dinâmico:", err)
+    window.location.reload()
+  }
+}
+
+/**
+ * Registra listeners globais para 'vite:preloadError' e falhas de dynamic import no window.
+ */
+export function configurarTratamentoFalhaModulos() {
+  if (typeof window === "undefined") return
+
+  // Limpar a flag de reload se o usuário navegou com sucesso por mais de 20s
+  window.setTimeout(() => {
+    try {
+      sessionStorage.removeItem(RELOAD_PRELOAD_KEY)
+    } catch {
+      /* ignore */
+    }
+  }, 20000)
+
+  // Evento específico do Vite para falha ao pré-carregar chunks dinâmicos
+  window.addEventListener("vite:preloadError", (event) => {
+    console.error("[Vite] Evento vite:preloadError interceptado:", event)
+    recuperarDeFalhaModuloDinamico("vite:preloadError", event)
+  })
+
+  // Falhas em Promises rejeitadas (dynamic import rejeitado: 'Failed to fetch dynamically imported module')
+  window.addEventListener("unhandledrejection", (event) => {
+    const motivo = event?.reason
+    const mensagem =
+      typeof motivo === "string"
+        ? motivo
+        : motivo?.message || String(motivo || "")
+
+    if (
+      mensagem.includes("Failed to fetch dynamically imported module") ||
+      mensagem.includes("error loading dynamically imported module") ||
+      mensagem.includes("Importing a module script failed") ||
+      mensagem.includes("Loading chunk")
+    ) {
+      console.error("[PWA] Dynamic import failure interceptado:", mensagem)
+      event.preventDefault()
+      recuperarDeFalhaModuloDinamico(
+        "unhandledrejection:dynamic-import",
+        motivo,
+      )
+    }
+  })
+}
+
+// Registro e gerenciamento do Service Worker com ciclo de vida seguro
 export function registerPwaServiceWorker() {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
     return
   }
+
+  // Configura listeners de erro de pré-carregamento de módulos
+  configurarTratamentoFalhaModulos()
 
   // Apenas registrar após o carregamento da janela para não impactar a inicialização do app
   window.addEventListener("load", () => {
