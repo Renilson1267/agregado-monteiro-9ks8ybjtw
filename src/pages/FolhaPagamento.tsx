@@ -126,8 +126,12 @@ function contarPessoasUnidade(
   linhasEmpresa: FolhaPagamentoLinha[] = [],
   terceirosEmpresa: FolhaTerceiro[] = [],
 ): number {
-  const funcs = (linhasEmpresa || []).filter((l) => l.tipo !== "Terceiro")
-  const tercs = (linhasEmpresa || []).filter((l) => l.tipo === "Terceiro")
+  const funcs = (linhasEmpresa || []).filter(
+    (l) => l.tipo !== "Terceiro" && !l.inativo,
+  )
+  const tercs = (linhasEmpresa || []).filter(
+    (l) => l.tipo === "Terceiro" && !l.inativo,
+  )
   // Excluir vendedor terceiro (Márcio Luan) da contagem de terceiros da folha
   const ehVendedorTerc = (t: FolhaPagamentoLinha | FolhaTerceiro) => {
     const nome = (t.nome || "").toUpperCase()
@@ -152,12 +156,16 @@ function calcularAjudaCustoVendedores(
   terceirosEmpresa: FolhaTerceiro[] = [],
 ): number {
   let ajuda = 0
-  const tercs = (linhasEmpresa || []).filter((l) => l.tipo === "Terceiro")
+  const tercs = (linhasEmpresa || []).filter(
+    (l) => l.tipo === "Terceiro" && !l.inativo,
+  )
   tercs.forEach((t) => {
     const val = Number(t.ajuda_custo ?? t.vendas_ajuda ?? 0)
     ajuda += val
   })
-  const funcs = (linhasEmpresa || []).filter((l) => l.tipo !== "Terceiro")
+  const funcs = (linhasEmpresa || []).filter(
+    (l) => l.tipo !== "Terceiro" && !l.inativo,
+  )
   funcs.forEach((f) => {
     const n = (f.nome || "").toUpperCase()
     const func = (f.funcao || "").toUpperCase()
@@ -203,8 +211,8 @@ function calcularValorRealEmpresa(
     }
   }
 
-  // 1. Funcionários (inclui ocultos como Renilson)
-  const funcs = linhasEmpresa.filter((l) => l.tipo !== "Terceiro")
+  // 1. Funcionários (inclui ocultos como Renilson, exclui inativos)
+  const funcs = linhasEmpresa.filter((l) => l.tipo !== "Terceiro" && !l.inativo)
   let totalFuncionarios = 0
   let totalVendasFuncs = 0
   let totalComissoesFuncs = 0
@@ -262,7 +270,7 @@ function calcularValorRealEmpresa(
   producaoAPagar = Math.round(producaoAPagar * 100) / 100
 
   // 2. Terceiros
-  const tercs = linhasEmpresa.filter((l) => l.tipo === "Terceiro")
+  const tercs = linhasEmpresa.filter((l) => l.tipo === "Terceiro" && !l.inativo)
   let totalTerceiros = 0
   let totalVendasTercs = 0
   let totalComissoesTercs = 0
@@ -1607,12 +1615,50 @@ export function FolhaPagamento() {
       )
   }, [terceirosProcessados])
 
+  // TOTAIS TERCEIROS PARA TOTAIS / CONSOLIDAÇÃO (mantém terceiros ocultos via terceirosProcessadosParaTotais)
+  const totaisTerceirosParaTotais = useMemo(() => {
+    return terceirosProcessadosParaTotais
+      .filter((t: any) => !t.ehVendedor && !isMarcioLuan(t.nome))
+      .reduce(
+        (acc, t: any) => {
+          acc.valorMes += t.valorMes
+          acc.quinzena += t.quinzena
+          acc.mensal += t.mensal
+          const adiantamentoValor = Number(
+            t.adiantamentoTotal || t.adiantamento || 0,
+          )
+          const destino = t.adiantamento_destino || "producao"
+          const aReceber =
+            destino === "quinzena"
+              ? Math.round((t.quinzena - adiantamentoValor) * 100) / 100
+              : t.quinzena
+          acc.adiantamento += adiantamentoValor
+          acc.aReceberQuinzena += aReceber
+          return acc
+        },
+        {
+          valorMes: 0,
+          quinzena: 0,
+          mensal: 0,
+          adiantamento: 0,
+          aReceberQuinzena: 0,
+        },
+      )
+  }, [terceirosProcessadosParaTotais])
+
   // Terceiros exibidos nas tabelas de Terceiros e somados em Terceiros (exclui vendedores / Márcio Luan — comissão dele fica só na aba VENDAS)
   const terceirosNaoVendedores = useMemo(() => {
     return terceirosProcessados.filter(
       (t: any) => !t.ehVendedor && !isMarcioLuan(t.nome),
     )
   }, [terceirosProcessados])
+
+  // Terceiros não-vendedores PARA TOTAIS (inclui terceiros ocultos para contagem e totais do bloco de consolidação)
+  const terceirosNaoVendedoresParaTotais = useMemo(() => {
+    return terceirosProcessadosParaTotais.filter(
+      (t: any) => !t.ehVendedor && !isMarcioLuan(t.nome),
+    )
+  }, [terceirosProcessadosParaTotais])
 
   // Terceiros exibidos e somados na aba MENSAL (exclui Márcio Luan / vendedores — ele fica só na aba VENDAS)
   const terceirosMensal = useMemo(() => {
@@ -1660,6 +1706,35 @@ export function FolhaPagamento() {
       },
     )
   }, [linhasProducao])
+
+  // TOTAIS PRODUÇÃO PARA TOTAIS (inclui colaboradores ocultos como Renilson com gratificação 2.000)
+  const totaisProducaoParaTotais = useMemo(() => {
+    return linhasProducaoParaTotais.reduce(
+      (acc, l) => {
+        acc.obras += Number(l.obras || 0)
+        acc.limpeza += Number(l.limpeza || 0)
+        acc.sabado += Number(l.sabado || 0)
+        acc.feriado += Number(l.feriado || 0)
+        acc.ajuda_custo += Number(l.ajuda_custo || 0)
+        acc.adiantamento += Number(l.adiantamento || 0)
+        acc.gratificacao += Number(l.gratificacao || 0)
+        acc.producao += l.producaoTotal
+        acc.aPagar += l.aPagar
+        return acc
+      },
+      {
+        obras: 0,
+        limpeza: 0,
+        sabado: 0,
+        feriado: 0,
+        ajuda_custo: 0,
+        adiantamento: 0,
+        gratificacao: 0,
+        producao: 0,
+        aPagar: 0,
+      },
+    )
+  }, [linhasProducaoParaTotais])
 
   // TOTAIS VENDAS FUNCIONÁRIOS
   const totaisVendasFuncionarios = useMemo(() => {
@@ -1715,11 +1790,12 @@ export function FolhaPagamento() {
       const ajudaMonteiro = ajudaAtiva
       monteiro = {
         totalFuncionarios: Math.round(totaisGeral.liquidoGeral * 100) / 100,
-        totalTerceiros: Math.round(totaisTerceiros.valorMes * 100) / 100,
+        totalTerceiros:
+          Math.round(totaisTerceirosParaTotais.valorMes * 100) / 100,
         valorReal:
           Math.round(
             (totaisGeral.liquidoGeral +
-              totaisTerceiros.valorMes +
+              totaisTerceirosParaTotais.valorMes +
               ajudaMonteiro) *
               100,
           ) / 100,
@@ -1727,11 +1803,11 @@ export function FolhaPagamento() {
         totalComissoes: Math.round(totaisVendas.comissao * 100) / 100,
         salariosQuinzena: Math.round(totaisGeral.quinzena * 100) / 100,
         salariosMensal: Math.round(totaisGeral.mensal * 100) / 100,
-        producaoAPagar: Math.round(totaisProducao.aPagar * 100) / 100,
+        producaoAPagar: Math.round(totaisProducaoParaTotais.aPagar * 100) / 100,
         comissoesVendas: Math.round(totaisVendas.comissao * 100) / 100,
         ajudaVendedores: ajudaMonteiro,
-        qtdFuncionarios: linhasGeralProcessadas.length,
-        qtdTerceiros: terceirosNaoVendedores.length,
+        qtdFuncionarios: linhasGeralProcessadasParaTotais.length,
+        qtdTerceiros: terceirosNaoVendedoresParaTotais.length,
         linhasCount: linhas.length,
       }
     } else {
@@ -1747,21 +1823,24 @@ export function FolhaPagamento() {
       const ajudaSje = ajudaAtiva
       sje = {
         totalFuncionarios: Math.round(totaisGeral.liquidoGeral * 100) / 100,
-        totalTerceiros: Math.round(totaisTerceiros.valorMes * 100) / 100,
+        totalTerceiros:
+          Math.round(totaisTerceirosParaTotais.valorMes * 100) / 100,
         valorReal:
           Math.round(
-            (totaisGeral.liquidoGeral + totaisTerceiros.valorMes + ajudaSje) *
+            (totaisGeral.liquidoGeral +
+              totaisTerceirosParaTotais.valorMes +
+              ajudaSje) *
               100,
           ) / 100,
         totalVendas: Math.round(totaisVendas.vendas_obra * 100) / 100,
         totalComissoes: Math.round(totaisVendas.comissao * 100) / 100,
         salariosQuinzena: Math.round(totaisGeral.quinzena * 100) / 100,
         salariosMensal: Math.round(totaisGeral.mensal * 100) / 100,
-        producaoAPagar: Math.round(totaisProducao.aPagar * 100) / 100,
+        producaoAPagar: Math.round(totaisProducaoParaTotais.aPagar * 100) / 100,
         comissoesVendas: Math.round(totaisVendas.comissao * 100) / 100,
         ajudaVendedores: ajudaSje,
-        qtdFuncionarios: linhasGeralProcessadas.length,
-        qtdTerceiros: terceirosNaoVendedores.length,
+        qtdFuncionarios: linhasGeralProcessadasParaTotais.length,
+        qtdTerceiros: terceirosNaoVendedoresParaTotais.length,
         linhasCount: linhas.length,
       }
     } else {
@@ -1840,14 +1919,13 @@ export function FolhaPagamento() {
     totaisGeral.liquidoGeral,
     totaisGeral.quinzena,
     totaisGeral.mensal,
-    totaisProducao.aPagar,
-    totaisTerceiros.valorMes,
+    totaisProducaoParaTotais.aPagar,
+    totaisTerceirosParaTotais.valorMes,
     totaisVendas.vendas_obra,
     totaisVendas.comissao,
-    linhasGeralProcessadas.length,
     linhasGeralProcessadasParaTotais,
     terceirosCadastrados,
-    terceirosNaoVendedores.length,
+    terceirosNaoVendedoresParaTotais,
     linhas.length,
     linhasConsolidacaoMonteiro,
     terceirosMonteiro,
