@@ -117,6 +117,7 @@ interface CalculoUnidadeConsolidada {
   salariosQuinzena: number
   salariosMensal: number
   producaoAPagar: number
+  feriasTotal: number
   comissoesVendas: number
   ajudaVendedores: number
   qtdFuncionarios: number
@@ -231,6 +232,7 @@ function calcularValorRealEmpresa(
       salariosQuinzena: 0,
       salariosMensal: 0,
       producaoAPagar: 0,
+      feriasTotal: 0,
       comissoesVendas: 0,
       ajudaVendedores: 0,
       qtdFuncionarios: 0,
@@ -247,6 +249,7 @@ function calcularValorRealEmpresa(
   let salariosQuinzena = 0
   let salariosMensal = 0
   let producaoAPagar = 0
+  let totalFerias = 0
   let comissoesVendas = 0
 
   funcs.forEach((l) => {
@@ -284,7 +287,11 @@ function calcularValorRealEmpresa(
     salariosMensal += mensal
     producaoAPagar += aPagarProd
 
-    totalFuncionarios += mensal + producaoCompleta - adiantamento
+    // Férias: componente PRÓPRIO do líquido (nunca dentro da produção)
+    const feriasLinha = Number(l.ferias || 0)
+    totalFerias += feriasLinha
+
+    totalFuncionarios += mensal + producaoCompleta - adiantamento + feriasLinha
     const vObra = Number(l.vendas_obra || 0)
     const comissaoAuto = calcularComissaoVendas(vObra)
     const comissao = Number(l.comissao || comissaoAuto)
@@ -355,6 +362,7 @@ function calcularValorRealEmpresa(
 
   return {
     totalFuncionarios,
+    feriasTotal: Math.round(totalFerias * 100) / 100,
     totalTerceiros,
     valorReal,
     totalVendas,
@@ -1012,13 +1020,18 @@ export function FolhaPagamento() {
     //   liquidoGeral = mensalPuro + (producaoGeralMais - adiantamentoTotal).
     // - 'mensal': mensalFinal = mensalPuro - adiantamentoTotal; producaoGeralMais sem desconto;
     //   liquidoGeral = mensalFinal + producaoGeralMais.
+    // Em todos os destinos, FÉRIAS entra como componente PRÓPRIO do líquido (+ feriasTotal).
     const liquidoGeral =
       destinoAdiantamento === "quinzena"
-        ? Math.round((mensalPuro + producaoGeralMais) * 100) / 100
+        ? Math.round((mensalPuro + producaoGeralMais + feriasTotal) * 100) / 100
         : destinoAdiantamento === "mensal"
-          ? Math.round((mensalFinal + producaoGeralMais) * 100) / 100
+          ? Math.round((mensalFinal + producaoGeralMais + feriasTotal) * 100) /
+            100
           : Math.round(
-              (mensalPuro + (producaoGeralMais - adiantamentoTotal)) * 100,
+              (mensalPuro +
+                (producaoGeralMais - adiantamentoTotal) +
+                feriasTotal) *
+                100,
             ) / 100
     const liquidoComposto = liquidoGeral
 
@@ -1636,6 +1649,7 @@ export function FolhaPagamento() {
         acc.adiantamento += l.adiantamentoTotal
         acc.aPagarProducao += l.aPagarProducao
         acc.producaoGeralMais += l.producaoGeralMais
+        acc.feriasTotal += l.feriasTotal
         acc.mensal += l.mensalFinal
         acc.liquidoGeral += l.liquidoGeral
         return acc
@@ -1659,6 +1673,7 @@ export function FolhaPagamento() {
         adiantamento: 0,
         aPagarProducao: 0,
         producaoGeralMais: 0,
+        feriasTotal: 0,
         mensal: 0,
         liquidoGeral: 0,
       },
@@ -1931,6 +1946,13 @@ export function FolhaPagamento() {
         salariosQuinzena: Math.round(totaisGeral.quinzena * 100) / 100,
         salariosMensal: Math.round(totaisGeral.mensal * 100) / 100,
         producaoAPagar: Math.round(totaisProducaoParaTotais.aPagar * 100) / 100,
+        feriasTotal:
+          Math.round(
+            linhasGeralProcessadasParaTotais.reduce(
+              (acc, l) => acc + Number(l.feriasTotal || 0),
+              0,
+            ) * 100,
+          ) / 100,
         comissoesVendas: Math.round(totaisVendas.comissao * 100) / 100,
         ajudaVendedores: ajudaMonteiro,
         qtdFuncionarios: linhasGeralProcessadasParaTotais.length,
@@ -1964,6 +1986,13 @@ export function FolhaPagamento() {
         salariosQuinzena: Math.round(totaisGeral.quinzena * 100) / 100,
         salariosMensal: Math.round(totaisGeral.mensal * 100) / 100,
         producaoAPagar: Math.round(totaisProducaoParaTotais.aPagar * 100) / 100,
+        feriasTotal:
+          Math.round(
+            linhasGeralProcessadasParaTotais.reduce(
+              (acc, l) => acc + Number(l.feriasTotal || 0),
+              0,
+            ) * 100,
+          ) / 100,
         comissoesVendas: Math.round(totaisVendas.comissao * 100) / 100,
         ajudaVendedores: ajudaSje,
         qtdFuncionarios: linhasGeralProcessadasParaTotais.length,
@@ -2014,13 +2043,21 @@ export function FolhaPagamento() {
           (temSje ? sje.ajudaVendedores : 0)) *
           100,
       ) / 100
+    // Férias: linha PRÓPRIA (nunca dentro de "Produção (a pagar)")
+    const feriasConsolidado =
+      Math.round(
+        ((temMonteiro ? monteiro.feriasTotal : 0) +
+          (temSje ? sje.feriasTotal : 0)) *
+          100,
+      ) / 100
 
-    // SOMATÓRIO GERAL = soma das 5 linhas discriminadas (inclui ajuda de custo dos vendedores)
+    // SOMATÓRIO GERAL = soma das 6 linhas discriminadas (inclui férias e ajuda de custo dos vendedores)
     const somatorioGeral =
       Math.round(
         (salariosQuinzenaConsolidado +
           salariosMensalConsolidado +
           producaoAPagarConsolidado +
+          feriasConsolidado +
           comissoesVendasConsolidado +
           ajudaCustoConsolidado) *
           100,
@@ -2037,6 +2074,7 @@ export function FolhaPagamento() {
       salariosQuinzenaConsolidado,
       salariosMensalConsolidado,
       producaoAPagarConsolidado,
+      feriasConsolidado,
       comissoesVendasConsolidado,
       ajudaCustoConsolidado,
       somatorioGeral,
@@ -3766,6 +3804,12 @@ export function FolhaPagamento() {
                         PRODUÇÃO (+)
                       </th>
                       <th
+                        className="py-2.5 px-2 text-right text-teal-700 dark:text-teal-300 font-semibold bg-teal-50/50 dark:bg-teal-950/20"
+                        title="Férias — componente PRÓPRIO do líquido (não entra na produção)"
+                      >
+                        FÉRIAS (+)
+                      </th>
+                      <th
                         className="py-2.5 px-2 text-right text-muted-foreground font-semibold bg-blue-50/40 dark:bg-blue-950/20"
                         title="Quinzena"
                       >
@@ -3813,7 +3857,7 @@ export function FolhaPagamento() {
                     {linhasGeralProcessadas.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={17}
+                          colSpan={18}
                           className="text-center py-8 text-muted-foreground"
                         >
                           {carregando
@@ -3915,6 +3959,61 @@ export function FolhaPagamento() {
                                     </span>
                                   )}
                                 </div>
+                              </td>
+
+                              {/* FÉRIAS NA ABA GERAL — coluna editável inline (componente próprio do líquido) */}
+                              <td
+                                className="py-2 px-2 text-right font-mono whitespace-nowrap text-teal-700 dark:text-teal-300 bg-teal-50/30 dark:bg-teal-950/10 cursor-pointer hover:bg-teal-100/50 dark:hover:bg-teal-950/30 transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (
+                                    celulaAtivaProducao?.linhaId !== l.id ||
+                                    celulaAtivaProducao?.campo !== "ferias"
+                                  ) {
+                                    iniciarEdicaoCelula(
+                                      l.id,
+                                      "ferias",
+                                      l.ferias,
+                                    )
+                                  }
+                                }}
+                              >
+                                {celulaAtivaProducao?.linhaId === l.id &&
+                                celulaAtivaProducao?.campo === "ferias" ? (
+                                  <Input
+                                    autoFocus
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={valorTempProducao}
+                                    onChange={(e) =>
+                                      setValorTempProducao(e.target.value)
+                                    }
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter")
+                                        salvarEdicaoCelula(l.id, "ferias")
+                                      if (e.key === "Escape")
+                                        cancelarEdicaoCelula()
+                                    }}
+                                    onBlur={() =>
+                                      salvarEdicaoCelula(l.id, "ferias")
+                                    }
+                                    className="h-6 w-20 text-right text-xs font-mono"
+                                  />
+                                ) : (
+                                  <div className="flex items-center justify-end gap-1">
+                                    <span>
+                                      {l.feriasTotal > 0
+                                        ? `+${fmtMoeda(l.feriasTotal)}`
+                                        : fmtMoeda(0)}
+                                    </span>
+                                    {salvandoCelulaProducao ===
+                                      `${l.id}-ferias` && (
+                                      <span className="text-[9px] text-muted-foreground font-sans">
+                                        ...
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </td>
 
                               {/* QUINZENA NA ABA GERAL (EM BRANCO / SÓ EXIBIÇÃO) */}
@@ -4079,7 +4178,7 @@ export function FolhaPagamento() {
                                 key={`${l.id}-detalhe`}
                                 className="bg-muted/20 border-b border-primary/20"
                               >
-                                <td colSpan={17} className="p-3 pl-8">
+                                <td colSpan={18} className="p-3 pl-8">
                                   <div className="rounded-lg border bg-card p-3 shadow-sm space-y-3">
                                     <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
                                       <div className="flex items-center gap-2">
@@ -4239,6 +4338,11 @@ export function FolhaPagamento() {
                                         + {fmtMoeda(l.producaoGeralMais)}{" "}
                                         (PRODUÇÃO +)
                                       </span>
+                                      {l.feriasTotal > 0 && (
+                                        <span className="text-teal-700 dark:text-teal-300 font-bold">
+                                          + {fmtMoeda(l.feriasTotal)} (FÉRIAS +)
+                                        </span>
+                                      )}
                                       {l.adiantamentoTotal > 0 && (
                                         <span className="text-red-600 dark:text-red-400 font-semibold">
                                           − {fmtMoeda(l.adiantamentoTotal)}{" "}
@@ -4288,6 +4392,11 @@ export function FolhaPagamento() {
                       <td className="py-2.5 px-2 text-right font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50/30 dark:bg-emerald-950/10">
                         {totaisGeral.producaoGeralMais > 0
                           ? `+${fmtMoeda(totaisGeral.producaoGeralMais)}`
+                          : fmtMoeda(0)}
+                      </td>
+                      <td className="py-2.5 px-2 text-right font-mono text-teal-700 dark:text-teal-300 bg-teal-50/30 dark:bg-teal-950/10">
+                        {totaisGeral.feriasTotal > 0
+                          ? `+${fmtMoeda(totaisGeral.feriasTotal)}`
                           : fmtMoeda(0)}
                       </td>
                       <td className="py-2.5 px-2 text-center font-mono text-muted-foreground bg-blue-50/20 dark:bg-blue-950/10">
@@ -4340,6 +4449,9 @@ export function FolhaPagamento() {
                         <td className="py-2.5 px-2 text-right font-mono text-emerald-600">
                           {fmtMoeda(totaisGeral.producaoGeralMais)}
                         </td>
+                        <td className="py-2.5 px-2 text-right font-mono text-teal-700 dark:text-teal-300">
+                          {fmtMoeda(totaisGeral.feriasTotal)}
+                        </td>
                         <td className="py-2.5 px-2 text-center font-mono text-muted-foreground">
                           —
                         </td>
@@ -4365,7 +4477,7 @@ export function FolhaPagamento() {
                     )}
                     {/* Linha adicional no rodapé detalhando totais dos componentes da GERAL */}
                     <tr className="bg-muted/60 text-[11px] border-t border-border font-normal">
-                      <td colSpan={17} className="py-2 px-4">
+                      <td colSpan={18} className="py-2 px-4">
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground font-mono">
                           <span className="font-bold text-foreground">
                             Discriminação dos totais:
@@ -4399,6 +4511,11 @@ export function FolhaPagamento() {
                             <span className="text-emerald-600 font-semibold">
                               PRODUÇÃO (+): +
                               {fmtMoeda(totaisGeral.producaoGeralMais)}
+                            </span>
+                          )}
+                          {totaisGeral.feriasTotal > 0 && (
+                            <span className="text-teal-600 font-semibold">
+                              FÉRIAS (+): +{fmtMoeda(totaisGeral.feriasTotal)}
                             </span>
                           )}
                           {totaisGeral.adiantamento > 0 && (
@@ -4685,6 +4802,14 @@ export function FolhaPagamento() {
                                 </span>
                               </div>
                               <div className="flex justify-between text-muted-foreground">
+                                <span>Férias:</span>
+                                <span className="font-mono font-medium text-teal-600 dark:text-teal-400">
+                                  {fmtMoeda(
+                                    consolidacaoDuasFolhas.monteiro.feriasTotal,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
                                 <span>Comissões de vendas:</span>
                                 <span className="font-mono font-medium text-amber-600 dark:text-amber-400">
                                   {fmtMoeda(
@@ -4792,6 +4917,14 @@ export function FolhaPagamento() {
                                 <span className="font-mono font-medium text-emerald-600 dark:text-emerald-400">
                                   {fmtMoeda(
                                     consolidacaoDuasFolhas.sje.producaoAPagar,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Férias:</span>
+                                <span className="font-mono font-medium text-teal-600 dark:text-teal-400">
+                                  {fmtMoeda(
+                                    consolidacaoDuasFolhas.sje.feriasTotal,
                                   )}
                                 </span>
                               </div>
@@ -4913,6 +5046,14 @@ export function FolhaPagamento() {
                                   (consolidacaoDuasFolhas.temSje
                                     ? consolidacaoDuasFolhas.sje.producaoAPagar
                                     : 0),
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>Férias (Monteiro + SJE):</span>
+                            <span className="font-mono font-medium text-teal-600 dark:text-teal-400">
+                              {fmtMoeda(
+                                consolidacaoDuasFolhas.feriasConsolidado,
                               )}
                             </span>
                           </div>
