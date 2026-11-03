@@ -189,7 +189,8 @@ export function calcularMensalSemProducao(
  * Calcula o valor Líquido da aba GERAL:
  * PRODUÇÃO(+) = calcularProducaoTotal(linha) + gratificacao
  *             = obras × valor_obra + limpeza + sábado + feriado + ajuda_custo + gratificacao
- * LÍQUIDO GERAL = mensalPuro (bruto − inss − irrf − quinzena − quinzena2) + PRODUÇÃO(+) − adiantamento
+ * FÉRIAS(+) = componente PRÓPRIO do líquido (linha.ferias) — NUNCA dentro da produção
+ * LÍQUIDO GERAL = mensalPuro (bruto − inss − irrf − quinzena − quinzena2) + PRODUÇÃO(+) + FÉRIAS − adiantamento
  * O adiantamento desconta UMA única vez no líquido, NÃO dentro da coluna PRODUÇÃO(+).
  * Comissão e Vendas ficam fora do líquido da GERAL.
  */
@@ -231,17 +232,19 @@ export function calcularMensalGeral(
     limpeza: extras?.limpeza,
     sabado: extras?.sabado,
     feriado: extras?.feriado,
-    ferias: extras?.ferias,
     ajuda_custo: extras?.ajuda_custo,
   })
   const gratificacao = Number(extras?.gratificacao || 0)
   const producaoComGratificacao =
     Math.round((producaoTotal + gratificacao) * 100) / 100
+  // FÉRIAS é componente PRÓPRIO do líquido — NUNCA dentro da produção
+  const ferias = Number(extras?.ferias || 0)
   const adiantamento = Number(extras?.adiantamento || 0)
 
   return (
-    Math.round((mensalPuro + producaoComGratificacao - adiantamento) * 100) /
-    100
+    Math.round(
+      (mensalPuro + producaoComGratificacao + ferias - adiantamento) * 100,
+    ) / 100
   )
 }
 
@@ -264,14 +267,19 @@ export function calcularProducaoTotal(linha: {
   const limpeza = Number(linha.limpeza || 0)
   const sabado = Number(linha.sabado || 0)
   const feriado = Number(linha.feriado || 0)
-  const ferias = Number(linha.ferias || 0)
   const ajuda = Number(linha.ajuda_custo || 0)
 
   return (
-    Math.round(
-      (obras * valorObra + limpeza + sabado + feriado + ferias + ajuda) * 100,
-    ) / 100
+    Math.round((obras * valorObra + limpeza + sabado + feriado + ajuda) * 100) /
+    100
   )
+}
+
+/**
+ * FÉRIAS é componente PRÓPRIO do líquido — nunca dentro da produção.
+ */
+export function calcularFeriasTotal(linha: { ferias?: number }): number {
+  return Math.round(Number(linha.ferias || 0) * 100) / 100
 }
 
 export function calcularAPagarProducao(linha: {
