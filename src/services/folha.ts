@@ -717,6 +717,7 @@ export class FolhaService {
                 conta: f.conta || "",
                 pix: f.pix || "",
                 oculto: Boolean(f.oculto),
+                data_admissao: f.data_admissao || null,
                 funcionario_id: f.id,
               }) as FolhaPagamentoLinha,
           ),
@@ -747,6 +748,22 @@ export class FolhaService {
       throw new Error(
         `Nenhuma linha base encontrada na competência ${compOrigem} ou cadastro para gerar ${competenciaDestino}.`,
       )
+    }
+
+    // Mapa de admissões do CADASTRO (por id e por nome em maiúsculas) para preencher
+    // data_admissao das linhas geradas/atualizadas (13º proporcional pela data de entrada)
+    const mapFuncsCadastro = new Map<string, any>()
+    try {
+      const funcsCadastro = await this.getFuncionariosEmpresa(empresaId)
+      funcsCadastro.forEach((f) => {
+        if (f.data_admissao) {
+          if (f.id) mapFuncsCadastro.set(String(f.id), f)
+          const chaveNome = (f.nome || "").trim().toUpperCase()
+          if (chaveNome) mapFuncsCadastro.set(chaveNome, f)
+        }
+      })
+    } catch (e) {
+      console.warn("Falha ao carregar cadastro p/ data_admissao das linhas:", e)
     }
 
     // Obtém tabela oficial do ano destino
@@ -822,11 +839,21 @@ export class FolhaService {
           Math.round((bruto - inss - irrf + familia - quinzena) * 100) / 100
       }
 
+      // Data de admissão: cadastro do funcionário (por id/nome) com fallback
+      // para a data já gravada na linha de origem
+      const cadastroRef =
+        (base.funcionario_id &&
+          mapFuncsCadastro.get(String(base.funcionario_id))) ||
+        mapFuncsCadastro.get(nomeUpper)
+      const dataAdmissaoLinha =
+        cadastroRef?.data_admissao || base.data_admissao || null
+
       const payload = {
         empresa_id: empresaId,
         competencia_id: compDestino.id,
         competencia: competenciaDestino,
         funcionario_id: base.funcionario_id || null,
+        data_admissao: dataAdmissaoLinha,
         nome: nomeUpper,
         cargo: (base.cargo || base.funcao || "Geral").trim().toUpperCase(),
         funcao: (base.funcao || base.cargo || "Geral").trim().toUpperCase(),

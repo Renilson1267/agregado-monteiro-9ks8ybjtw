@@ -226,6 +226,851 @@ const ano13 = 2026
 // (setada pelo componente após carregar a tabela oficial da empresa)
 let tabelaOficialAtiva: FolhaTabelaOficial | null = null
 
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+  ---
+=======
+=======
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+
+/**
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+=======
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+
+/**
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+
+/**
+=======
+const chaveNome = normalizarTexto(l.nome || "")
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+const chaveNome = normalizarTexto(l.nome || "")
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+const chaveNome = normalizarTexto(l.nome || "")
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+
+/**
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+// Datas de admissão vindas do CADASTRO (public.funcionarios), por id e por nome
+// normalizado. Fallback para linhas de folha com data_admissao nula (competências
+// antigas geradas por cópia do mês anterior nunca copiavam a data), incluindo as
+// linhas de consolidação Monteiro/SJE usadas na SOMA DAS DUAS FOLHAS.
+let datasAdmissaoCadastro: Record<string, string> = {}
+
+/** Mescla no mapa global as datas de admissão do cadastro (id + nome normalizado) */
+function registrarDatasAdmissaoCadastro(funcs: any[]) {
+  ;(funcs || []).forEach((f: any) => {
+    const data = f?.data_admissao ? String(f.data_admissao) : ""
+    if (!data) return
+    if (f.id) datasAdmissaoCadastro[String(f.id)] = data
+    const chaveNome = normalizarTexto(f.nome || "")
+    if (chaveNome) datasAdmissaoCadastro[chaveNome] = data
+  })
+}
+
+/**
+ * Data de admissão efetiva da linha: a própria data da linha quando existir,
+ * senão a data do CADASTRO do funcionário (por funcionario_id ou por nome).
+ * Retorna undefined quando não há data em lugar nenhum (cai em 12 avos).
+ */
+function resolverDataAdmissaoLinha(l: {
+  data_admissao?: string | null
+  nome?: string | null
+  funcionario_id?: string | null
+}): string | null | undefined {
+  if (l.data_admissao && String(l.data_admissao).trim()) return l.data_admissao
+  if (l.funcionario_id) {
+    const porId = datasAdmissaoCadastro[String(l.funcionario_id)]
+    if (porId) return porId
+  }
+  const chaveAdmissao = normalizarTexto(l.nome || "")
+  return chaveAdmissao ? datasAdmissaoCadastro[chaveAdmissao] : undefined
+}
+
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+const chaveNome = normalizarTexto(l.nome || "")
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+const chaveNome = normalizarTexto(l.nome || "")
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+const chaveNome = normalizarTexto(l.nome || "")
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+
+/**
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+const chaveNome = normalizarTexto(l.nome || "")
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+const chaveNome = normalizarTexto(l.nome || "")
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+const chaveNome = normalizarTexto(l.nome || "")
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+
 /**
  * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
  * - mês 11 (novembro): 1ª parcela = 50% do bruto proporcional, sem descontos
@@ -239,7 +1084,7 @@ function calcularValorDecimoLinha(l: FolhaPagamentoLinha): number {
   if (l.tipo === "Terceiro") return 0
   const calc = calcularLinhaDecimoTerceiro(
     Number(l.bruto || 0),
-    calcularMesesProporcionais13(l.data_admissao, ano13),
+    calcularMesesProporcionais13(resolverDataAdmissaoLinha(l), ano13),
     tabelaOficialAtiva,
   )
   return mes === 11 ? calc.primeiraParcela : calc.liquidoSegundaParcela
@@ -581,6 +1426,7 @@ export function FolhaPagamento() {
         setFaixasComissao(faixas || [])
         setTerceirosCadastrados(tercs || [])
         setFuncionariosCadastradosEmpresa(funcs || [])
+        registrarDatasAdmissaoCadastro(funcs || [])
         setHistoricoLinhasAno(histAno || [])
       } catch (err) {
         console.warn(
@@ -679,6 +1525,8 @@ export function FolhaPagamento() {
           tercsSjeData,
           adMont,
           adSje,
+          funcsMont,
+          funcsSje,
         ] = await Promise.all([
           FolhaService.getLinhasCompetencia(ID_EMPRESA_MONTEIRO, competencia),
           FolhaService.getLinhasCompetencia(ID_EMPRESA_SJE, competencia),
@@ -686,6 +1534,8 @@ export function FolhaPagamento() {
           FolhaService.getTerceiros(ID_EMPRESA_SJE),
           FolhaService.getAdiantamentos(ID_EMPRESA_MONTEIRO, competencia),
           FolhaService.getAdiantamentos(ID_EMPRESA_SJE, competencia),
+          FolhaService.getFuncionariosEmpresa(ID_EMPRESA_MONTEIRO),
+          FolhaService.getFuncionariosEmpresa(ID_EMPRESA_SJE),
         ])
 
         setLinhasConsolidacaoMonteiro(linhasMont || [])
@@ -694,6 +1544,9 @@ export function FolhaPagamento() {
         setTerceirosSje(tercsSjeData || [])
         setAdiantamentosConsolidacaoMonteiro(adMont || [])
         setAdiantamentosConsolidacaoSje(adSje || [])
+        // Fallback de data de admissão p/ o 13º das DUAS folhas (linhas antigas sem data)
+        registrarDatasAdmissaoCadastro(funcsMont || [])
+        registrarDatasAdmissaoCadastro(funcsSje || [])
       } catch (err) {
         console.warn("Erro ao carregar dados consolidados da folha:", err)
       } finally {
@@ -7974,7 +8827,7 @@ export function FolhaPagamento() {
                     funcao: fl.funcao,
                     cargo: fl.cargo,
                     unidade: fl.unidade,
-                    data_admissao: fl.data_admissao,
+                    data_admissao: resolverDataAdmissaoLinha(fl) || null,
                     bruto: fl.bruto,
                     conta: fl.conta,
                     pix: fl.pix || fl.chave_pix,
@@ -9798,7 +10651,7 @@ export function FolhaPagamento() {
                       funcao: fl.funcao,
                       cargo: fl.cargo,
                       unidade: fl.unidade,
-                      data_admissao: fl.data_admissao,
+                      data_admissao: resolverDataAdmissaoLinha(fl) || null,
                       bruto: fl.bruto,
                       conta: fl.conta,
                       pix: fl.pix || fl.chave_pix,
@@ -9807,8 +10660,9 @@ export function FolhaPagamento() {
                 )
                   .filter((f: any) => (mostrarOcultos ? true : !f.oculto))
                   .map((f, idx) => {
+                    const dataAdm = resolverDataAdmissaoLinha(f) || null
                     const meses = calcularMesesProporcionais13(
-                      f.data_admissao,
+                      dataAdm,
                       2026,
                     )
                     const calc = calcularLinhaDecimoTerceiro(
@@ -9828,10 +10682,10 @@ export function FolhaPagamento() {
                           {f.funcao || "Geral"}
                         </td>
                         <td className="border p-1 text-center font-mono text-[8px] whitespace-nowrap">
-                          {f.data_admissao
-                            ? f.data_admissao.includes("-")
-                              ? f.data_admissao.split("-").reverse().join("/")
-                              : f.data_admissao
+                          {dataAdm
+                            ? dataAdm.includes("-")
+                              ? dataAdm.split("-").reverse().join("/")
+                              : dataAdm
                             : "—"}
                         </td>
                         <td className="border p-1 text-center font-mono font-bold">
@@ -9878,7 +10732,7 @@ export function FolhaPagamento() {
                           funcao: fl.funcao,
                           cargo: fl.cargo,
                           unidade: fl.unidade,
-                          data_admissao: fl.data_admissao,
+                          data_admissao: resolverDataAdmissaoLinha(fl) || null,
                           bruto: fl.bruto,
                           conta: fl.conta,
                           pix: fl.pix || fl.chave_pix,
@@ -9889,7 +10743,7 @@ export function FolhaPagamento() {
                   const tot = lista.reduce(
                     (acc: any, f: any) => {
                       const m = calcularMesesProporcionais13(
-                        f.data_admissao,
+                        resolverDataAdmissaoLinha(f),
                         2026,
                       )
                       const c = calcularLinhaDecimoTerceiro(
