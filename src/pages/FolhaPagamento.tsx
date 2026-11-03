@@ -9686,6 +9686,34 @@ export function FolhaPagamento() {
                 </tr>
                 <tr>
                   <td className="border p-2 font-medium">
+                    Terceiros (Folha à parte)
+                  </td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temMonteiro
+                      ? fmtMoeda(consolidacaoDuasFolhas.monteiro.totalTerceiros)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temSje
+                      ? fmtMoeda(consolidacaoDuasFolhas.sje.totalTerceiros)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono font-bold bg-gray-50">
+                    {fmtMoeda(
+                      Math.round(
+                        ((consolidacaoDuasFolhas.temMonteiro
+                          ? consolidacaoDuasFolhas.monteiro.totalTerceiros
+                          : 0) +
+                          (consolidacaoDuasFolhas.temSje
+                            ? consolidacaoDuasFolhas.sje.totalTerceiros
+                            : 0)) *
+                          100,
+                      ) / 100,
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border p-2 font-medium">
                     Comissões de Vendas
                   </td>
                   <td className="border p-2 text-right font-mono">
