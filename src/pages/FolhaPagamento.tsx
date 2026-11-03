@@ -160,8 +160,34 @@ function calcularAjudaCustoVendedores(
     (l) => l.tipo === "Terceiro" && !l.inativo,
   )
   tercs.forEach((t) => {
-    const val = Number(t.ajuda_custo ?? t.vendas_ajuda ?? 0)
-    ajuda += val
+    const nomeT = (t.nome || "").toUpperCase()
+    const isRaimundo = nomeT.includes("RAIMUNDO")
+    if (isRaimundo) return
+
+    const cadastrado = (terceirosEmpresa || []).find(
+      (c) =>
+        (t.id && c.id === t.id) ||
+        (t.nome &&
+          c.nome &&
+          c.nome.trim().toUpperCase() === t.nome.trim().toUpperCase()),
+    )
+    const ehVendedor = Boolean(
+      cadastrado?.eh_vendedor ||
+        nomeT.includes("MARCIO LUAN") ||
+        Number(t.vendas_obra || 0) > 0 ||
+        Number(t.comissao || 0) > 0,
+    )
+
+    if (ehVendedor) {
+      const val = Number(
+        t.vendas_ajuda !== undefined &&
+          t.vendas_ajuda !== null &&
+          Number(t.vendas_ajuda) > 0
+          ? t.vendas_ajuda
+          : t.ajuda_custo || 0,
+      )
+      ajuda += val
+    }
   })
   const funcs = (linhasEmpresa || []).filter(
     (l) => l.tipo !== "Terceiro" && !l.inativo,
@@ -286,7 +312,9 @@ function calcularValorRealEmpresa(
     const isRaimundo = (t.nome || "").toUpperCase().includes("RAIMUNDO")
     const ehVendedor = Boolean(
       (cadastrado?.eh_vendedor ||
-        (t.nome && t.nome.toUpperCase().includes("MARCIO LUAN"))) &&
+        (t.nome && t.nome.toUpperCase().includes("MARCIO LUAN")) ||
+        Number(t.vendas_obra || 0) > 0 ||
+        Number(t.comissao || 0) > 0) &&
         !isRaimundo,
     )
     const valorMes = ehVendedor
@@ -1761,6 +1789,19 @@ export function FolhaPagamento() {
     )
   }, [linhasVendasTerceiros])
 
+  // TOTAIS VENDAS TERCEIROS PARA TOTAIS (inclui terceiros ocultos se houver)
+  const totaisVendasTerceirosParaTotais = useMemo(() => {
+    return linhasVendasTerceirosParaTotais.reduce(
+      (acc, l) => {
+        acc.vendas_obra += Number(l.vendas_obra || 0)
+        acc.comissao += l.comissaoFinal
+        acc.ajuda_custo += Number(l.ajuda_custo ?? l.vendas_ajuda ?? 0)
+        return acc
+      },
+      { vendas_obra: 0, comissao: 0, ajuda_custo: 0 },
+    )
+  }, [linhasVendasTerceirosParaTotais])
+
   // TOTAIS VENDAS (GERAL: FUNCIONÁRIOS + TERCEIROS VENDEDORES)
   const totaisVendas = useMemo(() => {
     return {
@@ -1778,11 +1819,36 @@ export function FolhaPagamento() {
     const isAtivaMonteiro = empresaAtiva?.id === ID_EMPRESA_MONTEIRO
     const isAtivaSje = empresaAtiva?.id === ID_EMPRESA_SJE
 
-    // Ajuda de custo da empresa ativa reativa da tela (mesma fórmula canônica do resumo)
-    const ajudaAtiva = calcularAjudaCustoVendedores(
-      linhasGeralProcessadasParaTotais,
-      terceirosCadastrados,
-    )
+    // Ajuda de custo da empresa ativa reativa da tela (mesma fórmula canônica do resumo):
+    // terceiros vendedores (totaisVendasTerceirosParaTotais.ajuda_custo) + funcionários vendedores em linhasGeralProcessadasParaTotais
+    const ajudaFuncsVendedoresAtiva = linhasGeralProcessadasParaTotais
+      .filter((l) => {
+        const n = (l.nome || "").toUpperCase()
+        const f = (l.funcao || "").toUpperCase()
+        const c = (l.cargo || "").toUpperCase()
+        return (
+          n.includes("VALDERCLEITON") ||
+          f.includes("VENDEDOR") ||
+          c.includes("VENDEDOR")
+        )
+      })
+      .reduce((acc, l) => {
+        const val = Number(
+          l.vendas_ajuda !== undefined &&
+            l.vendas_ajuda !== null &&
+            Number(l.vendas_ajuda) > 0
+            ? l.vendas_ajuda
+            : l.ajuda_custo || 0,
+        )
+        return acc + val
+      }, 0)
+
+    const ajudaAtiva =
+      Math.round(
+        (totaisVendasTerceirosParaTotais.ajuda_custo +
+          ajudaFuncsVendedoresAtiva) *
+          100,
+      ) / 100
 
     // Cálculo Monteiro
     let monteiro: CalculoUnidadeConsolidada
@@ -1924,7 +1990,7 @@ export function FolhaPagamento() {
     totaisVendas.vendas_obra,
     totaisVendas.comissao,
     linhasGeralProcessadasParaTotais,
-    terceirosCadastrados,
+    totaisVendasTerceirosParaTotais.ajuda_custo,
     terceirosNaoVendedoresParaTotais,
     linhas.length,
     linhasConsolidacaoMonteiro,
