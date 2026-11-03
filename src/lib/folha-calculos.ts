@@ -231,6 +231,7 @@ export function calcularMensalGeral(
     limpeza: extras?.limpeza,
     sabado: extras?.sabado,
     feriado: extras?.feriado,
+    ferias: extras?.ferias,
     ajuda_custo: extras?.ajuda_custo,
   })
   const gratificacao = Number(extras?.gratificacao || 0)
@@ -255,6 +256,7 @@ export function calcularProducaoTotal(linha: {
   limpeza?: number
   sabado?: number
   feriado?: number
+  ferias?: number
   ajuda_custo?: number
 }): number {
   const obras = Number(linha.obras || 0)
@@ -262,11 +264,13 @@ export function calcularProducaoTotal(linha: {
   const limpeza = Number(linha.limpeza || 0)
   const sabado = Number(linha.sabado || 0)
   const feriado = Number(linha.feriado || 0)
+  const ferias = Number(linha.ferias || 0)
   const ajuda = Number(linha.ajuda_custo || 0)
 
   return (
-    Math.round((obras * valorObra + limpeza + sabado + feriado + ajuda) * 100) /
-    100
+    Math.round(
+      (obras * valorObra + limpeza + sabado + feriado + ferias + ajuda) * 100,
+    ) / 100
   )
 }
 
@@ -276,6 +280,7 @@ export function calcularAPagarProducao(linha: {
   limpeza?: number
   sabado?: number
   feriado?: number
+  ferias?: number
   ajuda_custo?: number
   gratificacao?: number
   adiantamento?: number
