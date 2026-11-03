@@ -118,6 +118,7 @@ interface CalculoUnidadeConsolidada {
   salariosMensal: number
   producaoAPagar: number
   feriasTotal: number
+  decimoTotal: number
   comissoesVendas: number
   ajudaVendedores: number
   qtdFuncionarios: number
@@ -218,6 +219,32 @@ function calcularAjudaCustoVendedores(
 }
 const calcularAjudaCustoTerceiros = calcularAjudaCustoVendedores
 
+// Ano-calendário fixo do 13º (sistema roda na competência 2026)
+const ano13 = 2026
+
+// Tabela oficial usada no cálculo do 13º dentro de calcularValorDecimoLinha
+// (setada pelo componente após carregar a tabela oficial da empresa)
+let tabelaOficialAtiva: FolhaTabelaOficial | null = null
+
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+ * - mês 11 (novembro): 1ª parcela = 50% do bruto proporcional, sem descontos
+ * - mês 12 (dezembro): 2ª parcela líquida (bruto restante − INSS − IRRF regra anual)
+ * - outros meses: 0 (13º não entra no líquido)
+ * Terceiros ficam FORA (regra existente). Usa tabelaOficialAtiva do escopo do módulo.
+ */
+function calcularValorDecimoLinha(l: FolhaPagamentoLinha): number {
+  const mes = Number((l.competencia || "").split("-")[1] || 0)
+  if (mes !== 11 && mes !== 12) return 0
+  if (l.tipo === "Terceiro") return 0
+  const calc = calcularLinhaDecimoTerceiro(
+    Number(l.bruto || 0),
+    calcularMesesProporcionais13(l.data_admissao, ano13),
+    tabelaOficialAtiva,
+  )
+  return mes === 11 ? calc.primeiraParcela : calc.liquidoSegundaParcela
+}
+
 function calcularValorRealEmpresa(
   linhasEmpresa: FolhaPagamentoLinha[],
   terceirosCadastradosEmpresa: FolhaTerceiro[] = [],
@@ -233,6 +260,7 @@ function calcularValorRealEmpresa(
       salariosMensal: 0,
       producaoAPagar: 0,
       feriasTotal: 0,
+      decimoTotal: 0,
       comissoesVendas: 0,
       ajudaVendedores: 0,
       qtdFuncionarios: 0,
@@ -250,6 +278,7 @@ function calcularValorRealEmpresa(
   let salariosMensal = 0
   let producaoAPagar = 0
   let totalFerias = 0
+  let decimoTotalEmpresa = 0
   let comissoesVendas = 0
 
   funcs.forEach((l) => {
@@ -290,8 +319,12 @@ function calcularValorRealEmpresa(
     // Férias: componente PRÓPRIO do líquido (nunca dentro da produção)
     const feriasLinha = Number(l.ferias || 0)
     totalFerias += feriasLinha
+    // 13º: componente PRÓPRIO do líquido nos meses 11/12 (1ª parcela em nov / 2ª líquida em dez)
+    const decimoLinha = calcularValorDecimoLinha(l)
+    decimoTotalEmpresa += decimoLinha
 
-    totalFuncionarios += mensal + producaoCompleta - adiantamento + feriasLinha
+    totalFuncionarios +=
+      mensal + producaoCompleta - adiantamento + feriasLinha + decimoLinha
     const vObra = Number(l.vendas_obra || 0)
     const comissaoAuto = calcularComissaoVendas(vObra)
     const comissao = Number(l.comissao || comissaoAuto)
@@ -372,6 +405,7 @@ function calcularValorRealEmpresa(
     producaoAPagar,
     comissoesVendas,
     ajudaVendedores,
+    decimoTotal: Math.round(decimoTotalEmpresa * 100) / 100,
     qtdFuncionarios: funcs.length,
     qtdTerceiros: qtdTerceirosContados,
     linhasCount: linhasEmpresa.length,
@@ -543,6 +577,7 @@ export function FolhaPagamento() {
           FolhaService.getHistoricoRemuneracoesAno(empresaAtiva.id, 2026),
         ])
         setTabelaOficial(tab)
+        tabelaOficialAtiva = tab
         setFaixasComissao(faixas || [])
         setTerceirosCadastrados(tercs || [])
         setFuncionariosCadastradosEmpresa(funcs || [])
@@ -1643,6 +1678,7 @@ export function FolhaPagamento() {
         acc.sabado += l.sabadoTotal
         acc.ferias += l.feriasTotal
         acc.ajuda_custo += l.ajudaTotal
+        acc.decimo += Number(l.decimoTotal || 0)
         acc.gratificacao += l.gratificacaoTotal
         acc.comissao += l.comissaoTotal
         acc.vendas_ajuda += l.vendasAjudaTotal
@@ -1650,6 +1686,7 @@ export function FolhaPagamento() {
         acc.aPagarProducao += l.aPagarProducao
         acc.producaoGeralMais += l.producaoGeralMais
         acc.feriasTotal += l.feriasTotal
+        acc.decimo += Number(l.decimoTotal || 0)
         acc.mensal += l.mensalFinal
         acc.liquidoGeral += l.liquidoGeral
         return acc
@@ -1674,6 +1711,7 @@ export function FolhaPagamento() {
         aPagarProducao: 0,
         producaoGeralMais: 0,
         feriasTotal: 0,
+        decimo: 0,
         mensal: 0,
         liquidoGeral: 0,
       },
@@ -1953,6 +1991,13 @@ export function FolhaPagamento() {
               0,
             ) * 100,
           ) / 100,
+        decimoTotal:
+          Math.round(
+            linhasGeralProcessadasParaTotais.reduce(
+              (acc, l) => acc + Number(l.decimoTotal || 0),
+              0,
+            ) * 100,
+          ) / 100,
         comissoesVendas: Math.round(totaisVendas.comissao * 100) / 100,
         ajudaVendedores: ajudaMonteiro,
         qtdFuncionarios: linhasGeralProcessadasParaTotais.length,
@@ -1990,6 +2035,13 @@ export function FolhaPagamento() {
           Math.round(
             linhasGeralProcessadasParaTotais.reduce(
               (acc, l) => acc + Number(l.feriasTotal || 0),
+              0,
+            ) * 100,
+          ) / 100,
+        decimoTotal:
+          Math.round(
+            linhasGeralProcessadasParaTotais.reduce(
+              (acc, l) => acc + Number(l.decimoTotal || 0),
               0,
             ) * 100,
           ) / 100,
@@ -2050,14 +2102,22 @@ export function FolhaPagamento() {
           (temSje ? sje.feriasTotal : 0)) *
           100,
       ) / 100
+    // 13º: linha PRÓPRIA (só nov/dez), nunca dentro de "Produção (a pagar)"
+    const decimoConsolidado =
+      Math.round(
+        ((temMonteiro ? monteiro.decimoTotal : 0) +
+          (temSje ? sje.decimoTotal : 0)) *
+          100,
+      ) / 100
 
-    // SOMATÓRIO GERAL = soma das 6 linhas discriminadas (inclui férias e ajuda de custo dos vendedores)
+    // SOMATÓRIO GERAL = soma das 7 linhas discriminadas (inclui férias, 13º e ajuda de custo dos vendedores)
     const somatorioGeral =
       Math.round(
         (salariosQuinzenaConsolidado +
           salariosMensalConsolidado +
           producaoAPagarConsolidado +
           feriasConsolidado +
+          decimoConsolidado +
           comissoesVendasConsolidado +
           ajudaCustoConsolidado) *
           100,
@@ -2075,6 +2135,7 @@ export function FolhaPagamento() {
       salariosMensalConsolidado,
       producaoAPagarConsolidado,
       feriasConsolidado,
+      decimoConsolidado,
       comissoesVendasConsolidado,
       ajudaCustoConsolidado,
       somatorioGeral,
@@ -2146,14 +2207,19 @@ export function FolhaPagamento() {
     const salariosMensalLiquido = Math.round(totaisGeral.mensal * 100) / 100
     // Produção a pagar é item que agora compõe o Subtotal Folha
     const producaoAPagar = Math.round(totaisProducao.aPagar * 100) / 100
+    // Férias e 13º: linhas PRÓPRIAS fora do bloco produção (13º só nov/dez)
+    const feriasResumo = Math.round(totaisGeral.feriasTotal * 100) / 100
+    const decimoResumo = Math.round(totaisGeral.decimo * 100) / 100
     // Vendas (comissões): inclui comissões dos funcionários + comissões dos vendedores terceiros (ex: Márcio Luan)
     const vendasComissoes = Math.round(totaisVendas.comissao * 100) / 100
-    // SUBTOTAL FOLHA = Salários Quinzena + Salários Mensal (líquido) + Produção (a pagar) + Comissões
+    // SUBTOTAL FOLHA = Salários Quinzena + Salários Mensal (líquido) + Produção (a pagar) + Férias + 13º + Comissões
     const subtotalFolha =
       Math.round(
         (salariosQuinzena +
           salariosMensalLiquido +
           producaoAPagar +
+          feriasResumo +
+          decimoResumo +
           vendasComissoes) *
           100,
       ) / 100
@@ -2211,6 +2277,8 @@ export function FolhaPagamento() {
       salariosMensalLiquido,
       subtotalFolha,
       producaoAPagar,
+      feriasResumo,
+      decimoResumo,
       vendasComissoes,
       terceirosFolha,
       adiantamentos: totalAdiantamentos,
