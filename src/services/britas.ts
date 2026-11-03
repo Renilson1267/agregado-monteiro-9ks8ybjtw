@@ -102,44 +102,58 @@ export class BritasService {
     empresaId: string,
     competenciaAtual: string,
   ): Promise<SaldoCompetenciaAnterior> {
-    const [anoStr, mesStr] = competenciaAtual.split("-")
-    let ano = Number(anoStr) || new Date().getFullYear()
-    let mes = Number(mesStr) || new Date().getMonth() + 1
-    mes -= 1
-    if (mes < 1) {
-      mes = 12
-      ano -= 1
-    }
-    const compAnterior = `${ano}-${String(mes).padStart(2, "0")}`
+    try {
+      const [comprasRes, entregasRes] = await Promise.all([
+        (supabase as any)
+          .from("controle_britas_compras")
+          .select("volume_m3")
+          .eq("empresa_id", empresaId)
+          .lt("competencia", competenciaAtual),
+        (supabase as any)
+          .from("controle_britas_entregas")
+          .select("quantidade_m3")
+          .eq("empresa_id", empresaId)
+          .lt("competencia", competenciaAtual),
+      ])
 
-    const [comprasAnteriores, entregasAnteriores] = await Promise.all([
-      BritasService.getComprasCompetencia(empresaId, compAnterior),
-      BritasService.getEntregasCompetencia(empresaId, compAnterior),
-    ])
+      const comprasAnteriores = comprasRes.data || []
+      const entregasAnteriores = entregasRes.data || []
 
-    const compraM3 = Number(
-      comprasAnteriores
-        .reduce((acc, c) => acc + (Number(c.volume_m3) || 0), 0)
-        .toFixed(3),
-    )
-    const entregueM3 = Number(
-      entregasAnteriores
-        .reduce((acc, cur) => acc + (Number(cur.quantidade_m3) || 0), 0)
-        .toFixed(3),
-    )
+      const compraM3 = Number(
+        comprasAnteriores
+          .reduce((acc: number, c: any) => acc + (Number(c.volume_m3) || 0), 0)
+          .toFixed(3),
+      )
+      const entregueM3 = Number(
+        entregasAnteriores
+          .reduce(
+            (acc: number, cur: any) => acc + (Number(cur.quantidade_m3) || 0),
+            0,
+          )
+          .toFixed(3),
+      )
 
-    const temRegistroMesAnterior = Boolean(
-      comprasAnteriores.length > 0 || entregasAnteriores.length > 0,
-    )
-    const saldoRepasseM3 = temRegistroMesAnterior
-      ? Number((compraM3 - entregueM3).toFixed(3))
-      : 0
+      const temRegistroAnterior = Boolean(
+        comprasAnteriores.length > 0 || entregasAnteriores.length > 0,
+      )
+      const saldoRepasseM3 = temRegistroAnterior
+        ? Number((compraM3 - entregueM3).toFixed(3))
+        : 0
 
-    return {
-      compraMesAnteriorM3: compraM3,
-      entregueGeralMesAnteriorM3: entregueM3,
-      saldoRepasseM3,
-      temRegistroMesAnterior,
+      return {
+        compraMesAnteriorM3: compraM3,
+        entregueGeralMesAnteriorM3: entregueM3,
+        saldoRepasseM3,
+        temRegistroMesAnterior: temRegistroAnterior,
+      }
+    } catch (err) {
+      console.error("Erro ao calcular repasse acumulado de britas:", err)
+      return {
+        compraMesAnteriorM3: 0,
+        entregueGeralMesAnteriorM3: 0,
+        saldoRepasseM3: 0,
+        temRegistroMesAnterior: false,
+      }
     }
   }
   /**

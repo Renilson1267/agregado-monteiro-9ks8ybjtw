@@ -129,6 +129,28 @@ function somarMesesCompetencia(comp: string, delta: number): string {
   return `${ano}-${String(mes).padStart(2, "0")}`
 }
 
+interface IntervaloDatas {
+  inicio: string
+  fim: string
+}
+
+function obterPrimeiroEUltimoDiaMes(comp: string): IntervaloDatas {
+  const [anoStr, mesStr] = comp.split("-")
+  const ano = Number(anoStr) || new Date().getFullYear()
+  const mes = Number(mesStr) || new Date().getMonth() + 1
+  const ultimoDia = new Date(ano, mes, 0).getDate()
+  const inicio = `${ano}-${String(mes).padStart(2, "0")}-01`
+  const fim = `${ano}-${String(mes).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}`
+  return { inicio, fim }
+}
+
+function obterPrimeiroEUltimoDiaAno(ano: number): IntervaloDatas {
+  return {
+    inicio: `${ano}-01-01`,
+    fim: `${ano}-12-31`,
+  }
+}
+
 function formatarMoeda(val: number): string {
   return val.toLocaleString("pt-BR", {
     style: "currency",
@@ -270,23 +292,31 @@ export function AbaControleBritas({
         setEntregasAno(entregasAnoRes)
         setAnosDisponiveis(anosRes)
       } else {
-        // Visão do mês normal
-        const [comprasRes, entregasRes, saldoAntRes, chequesRes, anosRes] =
-          await Promise.all([
-            BritasService.getComprasCompetencia(empresaAtiva.id, competencia),
-            BritasService.getEntregasCompetencia(empresaAtiva.id, competencia),
-            BritasService.getSaldoCompetenciaAnterior(
-              empresaAtiva.id,
-              competencia,
-            ),
-            BritasService.getChequesCompetencia(empresaAtiva.id, competencia),
-            BritasService.getAnosDisponiveis(empresaAtiva.id),
-          ])
+        // Visão do mês normal — carrega compras, entregas do mês, saldo anterior acumulado, cheques, anos e também as entregas do ano corrente da competência para filtros anuais
+        const [
+          comprasRes,
+          entregasRes,
+          saldoAntRes,
+          chequesRes,
+          anosRes,
+          entregasAnoRes,
+        ] = await Promise.all([
+          BritasService.getComprasCompetencia(empresaAtiva.id, competencia),
+          BritasService.getEntregasCompetencia(empresaAtiva.id, competencia),
+          BritasService.getSaldoCompetenciaAnterior(
+            empresaAtiva.id,
+            competencia,
+          ),
+          BritasService.getChequesCompetencia(empresaAtiva.id, competencia),
+          BritasService.getAnosDisponiveis(empresaAtiva.id),
+          BritasService.getEntregasAno(empresaAtiva.id, anoCompetenciaAtual),
+        ])
         setCompras(comprasRes)
         setEntregas(entregasRes)
         setSaldoAnterior(saldoAntRes)
         setCheques(chequesRes)
         setAnosDisponiveis(anosRes)
+        setEntregasAno(entregasAnoRes)
       }
     } catch (err: any) {
       console.error(err)
@@ -329,11 +359,23 @@ export function AbaControleBritas({
     }
   }, [entregaQuantidade, entregaUnidade, entregaDensidade])
 
+  // Define se o filtro de período ativo engloba datas fora do mês da competência (ex.: ano inteiro ou mês anterior)
+  const isPeriodoForaDoMes = useMemo(() => {
+    if (modoVisaoAnoCompleto) return true
+    if (!filtroDataInicio && !filtroDataFim) return false
+    // Se a data de início ou fim for de outro mês/ano que não a competência
+    const compInicio = filtroDataInicio
+      ? filtroDataInicio.substring(0, 7)
+      : competencia
+    const compFim = filtroDataFim ? filtroDataFim.substring(0, 7) : competencia
+    return compInicio !== competencia || compFim !== competencia
+  }, [modoVisaoAnoCompleto, filtroDataInicio, filtroDataFim, competencia])
+
   // Lista de entregas ativas para visualização:
-  // Se modoVisaoAnoCompleto, usa entregasAno; senão usa entregas do mês
+  // Se modoVisaoAnoCompleto ou se o período filtrado ultrapassa o mês da competência (ex: ANUAL), usa entregasAno; senão usa entregas do mês
   const entregasAtivas = useMemo(() => {
-    return modoVisaoAnoCompleto ? entregasAno : entregas
-  }, [modoVisaoAnoCompleto, entregasAno, entregas])
+    return modoVisaoAnoCompleto || isPeriodoForaDoMes ? entregasAno : entregas
+  }, [modoVisaoAnoCompleto, isPeriodoForaDoMes, entregasAno, entregas])
 
   // Resumo Geral: Compra do Mês/Ano, Repasse Anterior, Entregas Brita 19, Brita 12, Total Geral e Saldo a Receber
   // Quando em ANO COMPLETO: soma compras de todas as competências do ano e entregas do ano
@@ -1036,9 +1078,23 @@ export function AbaControleBritas({
     Boolean(filtroDataInicio) ||
     Boolean(filtroDataFim)
 
-  // Disparo da impressão A4 via window.print
+  // Estado para controlar se a impressão atual é completa ou só das entregas
+  const [modoImpressaoSoEntregas, setModoImpressaoSoEntregas] =
+    useState<boolean>(false)
+
+  // Disparo da impressão A4 via window.print (completa ou só entregas)
   const handleImprimir = () => {
-    window.print()
+    setModoImpressaoSoEntregas(false)
+    setTimeout(() => {
+      window.print()
+    }, 50)
+  }
+
+  const handleImprimirSoEntregas = () => {
+    setModoImpressaoSoEntregas(true)
+    setTimeout(() => {
+      window.print()
+    }, 50)
   }
 
   return (
@@ -1065,6 +1121,7 @@ export function AbaControleBritas({
         filtroDataFim={filtroDataFim}
         modoVisao={modoVisaoAnoCompleto ? "ano" : "mes"}
         anoSelecionado={anoSelecionado}
+        somenteEntregas={modoImpressaoSoEntregas}
       />
 
       {/* =========================================================================
@@ -1458,7 +1515,7 @@ export function AbaControleBritas({
               </div>
             </div>
 
-            {/* 2b. SALDO ANTERIOR (REPASSE) */}
+            {/* 2b. REPASSE ACUMULADO */}
             <div
               className={`p-3 rounded-xl border text-center flex flex-col justify-between ${
                 resumo.saldoRepasseM3 > 0
@@ -1472,7 +1529,7 @@ export function AbaControleBritas({
                 <span className="text-[10px] font-bold uppercase tracking-wider block mb-1">
                   {modoVisaoAnoCompleto
                     ? "Total Contratado"
-                    : "Saldo Anterior (Repasse)"}
+                    : "Repasse Acumulado"}
                 </span>
                 <span className="text-xl sm:text-2xl font-extrabold font-mono block">
                   {modoVisaoAnoCompleto ? (
@@ -1495,7 +1552,7 @@ export function AbaControleBritas({
                 <span className="text-[10px] truncate">
                   {modoVisaoAnoCompleto
                     ? `Ano ${anoSelecionado}`
-                    : formatarCompetenciaRotulo(anteriorCompetencia)}
+                    : "Meses Anteriores"}
                 </span>
                 <span className="font-mono text-[10px]">
                   {modoVisaoAnoCompleto
@@ -2188,9 +2245,19 @@ export function AbaControleBritas({
               <Button
                 variant="outline"
                 size="sm"
+                onClick={handleImprimirSoEntregas}
+                className="h-8 gap-1.5 text-xs font-semibold border-blue-500/40 bg-blue-500/5 hover:bg-blue-500/10 text-blue-700 dark:text-blue-400"
+                title="Imprimir apenas o cabeçalho e a tabela das entregas filtradas em A4"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Imprimir Só Entregas</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleImprimir}
                 className="h-8 gap-1.5 text-xs font-semibold border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary"
-                title="Imprimir histórico de entregas filtrado em A4"
+                title="Imprimir relatório completo da competência em A4"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>Imprimir A4</span>
@@ -2198,13 +2265,116 @@ export function AbaControleBritas({
             </div>
           </div>
 
-          {/* BARRA DE FILTROS: Tipo de brita, fornecedor (texto) e período (data inicial/final) */}
-          <div className="p-3 rounded-lg border border-border/40 bg-muted/20 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5">
-                <Search className="w-3.5 h-3.5 text-primary" />
-                Filtros de Pesquisa
-              </span>
+          {/* BARRA DE FILTROS: Tipo de brita, fornecedor (texto), atalhos de período e período (data inicial/final) */}
+          <div className="p-3 rounded-lg border border-border/40 bg-muted/20 space-y-2.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                  <Search className="w-3.5 h-3.5 text-primary" />
+                  Filtros de Pesquisa
+                </span>
+                {/* Atalhos Rápidos de Período */}
+                <div className="flex items-center gap-1 bg-background/80 p-0.5 rounded-md border border-border/50">
+                  <Button
+                    type="button"
+                    variant={
+                      filtroDataInicio ===
+                        obterPrimeiroEUltimoDiaMes(
+                          somarMesesCompetencia(competencia, -1),
+                        ).inicio &&
+                      filtroDataFim ===
+                        obterPrimeiroEUltimoDiaMes(
+                          somarMesesCompetencia(competencia, -1),
+                        ).fim
+                        ? "default"
+                        : "ghost"
+                    }
+                    size="sm"
+                    onClick={() => {
+                      const { inicio, fim } = obterPrimeiroEUltimoDiaMes(
+                        somarMesesCompetencia(competencia, -1),
+                      )
+                      setFiltroDataInicio(inicio)
+                      setFiltroDataFim(fim)
+                    }}
+                    className={`h-6 px-2 text-[10px] font-bold tracking-tight uppercase ${
+                      filtroDataInicio ===
+                        obterPrimeiroEUltimoDiaMes(
+                          somarMesesCompetencia(competencia, -1),
+                        ).inicio &&
+                      filtroDataFim ===
+                        obterPrimeiroEUltimoDiaMes(
+                          somarMesesCompetencia(competencia, -1),
+                        ).fim
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    title={`Mês anterior: ${formatarCompetenciaRotulo(somarMesesCompetencia(competencia, -1))}`}
+                  >
+                    MÊS ANTERIOR
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={
+                      filtroDataInicio ===
+                        obterPrimeiroEUltimoDiaMes(competencia).inicio &&
+                      filtroDataFim ===
+                        obterPrimeiroEUltimoDiaMes(competencia).fim
+                        ? "default"
+                        : "ghost"
+                    }
+                    size="sm"
+                    onClick={() => {
+                      const { inicio, fim } =
+                        obterPrimeiroEUltimoDiaMes(competencia)
+                      setFiltroDataInicio(inicio)
+                      setFiltroDataFim(fim)
+                    }}
+                    className={`h-6 px-2 text-[10px] font-bold tracking-tight uppercase ${
+                      filtroDataInicio ===
+                        obterPrimeiroEUltimoDiaMes(competencia).inicio &&
+                      filtroDataFim ===
+                        obterPrimeiroEUltimoDiaMes(competencia).fim
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    title={`Mês atual: ${formatarCompetenciaRotulo(competencia)}`}
+                  >
+                    MÊS ATUAL
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={
+                      filtroDataInicio ===
+                        obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual)
+                          .inicio &&
+                      filtroDataFim ===
+                        obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual).fim
+                        ? "default"
+                        : "ghost"
+                    }
+                    size="sm"
+                    onClick={() => {
+                      const { inicio, fim } =
+                        obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual)
+                      setFiltroDataInicio(inicio)
+                      setFiltroDataFim(fim)
+                    }}
+                    className={`h-6 px-2 text-[10px] font-bold tracking-tight uppercase ${
+                      filtroDataInicio ===
+                        obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual)
+                          .inicio &&
+                      filtroDataFim ===
+                        obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual).fim
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    title={`Ano inteiro: 01/01 a 31/12 de ${anoCompetenciaAtual}`}
+                  >
+                    ANUAL
+                  </Button>
+                </div>
+              </div>
               {temFiltroAtivo && (
                 <button
                   type="button"
