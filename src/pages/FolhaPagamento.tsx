@@ -942,6 +942,7 @@ export function FolhaPagamento() {
     limpezaTotal: number
     sabadoTotal: number
     feriasTotal: number
+    decimoTotal: number
     ajudaTotal: number
     gratificacaoTotal: number
     comissaoTotal: number
@@ -996,6 +997,8 @@ export function FolhaPagamento() {
     const limpezaTotal = Number(l.limpeza || 0)
     const sabadoTotal = Number(l.sabado || 0)
     const feriasTotal = Number(l.ferias || 0)
+    // 13º: componente PRÓPRIO do líquido (só meses 11/12; terceiros fora)
+    const decimoTotal = calcularValorDecimoLinha(l)
     const ajudaTotal = Number(l.ajuda_custo || 0)
     const gratificacaoTotal = Number(l.gratificacao || 0)
     const comissaoTotal = Number(l.comissao || 0)
@@ -1056,16 +1059,22 @@ export function FolhaPagamento() {
     // - 'mensal': mensalFinal = mensalPuro - adiantamentoTotal; producaoGeralMais sem desconto;
     //   liquidoGeral = mensalFinal + producaoGeralMais.
     // Em todos os destinos, FÉRIAS entra como componente PRÓPRIO do líquido (+ feriasTotal).
+    // Em todos os destinos, o 13º também entra como componente PRÓPRIO do líquido (+ decimoTotal).
     const liquidoGeral =
       destinoAdiantamento === "quinzena"
-        ? Math.round((mensalPuro + producaoGeralMais + feriasTotal) * 100) / 100
+        ? Math.round(
+            (mensalPuro + producaoGeralMais + feriasTotal + decimoTotal) * 100,
+          ) / 100
         : destinoAdiantamento === "mensal"
-          ? Math.round((mensalFinal + producaoGeralMais + feriasTotal) * 100) /
-            100
+          ? Math.round(
+              (mensalFinal + producaoGeralMais + feriasTotal + decimoTotal) *
+                100,
+            ) / 100
           : Math.round(
               (mensalPuro +
                 (producaoGeralMais - adiantamentoTotal) +
-                feriasTotal) *
+                feriasTotal +
+                decimoTotal) *
                 100,
             ) / 100
     const liquidoComposto = liquidoGeral
@@ -1108,6 +1117,7 @@ export function FolhaPagamento() {
       limpezaTotal,
       sabadoTotal,
       feriasTotal,
+      decimoTotal,
       ajudaTotal,
       gratificacaoTotal,
       comissaoTotal,
@@ -1686,7 +1696,6 @@ export function FolhaPagamento() {
         acc.aPagarProducao += l.aPagarProducao
         acc.producaoGeralMais += l.producaoGeralMais
         acc.feriasTotal += l.feriasTotal
-        acc.decimo += Number(l.decimoTotal || 0)
         acc.mensal += l.mensalFinal
         acc.liquidoGeral += l.liquidoGeral
         return acc
@@ -2329,11 +2338,33 @@ export function FolhaPagamento() {
     )
     const pessoasSje = contarPessoasUnidade(linhasConsolidacaoSje, terceirosSje)
 
+    // Férias e 13º: linhas PRÓPRIAS (nunca dentro da produção) — entram no TOTAL DA UNIDADE
+    const feriasMonteiro =
+      consolidacaoDuasFolhas.temMonteiro &&
+      empresaAtiva?.id === ID_EMPRESA_MONTEIRO
+        ? resumo.feriasResumo
+        : m.feriasTotal
+    const decimoMonteiro =
+      consolidacaoDuasFolhas.temMonteiro &&
+      empresaAtiva?.id === ID_EMPRESA_MONTEIRO
+        ? resumo.decimoResumo
+        : m.decimoTotal
+    const feriasSje =
+      consolidacaoDuasFolhas.temSje && empresaAtiva?.id === ID_EMPRESA_SJE
+        ? resumo.feriasResumo
+        : s.feriasTotal
+    const decimoSje =
+      consolidacaoDuasFolhas.temSje && empresaAtiva?.id === ID_EMPRESA_SJE
+        ? resumo.decimoResumo
+        : s.decimoTotal
+
     const totalMonteiro =
       Math.round(
         (m.salariosQuinzena +
           m.salariosMensal +
           m.producaoAPagar +
+          feriasMonteiro +
+          decimoMonteiro +
           (m.comissoesVendas + ajudaMonteiro) +
           totalAdiantamentosMonteiro) *
           100,
@@ -2343,6 +2374,8 @@ export function FolhaPagamento() {
         (s.salariosQuinzena +
           s.salariosMensal +
           s.producaoAPagar +
+          feriasSje +
+          decimoSje +
           (s.comissoesVendas + ajudaSje) +
           totalAdiantamentosSje) *
           100,
@@ -2354,6 +2387,8 @@ export function FolhaPagamento() {
         salariosQuinzena: m.salariosQuinzena,
         salariosMensal: m.salariosMensal,
         producaoAPagar: m.producaoAPagar,
+        ferias: feriasMonteiro,
+        decimo: decimoMonteiro,
         comissoesAjuda:
           Math.round((m.comissoesVendas + ajudaMonteiro) * 100) / 100,
         terceiros: m.totalTerceiros,
@@ -2365,6 +2400,8 @@ export function FolhaPagamento() {
         salariosQuinzena: s.salariosQuinzena,
         salariosMensal: s.salariosMensal,
         producaoAPagar: s.producaoAPagar,
+        ferias: feriasSje,
+        decimo: decimoSje,
         comissoesAjuda: Math.round((s.comissoesVendas + ajudaSje) * 100) / 100,
         terceiros: s.totalTerceiros,
         adiantamentos: totalAdiantamentosSje,
@@ -3835,7 +3872,7 @@ export function FolhaPagamento() {
                   <span>
                     Líquido Total = Mensal (Bruto − INSS − IRRF + Família +
                     Gratificação − Quinzena − Adiantamento + Limpeza + Sábado +
-                    Férias + Ajuda + Comissão) + Produção (Obras×Valor,
+                    Férias + 13º + Ajuda + Comissão) + Produção (Obras×Valor,
                     pagamento à parte)
                   </span>
                 </div>
@@ -3876,6 +3913,12 @@ export function FolhaPagamento() {
                         title="Férias — componente PRÓPRIO do líquido (não entra na produção)"
                       >
                         FÉRIAS (+)
+                      </th>
+                      <th
+                        className="py-2.5 px-2 text-right text-indigo-700 dark:text-indigo-300 font-semibold bg-indigo-50/50 dark:bg-indigo-950/20"
+                        title="13º salário — 1ª parcela (nov) / 2ª parcela líquida (dez); demais meses sem 13º"
+                      >
+                        13º (+)
                       </th>
                       <th
                         className="py-2.5 px-2 text-right text-muted-foreground font-semibold bg-blue-50/40 dark:bg-blue-950/20"
@@ -3925,7 +3968,7 @@ export function FolhaPagamento() {
                     {linhasGeralProcessadas.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={18}
+                          colSpan={19}
                           className="text-center py-8 text-muted-foreground"
                         >
                           {carregando
@@ -4082,6 +4125,13 @@ export function FolhaPagamento() {
                                     )}
                                   </div>
                                 )}
+                              </td>
+
+                              {/* 13º NA ABA GERAL — coluna somente leitura (não editável inline) */}
+                              <td className="py-2 px-2 text-right font-mono whitespace-nowrap text-indigo-700 dark:text-indigo-300 bg-indigo-50/30 dark:bg-indigo-950/10">
+                                {l.decimoTotal > 0
+                                  ? `+${fmtMoeda(l.decimoTotal)}`
+                                  : "—"}
                               </td>
 
                               {/* QUINZENA NA ABA GERAL (EM BRANCO / SÓ EXIBIÇÃO) */}
@@ -4246,7 +4296,7 @@ export function FolhaPagamento() {
                                 key={`${l.id}-detalhe`}
                                 className="bg-muted/20 border-b border-primary/20"
                               >
-                                <td colSpan={18} className="p-3 pl-8">
+                                <td colSpan={19} className="p-3 pl-8">
                                   <div className="rounded-lg border bg-card p-3 shadow-sm space-y-3">
                                     <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
                                       <div className="flex items-center gap-2">
@@ -4332,6 +4382,17 @@ export function FolhaPagamento() {
                                           </div>
                                         </div>
 
+                                        <div className="bg-indigo-50/50 dark:bg-indigo-950/20 p-2 rounded border border-indigo-200 dark:border-indigo-900/30">
+                                          <div className="text-[10px] text-indigo-700 dark:text-indigo-300 uppercase font-semibold">
+                                            13º (+)
+                                          </div>
+                                          <div className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">
+                                            {l.decimoTotal > 0
+                                              ? `+${fmtMoeda(l.decimoTotal)}`
+                                              : fmtMoeda(0)}
+                                          </div>
+                                        </div>
+
                                         <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-2 rounded border border-emerald-200 dark:border-emerald-900/30">
                                           <div className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-semibold">
                                             Ajuda Custo (+)
@@ -4411,6 +4472,11 @@ export function FolhaPagamento() {
                                           + {fmtMoeda(l.feriasTotal)} (FÉRIAS +)
                                         </span>
                                       )}
+                                      {l.decimoTotal > 0 && (
+                                        <span className="text-indigo-700 dark:text-indigo-300 font-bold">
+                                          + {fmtMoeda(l.decimoTotal)} (13º +)
+                                        </span>
+                                      )}
                                       {l.adiantamentoTotal > 0 && (
                                         <span className="text-red-600 dark:text-red-400 font-semibold">
                                           − {fmtMoeda(l.adiantamentoTotal)}{" "}
@@ -4467,6 +4533,11 @@ export function FolhaPagamento() {
                           ? `+${fmtMoeda(totaisGeral.feriasTotal)}`
                           : fmtMoeda(0)}
                       </td>
+                      <td className="py-2.5 px-2 text-right font-mono text-indigo-700 dark:text-indigo-300 bg-indigo-50/30 dark:bg-indigo-950/10">
+                        {totaisGeral.decimo > 0
+                          ? `+${fmtMoeda(totaisGeral.decimo)}`
+                          : "—"}
+                      </td>
                       <td className="py-2.5 px-2 text-center font-mono text-muted-foreground bg-blue-50/20 dark:bg-blue-950/10">
                         —
                       </td>
@@ -4520,6 +4591,9 @@ export function FolhaPagamento() {
                         <td className="py-2.5 px-2 text-right font-mono text-teal-700 dark:text-teal-300">
                           {fmtMoeda(totaisGeral.feriasTotal)}
                         </td>
+                        <td className="py-2.5 px-2 text-right font-mono text-indigo-700 dark:text-indigo-300">
+                          {fmtMoeda(totaisGeral.decimo)}
+                        </td>
                         <td className="py-2.5 px-2 text-center font-mono text-muted-foreground">
                           —
                         </td>
@@ -4545,7 +4619,7 @@ export function FolhaPagamento() {
                     )}
                     {/* Linha adicional no rodapé detalhando totais dos componentes da GERAL */}
                     <tr className="bg-muted/60 text-[11px] border-t border-border font-normal">
-                      <td colSpan={18} className="py-2 px-4">
+                      <td colSpan={19} className="py-2 px-4">
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground font-mono">
                           <span className="font-bold text-foreground">
                             Discriminação dos totais:
@@ -4584,6 +4658,11 @@ export function FolhaPagamento() {
                           {totaisGeral.feriasTotal > 0 && (
                             <span className="text-teal-600 font-semibold">
                               FÉRIAS (+): +{fmtMoeda(totaisGeral.feriasTotal)}
+                            </span>
+                          )}
+                          {totaisGeral.decimo > 0 && (
+                            <span className="text-indigo-600 font-semibold">
+                              13º (+): +{fmtMoeda(totaisGeral.decimo)}
                             </span>
                           )}
                           {totaisGeral.adiantamento > 0 && (
@@ -4878,6 +4957,14 @@ export function FolhaPagamento() {
                                 </span>
                               </div>
                               <div className="flex justify-between text-muted-foreground">
+                                <span>13º:</span>
+                                <span className="font-mono font-medium text-indigo-600 dark:text-indigo-400">
+                                  {fmtMoeda(
+                                    consolidacaoDuasFolhas.monteiro.decimoTotal,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
                                 <span>Comissões de vendas:</span>
                                 <span className="font-mono font-medium text-amber-600 dark:text-amber-400">
                                   {fmtMoeda(
@@ -4993,6 +5080,14 @@ export function FolhaPagamento() {
                                 <span className="font-mono font-medium text-teal-600 dark:text-teal-400">
                                   {fmtMoeda(
                                     consolidacaoDuasFolhas.sje.feriasTotal,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>13º:</span>
+                                <span className="font-mono font-medium text-indigo-600 dark:text-indigo-400">
+                                  {fmtMoeda(
+                                    consolidacaoDuasFolhas.sje.decimoTotal,
                                   )}
                                 </span>
                               </div>
@@ -5122,6 +5217,14 @@ export function FolhaPagamento() {
                             <span className="font-mono font-medium text-teal-600 dark:text-teal-400">
                               {fmtMoeda(
                                 consolidacaoDuasFolhas.feriasConsolidado,
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>13º (Monteiro + SJE):</span>
+                            <span className="font-mono font-medium text-indigo-600 dark:text-indigo-400">
+                              {fmtMoeda(
+                                consolidacaoDuasFolhas.decimoConsolidado,
                               )}
                             </span>
                           </div>
@@ -7560,6 +7663,18 @@ export function FolhaPagamento() {
                         {fmtMoeda(resumo.salariosMensalLiquido)}
                       </span>
                     </div>
+                    <div className="flex items-center justify-between py-2.5 px-4">
+                      <span className="text-muted-foreground">Férias</span>
+                      <span className="font-mono font-medium text-teal-600 dark:text-teal-400">
+                        {fmtMoeda(resumo.feriasResumo)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2.5 px-4">
+                      <span className="text-muted-foreground">13º</span>
+                      <span className="font-mono font-medium text-indigo-600 dark:text-indigo-400">
+                        {fmtMoeda(resumo.decimoResumo)}
+                      </span>
+                    </div>
                     <div className="flex items-center justify-between py-2.5 px-4 bg-muted/40 font-bold">
                       <span className="text-foreground">SUBTOTAL FOLHA</span>
                       <span className="font-mono text-primary text-sm">
@@ -7697,6 +7812,28 @@ export function FolhaPagamento() {
                           </td>
                           <td className="py-2 px-3 text-right font-mono text-emerald-600 font-medium">
                             {fmtMoeda(resumoComparativo.sje.producaoAPagar)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-3 text-muted-foreground">
+                            Férias
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-teal-600 font-medium">
+                            {fmtMoeda(resumoComparativo.monteiro.ferias)}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-teal-600 font-medium">
+                            {fmtMoeda(resumoComparativo.sje.ferias)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-3 text-muted-foreground">
+                            13º
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-indigo-600 font-medium">
+                            {fmtMoeda(resumoComparativo.monteiro.decimo)}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono text-indigo-600 font-medium">
+                            {fmtMoeda(resumoComparativo.sje.decimo)}
                           </td>
                         </tr>
                         <tr>
@@ -10151,6 +10288,22 @@ export function FolhaPagamento() {
                   </td>
                 </tr>
                 <tr>
+                  <td className="border p-2 font-medium">Férias</td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temMonteiro
+                      ? fmtMoeda(consolidacaoDuasFolhas.monteiro.feriasTotal)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temSje
+                      ? fmtMoeda(consolidacaoDuasFolhas.sje.feriasTotal)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono font-bold bg-gray-50">
+                    {fmtMoeda(consolidacaoDuasFolhas.feriasConsolidado)}
+                  </td>
+                </tr>
+                <tr>
                   <td className="border p-2 font-medium">
                     Terceiros (Folha à parte)
                   </td>
@@ -10218,6 +10371,22 @@ export function FolhaPagamento() {
                   </td>
                   <td className="border p-2 text-right font-mono font-bold bg-gray-50">
                     {fmtMoeda(consolidacaoDuasFolhas.ajudaCustoConsolidado)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border p-2 font-medium">13º</td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temMonteiro
+                      ? fmtMoeda(consolidacaoDuasFolhas.monteiro.decimoTotal)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temSje
+                      ? fmtMoeda(consolidacaoDuasFolhas.sje.decimoTotal)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono font-bold bg-gray-50">
+                    {fmtMoeda(consolidacaoDuasFolhas.decimoConsolidado)}
                   </td>
                 </tr>
                 <tr className="bg-gray-100 font-bold">
