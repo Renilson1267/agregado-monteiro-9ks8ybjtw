@@ -62,6 +62,8 @@ import {
 } from "@/components/ModalEditarLinhaFolha"
 import { Gift } from "lucide-react"
 import { Database } from "lucide-react"
+import { X } from "lucide-react"
+import { normalizarTexto } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -414,6 +416,8 @@ export function FolhaPagamento() {
 
   // Filtros & Visualização
   const [busca, setBusca] = useState("")
+  const [filtroTipo, setFiltroTipo] = useState<string>("todos")
+  const [filtroSituacao, setFiltroSituacao] = useState<string>("todos")
   const [mostrarOcultos, setMostrarOcultos] = useState(false)
   const [linhasExpandidas, setLinhasExpandidas] =
     useState<Record<string, boolean>>({})
@@ -665,50 +669,103 @@ export function FolhaPagamento() {
     return linhas.filter((l) => l.tipo === "Terceiro" && !l.inativo)
   }, [linhas])
 
-  // LISTAS BASE:
-  // 1. linhasParaTotais: MANTÉM ocultos (oculto=true, ex: Renilson), aplicando apenas o filtro de busca textual
-  // 2. linhasParaExibicao: EXCLUI ocultos quando o toggle mostrarOcultos está desligado (comportamento visual atual)
+  // LISTAS BASE (PARA TOTAIS):
+  // 1. linhasParaTotais: MANTÉM ocultos (oculto=true, ex: Renilson) e NÃO aplica busca/filtros de exibição —
+  //    assim RESUMO, SOMA DAS DUAS FOLHAS e os totais das abas NUNCA mudam quando o usuário digita na busca.
+  // 2. linhasParaExibicao: aplica o toggle mostrarOcultos + busca avançada + filtros de tipo/situação (somente visual)
   const funcionariosParaTotais = useMemo(() => {
-    return funcionariosLinhas.filter((l) => {
-      if (busca.trim()) {
-        const termo = busca.toLowerCase()
-        const nomeOk = l.nome?.toLowerCase().includes(termo)
-        const funcaoOk = l.funcao?.toLowerCase().includes(termo)
-        const pixOk = (l.pix || l.chave_pix || "").toLowerCase().includes(termo)
-        if (!nomeOk && !funcaoOk && !pixOk) return false
-      }
-      return true
-    })
-  }, [funcionariosLinhas, busca])
+    return funcionariosLinhas
+  }, [funcionariosLinhas])
 
   const terceirosParaTotais = useMemo(() => {
-    return terceirosLinhas.filter((l) => {
-      if (busca.trim()) {
-        const termo = busca.toLowerCase()
-        const nomeOk = l.nome?.toLowerCase().includes(termo)
-        const obsOk = (l.observacao_linha || "").toLowerCase().includes(termo)
-        const pixOk = (l.pix || l.chave_pix || "").toLowerCase().includes(termo)
-        if (!nomeOk && !obsOk && !pixOk) return false
-      }
-      return true
-    })
-  }, [terceirosLinhas, busca])
+    return terceirosLinhas
+  }, [terceirosLinhas])
+
+  // Busca textual avançada: sem sensibilidade a acento/caso, abrangendo nome, função, PIX,
+  // agência/conta e observação da linha
+  const correspondeBuscaAvancada = (l: FolhaPagamentoLinha): boolean => {
+    const termo = normalizarTexto(busca)
+    if (!termo) return true
+    const alvo = (valor: unknown) => normalizarTexto(String(valor ?? ""))
+    return (
+      alvo(l.nome).includes(termo) ||
+      alvo(l.funcao).includes(termo) ||
+      alvo(l.cargo).includes(termo) ||
+      alvo(l.pix).includes(termo) ||
+      alvo(l.chave_pix).includes(termo) ||
+      alvo(l.conta).includes(termo) ||
+      alvo(l.observacao_linha).includes(termo)
+    )
+  }
 
   // Filtragem de funcionários na tela (exibição nas tabelas)
   const funcionariosFiltrados = useMemo(() => {
     return funcionariosParaTotais.filter((l) => {
+      if (l.inativo) return false
       if (!mostrarOcultos && l.oculto) return false
+      if (!correspondeBuscaAvancada(l)) return false
+      if (filtroTipo !== "todos" && filtroTipo !== "funcionarios") return false
+      if (
+        filtroSituacao !== "todos" &&
+        filtroSituacao !== "ativos" &&
+        !l.oculto
+      )
+        return false
       return true
     })
-  }, [funcionariosParaTotais, mostrarOcultos])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    funcionariosParaTotais,
+    mostrarOcultos,
+    busca,
+    filtroTipo,
+    filtroSituacao,
+  ])
 
   // Filtragem de terceiros na tela (exibição nas tabelas)
   const terceirosFiltrados = useMemo(() => {
     return terceirosParaTotais.filter((l) => {
+      if (l.inativo) return false
       if (!mostrarOcultos && l.oculto) return false
+      if (!correspondeBuscaAvancada(l)) return false
+      if (filtroTipo !== "todos" && filtroTipo !== "terceiros") return false
+      if (
+        filtroSituacao === "ativos" &&
+        terceirosCadastrados.find(
+          (c) =>
+            c.id === l.id ||
+            (c.nome &&
+              l.nome &&
+              c.nome.trim().toUpperCase() === l.nome.trim().toUpperCase()),
+        )?.ativo === false
+      )
+        return false
       return true
     })
-  }, [terceirosParaTotais, mostrarOcultos])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    terceirosParaTotais,
+    terceirosCadastrados,
+    mostrarOcultos,
+    busca,
+    filtroTipo,
+    filtroSituacao,
+  ])
+
+  // Contadores/estado da busca avançada (apenas EXIBIÇÃO — os totais nunca mudam com a busca)
+  const contagemResultadosBusca =
+    funcionariosFiltrados.length + terceirosFiltrados.length
+
+  const buscaOuFiltrosAtivos = Boolean(
+    busca.trim() || filtroTipo !== "todos" || filtroSituacao !== "todos",
+  )
+  const limparBuscaAtivo = buscaOuFiltrosAtivos
+
+  const limparBusca = () => {
+    setBusca("")
+    setFiltroTipo("todos")
+    setFiltroSituacao("todos")
+  }
 
   // Função auxiliar para processar linha de terceiro
   const processarTerceiroLinha = (t: FolhaPagamentoLinha) => {
@@ -3475,31 +3532,78 @@ export function FolhaPagamento() {
           </TabsList>
 
           {/* Filtros e Busca */}
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            <div className="relative flex-1 md:w-56">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome ou PIX..."
-                className="pl-8 h-9 text-xs"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-              />
-            </div>
+          <div className="flex flex-col gap-2 w-full md:w-auto">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 md:w-56 min-w-[180px]">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome, função, PIX ou observação..."
+                  className="pl-8 h-9 text-xs pr-8"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                />
+                {limparBuscaAtivo && (
+                  <button
+                    type="button"
+                    aria-label="Limpar busca e filtros"
+                    title="Limpar busca e filtros avançados"
+                    className="absolute right-2 top-2 rounded-sm opacity-70 transition-opacity hover:opacity-100"
+                    onClick={limparBusca}
+                  >
+                    <X className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
 
-            <Button
-              variant={mostrarOcultos ? "secondary" : "outline"}
-              size="sm"
-              className="h-9 gap-1.5 text-xs"
-              onClick={() => setMostrarOcultos(!mostrarOcultos)}
-              title="Alternar exibição de colaboradores ocultos (ex: Renilson)"
-            >
-              {mostrarOcultos ? (
-                <Eye className="h-3.5 w-3.5" />
-              ) : (
-                <EyeOff className="h-3.5 w-3.5" />
+              {limparBuscaAtivo && (
+                <Badge
+                  variant="secondary"
+                  className="h-6 px-2 text-[11px] font-medium"
+                >
+                  {contagemResultadosBusca} encontrados
+                </Badge>
               )}
-              {mostrarOcultos ? "Ocultos Visíveis" : "Mostrar Ocultos"}
-            </Button>
+
+              <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                <SelectTrigger className="h-9 w-[140px] text-xs">
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Tipo: Todos</SelectItem>
+                  <SelectItem value="funcionarios">
+                    Tipo: Funcionários
+                  </SelectItem>
+                  <SelectItem value="terceiros">Tipo: Terceiros</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={filtroSituacao} onValueChange={setFiltroSituacao}>
+                <SelectTrigger className="h-9 w-[140px] text-xs">
+                  <SelectValue placeholder="Situação" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Situação: Todos</SelectItem>
+                  <SelectItem value="ativos">Situação: Ativos</SelectItem>
+                  <SelectItem value="ocultos">Situação: Ocultos</SelectItem>
+                  <SelectItem value="inativos">Situação: Inativos</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant={mostrarOcultos ? "secondary" : "outline"}
+                size="sm"
+                className="h-9 gap-1.5 text-xs"
+                onClick={() => setMostrarOcultos(!mostrarOcultos)}
+                title="Alternar exibição de colaboradores ocultos (ex: Renilson)"
+              >
+                {mostrarOcultos ? (
+                  <Eye className="h-3.5 w-3.5" />
+                ) : (
+                  <EyeOff className="h-3.5 w-3.5" />
+                )}
+                {mostrarOcultos ? "Ocultos Visíveis" : "Mostrar Ocultos"}
+              </Button>
+            </div>
           </div>
         </div>
 
