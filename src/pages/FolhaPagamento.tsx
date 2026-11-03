@@ -432,7 +432,7 @@ export function FolhaPagamento() {
 
   // Holerite / Impressão
   const [tipoImpressaoA4, setTipoImpressaoA4] =
-    useState<"geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | "decimo" | null>(
+    useState<"geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | "decimo" | "soma" | null>(
       null,
     )
   const [funcionariosCadastradosEmpresa, setFuncionariosCadastradosEmpresa] =
@@ -2483,7 +2483,7 @@ export function FolhaPagamento() {
 
   // Disparar impressão de aba em A4
   const imprimirAbaA4 = (
-    tipo: "geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | "decimo",
+    tipo: "geral" | "quinzena" | "mensal" | "producao" | "vendas" | "resumo" | "decimo" | "soma",
   ) => {
     setTipoImpressaoA4(tipo)
     setTimeout(() => {
@@ -4429,11 +4429,22 @@ export function FolhaPagamento() {
                         {rotuloCompetenciaMesAno}
                       </Badge>
                     </div>
-                    {carregandoConsolidacao && (
-                      <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium animate-pulse">
-                        Atualizando valores consolidados...
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs font-semibold bg-white/90 dark:bg-card border-blue-400 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/50 shadow-xs"
+                        onClick={() => imprimirAbaA4("soma")}
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                        Imprimir A4
+                      </Button>
+                      {carregandoConsolidacao && (
+                        <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium animate-pulse">
+                          Atualizando valores consolidados...
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-3">
@@ -7806,7 +7817,9 @@ export function FolhaPagamento() {
                         ? "RESUMO GERAL DA FOLHA"
                         : tipoImpressaoA4 === "decimo"
                           ? "FOLHA DO 13º SALÁRIO"
-                          : "FOLHA MENSAL"}
+                          : tipoImpressaoA4 === "soma"
+                            ? "GC MIX — SOMA DAS DUAS FOLHAS"
+                            : "FOLHA MENSAL"}
             </span>
             <p className="text-[11px] font-semibold mt-1">
               {tipoImpressaoA4 === "decimo"
@@ -9575,6 +9588,213 @@ export function FolhaPagamento() {
                 </tbody>
               </table>
             </div>
+
+            <div className="pt-8 grid grid-cols-2 gap-8 text-[11px] text-center">
+              <div>
+                <div className="border-b border-gray-400 pb-1 mb-1"></div>
+                <span>Responsável pelo Departamento Financeiro / Folha</span>
+              </div>
+              <div>
+                <div className="border-b border-gray-400 pb-1 mb-1"></div>
+                <span>Diretoria / Aprovação</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tipoImpressaoA4 === "soma" && (
+          <div className="space-y-4">
+            <div className="p-3 border rounded bg-blue-50/50 text-[10px] space-y-1">
+              <div className="font-bold uppercase text-blue-950 flex items-center justify-between">
+                <span>CONSOLIDAÇÃO MONTEIRO + SJE / CALDAS & AMARAL</span>
+                <span className="font-mono text-[9px] text-gray-700">
+                  Referência: {empresaAtiva?.nome || "GC MIX"}
+                </span>
+              </div>
+              <p className="text-gray-600">
+                Relatório consolidado das 5 linhas discriminadas que integram as
+                folhas de pagamento de Monteiro e SJE para a competência{" "}
+                {rotuloCompetenciaMesAno}.
+              </p>
+            </div>
+
+            <table className="w-full border-collapse border text-[10px]">
+              <thead className="bg-gray-100 text-gray-800 font-bold uppercase">
+                <tr>
+                  <th className="border p-2 text-left">Discriminado</th>
+                  <th className="border p-2 text-right font-mono">MONTEIRO</th>
+                  <th className="border p-2 text-right font-mono">SJE</th>
+                  <th className="border p-2 text-right font-mono bg-gray-200">
+                    CONSOLIDADO
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="border p-2 font-medium">Salários Quinzena</td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temMonteiro
+                      ? fmtMoeda(
+                          consolidacaoDuasFolhas.monteiro.salariosQuinzena,
+                        )
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temSje
+                      ? fmtMoeda(consolidacaoDuasFolhas.sje.salariosQuinzena)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono font-bold bg-gray-50">
+                    {fmtMoeda(
+                      consolidacaoDuasFolhas.salariosQuinzenaConsolidado,
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border p-2 font-medium">
+                    Salários Mensal Líquido
+                  </td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temMonteiro
+                      ? fmtMoeda(consolidacaoDuasFolhas.monteiro.salariosMensal)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temSje
+                      ? fmtMoeda(consolidacaoDuasFolhas.sje.salariosMensal)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono font-bold bg-gray-50">
+                    {fmtMoeda(consolidacaoDuasFolhas.salariosMensalConsolidado)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border p-2 font-medium">Produção a Pagar</td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temMonteiro
+                      ? fmtMoeda(consolidacaoDuasFolhas.monteiro.producaoAPagar)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temSje
+                      ? fmtMoeda(consolidacaoDuasFolhas.sje.producaoAPagar)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono font-bold bg-gray-50">
+                    {fmtMoeda(consolidacaoDuasFolhas.producaoAPagarConsolidado)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border p-2 font-medium">
+                    Comissões de Vendas
+                  </td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temMonteiro
+                      ? fmtMoeda(
+                          consolidacaoDuasFolhas.monteiro.comissoesVendas,
+                        )
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temSje
+                      ? fmtMoeda(consolidacaoDuasFolhas.sje.comissoesVendas)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono font-bold bg-gray-50">
+                    {fmtMoeda(
+                      consolidacaoDuasFolhas.comissoesVendasConsolidado,
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border p-2 font-medium">
+                    Ajuda de Custo dos Vendedores
+                  </td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temMonteiro
+                      ? fmtMoeda(
+                          consolidacaoDuasFolhas.monteiro.ajudaVendedores,
+                        )
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono">
+                    {consolidacaoDuasFolhas.temSje
+                      ? fmtMoeda(consolidacaoDuasFolhas.sje.ajudaVendedores)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono font-bold bg-gray-50">
+                    {fmtMoeda(consolidacaoDuasFolhas.ajudaCustoConsolidado)}
+                  </td>
+                </tr>
+                <tr className="bg-gray-100 font-bold">
+                  <td className="border p-2 uppercase">TOTAL DA UNIDADE</td>
+                  <td className="border p-2 text-right font-mono font-bold">
+                    {consolidacaoDuasFolhas.temMonteiro
+                      ? fmtMoeda(consolidacaoDuasFolhas.monteiro.valorReal)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono font-bold">
+                    {consolidacaoDuasFolhas.temSje
+                      ? fmtMoeda(consolidacaoDuasFolhas.sje.valorReal)
+                      : "—"}
+                  </td>
+                  <td className="border p-2 text-right font-mono font-bold bg-gray-200">
+                    {fmtMoeda(consolidacaoDuasFolhas.totalConsolidado)}
+                  </td>
+                </tr>
+                <tr className="bg-blue-100 font-black text-xs">
+                  <td className="border p-2.5 uppercase text-blue-950">
+                    TOTAL GERAL GC MIX
+                  </td>
+                  <td className="border p-2.5 text-right font-mono text-blue-950 font-black">
+                    {consolidacaoDuasFolhas.temMonteiro
+                      ? fmtMoeda(consolidacaoDuasFolhas.monteiro.valorReal)
+                      : "—"}
+                  </td>
+                  <td className="border p-2.5 text-right font-mono text-blue-950 font-black">
+                    {consolidacaoDuasFolhas.temSje
+                      ? fmtMoeda(consolidacaoDuasFolhas.sje.valorReal)
+                      : "—"}
+                  </td>
+                  <td className="border p-2.5 text-right font-mono font-black text-sm text-blue-950 bg-blue-200">
+                    {fmtMoeda(consolidacaoDuasFolhas.somatorioGeral)}
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot className="bg-gray-50 text-[9px] text-gray-700">
+                <tr>
+                  <td className="border p-1.5 font-semibold">
+                    Colaboradores (Informação)
+                  </td>
+                  <td className="border p-1.5 text-right font-mono">
+                    {consolidacaoDuasFolhas.temMonteiro
+                      ? `${consolidacaoDuasFolhas.monteiro.qtdFuncionarios} func. / ${consolidacaoDuasFolhas.monteiro.qtdTerceiros} terc.`
+                      : "—"}
+                  </td>
+                  <td className="border p-1.5 text-right font-mono">
+                    {consolidacaoDuasFolhas.temSje
+                      ? `${consolidacaoDuasFolhas.sje.qtdFuncionarios} func. / ${consolidacaoDuasFolhas.sje.qtdTerceiros} terc.`
+                      : "—"}
+                  </td>
+                  <td className="border p-1.5 text-right font-mono font-semibold bg-gray-100">
+                    {(consolidacaoDuasFolhas.temMonteiro
+                      ? consolidacaoDuasFolhas.monteiro.qtdFuncionarios
+                      : 0) +
+                      (consolidacaoDuasFolhas.temSje
+                        ? consolidacaoDuasFolhas.sje.qtdFuncionarios
+                        : 0)}{" "}
+                    func. /{" "}
+                    {(consolidacaoDuasFolhas.temMonteiro
+                      ? consolidacaoDuasFolhas.monteiro.qtdTerceiros
+                      : 0) +
+                      (consolidacaoDuasFolhas.temSje
+                        ? consolidacaoDuasFolhas.sje.qtdTerceiros
+                        : 0)}{" "}
+                    terc.
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
 
             <div className="pt-8 grid grid-cols-2 gap-8 text-[11px] text-center">
               <div>
