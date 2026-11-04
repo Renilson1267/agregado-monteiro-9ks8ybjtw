@@ -340,9 +340,10 @@ export default function FolhaPagamento() {
     }
   }, [totaisMonteiro, totaisSje])
 
-  // FILTRAGEM VISUAL: afeta SOMENTE as tabelas na tela, NUNCA os totais
-  // Regra 0.0.419: Oculto é considerado ATIVO e contabilizado na folha;
-  // aparece nas tabelas e impressões junto dos ativos.
+  // FILTRAGEM VISUAL: afeta SOMENTE as tabelas na tela e linhas de impressão A4, NUNCA os totais da unidade
+  // Regra 0.0.420 (revendo 0.0.419): colaborador marcado como OCULTO some da folha
+  // (tabelas e impressões A4), mas segue contabilizado como ativo em todos os totais.
+  // Pode ser revelado via filtro Situação = 'OCULTOS' ou pelo botão 'Ver Ocultos' (mostrarOcultosGeral).
   const linhasFiltradasVisual = useMemo<LinhaFolhaProcessada[]>(() => {
     const termoNorm = normalizarParaBusca(filtrosBusca.termo)
 
@@ -353,9 +354,20 @@ export default function FolhaPagamento() {
       if (filtrosBusca.tipo === "TERCEIRO" && l.tipo !== "Terceiro")
         return false
 
-      // Filtro Situação: Ativos inclui linhas ocultas (pois oculto = ativo)
+      // Regra de ocultos: por padrão, se l.oculto === true, fica escondido da tabela/impressão,
+      // a menos que o usuário ative 'Ver Ocultos' (mostrarOcultosGeral) ou filtre Situação = OCULTOS.
+      if (
+        l.oculto &&
+        !mostrarOcultosGeral &&
+        filtrosBusca.situacao !== "OCULTOS"
+      ) {
+        return false
+      }
+
+      // Filtro Situação
       const ehInativo = Boolean(l.inativo || l.inativoEfetivo)
-      if (filtrosBusca.situacao === "ATIVOS" && ehInativo) return false
+      if (filtrosBusca.situacao === "ATIVOS" && (ehInativo || l.oculto))
+        return false
       if (filtrosBusca.situacao === "OCULTOS" && !l.oculto) return false
       if (filtrosBusca.situacao === "INATIVOS" && !ehInativo) return false
 
@@ -369,7 +381,7 @@ export default function FolhaPagamento() {
 
       return true
     })
-  }, [linhasProcessadasAtiva, filtrosBusca])
+  }, [linhasProcessadasAtiva, filtrosBusca, mostrarOcultosGeral])
 
   // Salvar FÉRIAS inline
   const handleSalvarFeriasInline = async (
@@ -517,6 +529,19 @@ export default function FolhaPagamento() {
 
   // Impressões A4
   const imprimirA4AbaGeral = () => {
+    const somaImpressaLiquido = linhasFiltradasVisual.reduce(
+      (acc, l) => acc + (Number(l.liquidoTotal) || 0),
+      0,
+    )
+    const difOcultos =
+      Math.round(
+        (totaisUnidadeAtiva.totalLiquido - somaImpressaLiquido) * 100,
+      ) / 100
+    const linhaInformativa =
+      difOcultos > 0.01
+        ? `* Nota: O total oficial inclui colaboradores ocultos contabilizados como ativos (Inclui ocultos: ${formatarMoeda(difOcultos)}).`
+        : undefined
+
     imprimirRelatorioA4({
       titulo: "FOLHA GERAL DE PAGAMENTO",
       empresaNome: empresaAtiva?.nome || "GC MIX",
@@ -566,10 +591,24 @@ export default function FolhaPagamento() {
         formatarMoeda(totaisUnidadeAtiva.totalAdiantamento),
         formatarMoeda(totaisUnidadeAtiva.totalLiquido),
       ],
+      linhaInformativa,
     })
   }
 
   const imprimirA4Quinzena = () => {
+    const somaImpressaQuinzena = linhasFiltradasVisual.reduce(
+      (acc, l) => acc + (Number(l.quinzenaCalculada) || 0),
+      0,
+    )
+    const difOcultos =
+      Math.round(
+        (totaisUnidadeAtiva.totalQuinzena - somaImpressaQuinzena) * 100,
+      ) / 100
+    const linhaInformativa =
+      difOcultos > 0.01
+        ? `* Nota: O total oficial inclui colaboradores ocultos contabilizados como ativos (Inclui ocultos: ${formatarMoeda(difOcultos)}).`
+        : undefined
+
     imprimirRelatorioA4({
       titulo: "FOLHA DE ADIANTAMENTO QUINZENAL (40%)",
       empresaNome: empresaAtiva?.nome || "GC MIX",
@@ -601,10 +640,24 @@ export default function FolhaPagamento() {
         formatarMoeda(totaisUnidadeAtiva.totalQuinzena),
         "",
       ],
+      linhaInformativa,
     })
   }
 
   const imprimirA4Mensal = () => {
+    const somaImpressaMensal = linhasFiltradasVisual.reduce(
+      (acc, l) => acc + (Number(l.mensalPuro) || 0),
+      0,
+    )
+    const difOcultos =
+      Math.round(
+        (totaisUnidadeAtiva.totalMensalPuro - somaImpressaMensal) * 100,
+      ) / 100
+    const linhaInformativa =
+      difOcultos > 0.01
+        ? `* Nota: O total oficial inclui colaboradores ocultos contabilizados como ativos (Inclui ocultos: ${formatarMoeda(difOcultos)}).`
+        : undefined
+
     imprimirRelatorioA4({
       titulo: "FOLHA MENSAL LÍQUIDA (SEM PRODUÇÃO)",
       empresaNome: empresaAtiva?.nome || "GC MIX",
@@ -639,10 +692,25 @@ export default function FolhaPagamento() {
         formatarMoeda(totaisUnidadeAtiva.totalQuinzena),
         formatarMoeda(totaisUnidadeAtiva.totalMensalPuro),
       ],
+      linhaInformativa,
     })
   }
 
   const imprimirA4Producao = () => {
+    const somaImpressaProducaoAPagar = linhasFiltradasVisual.reduce(
+      (acc, l) => acc + (Number(l.producaoAPagar) || 0),
+      0,
+    )
+    const difOcultos =
+      Math.round(
+        (totaisUnidadeAtiva.totalProducaoAPagar - somaImpressaProducaoAPagar) *
+          100,
+      ) / 100
+    const linhaInformativa =
+      difOcultos > 0.01
+        ? `* Nota: O total oficial inclui colaboradores ocultos contabilizados como ativos (Inclui ocultos: ${formatarMoeda(difOcultos)}).`
+        : undefined
+
     imprimirRelatorioA4({
       titulo: "FOLHA DE PRODUÇÃO OPERACIONAL",
       empresaNome: empresaAtiva?.nome || "GC MIX",
@@ -683,10 +751,31 @@ export default function FolhaPagamento() {
         formatarMoeda(totaisUnidadeAtiva.totalFerias),
         formatarMoeda(totaisUnidadeAtiva.totalProducaoAPagar),
       ],
+      linhaInformativa,
     })
   }
 
   const imprimirA4Vendas = () => {
+    const linhasVendas = linhasFiltradasVisual.filter(
+      (l) => Number(l.comissao || 0) > 0 || Number(l.vendas_ajuda || 0) > 0,
+    )
+    const somaImpressaVendas = linhasVendas.reduce(
+      (acc, l) =>
+        acc +
+        (Number(l.comissao || 0) +
+          Number(l.vendas_ajuda || l.ajuda_custo || 0)),
+      0,
+    )
+    const totalVendasOficial =
+      totaisUnidadeAtiva.totalComissaoVendas +
+      totaisUnidadeAtiva.totalAjudaCustoVendas
+    const difOcultos =
+      Math.round((totalVendasOficial - somaImpressaVendas) * 100) / 100
+    const linhaInformativa =
+      difOcultos > 0.01
+        ? `* Nota: O total oficial inclui colaboradores ocultos contabilizados como ativos (Inclui ocultos: ${formatarMoeda(difOcultos)}).`
+        : undefined
+
     imprimirRelatorioA4({
       titulo: "FOLHA DE VENDAS E COMISSÕES",
       empresaNome: empresaAtiva?.nome || "GC MIX",
@@ -700,22 +789,18 @@ export default function FolhaPagamento() {
         "AJUDA CUSTO",
         "TOTAL",
       ],
-      linhas: linhasFiltradasVisual
-        .filter(
-          (l) => Number(l.comissao || 0) > 0 || Number(l.vendas_ajuda || 0) > 0,
-        )
-        .map((l, i) => [
-          i + 1,
-          l.nome,
-          l.tipo,
-          l.vendas_obra || 0,
-          formatarMoeda(l.comissao),
-          formatarMoeda(l.vendas_ajuda || l.ajuda_custo),
-          formatarMoeda(
-            Number(l.comissao || 0) +
-              Number(l.vendas_ajuda || l.ajuda_custo || 0),
-          ),
-        ]),
+      linhas: linhasVendas.map((l, i) => [
+        i + 1,
+        l.nome,
+        l.tipo,
+        l.vendas_obra || 0,
+        formatarMoeda(l.comissao),
+        formatarMoeda(l.vendas_ajuda || l.ajuda_custo),
+        formatarMoeda(
+          Number(l.comissao || 0) +
+            Number(l.vendas_ajuda || l.ajuda_custo || 0),
+        ),
+      ]),
       totais: [
         "",
         "TOTAIS",
@@ -728,6 +813,7 @@ export default function FolhaPagamento() {
             totaisUnidadeAtiva.totalAjudaCustoVendas,
         ),
       ],
+      linhaInformativa,
     })
   }
 

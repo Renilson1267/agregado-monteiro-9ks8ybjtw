@@ -1,6 +1,6 @@
 import { formatarMoeda, TotaisUnidadeCalculados } from "./folha-helpers"
 
-interface ImprimirTabelaProps {
+export interface ImprimirTabelaProps {
   titulo: string
   subtitulo?: string
   empresaNome: string
@@ -8,6 +8,7 @@ interface ImprimirTabelaProps {
   colunas: string[]
   linhas: (string | number)[][]
   totais?: (string | number)[]
+  linhaInformativa?: string
 }
 
 export function imprimirRelatorioA4({
@@ -18,6 +19,7 @@ export function imprimirRelatorioA4({
   colunas,
   linhas,
   totais,
+  linhaInformativa,
 }: ImprimirTabelaProps) {
   const janela = window.open("", "_blank")
   if (!janela) return
@@ -146,8 +148,28 @@ export function imprimirRelatorioA4({
           `
               : ""
           }
+          ${
+            linhaInformativa
+              ? `
+            <tr class="info-row" style="background-color: #f8fafc; font-size: 8.5px; color: #1e293b;">
+              <td colspan="${colunas.length}" style="text-align: right; font-weight: 600; padding: 4px 8px; border: 1px solid #cbd5e1; font-style: italic;">
+                ${linhaInformativa}
+              </td>
+            </tr>
+          `
+              : ""
+          }
         </tbody>
       </table>
+      ${
+        linhaInformativa
+          ? `
+        <div style="margin-top: -6px; margin-bottom: 8px; font-size: 9px; font-weight: 600; color: #334155; text-align: right;">
+          ${linhaInformativa}
+        </div>
+      `
+          : ""
+      }
 
       <div class="footer">
         GC MIX Concreto Usinado — Sistema de Gestão Operacional e Folha de Pagamento

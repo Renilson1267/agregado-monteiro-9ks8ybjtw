@@ -125,32 +125,39 @@ export const BarraBuscaFolha: React.FC<BarraBuscaFolhaProps> = ({
 
         <Button
           size="sm"
-          variant={filtros.situacao === "OCULTOS" ? "default" : "outline"}
+          variant={
+            mostrarOcultosGeral || filtros.situacao === "OCULTOS"
+              ? "default"
+              : "outline"
+          }
           onClick={() => {
-            onAlterarFiltros({
-              ...filtros,
-              situacao: filtros.situacao === "OCULTOS" ? "TODOS" : "OCULTOS",
-            })
             if (onToggleMostrarOcultosGeral) {
               onToggleMostrarOcultosGeral()
+            } else {
+              onAlterarFiltros({
+                ...filtros,
+                situacao: filtros.situacao === "OCULTOS" ? "TODOS" : "OCULTOS",
+              })
             }
           }}
           className="h-8 text-xs gap-1.5"
           title={
-            filtros.situacao === "OCULTOS"
-              ? "Exibindo apenas colaboradores ocultos (clique para ver todos)"
-              : "Filtrar apenas colaboradores marcados como ocultos"
+            mostrarOcultosGeral || filtros.situacao === "OCULTOS"
+              ? "Exibindo colaboradores ocultos (clique para esconder)"
+              : "Revelar colaboradores marcados como ocultos na tabela"
           }
         >
-          {filtros.situacao === "OCULTOS" ? (
+          {mostrarOcultosGeral || filtros.situacao === "OCULTOS" ? (
             <>
               <EyeOff className="h-3.5 w-3.5" />
-              Filtrando Ocultos
+              {filtros.situacao === "OCULTOS"
+                ? "Filtrando Ocultos"
+                : "Ocultar Ocultos"}
             </>
           ) : (
             <>
               <Eye className="h-3.5 w-3.5" />
-              Ver Só Ocultos
+              Ver Ocultos
             </>
           )}
         </Button>
