@@ -79,6 +79,30 @@ export function processarLinhaFolha(
   tabelaOficial: FolhaTabelaOficial | null,
   fallbackAdmissao?: string | null,
 ): LinhaFolhaProcessada {
+  const dataAdmissao = linha.data_admissao || fallbackAdmissao || null
+
+  // Linhas inativas (ex.: demitidos com inativo=true mantidos no histórico)
+  // não geram desembolso nem entram nos totais da unidade
+  if (linha.inativo === true) {
+    return {
+      ...linha,
+      quinzenaCalculada: 0,
+      inssCalculado: 0,
+      irrfCalculado: 0,
+      familiaCalculado: 0,
+      consignadoEfetivo: 0,
+      mensalPuro: 0,
+      producaoTotal: 0,
+      producaoAPagar: 0,
+      feriasEfetivo: 0,
+      decimoEfetivo: 0,
+      decimoCalculadoObj: undefined,
+      adiantamentoEfetivo: 0,
+      liquidoTotal: 0,
+      dataAdmissaoEfetiva: dataAdmissao,
+    }
+  }
+
   const nomeUpper = (linha.nome || "").trim().toUpperCase()
   const isRaimundo = nomeUpper.includes("RAIMUNDO")
   const isMarcio = nomeUpper.includes("MARCIO LUAN")
@@ -172,9 +196,6 @@ export function processarLinhaFolha(
 
   // Férias é componente PRÓPRIO do líquido
   const ferias = Number(linha.ferias || 0)
-
-  // Data de admissão para cálculo do 13º
-  const dataAdmissao = linha.data_admissao || fallbackAdmissao || null
 
   // 13º Salário: Terceiros NUNCA recebem 13º
   // Novembro = 1ª Parcela (50% do bruto proporcional por avos, sem descontos)
