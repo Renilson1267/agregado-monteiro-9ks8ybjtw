@@ -1,4 +1,1344 @@
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
 =======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+}=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+
+=======
+=======
+=======
+
+  ---
+=======
+=======
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+/**
+=======
+
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+/**
+=======
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+/**
+=======
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+/**
+=======
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+/**
+ * Valor do 13º que integra o LÍQUIDO da linha na competência navegada:
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+// Datas de admissão vindas do CADASTRO (public.funcionarios), por id e por nome
+// normalizado. Fallback para linhas de folha com data_admissao nula (competências
+// antigas geradas por cópia do mês anterior nunca copiavam a data), incluindo as
+// linhas de consolidação Monteiro/SJE usadas na SOMA DAS DUAS FOLHAS.
+let datasAdmissaoCadastro: Record<string, string> = {}
+
+/** Mescla no mapa global as datas de admissão do cadastro (id + nome normalizado) */
+function registrarDatasAdmissaoCadastro(funcs: any[]) {
+  ;(funcs || []).forEach((f: any) => {
+    const data = f?.data_admissao ? String(f.data_admissao) : ""
+    if (!data) return
+    if (f.id) datasAdmissaoCadastro[String(f.id)] = data
+    const chaveNome = normalizarTexto(f.nome || "")
+    if (chaveNome) datasAdmissaoCadastro[chaveNome] = data
+  })
+}
+
+/**
+ * Data de admissão efetiva da linha: a própria data da linha quando existir,
+ * senão a data do CADASTRO do funcionário (por funcionario_id ou por nome).
+ * Retorna undefined quando não há data em lugar nenhum (cai em 12 avos).
+ */
+function resolverDataAdmissaoLinha(l: {
+  data_admissao?: string | null
+  nome?: string | null
+  funcionario_id?: string | null
+}): string | null | undefined {
+  if (l.data_admissao && String(l.data_admissao).trim()) return l.data_admissao
+  if (l.funcionario_id) {
+    const porId = datasAdmissaoCadastro[String(l.funcionario_id)]
+    if (porId) return porId
+  }
+  const chaveAdmissao = normalizarTexto(l.nome || "")
+  return chaveAdmissao ? datasAdmissaoCadastro[chaveAdmissao] : undefined
+}
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  const chaveNome = normalizarTexto(l.nome || "")
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+/**
+=======
+import { useState, useMemo, useEffect, useRef } from "react"
+=======
+import { useState, useMemo, useEffect, useRef } from "react"=======
   return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
 }
 =======
