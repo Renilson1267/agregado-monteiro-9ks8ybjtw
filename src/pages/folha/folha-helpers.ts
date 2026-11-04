@@ -239,7 +239,9 @@ export function processarLinhaFolha(
   const gratificacao = semProducao ? 0 : Number(linha.gratificacao || 0)
 
   // Produção total e A pagar (Férias NUNCA entra na produção)
-  const producaoTotal = semProducao
+  // A gratificação integra a coluna PRODUÇÃO(+) da GERAL e os totais da unidade
+  // (conforme calcularMensalGeral em folha-calculos.ts: producaoTotal = calcularProducaoTotal(...) + gratificacao)
+  const producaoBase = semProducao
     ? 0
     : calcularProducaoTotal({
         obras,
@@ -248,13 +250,16 @@ export function processarLinhaFolha(
         sabado,
         feriado,
         ajuda_custo: ajudaCusto,
-        gratificacao,
       })
+
+  const producaoTotal = semProducao
+    ? 0
+    : Math.round((producaoBase + gratificacao) * 100) / 100
 
   const adiantamento = Number(linha.adiantamento || 0)
   const producaoAPagar = semProducao
     ? 0
-    : calcularAPagarProducao(producaoTotal, adiantamento)
+    : Math.max(0, Math.round((producaoTotal - adiantamento) * 100) / 100)
 
   // Férias é componente PRÓPRIO do líquido
   const ferias = Number(linha.ferias || 0)

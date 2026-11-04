@@ -887,7 +887,7 @@ export class FolhaService {
         ir: irrf,
         familia,
         adiantamento: 0,
-        gratificacao: 0,
+        gratificacao: isTerceiro ? 0 : Number(base.gratificacao || 0),
         obras: 0,
         valor_obra: Number(base.valor_obra ?? 20),
         producao: 0,
