@@ -140,17 +140,20 @@ export function processarLinhaFolha(
       ) / 100
   }
 
-  // Produção: Valdercleiton é SEMPRE 0
-  const obras = isValdercleiton ? 0 : Number(linha.obras || 0)
+  // Produção: Valdercleiton é SEMPRE 0. Terceiros (isTerceiro: Márcio, Raimundo ou tipo Terceiro)
+  // NUNCA recebem produção (obras, limpeza, sabado, feriado, ajuda_custo operacional, gratificacao = 0).
+  // O pagamento de terceiros entra APENAS por Quinzena/Mensal (Raimundo) e Comissões + Ajuda de Custo Vendedores (Márcio).
+  const semProducao = isValdercleiton || isTerceiro
+  const obras = semProducao ? 0 : Number(linha.obras || 0)
   const valorObra = Number(linha.valor_obra ?? 20)
-  const limpeza = isValdercleiton ? 0 : Number(linha.limpeza || 0)
-  const sabado = isValdercleiton ? 0 : Number(linha.sabado || 0)
-  const feriado = isValdercleiton ? 0 : Number(linha.feriado || 0)
-  const ajudaCusto = isValdercleiton ? 0 : Number(linha.ajuda_custo || 0)
-  const gratificacao = isValdercleiton ? 0 : Number(linha.gratificacao || 0)
+  const limpeza = semProducao ? 0 : Number(linha.limpeza || 0)
+  const sabado = semProducao ? 0 : Number(linha.sabado || 0)
+  const feriado = semProducao ? 0 : Number(linha.feriado || 0)
+  const ajudaCusto = semProducao ? 0 : Number(linha.ajuda_custo || 0)
+  const gratificacao = semProducao ? 0 : Number(linha.gratificacao || 0)
 
   // Produção total e A pagar (Férias NUNCA entra na produção)
-  const producaoTotal = isValdercleiton
+  const producaoTotal = semProducao
     ? 0
     : calcularProducaoTotal({
         obras,
@@ -163,7 +166,7 @@ export function processarLinhaFolha(
       })
 
   const adiantamento = Number(linha.adiantamento || 0)
-  const producaoAPagar = isValdercleiton
+  const producaoAPagar = semProducao
     ? 0
     : calcularAPagarProducao(producaoTotal, adiantamento)
 
@@ -277,7 +280,10 @@ export function calcularTotaisUnidade(
     totalAjudaCustoVendas += ajudaVendas
 
     if (isTerceiro) {
-      totalTerceiros += Number(l.liquidoTotal || 0)
+      // Custo real dos terceiros: soma de (liquidoTotal + comissao + ajudaVendas) das linhas de terceiros
+      // Raimundo: liquidoTotal (quinzena + mensal puro = 4.270 - 1.708 = 2.562 líquido mensal)
+      // Márcio: comissão (2.840,40) + ajudaVendas (1.000,00) = 3.840,40
+      totalTerceiros += Number(l.liquidoTotal || 0) + comissao + ajudaVendas
     }
   })
 
