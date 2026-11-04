@@ -22,8 +22,8 @@ interface BarraBuscaFolhaProps {
   onAlterarFiltros: (novos: FiltrosBuscaFolha) => void
   totalEncontrados: number
   totalGeral: number
-  mostrarOcultosGeral: boolean
-  onToggleMostrarOcultosGeral: () => void
+  mostrarOcultosGeral?: boolean
+  onToggleMostrarOcultosGeral?: () => void
 }
 
 export const BarraBuscaFolha: React.FC<BarraBuscaFolhaProps> = ({
@@ -31,7 +31,7 @@ export const BarraBuscaFolha: React.FC<BarraBuscaFolhaProps> = ({
   onAlterarFiltros,
   totalEncontrados,
   totalGeral,
-  mostrarOcultosGeral,
+  mostrarOcultosGeral = false,
   onToggleMostrarOcultosGeral,
 }) => {
   const temFiltroAtivo =
@@ -125,24 +125,32 @@ export const BarraBuscaFolha: React.FC<BarraBuscaFolhaProps> = ({
 
         <Button
           size="sm"
-          variant={mostrarOcultosGeral ? "default" : "outline"}
-          onClick={onToggleMostrarOcultosGeral}
+          variant={filtros.situacao === "OCULTOS" ? "default" : "outline"}
+          onClick={() => {
+            onAlterarFiltros({
+              ...filtros,
+              situacao: filtros.situacao === "OCULTOS" ? "TODOS" : "OCULTOS",
+            })
+            if (onToggleMostrarOcultosGeral) {
+              onToggleMostrarOcultosGeral()
+            }
+          }}
           className="h-8 text-xs gap-1.5"
           title={
-            mostrarOcultosGeral
-              ? "Ocultar colaboradores marcados como ocultos"
-              : "Exibir colaboradores marcados como ocultos"
+            filtros.situacao === "OCULTOS"
+              ? "Exibindo apenas colaboradores ocultos (clique para ver todos)"
+              : "Filtrar apenas colaboradores marcados como ocultos"
           }
         >
-          {mostrarOcultosGeral ? (
+          {filtros.situacao === "OCULTOS" ? (
             <>
               <EyeOff className="h-3.5 w-3.5" />
-              Ocultos Visíveis
+              Filtrando Ocultos
             </>
           ) : (
             <>
               <Eye className="h-3.5 w-3.5" />
-              Ver Ocultos
+              Ver Só Ocultos
             </>
           )}
         </Button>

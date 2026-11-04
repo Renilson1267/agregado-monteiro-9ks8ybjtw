@@ -207,9 +207,23 @@ export const AbaVendas: React.FC<AbaVendasProps> = ({
                 return (
                   <tr
                     key={l.id}
-                    className="hover:bg-muted/40 transition-colors"
+                    className={`hover:bg-muted/40 transition-colors ${
+                      l.oculto ? "opacity-60 bg-muted/20" : ""
+                    }`}
                   >
-                    <td className="py-2 px-3 font-medium">{l.nome}</td>
+                    <td className="py-2 px-3 font-medium">
+                      <div className="flex items-center gap-1.5">
+                        <span>{l.nome}</span>
+                        {l.oculto && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[9px] px-1 py-0 h-4"
+                          >
+                            Oculto
+                          </Badge>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-2 px-2 text-muted-foreground">
                       {l.tipo}
                     </td>

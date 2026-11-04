@@ -90,6 +90,14 @@ export const AbaQuinzena: React.FC<AbaQuinzenaProps> = ({
                             Terceiro
                           </Badge>
                         )}
+                        {l.oculto && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[9px] px-1 py-0 h-4"
+                          >
+                            Oculto
+                          </Badge>
+                        )}
                       </div>
                     </td>
                     <td className="py-2 px-2 text-muted-foreground">

@@ -341,29 +341,21 @@ export default function FolhaPagamento() {
   }, [totaisMonteiro, totaisSje])
 
   // FILTRAGEM VISUAL: afeta SOMENTE as tabelas na tela, NUNCA os totais
+  // Regra 0.0.419: Oculto é considerado ATIVO e contabilizado na folha;
+  // aparece nas tabelas e impressões junto dos ativos.
   const linhasFiltradasVisual = useMemo<LinhaFolhaProcessada[]>(() => {
     const termoNorm = normalizarParaBusca(filtrosBusca.termo)
 
     return linhasProcessadasAtiva.filter((l) => {
-      // Regra de ocultos: só aparecem se o botão 'Ocultos Visíveis' estiver ligado
-      if (
-        l.oculto &&
-        !mostrarOcultosGeral &&
-        filtrosBusca.situacao !== "OCULTOS"
-      ) {
-        return false
-      }
-
       // Filtro Tipo
       if (filtrosBusca.tipo === "FUNCIONARIO" && l.tipo === "Terceiro")
         return false
       if (filtrosBusca.tipo === "TERCEIRO" && l.tipo !== "Terceiro")
         return false
 
-      // Filtro Situação
+      // Filtro Situação: Ativos inclui linhas ocultas (pois oculto = ativo)
       const ehInativo = Boolean(l.inativo || l.inativoEfetivo)
-      if (filtrosBusca.situacao === "ATIVOS" && (ehInativo || l.oculto))
-        return false
+      if (filtrosBusca.situacao === "ATIVOS" && ehInativo) return false
       if (filtrosBusca.situacao === "OCULTOS" && !l.oculto) return false
       if (filtrosBusca.situacao === "INATIVOS" && !ehInativo) return false
 
@@ -377,7 +369,7 @@ export default function FolhaPagamento() {
 
       return true
     })
-  }, [linhasProcessadasAtiva, filtrosBusca, mostrarOcultosGeral])
+  }, [linhasProcessadasAtiva, filtrosBusca])
 
   // Salvar FÉRIAS inline
   const handleSalvarFeriasInline = async (
@@ -938,7 +930,7 @@ export default function FolhaPagamento() {
                 inativo: l.inativo || l.inativoEfetivo,
               }))}
             tabelaOficial={tabelaOficial}
-            mostrarOcultos={mostrarOcultosGeral}
+            mostrarOcultos={true}
             busca={filtrosBusca.termo}
             onImprimirA4={() => {
               imprimirRelatorioA4({
