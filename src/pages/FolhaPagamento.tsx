@@ -1,3 +1,7 @@
+=======
+  return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
+}
+=======
   const chaveNome = normalizarTexto(l.nome || "")
   return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
 }
@@ -939,10 +943,7 @@ return chaveNome ? datasAdmissaoCadastro[chaveNome] : undefined
 }
 /**
 =======
-  const chaveNome = normalizarTexto(l.nome || "")
-  return chaveNome ? dadosAdmissaoCadastro[chaveNome] : undefined
-}
-/**import { useState, useMemo, useEffect, useRef } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import {
   Briefcase,
   Search,
