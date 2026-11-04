@@ -123,28 +123,24 @@ export default function FolhaPagamento() {
     return empresaAtiva.id === idMonteiro ? idSje : idMonteiro
   }, [empresaAtiva])
 
-  // Mapa de admissões por id e nome para a unidade ativa
-  const mapaAdmissaoCadastroAtiva = useMemo(() => {
-    const mapa = new Map<string, string>()
+  // Mapa completo de dados do cadastro (admissão, demissão, ativo) para a unidade ativa
+  const mapaCadastroAtiva = useMemo(() => {
+    const mapa = new Map<string, FuncionarioCadastroResumo>()
     funcionariosCadastro.forEach((f) => {
-      if (f.data_admissao) {
-        if (f.id) mapa.set(f.id, f.data_admissao)
-        const nomeUpper = normalizarParaBusca(f.nome)
-        if (nomeUpper) mapa.set(nomeUpper, f.data_admissao)
-      }
+      if (f.id) mapa.set(f.id, f)
+      const nomeNorm = normalizarParaBusca(f.nome)
+      if (nomeNorm) mapa.set(nomeNorm, f)
     })
     return mapa
   }, [funcionariosCadastro])
 
-  // Mapa de admissões para a outra unidade
-  const mapaAdmissaoCadastroOutra = useMemo(() => {
-    const mapa = new Map<string, string>()
+  // Mapa completo de dados do cadastro para a outra unidade
+  const mapaCadastroOutra = useMemo(() => {
+    const mapa = new Map<string, FuncionarioCadastroResumo>()
     funcsCadastroOutraUnidade.forEach((f) => {
-      if (f.data_admissao) {
-        if (f.id) mapa.set(f.id, f.data_admissao)
-        const nomeUpper = normalizarParaBusca(f.nome)
-        if (nomeUpper) mapa.set(nomeUpper, f.data_admissao)
-      }
+      if (f.id) mapa.set(f.id, f)
+      const nomeNorm = normalizarParaBusca(f.nome)
+      if (nomeNorm) mapa.set(nomeNorm, f)
     })
     return mapa
   }, [funcsCadastroOutraUnidade])
@@ -215,22 +211,23 @@ export default function FolhaPagamento() {
     carregarDadosFolha()
   }, [carregarDadosFolha])
 
-  // Processa as linhas da UNIDADE ATIVA (com fallback de admissão do cadastro)
+  // Processa as linhas da UNIDADE ATIVA (com dados do cadastro para demissão e admissão)
   const linhasProcessadasAtiva = useMemo<LinhaFolhaProcessada[]>(() => {
     return linhasAtivas.map((linha) => {
-      const fallbackAdmissao =
-        (linha.funcionario_id &&
-          mapaAdmissaoCadastroAtiva.get(linha.funcionario_id)) ||
-        mapaAdmissaoCadastroAtiva.get(normalizarParaBusca(linha.nome))
+      const infoCad =
+        (linha.funcionario_id && mapaCadastroAtiva.get(linha.funcionario_id)) ||
+        mapaCadastroAtiva.get(normalizarParaBusca(linha.nome))
+      const fallbackAdmissao = infoCad?.data_admissao || null
       return processarLinhaFolha(
         linha,
         mes,
         ano,
         tabelaOficial,
         fallbackAdmissao,
+        infoCad,
       )
     })
-  }, [linhasAtivas, mes, ano, tabelaOficial, mapaAdmissaoCadastroAtiva])
+  }, [linhasAtivas, mes, ano, tabelaOficial, mapaCadastroAtiva])
 
   // TOTAIS REAIS DA UNIDADE ATIVA (NUNCA afetados pela busca da tela)
   const totaisUnidadeAtiva = useMemo<TotaisUnidadeCalculados>(() => {
@@ -240,25 +237,20 @@ export default function FolhaPagamento() {
   // Processa as linhas da OUTRA UNIDADE (para o bloco consolidado)
   const linhasProcessadasOutra = useMemo<LinhaFolhaProcessada[]>(() => {
     return linhasOutraUnidade.map((linha) => {
-      const fallbackAdmissao =
-        (linha.funcionario_id &&
-          mapaAdmissaoCadastroOutra.get(linha.funcionario_id)) ||
-        mapaAdmissaoCadastroOutra.get(normalizarParaBusca(linha.nome))
+      const infoCad =
+        (linha.funcionario_id && mapaCadastroOutra.get(linha.funcionario_id)) ||
+        mapaCadastroOutra.get(normalizarParaBusca(linha.nome))
+      const fallbackAdmissao = infoCad?.data_admissao || null
       return processarLinhaFolha(
         linha,
         mes,
         ano,
         tabelaOutraUnidade,
         fallbackAdmissao,
+        infoCad,
       )
     })
-  }, [
-    linhasOutraUnidade,
-    mes,
-    ano,
-    tabelaOutraUnidade,
-    mapaAdmissaoCadastroOutra,
-  ])
+  }, [linhasOutraUnidade, mes, ano, tabelaOutraUnidade, mapaCadastroOutra])
 
   const totaisOutraUnidade = useMemo<TotaisUnidadeCalculados>(() => {
     return calcularTotaisUnidade(linhasProcessadasOutra)
@@ -369,10 +361,11 @@ export default function FolhaPagamento() {
         return false
 
       // Filtro Situação
-      if (filtrosBusca.situacao === "ATIVOS" && (l.inativo || l.oculto))
+      const ehInativo = Boolean(l.inativo || l.inativoEfetivo)
+      if (filtrosBusca.situacao === "ATIVOS" && (ehInativo || l.oculto))
         return false
       if (filtrosBusca.situacao === "OCULTOS" && !l.oculto) return false
-      if (filtrosBusca.situacao === "INATIVOS" && !l.inativo) return false
+      if (filtrosBusca.situacao === "INATIVOS" && !ehInativo) return false
 
       // Filtro por termo (nome, função, pix, conta, observação)
       if (termoNorm) {
@@ -928,7 +921,9 @@ export default function FolhaPagamento() {
             ano={ano}
             empresaNome={empresaAtiva?.nome || "GC MIX"}
             funcionarios={linhasFiltradasVisual
-              .filter((l) => l.tipo !== "Terceiro")
+              .filter(
+                (l) => l.tipo !== "Terceiro" && !l.inativo && !l.inativoEfetivo,
+              )
               .map((l) => ({
                 id: l.id,
                 nome: l.nome,
@@ -940,7 +935,7 @@ export default function FolhaPagamento() {
                 conta: l.conta || "",
                 pix: l.pix || "",
                 oculto: l.oculto,
-                inativo: l.inativo,
+                inativo: l.inativo || l.inativoEfetivo,
               }))}
             tabelaOficial={tabelaOficial}
             mostrarOcultos={mostrarOcultosGeral}
@@ -965,7 +960,10 @@ export default function FolhaPagamento() {
                   "TOTAL LÍQUIDO",
                 ],
                 linhas: linhasFiltradasVisual
-                  .filter((l) => l.tipo !== "Terceiro")
+                  .filter(
+                    (l) =>
+                      l.tipo !== "Terceiro" && !l.inativo && !l.inativoEfetivo,
+                  )
                   .map((l, i) => [
                     i + 1,
                     l.nome,

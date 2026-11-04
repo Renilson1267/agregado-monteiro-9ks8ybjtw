@@ -756,11 +756,9 @@ export class FolhaService {
     try {
       const funcsCadastro = await this.getFuncionariosEmpresa(empresaId)
       funcsCadastro.forEach((f) => {
-        if (f.data_admissao) {
-          if (f.id) mapFuncsCadastro.set(String(f.id), f)
-          const chaveNome = (f.nome || "").trim().toUpperCase()
-          if (chaveNome) mapFuncsCadastro.set(chaveNome, f)
-        }
+        if (f.id) mapFuncsCadastro.set(String(f.id), f)
+        const chaveNome = (f.nome || "").trim().toUpperCase()
+        if (chaveNome) mapFuncsCadastro.set(chaveNome, f)
       })
     } catch (e) {
       console.warn("Falha ao carregar cadastro p/ data_admissao das linhas:", e)
@@ -848,6 +846,27 @@ export class FolhaService {
       const dataAdmissaoLinha =
         cadastroRef?.data_admissao || base.data_admissao || null
 
+      // Regra de inatividade automática por demissão do cadastro:
+      // Se linha já é inativa OU cadastro tem demissão com ano-mês(demissao) <= ano-mês(competenciaDestino)
+      // OU cadastro ativo === false
+      let ehInativo = Boolean(base.inativo)
+      if (cadastroRef) {
+        if (cadastroRef.data_demissao) {
+          const [anoD, mesD] = String(cadastroRef.data_demissao)
+            .split("T")[0]
+            .split("-")
+            .map(Number)
+          const [anoC, mesC] = competenciaDestino.split("-").map(Number)
+          if (!isNaN(anoD) && !isNaN(mesD) && !isNaN(anoC) && !isNaN(mesC)) {
+            if (anoD * 100 + mesD <= anoC * 100 + mesC) {
+              ehInativo = true
+            }
+          }
+        } else if (cadastroRef.ativo === false) {
+          ehInativo = true
+        }
+      }
+
       const payload = {
         empresa_id: empresaId,
         competencia_id: compDestino.id,
@@ -893,7 +912,7 @@ export class FolhaService {
         chave_pix: base.chave_pix || base.pix || "",
         modo_calculo: "Calculado",
         oculto: Boolean(base.oculto),
-        inativo: Boolean(base.inativo),
+        inativo: ehInativo,
         cpf: base.cpf || null,
         matricula: base.matricula || null,
         observacao_linha: base.observacao_linha || null,
@@ -981,6 +1000,7 @@ export class FolhaService {
     cargo?: string
     unidade?: string
     data_admissao?: string | null
+    data_demissao?: string | null
     bruto: number
     conta?: string | null
     pix?: string | null
@@ -991,7 +1011,7 @@ export class FolhaService {
     const { data, error } = await (supabase as any)
       .from("funcionarios")
       .select(
-        "id, empresa_id, nome, funcao, unidade, data_admissao, bruto, conta, pix, ativo, inativo, oculto",
+        "id, empresa_id, nome, funcao, unidade, data_admissao, data_demissao, bruto, conta, pix, ativo, inativo, oculto",
       )
       .eq("empresa_id", empresaId)
       .order("nome", { ascending: true })
@@ -1011,6 +1031,7 @@ export class FolhaService {
       oculto: Boolean(f.oculto),
       inativo: Boolean(f.inativo),
       ativo: f.ativo !== false,
+      data_demissao: f.data_demissao || null,
     }))
   }
 

@@ -101,67 +101,72 @@ export const AbaDecimoTerceiro: React.FC<AbaDecimoTerceiroProps> = ({
   }, [historicoLinhasAno])
 
   // Processa as linhas do 13º salário
-  // ATENÇÃO: Terceiros (ex.: folha_terceiros) ficam FORA do 13º (já vem filtrado)
+  // ATENÇÃO: Terceiros e inativos/demitidos ficam FORA do 13º
   const linhasProcessadas = useMemo<LinhaDecimoTerceiro[]>(() => {
-    return funcionarios.map((f) => {
-      const nomeUpper = (f.nome || "").trim().toUpperCase()
-      const salarioBase = Number(f.bruto || 0)
+    return (funcionarios || [])
+      .filter((f) => !f.inativo)
+      .map((f) => {
+        const nomeUpper = (f.nome || "").trim().toUpperCase()
+        const salarioBase = Number(f.bruto || 0)
 
-      // Cálculo automático dos meses proporcionais pelo dia de admissão (regra >= 15 dias)
-      const mesesCalculados = calcularMesesProporcionais13(f.data_admissao, ano)
+        // Cálculo automático dos meses proporcionais pelo dia de admissão (regra >= 15 dias)
+        const mesesCalculados = calcularMesesProporcionais13(
+          f.data_admissao,
+          ano,
+        )
 
-      const ajuste = ajustesManuais[f.id]
-      const mesesEfetivos =
-        ajuste?.meses !== undefined ? ajuste.meses : mesesCalculados
+        const ajuste = ajustesManuais[f.id]
+        const mesesEfetivos =
+          ajuste?.meses !== undefined ? ajuste.meses : mesesCalculados
 
-      // Bruto padrão = (salario / 12) * meses
-      const brutoPadraoCalculado =
-        Math.round((salarioBase / 12) * mesesEfetivos * 100) / 100
-      const brutoEfetivo =
-        ajuste?.bruto !== undefined ? ajuste.bruto : brutoPadraoCalculado
+        // Bruto padrão = (salario / 12) * meses
+        const brutoPadraoCalculado =
+          Math.round((salarioBase / 12) * mesesEfetivos * 100) / 100
+        const brutoEfetivo =
+          ajuste?.bruto !== undefined ? ajuste.bruto : brutoPadraoCalculado
 
-      const acum = acumuladoAnoPorNome.get(nomeUpper)
+        const acum = acumuladoAnoPorNome.get(nomeUpper)
 
-      // Cálculo das parcelas
-      const calc = calcularLinhaDecimoTerceiro(
-        salarioBase,
-        mesesEfetivos,
-        tabelaOficial,
-        {
-          somaRemuneracoesAno: acum?.somaBruto,
-          somaInssAno: acum?.somaInss,
-          somaIrrfRetidoAno: acum?.somaIr,
-          brutoAjustado: brutoEfetivo,
-          mesesAjustados: mesesEfetivos,
-        },
-      )
+        // Cálculo das parcelas
+        const calc = calcularLinhaDecimoTerceiro(
+          salarioBase,
+          mesesEfetivos,
+          tabelaOficial,
+          {
+            somaRemuneracoesAno: acum?.somaBruto,
+            somaInssAno: acum?.somaInss,
+            somaIrrfRetidoAno: acum?.somaIr,
+            brutoAjustado: brutoEfetivo,
+            mesesAjustados: mesesEfetivos,
+          },
+        )
 
-      return {
-        id: f.id,
-        funcionario_id: f.id,
-        nome: f.nome,
-        funcao: f.funcao || f.cargo || "Geral",
-        cargo: f.cargo || f.funcao || "Geral",
-        unidade: f.unidade || "SJE",
-        data_admissao: f.data_admissao || null,
-        salarioBase,
-        mesesProporcionais: mesesEfetivos,
-        mesesProporcionaisCalculados: mesesCalculados,
-        bruto13: calc.bruto13,
-        bruto13Calculado: brutoPadraoCalculado,
-        primeiraParcela: calc.primeiraParcela,
-        brutoSegundaParcela: calc.brutoSegundaParcela,
-        inssSegundaParcela: calc.inssSegundaParcela,
-        irrfSegundaParcela: calc.irrfSegundaParcela,
-        liquidoSegundaParcela: calc.liquidoSegundaParcela,
-        totalLiquido13: calc.totalLiquido13,
-        conta: f.conta || "",
-        pix: f.pix || "",
-        oculto: Boolean(f.oculto),
-        editadoMeses: ajuste?.meses !== undefined,
-        editadoBruto: ajuste?.bruto !== undefined,
-      }
-    })
+        return {
+          id: f.id,
+          funcionario_id: f.id,
+          nome: f.nome,
+          funcao: f.funcao || f.cargo || "Geral",
+          cargo: f.cargo || f.funcao || "Geral",
+          unidade: f.unidade || "SJE",
+          data_admissao: f.data_admissao || null,
+          salarioBase,
+          mesesProporcionais: mesesEfetivos,
+          mesesProporcionaisCalculados: mesesCalculados,
+          bruto13: calc.bruto13,
+          bruto13Calculado: brutoPadraoCalculado,
+          primeiraParcela: calc.primeiraParcela,
+          brutoSegundaParcela: calc.brutoSegundaParcela,
+          inssSegundaParcela: calc.inssSegundaParcela,
+          irrfSegundaParcela: calc.irrfSegundaParcela,
+          liquidoSegundaParcela: calc.liquidoSegundaParcela,
+          totalLiquido13: calc.totalLiquido13,
+          conta: f.conta || "",
+          pix: f.pix || "",
+          oculto: Boolean(f.oculto),
+          editadoMeses: ajuste?.meses !== undefined,
+          editadoBruto: ajuste?.bruto !== undefined,
+        }
+      })
   }, [funcionarios, ano, tabelaOficial, ajustesManuais, acumuladoAnoPorNome])
 
   // Filtro por busca e colaboradores ocultos

@@ -407,7 +407,18 @@ export function calcularComissaoProgressivaMarginal(
 export function calcularMesesProporcionais13(
   dataAdmissao: string | null | undefined,
   anoCalendario: number = 2026,
+  dataDemissao?: string | null | undefined,
 ): number {
+  // Se demitido com rescisão paga antes/durante o ano ou no histórico da folha
+  // Quando há data_demissao informada e a demissão ocorreu no anoCalendario (ou anterior),
+  // se for demissão paga na rescisão, o 13º da folha normal é 0.
+  if (dataDemissao && dataDemissao.trim()) {
+    const demPartes = dataDemissao.trim().split("T")[0].split("-").map(Number)
+    if (demPartes.length >= 1 && demPartes[0] <= anoCalendario) {
+      return 0
+    }
+  }
+
   if (!dataAdmissao || !dataAdmissao.trim()) {
     // Sem data de admissão cadastrada: assume ano completo (12 avos)
     return 12

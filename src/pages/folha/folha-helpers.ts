@@ -13,7 +13,9 @@ import {
 
 export interface LinhaFolhaProcessada
   extends FolhaPagamentoLinha {
+  // Flag resolvido de inatividade (linha.inativo ou cadastro demitido/inativo)
   // Valores calculados resolvidos
+  inativoEfetivo?: boolean
   quinzenaCalculada: number
   inssCalculado: number
   irrfCalculado: number
@@ -70,6 +72,53 @@ export function normalizarParaBusca(texto: string | null | undefined): string {
 }
 
 /**
+ * Verifica se uma linha deve ser considerada inativa na competência informada.
+ * Regra:
+ * (1) linha.inativo === true OU
+ * (2) cadastro tem data_demissao com ano-mês(data_demissao) <= ano-mês(competência) OU
+ * (3) cadastro ativo === false com data_demissao informada e anterior/igual à competência
+ * Meses estritamente anteriores ao da demissão continuam ativos (ex.: set/2026 para demissão em out/2026).
+ */
+export function verificarInativoPorCadastroOuLinha(
+  linha: FolhaPagamentoLinha,
+  mes: number,
+  ano: number,
+  infoCadastro?: {
+    data_demissao?: string | null
+    ativo?: boolean
+    inativo?: boolean
+  } | null,
+): boolean {
+  if (linha.inativo === true) return true
+
+  if (!infoCadastro) return false
+
+  const compNum = ano * 100 + mes
+
+  if (infoCadastro.data_demissao) {
+    const partes = infoCadastro.data_demissao.split("T")[0].split("-")
+    if (partes.length >= 2) {
+      const anoDem = parseInt(partes[0], 10)
+      const mesDem = parseInt(partes[1], 10)
+      if (!isNaN(anoDem) && !isNaN(mesDem)) {
+        const demNum = anoDem * 100 + mesDem
+        // Se a competência é igual ou posterior ao mês da demissão, fica inativo
+        if (demNum <= compNum) {
+          return true
+        }
+      }
+    }
+  }
+
+  // Se cadastro ativo === false e não tem data_demissao (ou já passou)
+  if (infoCadastro.ativo === false && !infoCadastro.data_demissao) {
+    return true
+  }
+
+  return false
+}
+
+/**
  * Calcula os termos de uma linha da folha com as regras aprovadas do Grupo Cordeiro
  */
 export function processarLinhaFolha(
@@ -78,14 +127,27 @@ export function processarLinhaFolha(
   ano: number,
   tabelaOficial: FolhaTabelaOficial | null,
   fallbackAdmissao?: string | null,
+  infoCadastro?: {
+    data_demissao?: string | null
+    ativo?: boolean
+    inativo?: boolean
+  } | null,
 ): LinhaFolhaProcessada {
   const dataAdmissao = linha.data_admissao || fallbackAdmissao || null
 
-  // Linhas inativas (ex.: demitidos com inativo=true mantidos no histórico)
+  const ehInativo = verificarInativoPorCadastroOuLinha(
+    linha,
+    mes,
+    ano,
+    infoCadastro,
+  )
+
+  // Linhas inativas (ex.: demitidos com inativo=true ou demissão no cadastro a partir do mês da demissão)
   // não geram desembolso nem entram nos totais da unidade
-  if (linha.inativo === true) {
+  if (ehInativo) {
     return {
       ...linha,
+      inativoEfetivo: true,
       quinzenaCalculada: 0,
       inssCalculado: 0,
       irrfCalculado: 0,
@@ -234,6 +296,7 @@ export function processarLinhaFolha(
 
   return {
     ...linha,
+    inativoEfetivo: false,
     quinzenaCalculada: quinzena,
     inssCalculado: inss,
     irrfCalculado: irrf,
@@ -272,11 +335,20 @@ export function calcularTotaisUnidade(
   let totalAjudaCustoVendas = 0
   let totalTerceiros = 0
 
+  let countColaboradoresAtivos = 0
+
   linhasProcessadas.forEach((l) => {
     const nomeUpper = (l.nome || "").trim().toUpperCase()
     const isMarcio = nomeUpper.includes("MARCIO LUAN")
     const isRaimundo = nomeUpper.includes("RAIMUNDO")
     const isTerceiro = l.tipo === "Terceiro" || isMarcio || isRaimundo
+
+    // Linhas inativas (por flag inativo ou demissão no cadastro) ficam fora de todos os totais
+    if (l.inativo === true || l.inativoEfetivo === true) {
+      return
+    }
+
+    countColaboradoresAtivos++
 
     totalBruto += Number(l.bruto || 0)
     totalQuinzena += Number(l.quinzenaCalculada || 0)
@@ -323,7 +395,7 @@ export function calcularTotaisUnidade(
     ) / 100
 
   return {
-    totalColaboradores: linhasProcessadas.length,
+    totalColaboradores: countColaboradoresAtivos,
     totalBruto: Math.round(totalBruto * 100) / 100,
     totalQuinzena: Math.round(totalQuinzena * 100) / 100,
     totalMensalPuro: Math.round(totalMensalPuro * 100) / 100,
