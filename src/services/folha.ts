@@ -328,6 +328,47 @@ export class FolhaService {
   }
 
   /**
+   * Atualiza FILHOS (e opcionalmente FAMÍLIA recalculada) de uma linha inline,
+   * sem tocar nos demais campos — e recalcula totais da competência no banco.
+   */
+  static async atualizarFilhosLinha(
+    id: string,
+    empresaId: string,
+    competencia: string,
+    campos: { filhos: number familia?: number },
+  ): Promise<FolhaPagamentoLinha> {
+    const familia = Number(campos.familia ?? 0)
+    const dadosUpdate: Record<string, any> = {
+      filhos: parseInt(String(campos.filhos || 0), 10) || 0,
+      updated_at: new Date().toISOString(),
+    }
+    if (campos.familia !== undefined) {
+      dadosUpdate.familia = Number(campos.familia || 0)
+    }
+
+    const { data, error } = await (supabase as any)
+      .from("folha_pagamento_linhas")
+      .update(dadosUpdate)
+      .eq("id", id)
+      .eq("empresa_id", empresaId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Erro ao atualizar filhos da linha:", error)
+      throw error
+    }
+
+    try {
+      await this.atualizarTotaisCompetencia(empresaId, competencia)
+    } catch (errComp) {
+      console.warn("Aviso ao recalcular totais da competência:", errComp)
+    }
+
+    return data as FolhaPagamentoLinha
+  }
+
+  /**
    * Atualiza campos de produção de uma linha diretamente (sem abrir modal)
    * e recalcula totais da competência no banco.
    */

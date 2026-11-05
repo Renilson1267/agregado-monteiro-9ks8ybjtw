@@ -7,18 +7,44 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Printer } from "lucide-react"
+import { calcularSalarioFamilia } from "@/lib/folha-calculos"
+import { FolhaTabelaOficial } from "@/types/folha"
 
 interface AbaMensalProps {
   linhas: LinhaFolhaProcessada[]
   totais: TotaisUnidadeCalculados
+  tabelaOficial: FolhaTabelaOficial | null
   onImprimirA4: () => void
 }
 
 export const AbaMensal: React.FC<AbaMensalProps> = ({
   linhas,
   totais,
+  tabelaOficial,
   onImprimirA4,
 }) => {
+  const calcularFamiliaLinha = (l: LinhaFolhaProcessada): number => {
+    if (l.tipo === "Terceiro") return 0
+    return (
+      Number(
+        calcularSalarioFamilia(
+          Number(l.bruto || 0),
+          Number(l.filhos) || 0,
+          tabelaOficial,
+        ) ?? l.familiaCalculado,
+      ) || 0
+    )
+  }
+
+  const somaFilhosVisiveis = linhas.reduce(
+    (acc, l) => acc + (l.tipo === "Terceiro" ? 0 : Number(l.filhos) || 0),
+    0,
+  )
+  const somaFamiliaVisivel =
+    Math.round(
+      linhas.reduce((acc, l) => acc + calcularFamiliaLinha(l), 0) * 100,
+    ) / 100
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -50,6 +76,10 @@ export const AbaMensal: React.FC<AbaMensalProps> = ({
               <th className="py-2.5 px-2 text-right text-red-600 dark:text-red-400">
                 IRRF
               </th>
+              <th className="py-2.5 px-2 text-center">FILHOS</th>
+              <th className="py-2.5 px-2 text-right text-emerald-600 dark:text-emerald-400">
+                FAMÍLIA
+              </th>
               <th className="py-2.5 px-2 text-right text-amber-600 dark:text-amber-400">
                 QUINZENA
               </th>
@@ -66,7 +96,7 @@ export const AbaMensal: React.FC<AbaMensalProps> = ({
             {linhas.length === 0 ? (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={11}
                   className="py-8 text-center text-muted-foreground"
                 >
                   Nenhum registro para exibição.
@@ -113,6 +143,16 @@ export const AbaMensal: React.FC<AbaMensalProps> = ({
                   <td className="py-2 px-2 text-right text-red-600 dark:text-red-400">
                     {l.irrfCalculado > 0 ? formatarMoeda(l.irrfCalculado) : "—"}
                   </td>
+                  <td className="py-2 px-2 text-center text-muted-foreground">
+                    {l.tipo === "Terceiro" ? 0 : Number(l.filhos) || 0}
+                  </td>
+                  <td className="py-2 px-2 text-right text-emerald-600 dark:text-emerald-400">
+                    {l.tipo === "Terceiro"
+                      ? "—"
+                      : calcularFamiliaLinha(l) > 0
+                        ? formatarMoeda(calcularFamiliaLinha(l))
+                        : "—"}
+                  </td>
                   <td className="py-2 px-2 text-right text-amber-600 dark:text-amber-400">
                     {l.quinzenaCalculada > 0
                       ? formatarMoeda(l.quinzenaCalculada)
@@ -146,6 +186,10 @@ export const AbaMensal: React.FC<AbaMensalProps> = ({
               </td>
               <td className="py-2.5 px-2 text-right text-red-600 dark:text-red-400">
                 {formatarMoeda(totais.totalIrrf)}
+              </td>
+              <td className="py-2.5 px-2 text-center">{somaFilhosVisiveis}</td>
+              <td className="py-2.5 px-2 text-right text-emerald-600 dark:text-emerald-400">
+                {formatarMoeda(somaFamiliaVisivel)}
               </td>
               <td className="py-2.5 px-2 text-right text-amber-600 dark:text-amber-400">
                 {formatarMoeda(totais.totalQuinzena)}

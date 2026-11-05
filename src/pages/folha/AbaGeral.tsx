@@ -8,7 +8,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { FaixaComissaoProgressiva } from "@/types/folha"
+import { FaixaComissaoProgressiva, FolhaTabelaOficial } from "@/types/folha"
+import { calcularSalarioFamilia } from "@/lib/folha-calculos"
 import { MemoriaComissao } from "./memoria-comissao"
 import {
   ChevronDown,
@@ -30,6 +31,8 @@ interface AbaGeralProps {
   empresaNome: string
   competencia: string
   onSalvarFeriasInline: (linhaId: string, novoValor: number) => Promise<void>
+  onSalvarFilhosInline: (linhaId: string, novoValor: number) => Promise<void>
+  tabelaOficial: FolhaTabelaOficial | null
   onEditarLinha: (linha: LinhaFolhaProcessada) => void
   onExcluirLinha: (linha: LinhaFolhaProcessada) => void
   onImprimirA4: () => void
@@ -44,6 +47,8 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
   empresaNome,
   competencia,
   onSalvarFeriasInline,
+  onSalvarFilhosInline,
+  tabelaOficial,
   onEditarLinha,
   onExcluirLinha,
   onImprimirA4,
@@ -52,6 +57,9 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
   const [editandoFeriasId, setEditandoFeriasId] = useState<string | null>(null)
   const [valorFeriasTemp, setValorFeriasTemp] = useState<string>("")
   const [salvandoFerias, setSalvandoFerias] = useState(false)
+  const [editandoFilhosId, setEditandoFilhosId] = useState<string | null>(null)
+  const [valorFilhosTemp, setValorFilhosTemp] = useState<string>("")
+  const [salvandoFilhos, setSalvandoFilhos] = useState(false)
 
   const toggleExpandir = (id: string) => {
     setExpandidos((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -72,6 +80,46 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
       setSalvandoFerias(false)
     }
   }
+
+  const iniciarEdicaoFilhos = (linha: LinhaFolhaProcessada) => {
+    setEditandoFilhosId(linha.id)
+    setValorFilhosTemp(String(Number(linha.filhos) || 0))
+  }
+
+  const salvarFilhos = async (linhaId: string) => {
+    try {
+      setSalvandoFilhos(true)
+      const num = parseInt(valorFilhosTemp, 10) || 0
+      await onSalvarFilhosInline(linhaId, num)
+      setEditandoFilhosId(null)
+    } finally {
+      setSalvandoFilhos(false)
+    }
+  }
+
+  // Filhos e salário-família das linhas VISÍVEIS (mesma filtragem da tabela),
+  // calculados com calcularSalarioFamilia (mesma base do papel A4).
+  const calcularFamiliaLinha = (linha: LinhaFolhaProcessada): number => {
+    if (linha.tipo === "Terceiro") return 0
+    return (
+      Number(
+        calcularSalarioFamilia(
+          Number(linha.bruto || 0),
+          Number(linha.filhos) || 0,
+          tabelaOficial,
+        ) ?? linha.familiaCalculado,
+      ) || 0
+    )
+  }
+
+  const somaFilhosVisiveis = linhas.reduce(
+    (acc, l) => acc + (l.tipo === "Terceiro" ? 0 : Number(l.filhos) || 0),
+    0,
+  )
+  const somaFamiliaVisivel =
+    Math.round(
+      linhas.reduce((acc, l) => acc + calcularFamiliaLinha(l), 0) * 100,
+    ) / 100
 
   return (
     <div className="space-y-3">
@@ -105,6 +153,10 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
               <th className="py-2.5 px-2 text-right text-red-600 dark:text-red-400">
                 IRRF
               </th>
+              <th className="py-2.5 px-2 text-center">FILHOS</th>
+              <th className="py-2.5 px-2 text-right text-emerald-600 dark:text-emerald-400">
+                FAMÍLIA
+              </th>
               <th className="py-2.5 px-2 text-right text-amber-600 dark:text-amber-400">
                 QUINZENA
               </th>
@@ -134,7 +186,7 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
             {linhas.length === 0 ? (
               <tr>
                 <td
-                  colSpan={15}
+                  colSpan={17}
                   className="py-8 text-center text-muted-foreground"
                 >
                   Nenhum colaborador encontrado para os filtros selecionados.
@@ -145,6 +197,7 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
                 const expandido = Boolean(expandidos[l.id])
                 const isTerceiro = l.tipo === "Terceiro"
                 const editandoEstaFerias = editandoFeriasId === l.id
+                const familiaExibicao = calcularFamiliaLinha(l)
 
                 return (
                   <React.Fragment key={l.id}>
@@ -212,6 +265,65 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
                         {l.irrfCalculado > 0
                           ? formatarMoeda(l.irrfCalculado)
                           : "—"}
+                      </td>
+
+                      {/* FILHOS EDITÁVEL INLINE — FAMÍLIA = valor calculado (só exibição, já integra o líquido) */}
+                      <td className="py-2 px-2 text-center">
+                        {editandoFilhosId === l.id ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <Input
+                              type="number"
+                              step="1"
+                              min="0"
+                              value={valorFilhosTemp}
+                              onChange={(e) =>
+                                setValorFilhosTemp(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") salvarFilhos(l.id)
+                                if (e.key === "Escape")
+                                  setEditandoFilhosId(null)
+                              }}
+                              className="h-6 w-14 text-xs px-1 text-right"
+                              autoFocus
+                              disabled={salvandoFilhos}
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => salvarFilhos(l.id)}
+                              className="h-6 w-6 p-0 text-emerald-600"
+                              disabled={salvandoFilhos}
+                            >
+                              <Check className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() =>
+                              !isTerceiro && iniciarEdicaoFilhos(l)
+                            }
+                            className={`rounded px-1 py-0.5 text-center ${
+                              isTerceiro
+                                ? "text-muted-foreground"
+                                : "cursor-pointer hover:bg-muted/70"
+                            }`}
+                            title={
+                              isTerceiro
+                                ? "Terceiros não recebem salário-família"
+                                : "Clique para editar o número de filhos inline"
+                            }
+                          >
+                            {Number(l.filhos) || 0}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-2 px-2 text-right text-emerald-600 dark:text-emerald-400">
+                        {isTerceiro
+                          ? "—"
+                          : familiaExibicao > 0
+                            ? formatarMoeda(familiaExibicao)
+                            : "—"}
                       </td>
                       <td className="py-2 px-2 text-right text-amber-600 dark:text-amber-400">
                         {l.quinzenaCalculada > 0
@@ -319,7 +431,7 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
                     {/* EXPANSÃO COM DETALHAMENTO DOS CARDS E EQUAÇÃO */}
                     {expandido && (
                       <tr className="bg-muted/10 border-b">
-                        <td colSpan={15} className="p-3">
+                        <td colSpan={17} className="p-3">
                           <div className="space-y-3 bg-card p-3 rounded border">
                             <div className="text-[11px] font-semibold text-muted-foreground uppercase flex items-center justify-between">
                               <span>Composição e Adicionais — {l.nome}</span>
@@ -476,6 +588,10 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
               </td>
               <td className="py-2.5 px-2 text-right text-red-600 dark:text-red-400">
                 {formatarMoeda(totais.totalIrrf)}
+              </td>
+              <td className="py-2.5 px-2 text-center">{somaFilhosVisiveis}</td>
+              <td className="py-2.5 px-2 text-right text-emerald-600 dark:text-emerald-400">
+                {formatarMoeda(somaFamiliaVisivel)}
               </td>
               <td className="py-2.5 px-2 text-right text-amber-600 dark:text-amber-400">
                 {formatarMoeda(totais.totalQuinzena)}

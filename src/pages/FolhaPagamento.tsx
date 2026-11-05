@@ -2,7 +2,10 @@ import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { useEmpresa } from "@/hooks/use-empresa"
 import { useToast } from "@/hooks/use-toast"
 import { FolhaService } from "@/services/folha"
-import { calcularComissaoProgressivaMarginal } from "@/lib/folha-calculos"
+import {
+  calcularComissaoProgressivaMarginal,
+  calcularSalarioFamilia,
+} from "@/lib/folha-calculos"
 import {
   FaixaComissaoProgressiva,
   FolhaCompetencia,
@@ -506,6 +509,58 @@ export default function FolhaPagamento() {
     }
   }
 
+  // Salvar FILHOS inline (aba GERAL) — a família recalcula na recarga da linha
+  const handleSalvarFilhosInline = async (
+    linhaId: string,
+    novoValor: number,
+  ) => {
+    if (!empresaAtiva?.id) return
+    try {
+      const linha = linhasAtivas.find((l) => l.id === linhaId)
+      const nomeUpper = (linha?.nome || "").trim().toUpperCase()
+      const isTerceiro =
+        linha?.tipo === "Terceiro" ||
+        nomeUpper.includes("RAIMUNDO") ||
+        nomeUpper.includes("MARCIO LUAN")
+
+      const dados: { filhos: number familia?: number } = {
+        filhos: Number(novoValor) || 0,
+      }
+      if (isTerceiro) {
+        dados.familia = 0
+      } else {
+        // Recalcula a família já na gravação (mesma regra de processarLinhaFolha)
+        dados.familia =
+          Number(
+            calcularSalarioFamilia(
+              Number(linha?.bruto || 0),
+              Number(novoValor) || 0,
+              tabelaOficial,
+            ) ?? 0,
+          ) || 0
+      }
+
+      await FolhaService.atualizarFilhosLinha(
+        linhaId,
+        empresaAtiva.id,
+        competenciaAtiva,
+        { filhos: Number(novoValor) || 0, familia: dados.familia },
+      )
+      toast({
+        title: "Filhos atualizados",
+        description: "Número de filhos salvo e salário-família recalculado.",
+      })
+      await carregarDadosFolha()
+    } catch (e) {
+      console.error("Erro ao salvar filhos inline:", e)
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível atualizar o número de filhos.",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Excluir linha
   const handleExcluirLinha = async (linha: LinhaFolhaProcessada) => {
     if (!empresaAtiva?.id) return
@@ -566,6 +621,39 @@ export default function FolhaPagamento() {
     }
   }
 
+  // Cálculo de exibição do salário-família (GERAL e MENSAL — tela e A4):
+  // usa a tabela oficial (cota R$ 67,54 / teto R$ 1.980,38 em 2026) e, se a tabela
+  // não estiver carregada, cai para o valor já calculado na linha. Terceiros = 0.
+  const calcularFamiliaExibicao = (l: {
+    bruto?: number | null
+    filhos?: number | null
+    tipo?: string | null
+    familiaCalculado?: number
+  }): number => {
+    if (l.tipo === "Terceiro") return 0
+    return (
+      Number(
+        calcularSalarioFamilia(
+          Number(l.bruto || 0),
+          Number(l.filhos || 0),
+          tabelaOficial,
+        ) ?? l.familiaCalculado,
+      ) || 0
+    )
+  }
+
+  const somaFilhosImpressos = linhasFiltradasVisual.reduce(
+    (acc, l) => acc + (l.tipo === "Terceiro" ? 0 : Number(l.filhos) || 0),
+    0,
+  )
+  const somaFamiliaImpressa =
+    Math.round(
+      linhasFiltradasVisual.reduce(
+        (acc, l) => acc + calcularFamiliaExibicao(l),
+        0,
+      ) * 100,
+    ) / 100
+
   // Impressões A4
   const imprimirA4AbaGeral = () => {
     const somaImpressaLiquido = linhasFiltradasVisual.reduce(
@@ -592,6 +680,8 @@ export default function FolhaPagamento() {
         "SAL. BRUTO",
         "INSS",
         "IRRF",
+        "FILHOS",
+        "FAMÍLIA",
         "QUINZENA",
         "MENSAL",
         "PRODUÇÃO",
@@ -608,6 +698,8 @@ export default function FolhaPagamento() {
         formatarMoeda(l.bruto),
         formatarMoeda(l.inssCalculado),
         formatarMoeda(l.irrfCalculado),
+        l.tipo === "Terceiro" ? 0 : Number(l.filhos) || 0,
+        l.tipo === "Terceiro" ? "—" : formatarMoeda(calcularFamiliaExibicao(l)),
         formatarMoeda(l.quinzenaCalculada),
         formatarMoeda(l.mensalPuro),
         formatarMoeda(l.producaoTotal),
@@ -624,6 +716,8 @@ export default function FolhaPagamento() {
         formatarMoeda(totaisUnidadeAtiva.totalBruto),
         formatarMoeda(totaisUnidadeAtiva.totalInss),
         formatarMoeda(totaisUnidadeAtiva.totalIrrf),
+        somaFilhosImpressos,
+        formatarMoeda(somaFamiliaImpressa),
         formatarMoeda(totaisUnidadeAtiva.totalQuinzena),
         formatarMoeda(totaisUnidadeAtiva.totalMensalPuro),
         formatarMoeda(totaisUnidadeAtiva.totalProducao),
@@ -699,6 +793,8 @@ export default function FolhaPagamento() {
         "NOME",
         "INSS",
         "IRRF",
+        "FILHOS",
+        "FAMÍLIA",
         "QUINZENA",
         "MENSAL LÍQUIDO",
         "ASSINATURA",
@@ -709,6 +805,8 @@ export default function FolhaPagamento() {
         l.nome,
         formatarMoeda(l.inssCalculado),
         formatarMoeda(l.irrfCalculado),
+        l.tipo === "Terceiro" ? 0 : Number(l.filhos) || 0,
+        l.tipo === "Terceiro" ? "—" : formatarMoeda(calcularFamiliaExibicao(l)),
         formatarMoeda(l.quinzenaCalculada),
         formatarMoeda(l.mensalPuro),
         "",
@@ -718,6 +816,8 @@ export default function FolhaPagamento() {
         "TOTAIS",
         formatarMoeda(totaisUnidadeAtiva.totalInss),
         formatarMoeda(totaisUnidadeAtiva.totalIrrf),
+        somaFilhosImpressos,
+        formatarMoeda(somaFamiliaImpressa),
         formatarMoeda(totaisUnidadeAtiva.totalQuinzena),
         formatarMoeda(totaisUnidadeAtiva.totalMensalPuro),
         "",
@@ -1109,6 +1209,8 @@ export default function FolhaPagamento() {
             empresaNome={empresaAtiva?.nome || "GC MIX"}
             competencia={competenciaAtiva}
             onSalvarFeriasInline={handleSalvarFeriasInline}
+            onSalvarFilhosInline={handleSalvarFilhosInline}
+            tabelaOficial={tabelaOficial}
             onEditarLinha={(linha) => {
               setLinhaEmEdicao(linha)
               setModalEditarAberto(true)
@@ -1130,6 +1232,7 @@ export default function FolhaPagamento() {
           <AbaMensal
             linhas={linhasFiltradasVisual}
             totais={totaisUnidadeAtiva}
+            tabelaOficial={tabelaOficial}
             onImprimirA4={imprimirA4Mensal}
           />
         </TabsContent>
