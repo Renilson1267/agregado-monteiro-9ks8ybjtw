@@ -4,17 +4,27 @@ import {
   TotaisUnidadeCalculados,
   formatarMoeda,
 } from "./folha-helpers"
+import { FaixaComissaoProgressiva } from "@/types/folha"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Printer, Check, UserCheck } from "lucide-react"
+import {
+  Printer,
+  Check,
+  UserCheck,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 
 import { CamposAtualizacaoVendas } from "./folha-types"
+import { MemoriaComissao } from "./memoria-comissao"
 
 interface AbaVendasProps {
   linhas: LinhaFolhaProcessada[]
   totais: TotaisUnidadeCalculados
   isSje: boolean
+  faixasComissao?: FaixaComissaoProgressiva[]
   onAtualizarCamposVendasInline: (
     linhaId: string,
     campos: CamposAtualizacaoVendas,
@@ -26,6 +36,7 @@ export const AbaVendas: React.FC<AbaVendasProps> = ({
   linhas,
   totais,
   isSje,
+  faixasComissao,
   onAtualizarCamposVendasInline,
   onImprimirA4,
 }) => {
@@ -33,6 +44,11 @@ export const AbaVendas: React.FC<AbaVendasProps> = ({
   const [campoAtivo, setCampoAtivo] = useState<string | null>(null)
   const [valorTemp, setValorTemp] = useState<string>("")
   const [salvando, setSalvando] = useState(false)
+  const [expandidos, setExpandidos] = useState<Record<string, boolean>>({})
+
+  const toggleExpandir = (id: string) => {
+    setExpandidos((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
 
   // Na SJE, vendas tem apenas o card de lançador de comissão
   // Raimundo NUNCA participa de vendas
@@ -203,48 +219,88 @@ export const AbaVendas: React.FC<AbaVendasProps> = ({
                 const comissao = Number(l.comissao || 0)
                 const ajuda = Number(l.vendas_ajuda || l.ajuda_custo || 0)
                 const total = comissao + ajuda
+                const expandido = Boolean(expandidos[l.id])
+                const podeExpandir = comissao > 0
 
                 return (
-                  <tr
-                    key={l.id}
-                    className={`hover:bg-muted/40 transition-colors ${
-                      l.oculto ? "opacity-60 bg-muted/20" : ""
-                    }`}
-                  >
-                    <td className="py-2 px-3 font-medium">
-                      <div className="flex items-center gap-1.5">
-                        <span>{l.nome}</span>
-                        {l.oculto && (
-                          <Badge
-                            variant="secondary"
-                            className="text-[9px] px-1 py-0 h-4"
+                  <React.Fragment key={l.id}>
+                    <tr
+                      className={`hover:bg-muted/40 transition-colors ${
+                        l.oculto ? "opacity-60 bg-muted/20" : ""
+                      }`}
+                    >
+                      <td className="py-2 px-3 font-medium">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => toggleExpandir(l.id)}
+                            className={`inline-flex items-center ${
+                              podeExpandir
+                                ? "hover:text-foreground text-muted-foreground"
+                                : "text-muted-foreground/40 cursor-default"
+                            }`}
+                            title={
+                              podeExpandir
+                                ? "Ver memória de cálculo da comissão"
+                                : "Sem comissão para detalhar"
+                            }
                           >
-                            Oculto
-                          </Badge>
+                            {expandido ? (
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            ) : (
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                          <span>{l.nome}</span>
+                          {l.oculto && (
+                            <Badge
+                              variant="secondary"
+                              className="text-[9px] px-1 py-0 h-4"
+                            >
+                              Oculto
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2 px-2 text-muted-foreground">
+                        {l.tipo}
+                      </td>
+                      <td className="py-2 px-2 text-right">
+                        {renderCampo(
+                          l,
+                          "vendas_obra",
+                          Number(l.vendas_obra || 0),
+                          false,
                         )}
-                      </div>
-                    </td>
-                    <td className="py-2 px-2 text-muted-foreground">
-                      {l.tipo}
-                    </td>
-                    <td className="py-2 px-2 text-right">
-                      {renderCampo(
-                        l,
-                        "vendas_obra",
-                        Number(l.vendas_obra || 0),
-                        false,
-                      )}
-                    </td>
-                    <td className="py-2 px-2 text-right text-emerald-600 dark:text-emerald-400 font-medium">
-                      {renderCampo(l, "comissao", comissao)}
-                    </td>
-                    <td className="py-2 px-2 text-right text-blue-600 dark:text-blue-400 font-medium">
-                      {renderCampo(l, "vendas_ajuda", ajuda)}
-                    </td>
-                    <td className="py-2 px-2 text-right font-bold text-foreground bg-primary/10">
-                      {formatarMoeda(total)}
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="py-2 px-2 text-right text-emerald-600 dark:text-emerald-400 font-medium">
+                        {renderCampo(l, "comissao", comissao)}
+                      </td>
+                      <td className="py-2 px-2 text-right text-blue-600 dark:text-blue-400 font-medium">
+                        {renderCampo(l, "vendas_ajuda", ajuda)}
+                      </td>
+                      <td className="py-2 px-2 text-right font-bold text-foreground bg-primary/10">
+                        {formatarMoeda(total)}
+                      </td>
+                    </tr>
+
+                    {/* EXPANSÃO: MEMÓRIA DE CÁLCULO DA COMISSÃO (só exibição) */}
+                    {expandido && (
+                      <tr className="bg-muted/10 border-b">
+                        <td colSpan={6} className="p-3">
+                          <div className="bg-card p-3 rounded border space-y-1">
+                            <div className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">
+                              Memória de Cálculo da Comissão — {l.nome}
+                            </div>
+                            <MemoriaComissao
+                              faixas={faixasComissao}
+                              valorVendas={Number(l.vendas_obra || 0)}
+                              comissao={comissao}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 )
               })
             )}

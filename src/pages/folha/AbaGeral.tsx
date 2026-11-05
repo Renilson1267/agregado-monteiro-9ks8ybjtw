@@ -8,6 +8,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { FaixaComissaoProgressiva } from "@/types/folha"
+import { MemoriaComissao } from "./memoria-comissao"
 import {
   ChevronDown,
   ChevronRight,
@@ -24,6 +26,7 @@ interface AbaGeralProps {
   totais: TotaisUnidadeCalculados
   mes: number
   ano: number
+  faixasComissao?: FaixaComissaoProgressiva[]
   empresaNome: string
   competencia: string
   onSalvarFeriasInline: (linhaId: string, novoValor: number) => Promise<void>
@@ -37,6 +40,7 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
   totais,
   mes,
   ano,
+  faixasComissao,
   empresaNome,
   competencia,
   onSalvarFeriasInline,
@@ -380,6 +384,24 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
                                   {formatarMoeda(l.feriasEfetivo)}
                                 </div>
                               </div>
+                              {/* COMISSÃO (+): card com memória de cálculo quando comissao > 0 */}
+                              {Number(l.comissao || 0) > 0 && (
+                                <div className="p-2 rounded bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 sm:col-span-2">
+                                  <div className="text-emerald-700 dark:text-emerald-300 text-[10px]">
+                                    Comissão (+)
+                                  </div>
+                                  <div className="font-bold text-emerald-700 dark:text-emerald-300">
+                                    {formatarMoeda(Number(l.comissao || 0))}
+                                  </div>
+                                  <div className="mt-1.5 pt-1.5 border-t border-emerald-200/70 dark:border-emerald-900/70">
+                                    <MemoriaComissao
+                                      faixas={faixasComissao}
+                                      valorVendas={Number(l.vendas_obra || 0)}
+                                      comissao={Number(l.comissao || 0)}
+                                    />
+                                  </div>
+                                </div>
+                              )}
                               <div className="p-2 rounded bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900">
                                 <div className="text-purple-700 dark:text-purple-300 text-[10px]">
                                   13º (

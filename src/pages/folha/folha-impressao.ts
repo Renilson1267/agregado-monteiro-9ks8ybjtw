@@ -9,7 +9,34 @@ export interface ImprimirTabelaProps {
   linhas: (string | number)[][]
   totais?: (string | number)[]
   linhaInformativa?: string
+  /** Bloco de assinaturas no rodapé do A4 (Elaborado por / Conferido por / Aprovação) */
+  mostrarAssinaturas?: boolean
 }
+
+const HTML_BLOCO_ASSINATURAS = `
+      <div style="margin-top: 40px; page-break-inside: avoid;">
+        <div style="display: flex; justify-content: space-between; gap: 40px; padding: 0 20px;">
+          <div style="flex: 1; text-align: center;">
+            <div style="border-top: 1px solid #111; padding-top: 3px; font-size: 9px; font-weight: 600; color: #111;">
+              ____ / ____<br>
+              <span style="font-weight: 400;">Elaborado por</span>
+            </div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="border-top: 1px solid #111; padding-top: 3px; font-size: 9px; font-weight: 600; color: #111;">
+              ____ / ____<br>
+              <span style="font-weight: 400;">Conferido por</span>
+            </div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="border-top: 1px solid #111; padding-top: 3px; font-size: 9px; font-weight: 600; color: #111;">
+              ____ / ____<br>
+              <span style="font-weight: 400;">Aprovação</span>
+            </div>
+          </div>
+        </div>
+      </div>
+`
 
 export function imprimirRelatorioA4({
   titulo,
@@ -20,6 +47,7 @@ export function imprimirRelatorioA4({
   linhas,
   totais,
   linhaInformativa,
+  mostrarAssinaturas = false,
 }: ImprimirTabelaProps) {
   const janela = window.open("", "_blank")
   if (!janela) return
@@ -170,6 +198,8 @@ export function imprimirRelatorioA4({
       `
           : ""
       }
+
+      ${mostrarAssinaturas ? HTML_BLOCO_ASSINATURAS : ""}
 
       <div class="footer">
         GC MIX Concreto Usinado — Sistema de Gestão Operacional e Folha de Pagamento

@@ -3,6 +3,7 @@ import { useEmpresa } from "@/hooks/use-empresa"
 import { useToast } from "@/hooks/use-toast"
 import { FolhaService } from "@/services/folha"
 import {
+  FaixaComissaoProgressiva,
   FolhaCompetencia,
   FolhaPagamentoLinha,
   FolhaTabelaOficial,
@@ -81,6 +82,8 @@ export default function FolhaPagamento() {
   )
   const [funcionariosCadastro, setFuncionariosCadastro] =
     useState<FuncionarioCadastroResumo[]>([])
+  const [faixasComissao, setFaixasComissao] =
+    useState<FaixaComissaoProgressiva[]>([])
 
   // Dados brutos da outra unidade (para o bloco SOMA DAS DUAS FOLHAS)
   const [linhasOutraUnidade, setLinhasOutraUnidade] =
@@ -168,25 +171,34 @@ export default function FolhaPagamento() {
     try {
       setLoading(true)
 
-      const [linhasAtv, tabAtv, funcsAtv, linhasOutra, tabOutra, funcsOutra] =
-        await Promise.all([
-          FolhaService.getLinhasCompetencia(
-            empresaAtiva.id,
-            competenciaAtiva,
-          ).catch(() => []),
-          FolhaService.getTabelaOficial(empresaAtiva.id, ano).catch(() => null),
-          FolhaService.getFuncionariosEmpresa(empresaAtiva.id).catch(() => []),
-          FolhaService.getLinhasCompetencia(
-            outraUnidadeId,
-            competenciaAtiva,
-          ).catch(() => []),
-          FolhaService.getTabelaOficial(outraUnidadeId, ano).catch(() => null),
-          FolhaService.getFuncionariosEmpresa(outraUnidadeId).catch(() => []),
-        ])
+      const [
+        linhasAtv,
+        tabAtv,
+        funcsAtv,
+        linhasOutra,
+        tabOutra,
+        funcsOutra,
+        faixas,
+      ] = await Promise.all([
+        FolhaService.getLinhasCompetencia(
+          empresaAtiva.id,
+          competenciaAtiva,
+        ).catch(() => []),
+        FolhaService.getTabelaOficial(empresaAtiva.id, ano).catch(() => null),
+        FolhaService.getFuncionariosEmpresa(empresaAtiva.id).catch(() => []),
+        FolhaService.getLinhasCompetencia(
+          outraUnidadeId,
+          competenciaAtiva,
+        ).catch(() => []),
+        FolhaService.getTabelaOficial(outraUnidadeId, ano).catch(() => null),
+        FolhaService.getFuncionariosEmpresa(outraUnidadeId).catch(() => []),
+        FolhaService.getFaixasComissao(empresaAtiva.id).catch(() => []),
+      ])
 
       setLinhasAtivas(linhasAtv)
       setTabelaOficial(tabAtv)
       setFuncionariosCadastro(funcsAtv)
+      setFaixasComissao(faixas)
 
       setLinhasOutraUnidade(linhasOutra)
       setTabelaOutraUnidade(tabOutra)
@@ -641,6 +653,7 @@ export default function FolhaPagamento() {
         "",
       ],
       linhaInformativa,
+      mostrarAssinaturas: true,
     })
   }
 
@@ -693,6 +706,7 @@ export default function FolhaPagamento() {
         formatarMoeda(totaisUnidadeAtiva.totalMensalPuro),
       ],
       linhaInformativa,
+      mostrarAssinaturas: true,
     })
   }
 
@@ -752,6 +766,7 @@ export default function FolhaPagamento() {
         formatarMoeda(totaisUnidadeAtiva.totalProducaoAPagar),
       ],
       linhaInformativa,
+      mostrarAssinaturas: true,
     })
   }
 
@@ -814,6 +829,7 @@ export default function FolhaPagamento() {
         ),
       ],
       linhaInformativa,
+      mostrarAssinaturas: true,
     })
   }
 
@@ -947,6 +963,7 @@ export default function FolhaPagamento() {
             totais={totaisUnidadeAtiva}
             mes={mes}
             ano={ano}
+            faixasComissao={faixasComissao}
             empresaNome={empresaAtiva?.nome || "GC MIX"}
             competencia={competenciaAtiva}
             onSalvarFeriasInline={handleSalvarFeriasInline}
@@ -989,6 +1006,7 @@ export default function FolhaPagamento() {
             linhas={linhasFiltradasVisual}
             totais={totaisUnidadeAtiva}
             isSje={isSje}
+            faixasComissao={faixasComissao}
             onAtualizarCamposVendasInline={handleAtualizarVendasInline}
             onImprimirA4={imprimirA4Vendas}
           />
