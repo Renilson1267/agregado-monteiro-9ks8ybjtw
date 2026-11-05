@@ -120,6 +120,9 @@ export function imprimirRelatorioA4({
           background-color: #e2e8f0;
           font-weight: bold;
         }
+        .assinatura-col {
+          min-width: 90px;
+        }
         .footer {
           margin-top: 20px;
           font-size: 8px;
@@ -149,7 +152,7 @@ export function imprimirRelatorioA4({
       <table>
         <thead>
           <tr>
-            ${colunas.map((col, i) => `<th class="${i > 1 ? "num" : ""}">${col}</th>`).join("")}
+            ${colunas.map((col, i) => `<th class="${col === "ASSINATURA" ? "assinatura-col" : i > 1 ? "num" : ""}">${col}</th>`).join("")}
           </tr>
         </thead>
         <tbody>
@@ -158,8 +161,10 @@ export function imprimirRelatorioA4({
               (linha) => `
             <tr>
               ${linha
-                .map(
-                  (cel, i) => `<td class="${i > 1 ? "num" : ""}">${cel}</td>`,
+                .map((cel, i) =>
+                  i === colunas.length - 1 && colunas[i] === "ASSINATURA"
+                    ? tdAssinatura()
+                    : `<td class="${i > 1 ? "num" : ""}">${cel}</td>`,
                 )
                 .join("")}
             </tr>
@@ -171,8 +176,10 @@ export function imprimirRelatorioA4({
               ? `
             <tr class="total-row">
               ${totais
-                .map(
-                  (cel, i) => `<td class="${i > 1 ? "num" : ""}">${cel}</td>`,
+                .map((cel, i) =>
+                  i === colunas.length - 1 && colunas[i] === "ASSINATURA"
+                    ? tdAssinatura()
+                    : `<td class="${i > 1 ? "num" : ""}">${cel}</td>`,
                 )
                 .join("")}
             </tr>
@@ -232,6 +239,14 @@ export function imprimirRelatorioA4({
 
   janela.document.write(html)
   janela.document.close()
+}
+
+/**
+ * Coluna ASSINATURA da GERAL: gera <td> em branco (espaco para assinar),
+ * alinhada com o restante das colunas numéricas.
+ */
+function tdAssinatura() {
+  return `<td class="assinatura-col"></td>`
 }
 
 export function imprimirSomaDuasFolhasA4({

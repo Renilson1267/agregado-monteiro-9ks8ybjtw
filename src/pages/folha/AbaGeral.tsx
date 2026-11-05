@@ -126,6 +126,7 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
               <th className="py-2.5 px-2 text-right font-bold text-foreground bg-primary/10">
                 LÍQUIDO TOTAL
               </th>
+              <th className="py-2.5 px-2 text-center w-28">ASSINATURA</th>
               <th className="py-2.5 px-2 text-center w-20">AÇÕES</th>
             </tr>
           </thead>
@@ -133,7 +134,7 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
             {linhas.length === 0 ? (
               <tr>
                 <td
-                  colSpan={14}
+                  colSpan={15}
                   className="py-8 text-center text-muted-foreground"
                 >
                   Nenhum colaborador encontrado para os filtros selecionados.
@@ -286,6 +287,11 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
                       <td className="py-2 px-2 text-right font-bold text-foreground bg-primary/10">
                         {formatarMoeda(l.liquidoTotal)}
                       </td>
+                      {/* COLUNA ASSINATURA — célula em branco para o colaborador assinar a própria linha */}
+                      <td
+                        className="py-2 px-2"
+                        aria-label="Assinatura do colaborador"
+                      ></td>
                       <td className="py-2 px-2 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <Button
@@ -313,7 +319,7 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
                     {/* EXPANSÃO COM DETALHAMENTO DOS CARDS E EQUAÇÃO */}
                     {expandido && (
                       <tr className="bg-muted/10 border-b">
-                        <td colSpan={14} className="p-3">
+                        <td colSpan={15} className="p-3">
                           <div className="space-y-3 bg-card p-3 rounded border">
                             <div className="text-[11px] font-semibold text-muted-foreground uppercase flex items-center justify-between">
                               <span>Composição e Adicionais — {l.nome}</span>
@@ -492,6 +498,7 @@ export const AbaGeral: React.FC<AbaGeralProps> = ({
               <td className="py-2.5 px-2 text-right text-foreground bg-primary/10">
                 {formatarMoeda(totais.totalLiquido)}
               </td>
+              <td></td>
               <td></td>
             </tr>
           </tfoot>

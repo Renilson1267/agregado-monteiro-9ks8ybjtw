@@ -599,6 +599,7 @@ export default function FolhaPagamento() {
         "13º SAL.",
         "ADIANT.",
         "LÍQUIDO TOTAL",
+        "ASSINATURA",
       ],
       linhas: linhasFiltradasVisual.map((l, i) => [
         i + 1,
@@ -614,6 +615,7 @@ export default function FolhaPagamento() {
         formatarMoeda(l.decimoEfetivo),
         formatarMoeda(l.adiantamentoEfetivo),
         formatarMoeda(l.liquidoTotal),
+        "",
       ]),
       totais: [
         "",
@@ -629,6 +631,7 @@ export default function FolhaPagamento() {
         formatarMoeda(totaisUnidadeAtiva.totalDecimo),
         formatarMoeda(totaisUnidadeAtiva.totalAdiantamento),
         formatarMoeda(totaisUnidadeAtiva.totalLiquido),
+        "",
       ],
       linhaInformativa,
     })
@@ -1118,8 +1121,8 @@ export default function FolhaPagamento() {
         </TabsContent>
       </Tabs>
 
-      {/* BLOCO RESUMO DA UNIDADE — oculto na aba VENDAS (a aba fica só com a parte do vendedor) */}
-      {abaAtiva !== "vendas" && (
+      {/* BLOCO RESUMO DA UNIDADE — só na aba GERAL */}
+      {abaAtiva === "geral" && (
         <BlocoResumo
           empresaNome={empresaAtiva?.nome || "GC MIX"}
           competencia={competenciaAtiva}
@@ -1178,8 +1181,8 @@ export default function FolhaPagamento() {
         />
       )}
 
-      {/* BLOCO SOMA DAS DUAS FOLHAS (MONTEIRO + SJE) — oculto na aba VENDAS */}
-      {abaAtiva !== "vendas" && (
+      {/* BLOCO SOMA DAS DUAS FOLHAS (MONTEIRO + SJE) — só na aba GERAL */}
+      {abaAtiva === "geral" && (
         <BlocoSomaDuasFolhas
           competencia={competenciaAtiva}
           totaisMonteiro={totaisMonteiro}
