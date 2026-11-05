@@ -728,8 +728,23 @@ export default function FolhaPagamento() {
   }
 
   const imprimirA4Producao = () => {
-    const somaImpressaProducaoAPagar = linhasFiltradasVisual.reduce(
+    // Papel da PRODUÇÃO sai SOMENTE com funcionários ativos:
+    // exclui Terceiros (tipo === "Terceiro", Raimundo Mariano, Márcio Luan) e
+    // inativos/demitidos (inativo / inativoEfetivo, ex.: José Pedro).
+    // A tabela na TELA continua mostrando tudo como está (linhasFiltradasVisual).
+    const linhasProducaoImpressas = linhasFiltradasVisual.filter(
+      (l) =>
+        l.tipo !== "Terceiro" &&
+        l.inativo !== true &&
+        l.inativoEfetivo !== true,
+    )
+
+    const somaImpressaProducaoAPagar = linhasProducaoImpressas.reduce(
       (acc, l) => acc + (Number(l.producaoAPagar) || 0),
+      0,
+    )
+    const somaImpressaAdiantamento = linhasProducaoImpressas.reduce(
+      (acc, l) => acc + (Number(l.quinzena) || 0),
       0,
     )
     const difOcultos =
@@ -754,10 +769,11 @@ export default function FolhaPagamento() {
         "SÁBADO",
         "FERIADO",
         "AJUDA",
+        "ADIANTAMENTO",
         "A PAGAR (PRODUÇÃO)",
         "ASSINATURA",
       ],
-      linhas: linhasFiltradasVisual.map((l, i) => [
+      linhas: linhasProducaoImpressas.map((l, i) => [
         i + 1,
         l.nome,
         String(Number(l.obras) || 0),
@@ -765,6 +781,7 @@ export default function FolhaPagamento() {
         formatarMoeda(l.sabado),
         formatarMoeda(l.feriado),
         formatarMoeda(l.ajuda_custo),
+        formatarMoeda(l.quinzena),
         formatarMoeda(l.producaoAPagar),
         "",
       ]),
@@ -776,6 +793,7 @@ export default function FolhaPagamento() {
         "—",
         "—",
         "—",
+        formatarMoeda(somaImpressaAdiantamento),
         formatarMoeda(totaisUnidadeAtiva.totalProducaoAPagar),
         "",
       ],
