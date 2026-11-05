@@ -655,11 +655,10 @@ export default function FolhaPagamento() {
       titulo: "FOLHA DE ADIANTAMENTO QUINZENAL (40%)",
       empresaNome: empresaAtiva?.nome || "GC MIX",
       competencia: competenciaAtiva,
-      colunas: ["Nº", "NOME", "FUNÇÃO", "A PAGAR", "PIX / CONTA", "ASSINATURA"],
+      colunas: ["Nº", "NOME", "A PAGAR", "PIX / CONTA", "ASSINATURA"],
       linhas: linhasFiltradasVisual.map((l, i) => [
         i + 1,
         l.nome,
-        l.funcao || "Geral",
         formatarMoeda(l.quinzenaCalculada),
         l.pix || l.chave_pix || l.conta || "—",
         "",
@@ -667,13 +666,13 @@ export default function FolhaPagamento() {
       totais: [
         "",
         "TOTAIS",
-        "",
         formatarMoeda(totaisUnidadeAtiva.totalQuinzena),
         "",
         "",
       ],
       linhaInformativa,
       mostrarAssinaturas: true,
+      larguraAssinatura: 150,
     })
   }
 
@@ -704,6 +703,7 @@ export default function FolhaPagamento() {
         "MENSAL LÍQUIDO",
         "ASSINATURA",
       ],
+      larguraAssinatura: 150,
       linhas: linhasFiltradasVisual.map((l, i) => [
         i + 1,
         l.nome,
@@ -754,21 +754,19 @@ export default function FolhaPagamento() {
         "SÁBADO",
         "FERIADO",
         "AJUDA",
-        "GRATIF.",
-        "FÉRIAS",
-        "A PAGAR",
+        "A PAGAR (PRODUÇÃO)",
+        "ASSINATURA",
       ],
       linhas: linhasFiltradasVisual.map((l, i) => [
         i + 1,
         l.nome,
-        formatarMoeda((Number(l.obras) || 0) * (Number(l.valor_obra) || 20)),
+        String(Number(l.obras) || 0),
         formatarMoeda(l.limpeza),
         formatarMoeda(l.sabado),
         formatarMoeda(l.feriado),
         formatarMoeda(l.ajuda_custo),
-        formatarMoeda(l.gratificacao),
-        formatarMoeda(l.feriasEfetivo),
         formatarMoeda(l.producaoAPagar),
+        "",
       ]),
       totais: [
         "",
@@ -778,12 +776,12 @@ export default function FolhaPagamento() {
         "—",
         "—",
         "—",
-        "—",
-        formatarMoeda(totaisUnidadeAtiva.totalFerias),
         formatarMoeda(totaisUnidadeAtiva.totalProducaoAPagar),
+        "",
       ],
       linhaInformativa,
       mostrarAssinaturas: true,
+      larguraAssinatura: 150,
     })
   }
 

@@ -13,6 +13,8 @@ export interface ImprimirTabelaProps {
   mostrarAssinaturas?: boolean
   /** Campo de assinatura DO VENDEDOR(a) — usado no A4 de VENDAS (recibo de comissão) */
   assinaturaVendedor?: boolean
+  /** Largura mínima da coluna ASSINATURA em px (padrão 90px); QUINZENA/MENSAL/PRODUÇÃO usam 150px */
+  larguraAssinatura?: number
 }
 
 const HTML_BLOCO_ASSINATURAS = `
@@ -51,6 +53,7 @@ export function imprimirRelatorioA4({
   linhaInformativa,
   mostrarAssinaturas = false,
   assinaturaVendedor = false,
+  larguraAssinatura,
 }: ImprimirTabelaProps) {
   const janela = window.open("", "_blank")
   if (!janela) return
@@ -122,6 +125,11 @@ export function imprimirRelatorioA4({
         }
         .assinatura-col {
           min-width: 90px;
+        }
+        ${
+          larguraAssinatura
+            ? `.assinatura-col { min-width: ${larguraAssinatura}px; }`
+            : ""
         }
         .footer {
           margin-top: 20px;
