@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { useEmpresa } from "@/hooks/use-empresa"
 import { useToast } from "@/hooks/use-toast"
 import { FolhaService } from "@/services/folha"
+import { calcularComissaoProgressivaMarginal } from "@/lib/folha-calculos"
 import {
   FaixaComissaoProgressiva,
   FolhaCompetencia,
@@ -461,11 +462,34 @@ export default function FolhaPagamento() {
   ) => {
     if (!empresaAtiva?.id) return
     try {
+      // Ao salvar o VALOR DAS VENDAS, a COMISSÃO é recalculada e gravada junto:
+      // - vendedor COM faixas na empresa (ex: Márcio Luan, Monteiro): progressiva marginal
+      // - vendedor SEM faixas na empresa (ex: Valdercleiton, SJE): 0,5% (0,005) sobre as vendas
+      // - Raimundo (SJE) continua fora do módulo de vendas (comissão zerada)
+      // Só recalcula quando o usuário salva o valor das vendas — linhas antigas não mudam sozinhas.
+      const camposFinais: CamposAtualizacaoVendas = { ...campos }
+      if (camposFinais.vendas_obra !== undefined) {
+        const linha = linhasAtivas.find((l) => l.id === linhaId)
+        const nomeUpper = (linha?.nome || "").trim().toUpperCase()
+        const vendas = Number(camposFinais.vendas_obra || 0)
+        if (nomeUpper.includes("RAIMUNDO") || vendas <= 0) {
+          camposFinais.comissao = 0
+        } else {
+          const comissaoFaixas = calcularComissaoProgressivaMarginal(
+            vendas,
+            faixasComissao,
+          )
+          camposFinais.comissao =
+            comissaoFaixas === null
+              ? Math.round(vendas * 0.005 * 100) / 100
+              : comissaoFaixas
+        }
+      }
       await FolhaService.atualizarCamposVendasLinha(
         linhaId,
         empresaAtiva.id,
         competenciaAtiva,
-        campos,
+        camposFinais,
       )
       toast({
         title: "Vendas atualizadas",
@@ -1009,7 +1033,6 @@ export default function FolhaPagamento() {
           <AbaVendas
             linhas={linhasFiltradasVisual}
             totais={totaisUnidadeAtiva}
-            isSje={isSje}
             faixasComissao={faixasComissao}
             onAtualizarCamposVendasInline={handleAtualizarVendasInline}
             onImprimirA4={imprimirA4Vendas}
