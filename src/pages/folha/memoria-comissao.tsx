@@ -4,10 +4,19 @@ import { formatarMoeda } from "./folha-helpers"
 
 /**
  * MEMÓRIA DE CÁLCULO DA COMISSÃO — SÓ EXIBIÇÃO, nenhum valor muda.
- * Detalha o fatiamento marginal por faixas da tabela progressiva de comissões
- * EXATAMENTE como calcularComissaoProgressivaMarginal (src/lib/folha-calculos.ts)
- * fatia — mesma ordenação, mesmo piso, mesmo limite superior — mas devolvendo
- * os passos intermediários SEM tocar a função original.
+ * Dois formatos, definidos pelo usuário:
+ *
+ * 1) VENDEDOR COM TABELA PROGRESSIVA (Márcio Luan / Monteiro):
+ *    fatiamento marginal por faixas EXATAMENTE como
+ *    calcularComissaoProgressivaMarginal (src/lib/folha-calculos.ts) fatia —
+ *    mesma ordenação, mesmo piso, mesmo limite superior — devolvendo os passos
+ *    intermediários SEM tocar a função original. O TOTAL exibido é SEMPRE a
+ *    comissão gravada na folha (a soma dos passos da tabela pode divergir —
+ *    nesse caso a divergência é mostrada como linha informativa).
+ *
+ * 2) VENDEDOR SEM FAIXAS CADASTRADAS (Valdercleiton / SJE, comissão flat):
+ *    memória simples "Vendeu R$ X × % efetivo = R$ Y", onde o percentual
+ *    efetivo = comissão gravada ÷ vendas da obra.
  */
 export interface PassoComissaoFaixa {
   indice: number
@@ -65,6 +74,9 @@ export function detalharComissaoProgressiva(
   return passos
 }
 
+const formatarPercentual = (decimal: number) =>
+  (decimal * 100).toLocaleString("pt-BR", { maximumFractionDigits: 4 })
+
 interface MemoriaComissaoProps {
   faixas: FaixaComissaoProgressiva[] | null | undefined
   valorVendas: number
@@ -73,14 +85,57 @@ interface MemoriaComissaoProps {
 
 /**
  * Bloco de exibição da memória de cálculo:
- * "Faixa X: de R$ A até R$ B — base na faixa R$ C × % = R$ D" ... "TOTAL = R$ ..."
+ * - Com faixas: "Faixa X: de R$ A até R$ B — base na faixa R$ C × % = R$ D" ...
+ *   "TOTAL = R$ <comissão gravada>"
+ * - Sem faixas (flat): "Vendeu R$ X × % = R$ Y" + "TOTAL = R$ Y"
  */
 export const MemoriaComissao: React.FC<MemoriaComissaoProps> = ({
   faixas,
   valorVendas,
   comissao,
 }) => {
-  if (!faixas || faixas.length === 0) {
+  const temFaixas = Boolean(faixas && faixas.length > 0)
+
+  // SEM FAIXAS CADASTRADAS: memória flat pelo percentual efetivo da linha
+  if (!temFaixas) {
+    if (comissao > 0 && valorVendas > 0) {
+      const percEfetivo = comissao / valorVendas
+      return (
+        <div className="space-y-1 text-[11px]">
+          <div className="flex flex-wrap gap-1">
+            <span className="text-muted-foreground">Vendeu</span>
+            <span className="font-semibold text-foreground">
+              {formatarMoeda(valorVendas)}
+            </span>
+            <span className="text-muted-foreground">×</span>
+            <span className="font-semibold text-foreground">
+              {formatarPercentual(percEfetivo)}%
+            </span>
+            <span className="text-muted-foreground">=</span>
+            <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+              {formatarMoeda(comissao)}
+            </span>
+          </div>
+          <div className="pt-1 border-t border-border/60 font-semibold text-foreground">
+            TOTAL = {formatarMoeda(comissao)}
+          </div>
+        </div>
+      )
+    }
+
+    if (comissao > 0) {
+      // Comissão gravada sem base de vendas na linha — mostra só o total
+      return (
+        <div className="text-[11px] font-semibold text-foreground">
+          TOTAL = {formatarMoeda(comissao)}{" "}
+          <span className="font-normal text-muted-foreground">
+            (comissão gravada na folha — sem vendas informadas na linha)
+          </span>
+        </div>
+      )
+    }
+
+    // Nem faixas, nem comissão na linha
     return (
       <div className="text-[11px] text-amber-700 dark:text-amber-300 font-medium">
         Configure a tabela de comissões
@@ -88,7 +143,12 @@ export const MemoriaComissao: React.FC<MemoriaComissaoProps> = ({
     )
   }
 
+  // COM FAIXAS: passos da tabela progressiva + total = comissão gravada
   const passos = detalharComissaoProgressiva(valorVendas, faixas)
+  const somaPassos =
+    Math.round(passos.reduce((acc, p) => acc + p.valor, 0) * 100) / 100
+  const divergente =
+    passos.length > 0 && Math.abs(somaPassos - comissao) > 0.005
 
   return (
     <div className="space-y-1 text-[11px]">
@@ -117,8 +177,26 @@ export const MemoriaComissao: React.FC<MemoriaComissaoProps> = ({
           </div>
         ))
       )}
+
+      {divergente && (
+        <>
+          <div className="text-muted-foreground">
+            Soma das faixas da tabela: {formatarMoeda(somaPassos)}
+          </div>
+          <div className="text-[10px] text-muted-foreground">
+            Os passos acima refletem a tabela progressiva; o valor pago segue a
+            comissão registrada na folha.
+          </div>
+        </>
+      )}
+
       <div className="pt-1 border-t border-border/60 font-semibold text-foreground">
         TOTAL = {formatarMoeda(comissao)}
+        {divergente && (
+          <span className="ml-1 font-normal text-muted-foreground">
+            (comissão gravada na folha)
+          </span>
+        )}
       </div>
     </div>
   )

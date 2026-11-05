@@ -137,54 +137,8 @@ export const AbaVendas: React.FC<AbaVendasProps> = ({
     )
   }
 
-  if (isSje) {
-    return (
-      <div className="space-y-4">
-        <Card className="max-w-md mx-auto">
-          <CardHeader className="py-3 px-4 border-b">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-primary" />
-              Lançador de Vendas — Unidade SJE
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 space-y-3 text-xs">
-            <p className="text-muted-foreground">
-              Na unidade SJE, Raimundo está fora do módulo de vendas. Não há
-              vendedores de comissão marginal ativos cadastrados nesta unidade.
-            </p>
-            <div className="p-3 rounded bg-muted/40 border">
-              <div className="flex justify-between font-medium">
-                <span>Total de Comissões SJE:</span>
-                <span className="font-bold text-foreground">
-                  {formatarMoeda(totais.totalComissaoVendas)}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-xs text-muted-foreground">
-          Vendas e Comissões: Márcio Luan com comissão progressiva marginal
-          conforme tabelas oficiais. A ajuda de custo dos vendedores integra o
-          Total da Unidade.
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={onImprimirA4}
-          className="h-8 text-xs gap-1.5"
-        >
-          <Printer className="h-3.5 w-3.5" />
-          Imprimir A4
-        </Button>
-      </div>
-
+  const tabelaVendedores = (
+    <>
       <div className="border rounded-lg overflow-x-auto bg-card shadow-sm">
         <table className="w-full text-xs text-left border-collapse">
           <thead className="bg-muted/80 text-muted-foreground uppercase font-semibold border-b">
@@ -325,6 +279,60 @@ export const AbaVendas: React.FC<AbaVendasProps> = ({
           </tfoot>
         </table>
       </div>
+    </>
+  )
+
+  if (isSje) {
+    return (
+      <div className="space-y-4">
+        <Card className="max-w-md mx-auto">
+          <CardHeader className="py-3 px-4 border-b">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <UserCheck className="h-4 w-4 text-primary" />
+              Lançador de Vendas — Unidade SJE
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3 text-xs">
+            <p className="text-muted-foreground">
+              Na unidade SJE, Raimundo está fora do módulo de vendas. Os demais
+              vendedores usam comissão simples (percentual sobre vendas).
+            </p>
+            <div className="p-3 rounded bg-muted/40 border">
+              <div className="flex justify-between font-medium">
+                <span>Total de Comissões SJE:</span>
+                <span className="font-bold text-foreground">
+                  {formatarMoeda(totais.totalComissaoVendas)}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {tabelaVendedores}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs text-muted-foreground">
+          Vendas e Comissões: Márcio Luan com comissão progressiva marginal
+          conforme tabelas oficiais. A ajuda de custo dos vendedores integra o
+          Total da Unidade.
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onImprimirA4}
+          className="h-8 text-xs gap-1.5"
+        >
+          <Printer className="h-3.5 w-3.5" />
+          Imprimir A4
+        </Button>
+      </div>
+
+      {tabelaVendedores}
     </div>
   )
 }
