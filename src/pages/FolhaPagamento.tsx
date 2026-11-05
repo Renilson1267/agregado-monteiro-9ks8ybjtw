@@ -104,6 +104,9 @@ export default function FolhaPagamento() {
   })
   const [mostrarOcultosGeral, setMostrarOcultosGeral] = useState(false)
 
+  // Aba ativa (controlada) — usada para esconder os blocos Resumo/Soma na VENDAS
+  const [abaAtiva, setAbaAtiva] = useState("geral")
+
   // Modal de edição de linha
   const [linhaEmEdicao, setLinhaEmEdicao] =
     useState<FolhaPagamentoLinha | null>(null)
@@ -799,7 +802,7 @@ export default function FolhaPagamento() {
         "Nº",
         "NOME",
         "TIPO",
-        "VOLUME (m³)",
+        "VALOR DAS VENDAS",
         "COMISSÃO",
         "AJUDA CUSTO",
         "TOTAL",
@@ -830,6 +833,7 @@ export default function FolhaPagamento() {
       ],
       linhaInformativa,
       mostrarAssinaturas: true,
+      assinaturaVendedor: true,
     })
   }
 
@@ -929,7 +933,7 @@ export default function FolhaPagamento() {
       />
 
       {/* ABAS DA FOLHA */}
-      <Tabs defaultValue="geral" className="space-y-4">
+      <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="space-y-4">
         <TabsList className="grid grid-cols-3 sm:grid-cols-6 h-auto p-1 gap-1 bg-muted/60">
           <TabsTrigger value="geral" className="text-xs py-1.5 font-semibold">
             GERAL
@@ -1091,72 +1095,76 @@ export default function FolhaPagamento() {
         </TabsContent>
       </Tabs>
 
-      {/* BLOCO RESUMO DA UNIDADE */}
-      <BlocoResumo
-        empresaNome={empresaAtiva?.nome || "GC MIX"}
-        competencia={competenciaAtiva}
-        totais={totaisUnidadeAtiva}
-        mes={mes}
-        onImprimirA4={() => {
-          imprimirRelatorioA4({
-            titulo: "RESUMO OFICIAL DA UNIDADE",
-            empresaNome: empresaAtiva?.nome || "GC MIX",
-            competencia: competenciaAtiva,
-            colunas: ["ITEM DISCRIMINADO", "VALOR (R$)"],
-            linhas: [
-              [
-                "Quinzena (Adiantamento Salarial)",
-                formatarMoeda(totaisUnidadeAtiva.totalQuinzena),
+      {/* BLOCO RESUMO DA UNIDADE — oculto na aba VENDAS (a aba fica só com a parte do vendedor) */}
+      {abaAtiva !== "vendas" && (
+        <BlocoResumo
+          empresaNome={empresaAtiva?.nome || "GC MIX"}
+          competencia={competenciaAtiva}
+          totais={totaisUnidadeAtiva}
+          mes={mes}
+          onImprimirA4={() => {
+            imprimirRelatorioA4({
+              titulo: "RESUMO OFICIAL DA UNIDADE",
+              empresaNome: empresaAtiva?.nome || "GC MIX",
+              competencia: competenciaAtiva,
+              colunas: ["ITEM DISCRIMINADO", "VALOR (R$)"],
+              linhas: [
+                [
+                  "Quinzena (Adiantamento Salarial)",
+                  formatarMoeda(totaisUnidadeAtiva.totalQuinzena),
+                ],
+                [
+                  "Mensal Líquido (Puro sem produção)",
+                  formatarMoeda(totaisUnidadeAtiva.totalMensalPuro),
+                ],
+                [
+                  "Produção a Pagar",
+                  formatarMoeda(totaisUnidadeAtiva.totalProducaoAPagar),
+                ],
+                [
+                  "Férias (Linha própria)",
+                  formatarMoeda(totaisUnidadeAtiva.totalFerias),
+                ],
+                ...(mes === 11 || mes === 12
+                  ? [
+                      [
+                        "13º Salário",
+                        formatarMoeda(totaisUnidadeAtiva.totalDecimo),
+                      ],
+                    ]
+                  : []),
+                [
+                  "Comissões de Vendas",
+                  formatarMoeda(totaisUnidadeAtiva.totalComissaoVendas),
+                ],
+                [
+                  "Ajuda de Custo Vendedores",
+                  formatarMoeda(totaisUnidadeAtiva.totalAjudaCustoVendas),
+                ],
+                [
+                  "Terceiros (Informativo)",
+                  formatarMoeda(totaisUnidadeAtiva.totalTerceiros),
+                ],
               ],
-              [
-                "Mensal Líquido (Puro sem produção)",
-                formatarMoeda(totaisUnidadeAtiva.totalMensalPuro),
+              totais: [
+                "TOTAL DA UNIDADE",
+                formatarMoeda(totaisUnidadeAtiva.totalUnidadeGeral),
               ],
-              [
-                "Produção a Pagar",
-                formatarMoeda(totaisUnidadeAtiva.totalProducaoAPagar),
-              ],
-              [
-                "Férias (Linha própria)",
-                formatarMoeda(totaisUnidadeAtiva.totalFerias),
-              ],
-              ...(mes === 11 || mes === 12
-                ? [
-                    [
-                      "13º Salário",
-                      formatarMoeda(totaisUnidadeAtiva.totalDecimo),
-                    ],
-                  ]
-                : []),
-              [
-                "Comissões de Vendas",
-                formatarMoeda(totaisUnidadeAtiva.totalComissaoVendas),
-              ],
-              [
-                "Ajuda de Custo Vendedores",
-                formatarMoeda(totaisUnidadeAtiva.totalAjudaCustoVendas),
-              ],
-              [
-                "Terceiros (Informativo)",
-                formatarMoeda(totaisUnidadeAtiva.totalTerceiros),
-              ],
-            ],
-            totais: [
-              "TOTAL DA UNIDADE",
-              formatarMoeda(totaisUnidadeAtiva.totalUnidadeGeral),
-            ],
-          })
-        }}
-      />
+            })
+          }}
+        />
+      )}
 
-      {/* BLOCO SOMA DAS DUAS FOLHAS (MONTEIRO + SJE) */}
-      <BlocoSomaDuasFolhas
-        competencia={competenciaAtiva}
-        totaisMonteiro={totaisMonteiro}
-        totaisSje={totaisSje}
-        totaisConsolidado={totaisConsolidado}
-        onImprimirA4={imprimirA4SomaDuas}
-      />
+      {/* BLOCO SOMA DAS DUAS FOLHAS (MONTEIRO + SJE) — oculto na aba VENDAS */}
+      {abaAtiva !== "vendas" && (
+        <BlocoSomaDuasFolhas
+          competencia={competenciaAtiva}
+          totaisMonteiro={totaisMonteiro}
+          totaisSje={totaisSje}
+          totaisConsolidado={totaisConsolidado}
+          onImprimirA4={imprimirA4SomaDuas}
+        />
+      )}
 
       {/* MODAL EDITAR LINHA FOLHA COMPLETO */}
       {modalEditarAberto && linhaEmEdicao && (

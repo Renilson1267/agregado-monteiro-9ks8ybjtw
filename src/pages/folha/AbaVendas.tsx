@@ -145,7 +145,7 @@ export const AbaVendas: React.FC<AbaVendasProps> = ({
             <tr>
               <th className="py-2.5 px-3">VENDEDOR / COLABORADOR</th>
               <th className="py-2.5 px-2">TIPO</th>
-              <th className="py-2.5 px-2 text-right">VOLUME / OBRAS (m³)</th>
+              <th className="py-2.5 px-2 text-right">VALOR DAS VENDAS</th>
               <th className="py-2.5 px-2 text-right text-emerald-600 dark:text-emerald-400 font-semibold">
                 COMISSÃO
               </th>

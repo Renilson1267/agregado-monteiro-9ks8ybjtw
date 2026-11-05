@@ -11,6 +11,8 @@ export interface ImprimirTabelaProps {
   linhaInformativa?: string
   /** Bloco de assinaturas no rodapé do A4 (Elaborado por / Conferido por / Aprovação) */
   mostrarAssinaturas?: boolean
+  /** Campo de assinatura DO VENDEDOR(a) — usado no A4 de VENDAS (recibo de comissão) */
+  assinaturaVendedor?: boolean
 }
 
 const HTML_BLOCO_ASSINATURAS = `
@@ -48,6 +50,7 @@ export function imprimirRelatorioA4({
   totais,
   linhaInformativa,
   mostrarAssinaturas = false,
+  assinaturaVendedor = false,
 }: ImprimirTabelaProps) {
   const janela = window.open("", "_blank")
   if (!janela) return
@@ -195,6 +198,20 @@ export function imprimirRelatorioA4({
         <div style="margin-top: -6px; margin-bottom: 8px; font-size: 9px; font-weight: 600; color: #334155; text-align: right;">
           ${linhaInformativa}
         </div>
+      `
+          : ""
+      }
+
+      ${
+        assinaturaVendedor
+          ? `
+      <div style="margin-top: 28px; page-break-inside: avoid;">
+        <div style="padding: 0 20px;">
+          <div style="max-width: 320px; border-top: 1px solid #111; padding-top: 3px; font-size: 9px; font-weight: 600; color: #111;">
+            <span style="font-weight: 400;">Assinatura do vendedor(a)</span>
+          </div>
+        </div>
+      </div>
       `
           : ""
       }
