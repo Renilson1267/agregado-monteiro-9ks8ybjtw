@@ -15,8 +15,9 @@ import { formatarMoeda } from "./folha-helpers"
  *    nesse caso a divergência é mostrada como linha informativa).
  *
  * 2) VENDEDOR SEM FAIXAS CADASTRADAS (Valdercleiton / SJE, comissão flat):
- *    memória simples "Vendeu R$ X × % efetivo = R$ Y", onde o percentual
- *    efetivo = comissão gravada ÷ vendas da obra.
+ *    título "VOLUME / OBRAS (m³)" e a conta
+ *    "Valor do mês vendido: R$ X × % efetivo = R$ Y", onde o percentual
+ *    efetivo = comissão gravada ÷ vendas da obra. TOTAL = comissão gravada.
  */
 export interface PassoComissaoFaixa {
   indice: number
@@ -87,7 +88,8 @@ interface MemoriaComissaoProps {
  * Bloco de exibição da memória de cálculo:
  * - Com faixas: "Faixa X: de R$ A até R$ B — base na faixa R$ C × % = R$ D" ...
  *   "TOTAL = R$ <comissão gravada>"
- * - Sem faixas (flat): "Vendeu R$ X × % = R$ Y" + "TOTAL = R$ Y"
+ * - Sem faixas (flat): título "VOLUME / OBRAS (m³)" +
+ *   "Valor do mês vendido: R$ X × % = R$ Y" + "TOTAL = R$ Y"
  */
 export const MemoriaComissao: React.FC<MemoriaComissaoProps> = ({
   faixas,
@@ -102,8 +104,11 @@ export const MemoriaComissao: React.FC<MemoriaComissaoProps> = ({
       const percEfetivo = comissao / valorVendas
       return (
         <div className="space-y-1 text-[11px]">
+          <div className="font-semibold text-foreground uppercase">
+            VOLUME / OBRAS (m³)
+          </div>
           <div className="flex flex-wrap gap-1">
-            <span className="text-muted-foreground">Vendeu</span>
+            <span className="text-muted-foreground">Valor do mês vendido:</span>
             <span className="font-semibold text-foreground">
               {formatarMoeda(valorVendas)}
             </span>
@@ -126,11 +131,16 @@ export const MemoriaComissao: React.FC<MemoriaComissaoProps> = ({
     if (comissao > 0) {
       // Comissão gravada sem base de vendas na linha — mostra só o total
       return (
-        <div className="text-[11px] font-semibold text-foreground">
-          TOTAL = {formatarMoeda(comissao)}{" "}
-          <span className="font-normal text-muted-foreground">
-            (comissão gravada na folha — sem vendas informadas na linha)
-          </span>
+        <div className="space-y-1 text-[11px]">
+          <div className="font-semibold text-foreground uppercase">
+            VOLUME / OBRAS (m³)
+          </div>
+          <div className="font-semibold text-foreground">
+            TOTAL = {formatarMoeda(comissao)}{" "}
+            <span className="font-normal text-muted-foreground">
+              (comissão gravada na folha — sem vendas informadas na linha)
+            </span>
+          </div>
         </div>
       )
     }
