@@ -743,8 +743,11 @@ export default function FolhaPagamento() {
       (acc, l) => acc + (Number(l.producaoAPagar) || 0),
       0,
     )
+    // ADIANTAMENTO no papel mostra o adiantamento da própria produção
+    // (campo l.adiantamento, o valor que desconta do "A Pagar" da produção),
+    // não a quinzena de 40% do salário.
     const somaImpressaAdiantamento = linhasProducaoImpressas.reduce(
-      (acc, l) => acc + (Number(l.quinzena) || 0),
+      (acc, l) => acc + (Number(l.adiantamento) || 0),
       0,
     )
     const difOcultos =
@@ -781,7 +784,7 @@ export default function FolhaPagamento() {
         formatarMoeda(l.sabado),
         formatarMoeda(l.feriado),
         formatarMoeda(l.ajuda_custo),
-        formatarMoeda(l.quinzena),
+        formatarMoeda(l.adiantamento),
         formatarMoeda(l.producaoAPagar),
         "",
       ]),
