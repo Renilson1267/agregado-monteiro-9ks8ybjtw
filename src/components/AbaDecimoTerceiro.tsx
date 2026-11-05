@@ -52,7 +52,9 @@ interface AbaDecimoTerceiroProps {
   tabelaOficial: FolhaTabelaOficial | null
   mostrarOcultos: boolean
   busca: string
-  onImprimirA4: () => void
+  onImprimirA4?: () => void
+  onImprimirPrimeiraParcela?: () => void
+  onImprimirSegundaParcela?: () => void
 }
 
 export const AbaDecimoTerceiro: React.FC<AbaDecimoTerceiroProps> = ({
@@ -64,6 +66,8 @@ export const AbaDecimoTerceiro: React.FC<AbaDecimoTerceiroProps> = ({
   mostrarOcultos,
   busca,
   onImprimirA4,
+  onImprimirPrimeiraParcela,
+  onImprimirSegundaParcela,
 }) => {
   // Ajustes manuais por linha (meses ou bruto customizado)
   // Armazena: { [funcId]: { meses?: number, bruto?: number } }
@@ -302,11 +306,21 @@ export const AbaDecimoTerceiro: React.FC<AbaDecimoTerceiroProps> = ({
                 size="sm"
                 variant="outline"
                 className="h-8 gap-1.5 text-xs"
-                onClick={onImprimirA4}
-                title="Imprimir Folha do 13º Salário em A4 Paisagem"
+                onClick={onImprimirPrimeiraParcela || onImprimirA4}
+                title="Imprimir Folha do 13º Salário — 1ª Parcela (Adiantamento 50%) em A4 Paisagem"
               >
                 <Printer className="h-3.5 w-3.5" />
-                Imprimir 13º A4
+                Imprimir 1ª Parcela
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs"
+                onClick={onImprimirSegundaParcela || onImprimirA4}
+                title="Imprimir Folha do 13º Salário — 2ª Parcela (com INSS/IRRF) em A4 Paisagem"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Imprimir 2ª Parcela
               </Button>
             </div>
           </div>

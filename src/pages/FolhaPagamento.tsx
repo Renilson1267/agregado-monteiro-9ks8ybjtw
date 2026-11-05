@@ -883,6 +883,108 @@ export default function FolhaPagamento() {
     })
   }
 
+  const obterLinhasAtivasDecimo = () => {
+    return linhasFiltradasVisual.filter(
+      (l) => l.tipo !== "Terceiro" && !l.inativo && !l.inativoEfetivo,
+    )
+  }
+
+  const imprimirA4DecimoPrimeiraParcela = () => {
+    const ativas = obterLinhasAtivasDecimo()
+    const somaPrimeira = ativas.reduce(
+      (acc, l) => acc + Number(l.decimoCalculadoObj?.primeiraParcela || 0),
+      0,
+    )
+
+    imprimirRelatorioA4({
+      titulo: `FOLHA DO 13º SALÁRIO — 1ª PARCELA (ADIANTO 50%) — EXERCÍCIO ${ano}`,
+      empresaNome: empresaAtiva?.nome || "GC MIX",
+      competencia: competenciaAtiva,
+      colunas: [
+        "Nº",
+        "NOME",
+        "FUNÇÃO",
+        "MESES (AVOS)",
+        "BRUTO 13º",
+        "1ª PARCELA",
+        "CHAVE PIX / CONTA",
+        "ASSINATURA",
+      ],
+      linhas: ativas.map((l, i) => [
+        i + 1,
+        l.nome,
+        l.funcao || "Geral",
+        l.decimoCalculadoObj?.meses || 12,
+        formatarMoeda(l.decimoCalculadoObj?.bruto13 || 0),
+        formatarMoeda(l.decimoCalculadoObj?.primeiraParcela || 0),
+        l.pix || l.chave_pix || l.conta || "—",
+        "",
+      ]),
+      totais: ["", "TOTAIS", "", "", "", formatarMoeda(somaPrimeira), "", ""],
+      mostrarAssinaturas: true,
+      larguraAssinatura: 150,
+    })
+  }
+
+  const imprimirA4DecimoSegundaParcela = () => {
+    const ativas = obterLinhasAtivasDecimo()
+    const somaBruto2 = ativas.reduce(
+      (acc, l) => acc + Number(l.decimoCalculadoObj?.brutoSegundaParcela || 0),
+      0,
+    )
+    const somaInss2 = ativas.reduce(
+      (acc, l) => acc + Number(l.decimoCalculadoObj?.inssSegundaParcela || 0),
+      0,
+    )
+    const somaIrrf2 = ativas.reduce(
+      (acc, l) => acc + Number(l.decimoCalculadoObj?.irrfSegundaParcela || 0),
+      0,
+    )
+    const somaLiq2 = ativas.reduce(
+      (acc, l) =>
+        acc + Number(l.decimoCalculadoObj?.liquidoSegundaParcela || 0),
+      0,
+    )
+
+    imprimirRelatorioA4({
+      titulo: `FOLHA DO 13º SALÁRIO — 2ª PARCELA (COM INSS/IRRF) — EXERCÍCIO ${ano}`,
+      empresaNome: empresaAtiva?.nome || "GC MIX",
+      competencia: competenciaAtiva,
+      colunas: [
+        "Nº",
+        "NOME",
+        "BRUTO 2ª PARC",
+        "INSS",
+        "IRRF",
+        "LÍQ 2ª PARC",
+        "CHAVE PIX / CONTA",
+        "ASSINATURA",
+      ],
+      linhas: ativas.map((l, i) => [
+        i + 1,
+        l.nome,
+        formatarMoeda(l.decimoCalculadoObj?.brutoSegundaParcela || 0),
+        formatarMoeda(l.decimoCalculadoObj?.inssSegundaParcela || 0),
+        formatarMoeda(l.decimoCalculadoObj?.irrfSegundaParcela || 0),
+        formatarMoeda(l.decimoCalculadoObj?.liquidoSegundaParcela || 0),
+        l.pix || l.chave_pix || l.conta || "—",
+        "",
+      ]),
+      totais: [
+        "",
+        "TOTAIS",
+        formatarMoeda(somaBruto2),
+        formatarMoeda(somaInss2),
+        formatarMoeda(somaIrrf2),
+        formatarMoeda(somaLiq2),
+        "",
+        "",
+      ],
+      mostrarAssinaturas: true,
+      larguraAssinatura: 150,
+    })
+  }
+
   return (
     <div className="p-4 space-y-4 max-w-7xl mx-auto">
       {/* CABEÇALHO DA PÁGINA */}
@@ -1075,57 +1177,9 @@ export default function FolhaPagamento() {
             tabelaOficial={tabelaOficial}
             mostrarOcultos={true}
             busca={filtrosBusca.termo}
-            onImprimirA4={() => {
-              imprimirRelatorioA4({
-                titulo: `FOLHA DO 13º SALÁRIO — EXERCÍCIO ${ano}`,
-                empresaNome: empresaAtiva?.nome || "GC MIX",
-                competencia: competenciaAtiva,
-                colunas: [
-                  "Nº",
-                  "NOME",
-                  "FUNÇÃO",
-                  "ADMISSÃO",
-                  "MESES (AVOS)",
-                  "BRUTO 13º",
-                  "1ª PARCELA",
-                  "BRUTO 2ª PARC",
-                  "INSS",
-                  "IRRF",
-                  "LÍQ 2ª PARC",
-                  "TOTAL LÍQUIDO",
-                ],
-                linhas: linhasFiltradasVisual
-                  .filter(
-                    (l) =>
-                      l.tipo !== "Terceiro" && !l.inativo && !l.inativoEfetivo,
-                  )
-                  .map((l, i) => [
-                    i + 1,
-                    l.nome,
-                    l.funcao || "Geral",
-                    l.dataAdmissaoEfetiva || "—",
-                    l.decimoCalculadoObj?.meses || 12,
-                    formatarMoeda(l.decimoCalculadoObj?.bruto13 || 0),
-                    formatarMoeda(l.decimoCalculadoObj?.primeiraParcela || 0),
-                    formatarMoeda(
-                      l.decimoCalculadoObj?.brutoSegundaParcela || 0,
-                    ),
-                    formatarMoeda(
-                      l.decimoCalculadoObj?.inssSegundaParcela || 0,
-                    ),
-                    formatarMoeda(
-                      l.decimoCalculadoObj?.irrfSegundaParcela || 0,
-                    ),
-                    formatarMoeda(
-                      l.decimoCalculadoObj?.liquidoSegundaParcela || 0,
-                    ),
-                    formatarMoeda(
-                      (l.decimoCalculadoObj?.primeiraParcela || 0) +
-                        (l.decimoCalculadoObj?.liquidoSegundaParcela || 0),
-                    ),
-                  ]),
-              })
-            }}
+            onImprimirPrimeiraParcela={imprimirA4DecimoPrimeiraParcela}
+            onImprimirSegundaParcela={imprimirA4DecimoSegundaParcela}
+            onImprimirA4={imprimirA4DecimoPrimeiraParcela}
           />
         </TabsContent>
       </Tabs>
