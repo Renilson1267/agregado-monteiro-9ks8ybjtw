@@ -771,9 +771,9 @@ export default function FolhaPagamento() {
         "LIMPEZA",
         "SÁBADO",
         "FERIADO",
-        "AJUDA",
         "ADIANTAMENTO",
         "A PAGAR (PRODUÇÃO)",
+        "CHAVE PIX / CONTA",
         "ASSINATURA",
       ],
       linhas: linhasProducaoImpressas.map((l, i) => [
@@ -783,9 +783,9 @@ export default function FolhaPagamento() {
         formatarMoeda(l.limpeza),
         formatarMoeda(l.sabado),
         formatarMoeda(l.feriado),
-        formatarMoeda(l.ajuda_custo),
         formatarMoeda(l.adiantamento),
         formatarMoeda(l.producaoAPagar),
+        l.pix || l.chave_pix || l.conta || "—",
         "",
       ]),
       totais: [
@@ -795,9 +795,9 @@ export default function FolhaPagamento() {
         "—",
         "—",
         "—",
-        "—",
         formatarMoeda(somaImpressaAdiantamento),
         formatarMoeda(totaisUnidadeAtiva.totalProducaoAPagar),
+        "",
         "",
       ],
       linhaInformativa,
@@ -839,6 +839,7 @@ export default function FolhaPagamento() {
         "COMISSÃO",
         "AJUDA CUSTO",
         "TOTAL",
+        "CHAVE PIX / CONTA",
       ],
       linhas: linhasVendas.map((l, i) => [
         i + 1,
@@ -851,6 +852,7 @@ export default function FolhaPagamento() {
           Number(l.comissao || 0) +
             Number(l.vendas_ajuda || l.ajuda_custo || 0),
         ),
+        l.pix || l.chave_pix || l.conta || "—",
       ]),
       totais: [
         "",
@@ -863,6 +865,7 @@ export default function FolhaPagamento() {
           totaisUnidadeAtiva.totalComissaoVendas +
             totaisUnidadeAtiva.totalAjudaCustoVendas,
         ),
+        "",
       ],
       linhaInformativa,
       mostrarAssinaturas: true,
