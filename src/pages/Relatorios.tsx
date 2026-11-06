@@ -3168,7 +3168,14 @@ export default function Relatorios() {
                       div: 1,
                       custo: u.custosPorMaterial.brita19,
                     },
-                  ]
+                    {
+                      nome: "Pó de Pedra",
+                      qtd: u.consumos.po_pedra / 1400,
+                      un: "m³",
+                      div: 1,
+                      custo: u.custosPorMaterial.po_pedra,
+                    },
+                  ].filter((i) => i.nome !== "Pó de Pedra" || i.custo > 0)
                   const totalU = itens.reduce((a, i) => a + i.custo, 0)
                   return (
                     <div
