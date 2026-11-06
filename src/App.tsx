@@ -121,7 +121,14 @@ const App = () => (
                         />
                       }
                     >
-                      <Route path="/estoque" element={<Estoque />} />
+                      <Route
+                        path="/estoque"
+                        element={<Navigate to="/estoque/cimento" replace />}
+                      />
+                      <Route path="/estoque/cimento" element={<Estoque />} />
+                      <Route path="/estoque/aditivo" element={<Estoque />} />
+                      <Route path="/estoque/britas" element={<Estoque />} />
+                      <Route path="/estoque/acoes" element={<Estoque />} />
                     </Route>
 
                     {/* Folha, Exames e Férias: liberados para Auxiliar Adm e Admin (bloqueados para Gestor e Balanceiro) */}
