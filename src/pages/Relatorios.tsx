@@ -3000,6 +3000,252 @@ export default function Relatorios() {
               )
             })()}
 
+          {/* ========================================================= */}
+          {/* SOMATÓRIO GERENCIAL — INSUMOS + CUSTOS, SJE × MONTEIRO */}
+          {/* ========================================================= */}
+          <Card className="border-border/40 bg-card/60">
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary" />
+                Relatório Gerencial de Insumos e Custos —{" "}
+                {unim.map((u) => u.empresaNome).join(" × ")}
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Consumo, custo e custo por m³ de cada insumo, unidade por
+                unidade · {labelPeriodoComparativo}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-4">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border/40">
+                    <tr>
+                      <th className="py-2 px-3 text-left">Item</th>
+                      {unim.map((u) => (
+                        <th key={u.empresaId} className="py-2 px-3 text-right">
+                          {u.empresaNome}
+                        </th>
+                      ))}
+                      <th className="py-2 px-3 text-right text-primary">
+                        TOTAL
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/20">
+                    <tr className="bg-primary/5 font-bold">
+                      <td className="py-2 px-3 text-foreground">
+                        Cargas no período
+                      </td>
+                      {unim.map((u) => (
+                        <td
+                          key={u.empresaId}
+                          className="py-2 px-3 text-right font-mono"
+                        >
+                          {u.cargasTotal}
+                        </td>
+                      ))}
+                      <td className="py-2 px-3 text-right font-mono text-primary">
+                        {dadosComparativo.totaisGerais.cargasTotal}
+                      </td>
+                    </tr>
+                    <tr className="bg-primary/5 font-bold">
+                      <td className="py-2 px-3 text-foreground">
+                        Volume total (m³)
+                      </td>
+                      {unim.map((u) => (
+                        <td
+                          key={u.empresaId}
+                          className="py-2 px-3 text-right font-mono"
+                        >
+                          {u.volumeTotal.toLocaleString("pt-BR", {
+                            maximumFractionDigits: 1,
+                          })}
+                        </td>
+                      ))}
+                      <td className="py-2 px-3 text-right font-mono text-primary">
+                        {dadosComparativo.totaisGerais.volumeTotal.toLocaleString(
+                          "pt-BR",
+                          { maximumFractionDigits: 1 },
+                        )}
+                      </td>
+                    </tr>
+                    <tr className="bg-emerald-500/5 font-bold">
+                      <td className="py-2 px-3 text-foreground">
+                        Custo total dos insumos
+                      </td>
+                      {unim.map((u) => (
+                        <td
+                          key={u.empresaId}
+                          className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400"
+                        >
+                          R${" "}
+                          {u.custoTotal.toLocaleString("pt-BR", {
+                            maximumFractionDigits: 0,
+                          })}
+                        </td>
+                      ))}
+                      <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                        R${" "}
+                        {dadosComparativo.totaisGerais.custoTotal.toLocaleString(
+                          "pt-BR",
+                          { maximumFractionDigits: 0 },
+                        )}
+                      </td>
+                    </tr>
+                    <tr className="bg-emerald-500/5 font-bold">
+                      <td className="py-2 px-3 text-foreground">
+                        Custo por m³
+                      </td>
+                      {unim.map((u) => (
+                        <td
+                          key={u.empresaId}
+                          className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400"
+                        >
+                          R$ {u.custoPorM3.toFixed(2)}
+                        </td>
+                      ))}
+                      <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                        R$ {dadosComparativo.totaisGerais.custoPorM3.toFixed(2)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Detalhe por insumo: consumo + custo por unidade */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {unim.map((u) => {
+                  const itens = [
+                    {
+                      nome: "Cimento",
+                      qtd: u.consumos.cimento,
+                      un: "t",
+                      div: 1000,
+                      custo: u.custosPorMaterial.cimento,
+                    },
+                    {
+                      nome: "Aditivo",
+                      qtd: u.consumos.aditivo,
+                      un: "L",
+                      div: 1,
+                      custo: u.custosPorMaterial.aditivo,
+                    },
+                    {
+                      nome: "Água",
+                      qtd: u.consumos.agua,
+                      un: "L",
+                      div: 1,
+                      custo: u.custosPorMaterial.agua,
+                    },
+                    {
+                      nome: "Areia",
+                      qtd:
+                        u.consumos.areia /
+                        ((u.densidades?.areia || 1.5) * 1000),
+                      un: "m³",
+                      div: 1,
+                      custo: u.custosPorMaterial.areia,
+                    },
+                    {
+                      nome: "Brita 12",
+                      qtd:
+                        u.consumos.brita12 /
+                        ((u.densidades?.brita12 || 1.38) * 1000),
+                      un: "m³",
+                      div: 1,
+                      custo: u.custosPorMaterial.brita12,
+                    },
+                    {
+                      nome: "Brita 19",
+                      qtd:
+                        u.consumos.brita19 /
+                        ((u.densidades?.brita19 || 1.44) * 1000),
+                      un: "m³",
+                      div: 1,
+                      custo: u.custosPorMaterial.brita19,
+                    },
+                  ]
+                  const totalU = itens.reduce((a, i) => a + i.custo, 0)
+                  return (
+                    <div
+                      key={u.empresaId}
+                      className="rounded-lg border border-border/40 bg-background/40 p-3"
+                    >
+                      <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-border/30">
+                        <span className="text-xs font-bold text-foreground uppercase tracking-wide">
+                          {u.empresaNome}
+                        </span>
+                        <span className="text-[10px] font-mono text-muted-foreground">
+                          {u.volumeTotal.toLocaleString("pt-BR", {
+                            maximumFractionDigits: 1,
+                          })}{" "}
+                          m³
+                        </span>
+                      </div>
+                      <table className="w-full text-[11px]">
+                        <thead>
+                          <tr className="text-[9px] uppercase text-muted-foreground">
+                            <th className="text-left pb-1">Insumo</th>
+                            <th className="text-right pb-1">Consumo</th>
+                            <th className="text-right pb-1">Custo</th>
+                            <th className="text-right pb-1">%</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/20">
+                          {itens.map((i) => (
+                            <tr key={i.nome}>
+                              <td className="py-1 font-medium text-foreground">
+                                {i.nome}
+                              </td>
+                              <td className="py-1 text-right font-mono text-muted-foreground">
+                                {(i.qtd / i.div).toLocaleString("pt-BR", {
+                                  maximumFractionDigits: 1,
+                                })}{" "}
+                                {i.un}
+                              </td>
+                              <td className="py-1 text-right font-mono text-foreground">
+                                R${" "}
+                                {i.custo.toLocaleString("pt-BR", {
+                                  maximumFractionDigits: 0,
+                                })}
+                              </td>
+                              <td className="py-1 text-right font-mono text-muted-foreground">
+                                {totalU > 0
+                                  ? ((i.custo / totalU) * 100).toFixed(1)
+                                  : "0,0"}
+                                %
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="border-t-2 border-primary/40">
+                          <tr className="font-bold">
+                            <td className="pt-1.5 text-foreground">TOTAL</td>
+                            <td className="pt-1.5 text-right font-mono text-primary">
+                              {u.volumeTotal.toLocaleString("pt-BR", {
+                                maximumFractionDigits: 1,
+                              })}{" "}
+                              m³
+                            </td>
+                            <td className="pt-1.5 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                              R${" "}
+                              {totalU.toLocaleString("pt-BR", {
+                                maximumFractionDigits: 0,
+                              })}
+                            </td>
+                            <td className="pt-1.5 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                              R$ {u.custoPorM3.toFixed(2)}/m³
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Card Informativo do Comparativo */}
           <div className="no-print bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
