@@ -171,19 +171,19 @@ export function Sidebar({
         {
           icon: Package,
           label: "Cimento",
-          path: "/estoque/cimento",
+          path: "/estoque",
           group: "estoque_tracos",
         },
         {
           icon: Droplets,
           label: "Aditivo",
-          path: "/estoque/aditivo",
+          path: "/estoque",
           group: "estoque_tracos",
         },
         {
           icon: Layers,
           label: "Britas",
-          path: "/estoque/britas",
+          path: "/estoque",
           group: "estoque_tracos",
         },
         {
@@ -301,9 +301,6 @@ export function Sidebar({
       "/relatorios",
       "/lancamentos",
       "/estoque",
-      "/estoque/cimento",
-      "/estoque/aditivo",
-      "/estoque/britas",
     ])
 
     // Regra do Auxiliar ADM: acesso EXATAMENTE a 6 itens:
@@ -313,9 +310,6 @@ export function Sidebar({
       "/painel",
       "/relatorios",
       "/estoque",
-      "/estoque/cimento",
-      "/estoque/aditivo",
-      "/estoque/britas",
       "/cadastros?tab=ferias",
       "/ferias",
       "/folha",
