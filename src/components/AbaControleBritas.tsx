@@ -75,6 +75,8 @@ import { ImpressaoControleBritas } from "@/components/ImpressaoControleBritas"
 interface AbaControleBritasProps {
   empresaAtiva: Empresa | null
   podeEditar?: boolean
+  /** Quando true, exibe SOMENTE as entradas (compras). Usado na rota /estoque/britas. */
+  somenteEntradas?: boolean
 }
 
 const DENSIDADE_PADRAO: Record<TipoBrita, string> = {
@@ -161,6 +163,7 @@ function formatarMoeda(val: number): string {
 export function AbaControleBritas({
   empresaAtiva,
   podeEditar = true,
+  somenteEntradas = false,
 }: AbaControleBritasProps) {
   const [competencia, setCompetencia] = useState<string>(getCompetenciaAtual)
   const anoCompetenciaAtual = useMemo(() => {
@@ -1300,7 +1303,7 @@ export function AbaControleBritas({
             <span>Imprimir A4</span>
           </Button>
 
-          {podeEditar && (
+          {podeEditar && !somenteEntradas && (
             <Button
               size="sm"
               onClick={() => abrirModalNovaEntrega()}
@@ -1566,108 +1569,115 @@ export function AbaControleBritas({
               </div>
             </div>
 
-            {/* 3. TOTAL ENTREGUE BRITA 19 */}
-            <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 text-center flex flex-col justify-between">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
-                  Total Brita 19
-                </span>
-                <span className="text-xl sm:text-2xl font-extrabold font-mono text-blue-600 dark:text-blue-400 block">
-                  {resumo.totalEntregue19M3.toLocaleString("pt-BR", {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 2,
-                  })}
-                </span>
-              </div>
-              <div className="mt-2 pt-1 border-t border-blue-500/10 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>Graúdo 19mm</span>
-                <span className="font-mono font-semibold">
-                  {resumo.totalEntregas19Qtd}x
-                </span>
-              </div>
-            </div>
+            {!somenteEntradas && (
+              <>
+                {/* 3. TOTAL ENTREGUE BRITA 19 */}
+                <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 text-center flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
+                      Total Brita 19
+                    </span>
+                    <span className="text-xl sm:text-2xl font-extrabold font-mono text-blue-600 dark:text-blue-400 block">
+                      {resumo.totalEntregue19M3.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                  <div className="mt-2 pt-1 border-t border-blue-500/10 flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>Graúdo 19mm</span>
+                    <span className="font-mono font-semibold">
+                      {resumo.totalEntregas19Qtd}x
+                    </span>
+                  </div>
+                </div>
 
-            {/* 4. TOTAL ENTREGUE BRITA 12 */}
-            <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20 text-center flex flex-col justify-between">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block mb-1">
-                  Total Brita 12
-                </span>
-                <span className="text-xl sm:text-2xl font-extrabold font-mono text-purple-600 dark:text-purple-400 block">
-                  {resumo.totalEntregue12M3.toLocaleString("pt-BR", {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 2,
-                  })}
-                </span>
-              </div>
-              <div className="mt-2 pt-1 border-t border-purple-500/10 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>Agregado 12,5mm</span>
-                <span className="font-mono font-semibold">
-                  {resumo.totalEntregas12Qtd}x
-                </span>
-              </div>
-            </div>
+                {/* 4. TOTAL ENTREGUE BRITA 12 */}
+                <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20 text-center flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block mb-1">
+                      Total Brita 12
+                    </span>
+                    <span className="text-xl sm:text-2xl font-extrabold font-mono text-purple-600 dark:text-purple-400 block">
+                      {resumo.totalEntregue12M3.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                  <div className="mt-2 pt-1 border-t border-purple-500/10 flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>Agregado 12,5mm</span>
+                    <span className="font-mono font-semibold">
+                      {resumo.totalEntregas12Qtd}x
+                    </span>
+                  </div>
+                </div>
 
-            {/* 5. TOTAL ENTREGUE GERAL (m³) */}
-            <div className="p-3 rounded-xl bg-primary/10 border border-primary/30 text-center flex flex-col justify-between">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-primary block mb-1">
-                  Total Entregue Geral
-                </span>
-                <span className="text-xl sm:text-2xl font-extrabold font-mono text-primary block">
-                  {resumo.totalEntregueGeralM3.toLocaleString("pt-BR", {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 2,
-                  })}
-                </span>
-              </div>
-              <div className="mt-2 pt-1 border-t border-primary/20 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>19 + 12 juntas</span>
-                <span className="font-mono font-semibold">
-                  {resumo.totalEntregasQtd} cargas
-                </span>
-              </div>
-            </div>
+                {/* 5. TOTAL ENTREGUE GERAL (m³) */}
+                <div className="p-3 rounded-xl bg-primary/10 border border-primary/30 text-center flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary block mb-1">
+                      Total Entregue Geral
+                    </span>
+                    <span className="text-xl sm:text-2xl font-extrabold font-mono text-primary block">
+                      {resumo.totalEntregueGeralM3.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                  <div className="mt-2 pt-1 border-t border-primary/20 flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>19 + 12 juntas</span>
+                    <span className="font-mono font-semibold">
+                      {resumo.totalEntregasQtd} cargas
+                    </span>
+                  </div>
+                </div>
 
-            {/* 6. SALDO A RECEBER (compra + repasse − entregue geral) */}
-            <div
-              className={`p-3 rounded-xl border text-center flex flex-col justify-between ${
-                resumo.entregasExcedentes
-                  ? "bg-destructive/15 border-destructive text-destructive"
-                  : resumo.saldoAReceberM3 === 0 && resumo.totalDisponivelM3 > 0
-                    ? "bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400"
-                    : "bg-muted/40 border-border/50 text-foreground"
-              }`}
-            >
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider opacity-80 block mb-1">
-                  {modoVisaoAnoCompleto ? "Saldo do Ano" : "Saldo a Receber"}
-                </span>
-                <span className="text-xl sm:text-2xl font-extrabold font-mono block">
-                  {resumo.saldoAReceberM3.toLocaleString("pt-BR", {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 2,
-                  })}
-                </span>
-              </div>
-              <div className="mt-2 pt-1 border-t border-current/20 flex items-center justify-between text-[11px] font-medium">
-                <span>
-                  {resumo.entregasExcedentes
-                    ? "Excedente m³"
-                    : resumo.saldoAReceberM3 === 0 &&
-                        resumo.totalDisponivelM3 > 0
-                      ? "100% entregue"
-                      : modoVisaoAnoCompleto
-                        ? "Saldo m³"
-                        : "Pendente m³"}
-                </span>
-                <span className="font-mono text-[10px]">
-                  {resumo.totalDisponivelM3 > 0
-                    ? `${percentualAtendido}%`
-                    : "—"}
-                </span>
-              </div>
-            </div>
+                {/* 6. SALDO A RECEBER (compra + repasse − entregue geral) */}
+                <div
+                  className={`p-3 rounded-xl border text-center flex flex-col justify-between ${
+                    resumo.entregasExcedentes
+                      ? "bg-destructive/15 border-destructive text-destructive"
+                      : resumo.saldoAReceberM3 === 0 &&
+                          resumo.totalDisponivelM3 > 0
+                        ? "bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400"
+                        : "bg-muted/40 border-border/50 text-foreground"
+                  }`}
+                >
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-80 block mb-1">
+                      {modoVisaoAnoCompleto
+                        ? "Saldo do Ano"
+                        : "Saldo a Receber"}
+                    </span>
+                    <span className="text-xl sm:text-2xl font-extrabold font-mono block">
+                      {resumo.saldoAReceberM3.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                  <div className="mt-2 pt-1 border-t border-current/20 flex items-center justify-between text-[11px] font-medium">
+                    <span>
+                      {resumo.entregasExcedentes
+                        ? "Excedente m³"
+                        : resumo.saldoAReceberM3 === 0 &&
+                            resumo.totalDisponivelM3 > 0
+                          ? "100% entregue"
+                          : modoVisaoAnoCompleto
+                            ? "Saldo m³"
+                            : "Pendente m³"}
+                    </span>
+                    <span className="font-mono text-[10px]">
+                      {resumo.totalDisponivelM3 > 0
+                        ? `${percentualAtendido}%`
+                        : "—"}
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Barra de Progresso do Volume Contratado */}
@@ -2221,446 +2231,459 @@ export function AbaControleBritas({
         </CardContent>
       </Card>
 
-      {/* Histórico das Entregas do Mês com FILTROS e BOTÃO IMPRIMIR */}
-      <Card className="no-print border-border/40 bg-card/70">
-        <CardHeader className="flex flex-col gap-3 pb-3">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Truck className="w-4 h-4 text-primary" />
-                <span>
+      {/* Histórico das Entregas do Mês com FILTROS e BOTÃO IMPRIMIR (oculto na rota de entradas) */}
+      {!somenteEntradas && (
+        <Card className="no-print border-border/40 bg-card/70">
+          <CardHeader className="flex flex-col gap-3 pb-3">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-primary" />
+                  <span>
+                    {modoVisaoAnoCompleto
+                      ? `Histórico das Entregas do Ano Completo (${anoSelecionado})`
+                      : `Histórico das Entregas do Mês (${formatarCompetenciaRotulo(competencia)})`}
+                  </span>
+                </CardTitle>
+                <CardDescription className="text-xs">
                   {modoVisaoAnoCompleto
-                    ? `Histórico das Entregas do Ano Completo (${anoSelecionado})`
-                    : `Histórico das Entregas do Mês (${formatarCompetenciaRotulo(competencia)})`}
-                </span>
-              </CardTitle>
-              <CardDescription className="text-xs">
-                {modoVisaoAnoCompleto
-                  ? `Registros individuais de todas as cargas de Brita 19 e Brita 12 entregues em ${anoSelecionado} (todas as competências)`
-                  : `Registros individuais de cargas recebidas de Brita 19 e Brita 12 na competência ${formatarCompetenciaRotulo(competencia)} com conversão automática para m³`}
-              </CardDescription>
-            </div>
+                    ? `Registros individuais de todas as cargas de Brita 19 e Brita 12 entregues em ${anoSelecionado} (todas as competências)`
+                    : `Registros individuais de cargas recebidas de Brita 19 e Brita 12 na competência ${formatarCompetenciaRotulo(competencia)} com conversão automática para m³`}
+                </CardDescription>
+              </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleImprimirSoEntregas}
-                className="h-8 gap-1.5 text-xs font-semibold border-blue-500/40 bg-blue-500/5 hover:bg-blue-500/10 text-blue-700 dark:text-blue-400"
-                title="Imprimir apenas o cabeçalho e a tabela das entregas filtradas em A4"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Imprimir Só Entregas</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleImprimir}
-                className="h-8 gap-1.5 text-xs font-semibold border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary"
-                title="Imprimir relatório completo da competência em A4"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Imprimir A4</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* BARRA DE FILTROS: Tipo de brita, fornecedor (texto), atalhos de período e período (data inicial/final) */}
-          <div className="p-3 rounded-lg border border-border/40 bg-muted/20 space-y-2.5">
-            <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5">
-                  <Search className="w-3.5 h-3.5 text-primary" />
-                  Filtros de Pesquisa
-                </span>
-                {/* Atalhos Rápidos de Período */}
-                <div className="flex items-center gap-1 bg-background/80 p-0.5 rounded-md border border-border/50">
-                  <Button
-                    type="button"
-                    variant={
-                      filtroDataInicio ===
-                        obterPrimeiroEUltimoDiaMes(
-                          somarMesesCompetencia(competencia, -1),
-                        ).inicio &&
-                      filtroDataFim ===
-                        obterPrimeiroEUltimoDiaMes(
-                          somarMesesCompetencia(competencia, -1),
-                        ).fim
-                        ? "default"
-                        : "ghost"
-                    }
-                    size="sm"
-                    onClick={() => {
-                      const { inicio, fim } = obterPrimeiroEUltimoDiaMes(
-                        somarMesesCompetencia(competencia, -1),
-                      )
-                      setFiltroDataInicio(inicio)
-                      setFiltroDataFim(fim)
-                    }}
-                    className={`h-6 px-2 text-[10px] font-bold tracking-tight uppercase ${
-                      filtroDataInicio ===
-                        obterPrimeiroEUltimoDiaMes(
-                          somarMesesCompetencia(competencia, -1),
-                        ).inicio &&
-                      filtroDataFim ===
-                        obterPrimeiroEUltimoDiaMes(
-                          somarMesesCompetencia(competencia, -1),
-                        ).fim
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    title={`Mês anterior: ${formatarCompetenciaRotulo(somarMesesCompetencia(competencia, -1))}`}
-                  >
-                    MÊS ANTERIOR
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={
-                      filtroDataInicio ===
-                        obterPrimeiroEUltimoDiaMes(competencia).inicio &&
-                      filtroDataFim ===
-                        obterPrimeiroEUltimoDiaMes(competencia).fim
-                        ? "default"
-                        : "ghost"
-                    }
-                    size="sm"
-                    onClick={() => {
-                      const { inicio, fim } =
-                        obterPrimeiroEUltimoDiaMes(competencia)
-                      setFiltroDataInicio(inicio)
-                      setFiltroDataFim(fim)
-                    }}
-                    className={`h-6 px-2 text-[10px] font-bold tracking-tight uppercase ${
-                      filtroDataInicio ===
-                        obterPrimeiroEUltimoDiaMes(competencia).inicio &&
-                      filtroDataFim ===
-                        obterPrimeiroEUltimoDiaMes(competencia).fim
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    title={`Mês atual: ${formatarCompetenciaRotulo(competencia)}`}
-                  >
-                    MÊS ATUAL
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={
-                      filtroDataInicio ===
-                        obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual)
-                          .inicio &&
-                      filtroDataFim ===
-                        obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual).fim
-                        ? "default"
-                        : "ghost"
-                    }
-                    size="sm"
-                    onClick={() => {
-                      const { inicio, fim } =
-                        obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual)
-                      setFiltroDataInicio(inicio)
-                      setFiltroDataFim(fim)
-                    }}
-                    className={`h-6 px-2 text-[10px] font-bold tracking-tight uppercase ${
-                      filtroDataInicio ===
-                        obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual)
-                          .inicio &&
-                      filtroDataFim ===
-                        obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual).fim
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    title={`Ano inteiro: 01/01 a 31/12 de ${anoCompetenciaAtual}`}
-                  >
-                    ANUAL
-                  </Button>
-                </div>
-              </div>
-              {temFiltroAtivo && (
-                <button
-                  type="button"
-                  onClick={limparFiltros}
-                  className="text-xs text-primary hover:underline flex items-center gap-1 font-semibold"
-                >
-                  <FilterX className="w-3 h-3" />
-                  Limpar Filtros
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
-              {/* Filtro Tipo de Brita */}
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">
-                  Tipo de Brita
-                </Label>
-                <Select
-                  value={filtroTipoBrita}
-                  onValueChange={(val: any) => setFiltroTipoBrita(val)}
-                >
-                  <SelectTrigger className="h-8 text-xs bg-background">
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">Todas as Britas</SelectItem>
-                    <SelectItem value="19">Apenas Brita 19</SelectItem>
-                    <SelectItem value="12">Apenas Brita 12</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Filtro Fornecedor (texto) */}
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">
-                  Fornecedor / Pedreira
-                </Label>
-                <div className="relative">
-                  <Input
-                    placeholder="Filtrar por pedreira..."
-                    value={filtroFornecedor}
-                    onChange={(e) => setFiltroFornecedor(e.target.value)}
-                    className="h-8 text-xs bg-background pr-7"
-                  />
-                  {filtroFornecedor && (
-                    <button
-                      type="button"
-                      onClick={() => setFiltroFornecedor("")}
-                      className="absolute right-2 top-2 text-muted-foreground hover:text-foreground text-xs"
-                      title="Limpar texto"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Período Data Inicial */}
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">
-                  Data Inicial
-                </Label>
-                <Input
-                  type="date"
-                  value={filtroDataInicio}
-                  onChange={(e) => setFiltroDataInicio(e.target.value)}
-                  className="h-8 text-xs bg-background font-mono"
-                />
-              </div>
-
-              {/* Período Data Final */}
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">
-                  Data Final
-                </Label>
-                <Input
-                  type="date"
-                  value={filtroDataFim}
-                  onChange={(e) => setFiltroDataFim(e.target.value)}
-                  className="h-8 text-xs bg-background font-mono"
-                />
-              </div>
-            </div>
-
-            {temFiltroAtivo && (
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/20">
-                <span>
-                  Exibindo <strong>{entregasFiltradas.length}</strong> de{" "}
-                  <strong>{entregasAtivas.length}</strong> entregas{" "}
-                  {modoVisaoAnoCompleto ? `do ano ${anoSelecionado}` : "do mês"}
-                </span>
-                <span className="font-mono font-bold text-foreground">
-                  Volume Filtrado:{" "}
-                  {totalVolumeEntregasFiltradas.toLocaleString("pt-BR", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 3,
-                  })}{" "}
-                  m³
-                </span>
-              </div>
-            )}
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          {entregasFiltradas.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground text-xs space-y-2">
-              <Truck className="w-8 h-8 mx-auto opacity-30" />
-              <p>
-                {temFiltroAtivo
-                  ? "Nenhuma entrega corresponde aos filtros selecionados."
-                  : `Nenhuma entrega registrada para o mês de ${formatarCompetenciaRotulo(competencia)}.`}
-              </p>
-              {temFiltroAtivo ? (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={limparFiltros}
-                  className="gap-1.5 text-xs text-primary"
+                  onClick={handleImprimirSoEntregas}
+                  className="h-8 gap-1.5 text-xs font-semibold border-blue-500/40 bg-blue-500/5 hover:bg-blue-500/10 text-blue-700 dark:text-blue-400"
+                  title="Imprimir apenas o cabeçalho e a tabela das entregas filtradas em A4"
                 >
-                  <FilterX className="w-3.5 h-3.5" />
-                  Limpar Filtros
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Imprimir Só Entregas</span>
                 </Button>
-              ) : (
-                podeEditar && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleImprimir}
+                  className="h-8 gap-1.5 text-xs font-semibold border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary"
+                  title="Imprimir relatório completo da competência em A4"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Imprimir A4</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* BARRA DE FILTROS: Tipo de brita, fornecedor (texto), atalhos de período e período (data inicial/final) */}
+            <div className="p-3 rounded-lg border border-border/40 bg-muted/20 space-y-2.5">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                    <Search className="w-3.5 h-3.5 text-primary" />
+                    Filtros de Pesquisa
+                  </span>
+                  {/* Atalhos Rápidos de Período */}
+                  <div className="flex items-center gap-1 bg-background/80 p-0.5 rounded-md border border-border/50">
+                    <Button
+                      type="button"
+                      variant={
+                        filtroDataInicio ===
+                          obterPrimeiroEUltimoDiaMes(
+                            somarMesesCompetencia(competencia, -1),
+                          ).inicio &&
+                        filtroDataFim ===
+                          obterPrimeiroEUltimoDiaMes(
+                            somarMesesCompetencia(competencia, -1),
+                          ).fim
+                          ? "default"
+                          : "ghost"
+                      }
+                      size="sm"
+                      onClick={() => {
+                        const { inicio, fim } = obterPrimeiroEUltimoDiaMes(
+                          somarMesesCompetencia(competencia, -1),
+                        )
+                        setFiltroDataInicio(inicio)
+                        setFiltroDataFim(fim)
+                      }}
+                      className={`h-6 px-2 text-[10px] font-bold tracking-tight uppercase ${
+                        filtroDataInicio ===
+                          obterPrimeiroEUltimoDiaMes(
+                            somarMesesCompetencia(competencia, -1),
+                          ).inicio &&
+                        filtroDataFim ===
+                          obterPrimeiroEUltimoDiaMes(
+                            somarMesesCompetencia(competencia, -1),
+                          ).fim
+                          ? "bg-primary text-primary-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      title={`Mês anterior: ${formatarCompetenciaRotulo(somarMesesCompetencia(competencia, -1))}`}
+                    >
+                      MÊS ANTERIOR
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={
+                        filtroDataInicio ===
+                          obterPrimeiroEUltimoDiaMes(competencia).inicio &&
+                        filtroDataFim ===
+                          obterPrimeiroEUltimoDiaMes(competencia).fim
+                          ? "default"
+                          : "ghost"
+                      }
+                      size="sm"
+                      onClick={() => {
+                        const { inicio, fim } =
+                          obterPrimeiroEUltimoDiaMes(competencia)
+                        setFiltroDataInicio(inicio)
+                        setFiltroDataFim(fim)
+                      }}
+                      className={`h-6 px-2 text-[10px] font-bold tracking-tight uppercase ${
+                        filtroDataInicio ===
+                          obterPrimeiroEUltimoDiaMes(competencia).inicio &&
+                        filtroDataFim ===
+                          obterPrimeiroEUltimoDiaMes(competencia).fim
+                          ? "bg-primary text-primary-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      title={`Mês atual: ${formatarCompetenciaRotulo(competencia)}`}
+                    >
+                      MÊS ATUAL
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={
+                        filtroDataInicio ===
+                          obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual)
+                            .inicio &&
+                        filtroDataFim ===
+                          obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual).fim
+                          ? "default"
+                          : "ghost"
+                      }
+                      size="sm"
+                      onClick={() => {
+                        const { inicio, fim } =
+                          obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual)
+                        setFiltroDataInicio(inicio)
+                        setFiltroDataFim(fim)
+                      }}
+                      className={`h-6 px-2 text-[10px] font-bold tracking-tight uppercase ${
+                        filtroDataInicio ===
+                          obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual)
+                            .inicio &&
+                        filtroDataFim ===
+                          obterPrimeiroEUltimoDiaAno(anoCompetenciaAtual).fim
+                          ? "bg-primary text-primary-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      title={`Ano inteiro: 01/01 a 31/12 de ${anoCompetenciaAtual}`}
+                    >
+                      ANUAL
+                    </Button>
+                  </div>
+                </div>
+                {temFiltroAtivo && (
+                  <button
+                    type="button"
+                    onClick={limparFiltros}
+                    className="text-xs text-primary hover:underline flex items-center gap-1 font-semibold"
+                  >
+                    <FilterX className="w-3 h-3" />
+                    Limpar Filtros
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+                {/* Filtro Tipo de Brita */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">
+                    Tipo de Brita
+                  </Label>
+                  <Select
+                    value={filtroTipoBrita}
+                    onValueChange={(val: any) => setFiltroTipoBrita(val)}
+                  >
+                    <SelectTrigger className="h-8 text-xs bg-background">
+                      <SelectValue placeholder="Todas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Todas as Britas</SelectItem>
+                      <SelectItem value="19">Apenas Brita 19</SelectItem>
+                      <SelectItem value="12">Apenas Brita 12</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Filtro Fornecedor (texto) */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">
+                    Fornecedor / Pedreira
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      placeholder="Filtrar por pedreira..."
+                      value={filtroFornecedor}
+                      onChange={(e) => setFiltroFornecedor(e.target.value)}
+                      className="h-8 text-xs bg-background pr-7"
+                    />
+                    {filtroFornecedor && (
+                      <button
+                        type="button"
+                        onClick={() => setFiltroFornecedor("")}
+                        className="absolute right-2 top-2 text-muted-foreground hover:text-foreground text-xs"
+                        title="Limpar texto"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Período Data Inicial */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">
+                    Data Inicial
+                  </Label>
+                  <Input
+                    type="date"
+                    value={filtroDataInicio}
+                    onChange={(e) => setFiltroDataInicio(e.target.value)}
+                    className="h-8 text-xs bg-background font-mono"
+                  />
+                </div>
+
+                {/* Período Data Final */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">
+                    Data Final
+                  </Label>
+                  <Input
+                    type="date"
+                    value={filtroDataFim}
+                    onChange={(e) => setFiltroDataFim(e.target.value)}
+                    className="h-8 text-xs bg-background font-mono"
+                  />
+                </div>
+              </div>
+
+              {temFiltroAtivo && (
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/20">
+                  <span>
+                    Exibindo <strong>{entregasFiltradas.length}</strong> de{" "}
+                    <strong>{entregasAtivas.length}</strong> entregas{" "}
+                    {modoVisaoAnoCompleto
+                      ? `do ano ${anoSelecionado}`
+                      : "do mês"}
+                  </span>
+                  <span className="font-mono font-bold text-foreground">
+                    Volume Filtrado:{" "}
+                    {totalVolumeEntregasFiltradas.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 3,
+                    })}{" "}
+                    m³
+                  </span>
+                </div>
+              )}
+            </div>
+          </CardHeader>
+
+          <CardContent>
+            {entregasFiltradas.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground text-xs space-y-2">
+                <Truck className="w-8 h-8 mx-auto opacity-30" />
+                <p>
+                  {temFiltroAtivo
+                    ? "Nenhuma entrega corresponde aos filtros selecionados."
+                    : `Nenhuma entrega registrada para o mês de ${formatarCompetenciaRotulo(competencia)}.`}
+                </p>
+                {temFiltroAtivo ? (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => abrirModalNovaEntrega()}
+                    onClick={limparFiltros}
                     className="gap-1.5 text-xs text-primary"
                   >
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    Registrar Primeira Entrega de{" "}
-                    {formatarCompetenciaRotulo(competencia)}
+                    <FilterX className="w-3.5 h-3.5" />
+                    Limpar Filtros
                   </Button>
-                )
-              )}
-            </div>
-          ) : (
-            <div className="overflow-x-auto max-h-[500px]">
-              <table className="w-full text-xs text-left">
-                <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 sticky top-0 border-b border-border/40 backdrop-blur">
-                  <tr>
-                    <th className="py-2.5 px-3">Data</th>
-                    {modoVisaoAnoCompleto && (
-                      <th className="py-2.5 px-3">Competência</th>
-                    )}
-                    <th className="py-2.5 px-3">Tipo de Brita</th>
-                    <th className="py-2.5 px-3">Qtd. Informada</th>
-                    <th className="py-2.5 px-3">Densidade</th>
-                    <th className="py-2.5 px-3 text-right">
-                      Volume Calculado (m³)
-                    </th>
-                    <th className="py-2.5 px-3">Fornecedor</th>
-                    <th className="py-2.5 px-3">Documento / NF</th>
-                    <th className="py-2.5 px-3">Observação</th>
-                    {podeEditar && (
-                      <th className="py-2.5 px-3 text-center w-24">Ações</th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/20">
-                  {entregasFiltradas.map((entrega) => (
-                    <tr
-                      key={entrega.id}
-                      className="hover:bg-muted/20 transition-colors"
+                ) : (
+                  podeEditar && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => abrirModalNovaEntrega()}
+                      className="gap-1.5 text-xs text-primary"
                     >
-                      <td className="py-2.5 px-3 text-muted-foreground font-mono">
-                        {entrega.data.split("-").reverse().join("/")}
-                      </td>
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      Registrar Primeira Entrega de{" "}
+                      {formatarCompetenciaRotulo(competencia)}
+                    </Button>
+                  )
+                )}
+              </div>
+            ) : (
+              <div className="overflow-x-auto max-h-[500px]">
+                <table className="w-full text-xs text-left">
+                  <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 sticky top-0 border-b border-border/40 backdrop-blur">
+                    <tr>
+                      <th className="py-2.5 px-3">Data</th>
                       {modoVisaoAnoCompleto && (
-                        <td className="py-2.5 px-3 font-mono font-semibold text-primary">
-                          {entrega.competencia
-                            ? formatarCompetenciaRotulo(entrega.competencia)
+                        <th className="py-2.5 px-3">Competência</th>
+                      )}
+                      <th className="py-2.5 px-3">Tipo de Brita</th>
+                      <th className="py-2.5 px-3">Qtd. Informada</th>
+                      <th className="py-2.5 px-3">Densidade</th>
+                      <th className="py-2.5 px-3 text-right">
+                        Volume Calculado (m³)
+                      </th>
+                      <th className="py-2.5 px-3">Fornecedor</th>
+                      <th className="py-2.5 px-3">Documento / NF</th>
+                      <th className="py-2.5 px-3">Observação</th>
+                      {podeEditar && (
+                        <th className="py-2.5 px-3 text-center w-24">Ações</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/20">
+                    {entregasFiltradas.map((entrega) => (
+                      <tr
+                        key={entrega.id}
+                        className="hover:bg-muted/20 transition-colors"
+                      >
+                        <td className="py-2.5 px-3 text-muted-foreground font-mono">
+                          {entrega.data.split("-").reverse().join("/")}
+                        </td>
+                        {modoVisaoAnoCompleto && (
+                          <td className="py-2.5 px-3 font-mono font-semibold text-primary">
+                            {entrega.competencia
+                              ? formatarCompetenciaRotulo(entrega.competencia)
+                              : "—"}
+                          </td>
+                        )}
+                        <td className="py-2.5 px-3 font-semibold">
+                          <Badge
+                            variant="outline"
+                            className={
+                              entrega.tipo_brita === "19"
+                                ? "border-blue-500/40 text-blue-600 dark:text-blue-400 bg-blue-500/10"
+                                : "border-purple-500/40 text-purple-600 dark:text-purple-400 bg-purple-500/10"
+                            }
+                          >
+                            Brita {entrega.tipo_brita}
+                          </Badge>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono font-medium">
+                          {Number(entrega.quantidade).toLocaleString("pt-BR", {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          {entrega.unidade}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-muted-foreground">
+                          {entrega.unidade === "t"
+                            ? (entrega.densidade ?? 1440).toLocaleString(
+                                "pt-BR",
+                              )
                             : "—"}
                         </td>
-                      )}
-                      <td className="py-2.5 px-3 font-semibold">
-                        <Badge
-                          variant="outline"
-                          className={
-                            entrega.tipo_brita === "19"
-                              ? "border-blue-500/40 text-blue-600 dark:text-blue-400 bg-blue-500/10"
-                              : "border-purple-500/40 text-purple-600 dark:text-purple-400 bg-purple-500/10"
-                          }
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-primary">
+                          {Number(entrega.quantidade_m3).toLocaleString(
+                            "pt-BR",
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 3,
+                            },
+                          )}{" "}
+                          m³
+                        </td>
+                        <td className="py-2.5 px-3 text-foreground">
+                          {entrega.fornecedor || "—"}
+                        </td>
+                        <td className="py-2.5 px-3 text-muted-foreground font-mono text-[11px]">
+                          {entrega.documento || "—"}
+                        </td>
+                        <td
+                          className="py-2.5 px-3 text-muted-foreground max-w-[200px] truncate"
+                          title={entrega.observacao || ""}
                         >
-                          Brita {entrega.tipo_brita}
-                        </Badge>
+                          {entrega.observacao || "—"}
+                        </td>
+                        {podeEditar && (
+                          <td className="py-2.5 px-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                title="Editar entrega"
+                                onClick={() => abrirModalEditarEntrega(entrega)}
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                title="Excluir entrega"
+                                onClick={() => setEntregaParaExcluir(entrega)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                  {/* Totalizador da tabela em tela */}
+                  <tfoot className="bg-muted/50 font-bold border-t-2 border-border/60 text-xs">
+                    <tr>
+                      <td
+                        colSpan={modoVisaoAnoCompleto ? 5 : 4}
+                        className="py-2.5 px-3 uppercase text-foreground"
+                      >
+                        Total ({entregasFiltradas.length}{" "}
+                        {entregasFiltradas.length === 1
+                          ? "entrega"
+                          : "entregas"}
+                        )
                       </td>
-                      <td className="py-2.5 px-3 font-mono font-medium">
-                        {Number(entrega.quantidade).toLocaleString("pt-BR", {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        {entrega.unidade}
-                      </td>
-                      <td className="py-2.5 px-3 font-mono text-muted-foreground">
-                        {entrega.unidade === "t"
-                          ? (entrega.densidade ?? 1440).toLocaleString("pt-BR")
-                          : "—"}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-primary">
-                        {Number(entrega.quantidade_m3).toLocaleString("pt-BR", {
+                      <td className="py-2.5 px-3 text-right font-mono font-black text-primary">
+                        {totalVolumeEntregasFiltradas.toLocaleString("pt-BR", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 3,
                         })}{" "}
                         m³
                       </td>
-                      <td className="py-2.5 px-3 text-foreground">
-                        {entrega.fornecedor || "—"}
-                      </td>
-                      <td className="py-2.5 px-3 text-muted-foreground font-mono text-[11px]">
-                        {entrega.documento || "—"}
-                      </td>
                       <td
-                        className="py-2.5 px-3 text-muted-foreground max-w-[200px] truncate"
-                        title={entrega.observacao || ""}
+                        colSpan={podeEditar ? 4 : 3}
+                        className="py-2.5 px-3 text-muted-foreground text-[11px]"
                       >
-                        {entrega.observacao || "—"}
+                        {modoVisaoAnoCompleto
+                          ? "Geral do ano: "
+                          : "Geral do mês: "}
+                        {resumo.totalEntregueGeralM3.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                        })}{" "}
+                        m³ (19:{" "}
+                        {resumo.totalEntregue19M3.toLocaleString("pt-BR")} m³ |
+                        12: {resumo.totalEntregue12M3.toLocaleString("pt-BR")}{" "}
+                        m³)
                       </td>
-                      {podeEditar && (
-                        <td className="py-2.5 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                              title="Editar entrega"
-                              onClick={() => abrirModalEditarEntrega(entrega)}
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                              title="Excluir entrega"
-                              onClick={() => setEntregaParaExcluir(entrega)}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </td>
-                      )}
                     </tr>
-                  ))}
-                </tbody>
-                {/* Totalizador da tabela em tela */}
-                <tfoot className="bg-muted/50 font-bold border-t-2 border-border/60 text-xs">
-                  <tr>
-                    <td
-                      colSpan={modoVisaoAnoCompleto ? 5 : 4}
-                      className="py-2.5 px-3 uppercase text-foreground"
-                    >
-                      Total ({entregasFiltradas.length}{" "}
-                      {entregasFiltradas.length === 1 ? "entrega" : "entregas"})
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-black text-primary">
-                      {totalVolumeEntregasFiltradas.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 3,
-                      })}{" "}
-                      m³
-                    </td>
-                    <td
-                      colSpan={podeEditar ? 4 : 3}
-                      className="py-2.5 px-3 text-muted-foreground text-[11px]"
-                    >
-                      {modoVisaoAnoCompleto
-                        ? "Geral do ano: "
-                        : "Geral do mês: "}
-                      {resumo.totalEntregueGeralM3.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                      })}{" "}
-                      m³ (19: {resumo.totalEntregue19M3.toLocaleString("pt-BR")}{" "}
-                      m³ | 12:{" "}
-                      {resumo.totalEntregue12M3.toLocaleString("pt-BR")} m³)
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Modal Lançar / Editar Compra da Competência */}
       <Dialog

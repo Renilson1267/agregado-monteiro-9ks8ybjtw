@@ -77,15 +77,13 @@ type AbaEstoque = "todos" | "cimento" | "aditivo" | "britas" | "acoes"
 
 function abaDaRota(pathname: string): AbaEstoque {
   const p = pathname.replace(/\/+$/, "")
-  if (p.endsWith("/estoque/cimento")) return "cimento"
   if (p.endsWith("/estoque/aditivo")) return "aditivo"
   if (p.endsWith("/estoque/britas")) return "britas"
   if (p.endsWith("/estoque/acoes")) return "acoes"
-  return "todos"
+  return "cimento"
 }
 
 const ROTA_DA_ABA: Record<string, string> = {
-  todos: "/estoque",
   cimento: "/estoque/cimento",
   aditivo: "/estoque/aditivo",
   britas: "/estoque/britas",
@@ -111,22 +109,19 @@ export default function Estoque() {
   // copiado, migrado ou apagado — é a mesma tabela, só filtrada.
   const ehCimento = abaRota === "cimento"
   const ehAditivo = abaRota === "aditivo"
-  const materiaisVisiveis = materiais.filter((m) => {
-    if (ehCimento) return m.codigo === "cimento"
-    if (ehAditivo) return m.codigo === "aditivo"
-    return m.codigo === "cimento" || m.codigo === "aditivo"
-  })
+  const materiaisVisiveis = materiais.filter((m) =>
+    ehAditivo ? m.codigo === "aditivo" : m.codigo === "cimento",
+  )
 
-  // Mantém o histórico alinhado ao material da rota
+  // Histórico SEMPRE travado no material da rota: cimento mostra só
+  // movimentações de cimento, aditivo só de aditivo. Sem opção "todos".
+  const materialDaRota = materiais.find((m) => m.codigo === abaRota)
   useEffect(() => {
-    if (ehCimento || ehAditivo) {
-      const mat = materiais.find((m) => m.codigo === abaRota)
-      if (mat && filtroMaterial !== mat.id) setFiltroMaterial(mat.id)
-    } else if (abaRota === "todos" && filtroMaterial !== "ALL") {
-      setFiltroMaterial("ALL")
+    if (materialDaRota && filtroMaterial !== materialDaRota.id) {
+      setFiltroMaterial(materialDaRota.id)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [abaRota, materiais])
+  }, [abaRota, materialDaRota?.id])
 
   // Dialog Registrar Entrada
   const [openEntrada, setOpenEntrada] = useState(false)
@@ -655,8 +650,12 @@ export default function Estoque() {
             value="insumos"
             className="text-xs gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground font-medium"
           >
-            <Boxes className="w-4 h-4 text-primary" />
-            <span>{ehCimento || ehAditivo ? "Insumos" : "Visão Geral"}</span>
+            {ehAditivo ? (
+              <FlaskConical className="w-4 h-4 text-primary" />
+            ) : (
+              <Package className="w-4 h-4 text-primary" />
+            )}
+            <span>{ehAditivo ? "ADITIVO" : "CIMENTO"}</span>
           </TabsTrigger>
 
           <TabsTrigger
@@ -691,31 +690,6 @@ export default function Estoque() {
         </TabsList>
 
         <TabsContent value="insumos" className="space-y-6 mt-0">
-          {/* Seletor de MATERIAL — cada opção é uma rota própria */}
-          <div className="flex flex-wrap items-center gap-2">
-            {[
-              { rota: "todos", label: "Todos os Insumos", icone: Boxes },
-              { rota: "cimento", label: "Cimento", icone: Package },
-              { rota: "aditivo", label: "Aditivo", icone: FlaskConical },
-            ].map((op) => {
-              const Icone = op.icone
-              const ativo = abaRota === op.rota
-              return (
-                <Link
-                  key={op.rota}
-                  to={ROTA_DA_ABA[op.rota]}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    ativo
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card text-muted-foreground border-border/60 hover:bg-accent hover:text-foreground"
-                  }`}
-                >
-                  <Icone className="w-3.5 h-3.5" />
-                  {op.label}
-                </Link>
-              )
-            })}
-          </div>
           {/* Alerta de Pedido Automático de Cimento (quando saldo > 0 e saldo < 20.000 kg) */}
           {(() => {
             const matCimento = materiais.find((m) => m.codigo === "cimento")
@@ -1186,7 +1160,7 @@ export default function Estoque() {
 
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <span className="text-xs text-muted-foreground shrink-0">
-                  Filtrar Material:
+                  Material:
                 </span>
                 <Select
                   value={filtroMaterial}
@@ -1196,16 +1170,11 @@ export default function Estoque() {
                     <SelectValue placeholder="Materiais Controlados" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ALL">Cimento e Aditivo</SelectItem>
-                    {materiais
-                      .filter(
-                        (m) => m.codigo === "cimento" || m.codigo === "aditivo",
-                      )
-                      .map((m) => (
-                        <SelectItem key={m.id} value={m.id}>
-                          {m.nome}
-                        </SelectItem>
-                      ))}
+                    {materiaisVisiveis.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.nome}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1522,6 +1491,7 @@ export default function Estoque() {
           <AbaControleBritas
             empresaAtiva={empresaAtiva}
             podeEditar={!isBalanceiro || isAdministrador || isGestor}
+            somenteEntradas
           />
         </TabsContent>
 
