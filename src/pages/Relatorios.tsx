@@ -2990,8 +2990,9 @@ export default function Relatorios() {
                         </table>
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-2">
-                        Quanto menor o índice, mais eficiente o traço. Ideal de
-                        cimento: ~0,12 a 0,15 m³ por m³ de concreto.
+                        Índice de consumo: quanto menor, mais eficiente o traço.
+                        Use para comparar as unidades entre si, no mesmo
+                        período.
                       </p>
                     </CardContent>
                   </Card>
