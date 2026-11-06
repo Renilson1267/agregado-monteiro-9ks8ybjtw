@@ -507,6 +507,10 @@ export default function Relatorios() {
     carregarRelatorio({ ini: ini || undefined, fim: fim || undefined })
   }
 
+  // Cargas de TODAS as unidades no período do comparativo (para o somatório
+  // por obra). Carregadas só quando a aba comparativo está aberta.
+  const [cargasComparativo, setCargasComparativo] = useState<Carga[]>([])
+
   const carregarComparativo = async (datasOverride?: {
     ini?: string
     fim?: string
@@ -524,6 +528,24 @@ export default function Relatorios() {
         dataFim: fim,
       })
       setDadosComparativo(res)
+
+      // Cargas de todas as unidades, no mesmo período
+      const lista = (await ConcreteiraService.getCargas({
+        dataInicio: ini,
+        dataFim: fim,
+      })) as Carga[]
+
+      // Nome da unidade em cada carga (para agrupar obra × unidade)
+      const nomePorEmpresa = new Map<string, string>()
+      res.unidades.forEach((u) =>
+        nomePorEmpresa.set(u.empresaId, u.empresaNome),
+      )
+      setCargasComparativo(
+        lista.map((c) => ({
+          ...c,
+          empresa_nome: nomePorEmpresa.get(c.empresa_id || "") || "Sem unidade",
+        })) as any,
+      )
     } catch (e) {
       console.error(e)
     } finally {
@@ -2519,6 +2541,464 @@ export default function Relatorios() {
         {/* TAB 2: RELATÓRIO COMPARATIVO MONTEIRO × SJE (Opção 1) */}
         {/* ========================================================= */}
         <TabsContent value="comparativo" className="space-y-6 mt-4">
+          {/* ========================================================= */}
+          {/* SOMATÓRIOS CONSOLIDADOS SJE + MONTEIRO — em m³ */}
+          {/* ========================================================= */}
+          {dadosComparativo.unidades.length > 0 &&
+            (() => {
+              const unim = dadosComparativo.unidades
+              const soma = (fn: (u: any) => number) =>
+                unim.reduce((a, u) => a + (fn(u) || 0), 0)
+
+              // Densidades por unidade (com fallback padrão do sistema)
+              const dens = (u: any, cod: string) => {
+                if (cod === "areia") return u.densidades?.areia || 1.5
+                if (cod === "brita12") return u.densidades?.brita12 || 1.38
+                if (cod === "brita19") return u.densidades?.brita19 || 1.44
+                return 1
+              }
+              const volM3 = (cod: keyof typeof unim[0]["consumos"]) =>
+                unim.reduce((a, u) => {
+                  const kg = Number(u.consumos[cod]) || 0
+                  const d = dens(u, cod as string)
+                  return a + kg / (d * 1000)
+                }, 0)
+
+              const insumosM3 = [
+                { cod: "cimento", nome: "Cimento" },
+                { cod: "areia", nome: "Areia" },
+                { cod: "brita12", nome: "Brita 12" },
+                { cod: "brita19", nome: "Brita 19" },
+                { cod: "po_pedra", nome: "Pó de Pedra" },
+                { cod: "aditivo", nome: "Aditivo" },
+                { cod: "agua", nome: "Água" },
+              ] as const
+
+              return (
+                <>
+                  {/* KPIs gerais das duas unidades */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="p-3.5 rounded-lg border border-primary/30 bg-primary/10">
+                      <p className="text-[10px] uppercase tracking-wider text-primary font-bold">
+                        Volume Total (m³)
+                      </p>
+                      <p className="text-2xl font-extrabold font-mono text-foreground mt-1">
+                        {dadosComparativo.totaisGerais.volumeTotal.toLocaleString(
+                          "pt-BR",
+                          { maximumFractionDigits: 1 },
+                        )}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {dadosComparativo.totaisGerais.cargasTotal} cargas ·{" "}
+                        {unim.length} unidades
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-lg border border-border/40 bg-card/60">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                        Custo Total Insumos
+                      </p>
+                      <p className="text-2xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
+                        R${" "}
+                        {dadosComparativo.totaisGerais.custoTotal.toLocaleString(
+                          "pt-BR",
+                          { maximumFractionDigits: 0 },
+                        )}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        R$ {dadosComparativo.totaisGerais.custoPorM3.toFixed(2)}
+                        /m³
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-lg border border-border/40 bg-card/60">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                        Média m³ / Carga
+                      </p>
+                      <p className="text-2xl font-extrabold font-mono text-foreground mt-1">
+                        {(
+                          dadosComparativo.totaisGerais.volumeTotal /
+                          (dadosComparativo.totaisGerais.cargasTotal || 1)
+                        ).toLocaleString("pt-BR", {
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        por caminhão
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-lg border border-border/40 bg-card/60">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                        Cimento / m³
+                      </p>
+                      <p className="text-2xl font-extrabold font-mono text-sky-600 dark:text-sky-400 mt-1">
+                        {(
+                          soma((u) => u.consumos.cimento) /
+                          (dadosComparativo.totaisGerais.volumeTotal || 1)
+                        ).toFixed(1)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        kg por m³ produzido
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Tabela: consumo de cada insumo em m³, por unidade */}
+                  <Card className="border-border/40 bg-card/60">
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <Boxes className="w-4 h-4 text-primary" />
+                        Volume de Insumos Consumidos (m³) — SJE + Monteiro
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Consumo convertido para m³ pelas densidades de cada
+                        unidade
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border/40">
+                            <tr>
+                              <th className="py-2 px-3 text-left">Insumo</th>
+                              {unim.map((u) => (
+                                <th
+                                  key={u.empresaId}
+                                  className="py-2 px-3 text-right"
+                                >
+                                  {u.empresaNome}
+                                </th>
+                              ))}
+                              <th className="py-2 px-3 text-right text-primary">
+                                TOTAL
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/20">
+                            {insumosM3.map((i) => (
+                              <tr key={i.cod} className="hover:bg-muted/20">
+                                <td className="py-2 px-3 font-medium text-foreground">
+                                  {i.nome}
+                                </td>
+                                {unim.map((u) => {
+                                  const kg =
+                                    Number((u.consumos as any)[i.cod]) || 0
+                                  const d = dens(u, i.cod as string)
+                                  const m3 = kg / (d * 1000)
+                                  return (
+                                    <td
+                                      key={u.empresaId}
+                                      className="py-2 px-3 text-right font-mono text-muted-foreground"
+                                    >
+                                      {m3.toLocaleString("pt-BR", {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </td>
+                                  )
+                                })}
+                                <td className="py-2 px-3 text-right font-mono font-bold text-primary">
+                                  {volM3(i.cod).toLocaleString("pt-BR", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </td>
+                              </tr>
+                            ))}
+                            <tr className="bg-primary/5 font-bold border-t-2 border-primary/40">
+                              <td className="py-2.5 px-3 text-foreground">
+                                VOLUME PRODUZIDO
+                              </td>
+                              {unim.map((u) => (
+                                <td
+                                  key={u.empresaId}
+                                  className="py-2.5 px-3 text-right font-mono"
+                                >
+                                  {u.volumeTotal.toLocaleString("pt-BR", {
+                                    maximumFractionDigits: 1,
+                                  })}
+                                </td>
+                              ))}
+                              <td className="py-2.5 px-3 text-right font-mono text-primary">
+                                {dadosComparativo.totaisGerais.volumeTotal.toLocaleString(
+                                  "pt-BR",
+                                  { maximumFractionDigits: 1 },
+                                )}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-2">
+                        Valores em m³. Aditivo e água já são líquidos (densidade
+                        1,00).
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Tabela: somatório por OBRA nas duas unidades */}
+                  {(() => {
+                    const mapa = new Map<string, {
+                      obra: string
+                      porUnidade: Map<string, {
+                        cargas: number
+                        volume: number
+                        cimento: number
+                      }>
+                      cargas: number
+                      volume: number
+                      cimento: number
+                    }>()
+                    for (const c of cargasComparativo) {
+                      if (c.carga_zerada) continue
+                      const os = (c as any).ordem_servico
+                      const obra =
+                        (os?.nome_obra && String(os.nome_obra).trim()) ||
+                        (os?.local_descarga &&
+                          String(os.local_descarga).trim()) ||
+                        (c.cidade_nome && String(c.cidade_nome).trim()) ||
+                        "Sem obra informada"
+                      const uni = (c as any).empresa_nome || "Sem unidade"
+
+                      const at = mapa.get(obra) || {
+                        obra,
+                        porUnidade: new Map(),
+                        cargas: 0,
+                        volume: 0,
+                        cimento: 0,
+                      }
+                      const pu = at.porUnidade.get(uni) || {
+                        cargas: 0,
+                        volume: 0,
+                        cimento: 0,
+                      }
+                      const vol = Number(c.volume_m3) || 0
+                      const cim = Number(c.consumo_cimento) || 0
+                      pu.cargas += 1
+                      pu.volume += vol
+                      pu.cimento += cim
+                      at.porUnidade.set(uni, pu)
+                      at.cargas += 1
+                      at.volume += vol
+                      at.cimento += cim
+                      mapa.set(obra, at)
+                    }
+                    const obras = Array.from(mapa.values()).sort(
+                      (a, b) => b.volume - a.volume,
+                    )
+                    if (obras.length === 0) return null
+                    const unidadesOrdem = unim.map((u) => u.empresaNome)
+                    const totGeral = obras.reduce(
+                      (acc, o) => ({
+                        cargas: acc.cargas + o.cargas,
+                        volume: acc.volume + o.volume,
+                        cimento: acc.cimento + o.cimento,
+                      }),
+                      { cargas: 0, volume: 0, cimento: 0 },
+                    )
+                    return (
+                      <Card className="border-border/40 bg-card/60">
+                        <CardHeader className="py-3 px-4">
+                          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                            <Building2 className="w-4 h-4 text-primary" />
+                            Somatório por Obra — {unidadesOrdem.join(" + ")} (
+                            {obras.length}{" "}
+                            {obras.length === 1 ? "obra" : "obras"})
+                          </CardTitle>
+                          <CardDescription className="text-xs">
+                            Volume produzido e cimento consumido em cada obra,
+                            aberto por unidade
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border/40">
+                                <tr>
+                                  <th className="py-2 px-3 text-left">Obra</th>
+                                  {unidadesOrdem.map((u) => (
+                                    <th
+                                      key={u}
+                                      className="py-2 px-3 text-right"
+                                    >
+                                      {u} (m³)
+                                    </th>
+                                  ))}
+                                  <th className="py-2 px-3 text-right text-primary">
+                                    Total m³
+                                  </th>
+                                  <th className="py-2 px-3 text-right">
+                                    Cimento (t)
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/20">
+                                {obras.map((o) => (
+                                  <tr
+                                    key={o.obra}
+                                    className="hover:bg-muted/20"
+                                  >
+                                    <td
+                                      className="py-2 px-3 font-medium text-foreground max-w-[220px] truncate"
+                                      title={o.obra}
+                                    >
+                                      {o.obra}
+                                    </td>
+                                    {unidadesOrdem.map((u) => {
+                                      const pu = o.porUnidade.get(u)
+                                      return (
+                                        <td
+                                          key={u}
+                                          className="py-2 px-3 text-right font-mono text-muted-foreground"
+                                        >
+                                          {pu
+                                            ? pu.volume.toLocaleString(
+                                                "pt-BR",
+                                                { maximumFractionDigits: 1 },
+                                              )
+                                            : "—"}
+                                        </td>
+                                      )
+                                    })}
+                                    <td className="py-2 px-3 text-right font-mono font-bold text-primary">
+                                      {o.volume.toLocaleString("pt-BR", {
+                                        maximumFractionDigits: 1,
+                                      })}
+                                    </td>
+                                    <td className="py-2 px-3 text-right font-mono">
+                                      {(o.cimento / 1000).toLocaleString(
+                                        "pt-BR",
+                                        { minimumFractionDigits: 2 },
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot className="border-t-2 border-primary/40 bg-primary/5 font-bold">
+                                <tr>
+                                  <td className="py-2.5 px-3 text-foreground">
+                                    TOTAL GERAL
+                                  </td>
+                                  {unidadesOrdem.map((u) => {
+                                    const vol = obras.reduce(
+                                      (a, o) =>
+                                        a + (o.porUnidade.get(u)?.volume || 0),
+                                      0,
+                                    )
+                                    return (
+                                      <td
+                                        key={u}
+                                        className="py-2.5 px-3 text-right font-mono"
+                                      >
+                                        {vol.toLocaleString("pt-BR", {
+                                          maximumFractionDigits: 1,
+                                        })}
+                                      </td>
+                                    )
+                                  })}
+                                  <td className="py-2.5 px-3 text-right font-mono text-primary">
+                                    {totGeral.volume.toLocaleString("pt-BR", {
+                                      maximumFractionDigits: 1,
+                                    })}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-mono">
+                                    {(totGeral.cimento / 1000).toLocaleString(
+                                      "pt-BR",
+                                      { minimumFractionDigits: 2 },
+                                    )}
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })()}
+
+                  {/* Tabela: m³ de insumo por m³ de concreto, por unidade */}
+                  <Card className="border-border/40 bg-card/60">
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <Scale className="w-4 h-4 text-primary" />
+                        Consumo por m³ de Concreto Produzido
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Quanto de cada insumo (em m³) é gasto para produzir 1 m³
+                        de concreto — comparativo direto entre as unidades
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border/40">
+                            <tr>
+                              <th className="py-2 px-3 text-left">Insumo</th>
+                              {unim.map((u) => (
+                                <th
+                                  key={u.empresaId}
+                                  className="py-2 px-3 text-right"
+                                >
+                                  {u.empresaNome} (m³/m³)
+                                </th>
+                              ))}
+                              <th className="py-2 px-3 text-right text-primary">
+                                Consolidado
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/20">
+                            {insumosM3.map((i) => {
+                              const totalM3 = volM3(i.cod)
+                              const volTot =
+                                dadosComparativo.totaisGerais.volumeTotal || 1
+                              return (
+                                <tr key={i.cod} className="hover:bg-muted/20">
+                                  <td className="py-2 px-3 font-medium text-foreground">
+                                    {i.nome}
+                                  </td>
+                                  {unim.map((u) => {
+                                    const kg =
+                                      Number((u.consumos as any)[i.cod]) || 0
+                                    const d = dens(u, i.cod as string)
+                                    const m3 = kg / (d * 1000)
+                                    const ratio =
+                                      u.volumeTotal > 0 ? m3 / u.volumeTotal : 0
+                                    return (
+                                      <td
+                                        key={u.empresaId}
+                                        className="py-2 px-3 text-right font-mono text-muted-foreground"
+                                      >
+                                        {ratio.toLocaleString("pt-BR", {
+                                          minimumFractionDigits: 3,
+                                          maximumFractionDigits: 3,
+                                        })}
+                                      </td>
+                                    )
+                                  })}
+                                  <td className="py-2 px-3 text-right font-mono font-bold text-primary">
+                                    {(totalM3 / volTot).toLocaleString(
+                                      "pt-BR",
+                                      {
+                                        minimumFractionDigits: 3,
+                                        maximumFractionDigits: 3,
+                                      },
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-2">
+                        Quanto menor o índice, mais eficiente o traço. Ideal de
+                        cimento: ~0,12 a 0,15 m³ por m³ de concreto.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </>
+              )
+            })()}
+
           {/* Card Informativo do Comparativo */}
           <div className="no-print bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
