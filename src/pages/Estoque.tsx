@@ -197,9 +197,8 @@ export default function Estoque() {
       return (a.created_at || "") < (b.created_at || "") ? -1 : 1
     })
 
-    // Acumula saldo por recipiente e total
+    // Acumula saldo por recipiente
     const saldoRec = new Map<string, number>()
-    let saldoTotal = 0
     const porMes = new Map<string, any[]>()
     let mesCorrente = ""
 
@@ -225,11 +224,10 @@ export default function Estoque() {
         mov.tipo === "AJUSTE"
           ? 1
           : -1
-      const rec = (mov as any).recipiente_nome || ""
-      if (rec) {
-        saldoRec.set(rec, (saldoRec.get(rec) || 0) + sinal * q)
-      }
-      saldoTotal += sinal * q
+      // Movimentos antigos (antes da separação por silo) entram como
+      // "Não atribuído" para que o total feche com o saldo real do insumo.
+      const rec = (mov as any).recipiente_nome || "Não atribuído ao silo"
+      saldoRec.set(rec, (saldoRec.get(rec) || 0) + sinal * q)
     }
     return porMes
   }, [movimentacoesTodas])
