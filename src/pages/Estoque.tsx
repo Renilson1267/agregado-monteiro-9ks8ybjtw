@@ -732,7 +732,7 @@ export default function Estoque() {
             </TabsTrigger>
           )}
 
-          {podeAcessarAcoes && codigoFixo === null && (
+          {podeAcessarAcoes && (
             <TabsTrigger
               value="acoes"
               className="text-xs gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground font-medium"
@@ -1653,7 +1653,7 @@ export default function Estoque() {
           </TabsContent>
         )}
 
-        {podeAcessarAcoes && codigoFixo === null && (
+        {podeAcessarAcoes && (
           <TabsContent value="acoes" className="space-y-4 mt-0">
             <AbaAcoesEstoque
               empresaAtiva={empresaAtiva}
