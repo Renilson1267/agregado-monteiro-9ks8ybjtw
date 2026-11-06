@@ -73,6 +73,7 @@ import {
   ChevronRight,
   Globe2,
   Send,
+  Building2,
 } from "lucide-react"
 import {
   AlertDialog,
@@ -819,6 +820,98 @@ export default function Relatorios() {
   const custoBrita12 = cargas.reduce((a, b) => a + (b.custo?.brita12 || 0), 0)
   const custoBrita19 = cargas.reduce((a, b) => a + (b.custo?.brita19 || 0), 0)
   const custoPoPedra = cargas.reduce((a, b) => a + (b.custo?.po_pedra || 0), 0)
+
+  // ===== SOMATÓRIOS POR OBRA =====
+  // Agrupa as cargas pela obra da Ordem de Serviço (nome_obra), com fallback
+  // para local de descarga, cidade ou "Sem obra informada".
+  const resumoPorObra = useMemo(() => {
+    const mapa = new Map<string, {
+      obra: string
+      cliente: string
+      cargas: number
+      volume: number
+      cimento: number
+      aditivo: number
+      agua: number
+      areia: number
+      brita12: number
+      brita19: number
+      poPedra: number
+      custo: number
+    }>()
+
+    for (const c of cargas) {
+      const os = (c as any).ordem_servico
+      const obra =
+        (os?.nome_obra && String(os.nome_obra).trim()) ||
+        (os?.local_descarga && String(os.local_descarga).trim()) ||
+        (c.cidade_nome && String(c.cidade_nome).trim()) ||
+        "Sem obra informada"
+
+      const atual = mapa.get(obra) || {
+        obra,
+        cliente: (c.cliente_nome || os?.destinatario_nome || "—") as string,
+        cargas: 0,
+        volume: 0,
+        cimento: 0,
+        aditivo: 0,
+        agua: 0,
+        areia: 0,
+        brita12: 0,
+        brita19: 0,
+        poPedra: 0,
+        custo: 0,
+      }
+
+      if (!c.carga_zerada) {
+        atual.cargas += 1
+        atual.volume += Number(c.volume_m3) || 0
+        atual.custo += Number(c.custo?.total) || 0
+      }
+      atual.cimento += Number(c.consumo_cimento) || 0
+      atual.aditivo += Number(c.consumo_aditivo) || 0
+      atual.agua += Number(c.consumo_agua) || 0
+      atual.areia += Number(c.consumo_areia) || 0
+      atual.brita12 += Number(c.consumo_brita12) || 0
+      atual.brita19 += Number(c.consumo_brita19) || 0
+      atual.poPedra += Number(c.consumo_po_pedra) || 0
+
+      mapa.set(obra, atual)
+    }
+
+    return Array.from(mapa.values()).sort((a, b) => b.volume - a.volume)
+  }, [cargas])
+
+  const totalGeralObras = useMemo(
+    () =>
+      resumoPorObra.reduce(
+        (acc, o) => ({
+          cargas: acc.cargas + o.cargas,
+          volume: acc.volume + o.volume,
+          cimento: acc.cimento + o.cimento,
+          aditivo: acc.aditivo + o.aditivo,
+          agua: acc.agua + o.agua,
+          areia: acc.areia + o.areia,
+          brita12: acc.brita12 + o.brita12,
+          brita19: acc.brita19 + o.brita19,
+          poPedra: acc.poPedra + o.poPedra,
+          custo: acc.custo + o.custo,
+        }),
+        {
+          cargas: 0,
+          volume: 0,
+          cimento: 0,
+          aditivo: 0,
+          agua: 0,
+          areia: 0,
+          brita12: 0,
+          brita19: 0,
+          poPedra: 0,
+          custo: 0,
+        },
+      ),
+    [resumoPorObra],
+  )
 
   // Descrição legível dos filtros aplicados para o cabeçalho impresso
   const filtrosDescricao = [
@@ -1890,6 +1983,270 @@ export default function Relatorios() {
                     </span>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ========================================================= */}
+          {/* SOMATÓRIO CONSOLIDADO DE INSUMOS NO PERÍODO */}
+          {/* ========================================================= */}
+          <Card className="border-border/40 bg-card/60">
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Boxes className="w-4 h-4 text-primary" />
+                Somatório de Insumos no Período
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Total consumido de cada insumo somando todas as {cargas.length}{" "}
+                cargas do filtro
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 text-xs">
+                {[
+                  {
+                    nome: "Cimento",
+                    qtd: totalCimento,
+                    un: "kg",
+                    cor: "text-sky-600 dark:text-sky-400",
+                  },
+                  {
+                    nome: "Aditivo",
+                    qtd: totalAditivo,
+                    un: "L",
+                    cor: "text-violet-600 dark:text-violet-400",
+                  },
+                  {
+                    nome: "Água",
+                    qtd: totalAgua,
+                    un: "L",
+                    cor: "text-cyan-600 dark:text-cyan-400",
+                  },
+                  {
+                    nome: "Areia",
+                    qtd: totalAreia,
+                    un: "kg",
+                    cor: "text-amber-600 dark:text-amber-400",
+                  },
+                  {
+                    nome: "Brita 12",
+                    qtd: totalBrita12,
+                    un: "kg",
+                    cor: "text-emerald-600 dark:text-emerald-400",
+                  },
+                  {
+                    nome: "Brita 19",
+                    qtd: totalBrita19,
+                    un: "kg",
+                    cor: "text-teal-600 dark:text-teal-400",
+                  },
+                  {
+                    nome: "Pó de Pedra",
+                    qtd: totalPoPedra,
+                    un: "kg",
+                    cor: "text-slate-600 dark:text-slate-400",
+                  },
+                ].map((i) => (
+                  <div
+                    key={i.nome}
+                    className="p-2.5 rounded-lg bg-background/60 border border-border/30"
+                  >
+                    <span className="text-muted-foreground block text-[10px] uppercase tracking-wide truncate">
+                      {i.nome}
+                    </span>
+                    <span
+                      className={`font-mono font-extrabold block text-base ${i.cor}`}
+                    >
+                      {i.qtd.toLocaleString("pt-BR", {
+                        maximumFractionDigits: 0,
+                      })}
+                    </span>
+                    <span className="text-muted-foreground text-[10px]">
+                      {i.un}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ========================================================= */}
+          {/* SOMATÓRIOS POR OBRA — volume, insumos e custo por obra */}
+          {/* ========================================================= */}
+          {resumoPorObra.length > 0 && (
+            <Card className="border-border/40 bg-card/60">
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-primary" />
+                  Somatório por Obra ({resumoPorObra.length}{" "}
+                  {resumoPorObra.length === 1 ? "obra" : "obras"})
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Volume produzido e insumos consumidos em cada obra, no período
+                  filtrado
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border/40">
+                      <tr>
+                        <th className="py-2 px-2.5">Obra</th>
+                        <th className="py-2 px-2.5">Cliente</th>
+                        <th className="py-2 px-2.5 text-right">Cargas</th>
+                        <th className="py-2 px-2.5 text-right">Volume</th>
+                        <th className="py-2 px-2.5 text-right">Cimento</th>
+                        <th className="py-2 px-2.5 text-right">Aditivo</th>
+                        <th className="py-2 px-2.5 text-right">Água</th>
+                        <th className="py-2 px-2.5 text-right">Areia</th>
+                        <th className="py-2 px-2.5 text-right">Brita 12</th>
+                        <th className="py-2 px-2.5 text-right">Brita 19</th>
+                        <th className="py-2 px-2.5 text-right">Pó de Pedra</th>
+                        {isAdministrador && (
+                          <th className="py-2 px-2.5 text-right">Custo</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/20">
+                      {resumoPorObra.map((o) => (
+                        <tr key={o.obra} className="hover:bg-muted/20">
+                          <td
+                            className="py-2 px-2.5 font-medium text-foreground max-w-[180px] truncate"
+                            title={o.obra}
+                          >
+                            {o.obra}
+                          </td>
+                          <td
+                            className="py-2 px-2.5 text-muted-foreground max-w-[130px] truncate"
+                            title={o.cliente}
+                          >
+                            {o.cliente}
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono">
+                            {o.cargas}
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono font-bold text-primary">
+                            {o.volume.toLocaleString("pt-BR", {
+                              maximumFractionDigits: 1,
+                            })}{" "}
+                            m³
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono">
+                            {o.cimento.toLocaleString("pt-BR", {
+                              maximumFractionDigits: 0,
+                            })}
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono">
+                            {o.aditivo.toLocaleString("pt-BR", {
+                              maximumFractionDigits: 0,
+                            })}
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono">
+                            {o.agua.toLocaleString("pt-BR", {
+                              maximumFractionDigits: 0,
+                            })}
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono">
+                            {o.areia.toLocaleString("pt-BR", {
+                              maximumFractionDigits: 0,
+                            })}
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono">
+                            {o.brita12.toLocaleString("pt-BR", {
+                              maximumFractionDigits: 0,
+                            })}
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono">
+                            {o.brita19.toLocaleString("pt-BR", {
+                              maximumFractionDigits: 0,
+                            })}
+                          </td>
+                          <td className="py-2 px-2.5 text-right font-mono">
+                            {o.poPedra.toLocaleString("pt-BR", {
+                              maximumFractionDigits: 0,
+                            })}
+                          </td>
+                          {isAdministrador && (
+                            <td className="py-2 px-2.5 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                              R${" "}
+                              {o.custo.toLocaleString("pt-BR", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="border-t-2 border-primary/40 bg-primary/5">
+                      <tr className="font-bold">
+                        <td className="py-2.5 px-2.5 text-foreground">
+                          TOTAL GERAL
+                        </td>
+                        <td className="py-2.5 px-2.5 text-muted-foreground">
+                          {resumoPorObra.length} obras
+                        </td>
+                        <td className="py-2.5 px-2.5 text-right font-mono">
+                          {totalGeralObras.cargas}
+                        </td>
+                        <td className="py-2.5 px-2.5 text-right font-mono text-primary">
+                          {totalGeralObras.volume.toLocaleString("pt-BR", {
+                            maximumFractionDigits: 1,
+                          })}{" "}
+                          m³
+                        </td>
+                        <td className="py-2.5 px-2.5 text-right font-mono">
+                          {totalGeralObras.cimento.toLocaleString("pt-BR", {
+                            maximumFractionDigits: 0,
+                          })}
+                        </td>
+                        <td className="py-2.5 px-2.5 text-right font-mono">
+                          {totalGeralObras.aditivo.toLocaleString("pt-BR", {
+                            maximumFractionDigits: 0,
+                          })}
+                        </td>
+                        <td className="py-2.5 px-2.5 text-right font-mono">
+                          {totalGeralObras.agua.toLocaleString("pt-BR", {
+                            maximumFractionDigits: 0,
+                          })}
+                        </td>
+                        <td className="py-2.5 px-2.5 text-right font-mono">
+                          {totalGeralObras.areia.toLocaleString("pt-BR", {
+                            maximumFractionDigits: 0,
+                          })}
+                        </td>
+                        <td className="py-2.5 px-2.5 text-right font-mono">
+                          {totalGeralObras.brita12.toLocaleString("pt-BR", {
+                            maximumFractionDigits: 0,
+                          })}
+                        </td>
+                        <td className="py-2.5 px-2.5 text-right font-mono">
+                          {totalGeralObras.brita19.toLocaleString("pt-BR", {
+                            maximumFractionDigits: 0,
+                          })}
+                        </td>
+                        <td className="py-2.5 px-2.5 text-right font-mono">
+                          {totalGeralObras.poPedra.toLocaleString("pt-BR", {
+                            maximumFractionDigits: 0,
+                          })}
+                        </td>
+                        {isAdministrador && (
+                          <td className="py-2.5 px-2.5 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                            R${" "}
+                            {totalGeralObras.custo.toLocaleString("pt-BR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+                        )}
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2">
+                  Unidades: volume em m³ · cimento, areia, britas e pó de pedra
+                  em kg · aditivo e água em litros.
+                </p>
               </CardContent>
             </Card>
           )}
