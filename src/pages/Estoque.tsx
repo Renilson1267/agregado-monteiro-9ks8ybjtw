@@ -61,7 +61,7 @@ import {
   Wrench,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { Link } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { AlertaPedidoCimento } from "@/components/AlertaPedidoCimento"
 import { AbaAcoesEstoque } from "@/components/AbaAcoesEstoque"
 import { AbaControleBritas } from "@/components/AbaControleBritas"
@@ -69,18 +69,64 @@ import {
   LIMITE_AVISO_PEDIDO_CIMENTO_KG,
   gerarLinkWhatsAppPedidoCimento,
 } from "@/lib/pedido-cimento"
-import { Layers } from "lucide-react"
+import { Layers, FlaskConical, Package } from "lucide-react"
+
+// Cada material tem sua própria rota. A tela é a mesma (mesma fonte de dados),
+// só muda o recorte exibido — nenhum dado é migrado, copiado ou apagado.
+type AbaEstoque = "todos" | "cimento" | "aditivo" | "britas" | "acoes"
+
+function abaDaRota(pathname: string): AbaEstoque {
+  const p = pathname.replace(/\/+$/, "")
+  if (p.endsWith("/estoque/cimento")) return "cimento"
+  if (p.endsWith("/estoque/aditivo")) return "aditivo"
+  if (p.endsWith("/estoque/britas")) return "britas"
+  if (p.endsWith("/estoque/acoes")) return "acoes"
+  return "todos"
+}
+
+const ROTA_DA_ABA: Record<string, string> = {
+  todos: "/estoque",
+  cimento: "/estoque/cimento",
+  aditivo: "/estoque/aditivo",
+  britas: "/estoque/britas",
+  acoes: "/estoque/acoes",
+}
 
 export default function Estoque() {
   const { empresaAtiva } = useEmpresa()
   const { isBalanceiro, isAdministrador, isGestor } = useUsuario()
   const podeAcessarAcoes = isAdministrador || isGestor
-  const [abaAtiva, setAbaAtiva] = useState<string>("visao-geral")
+  const location = useLocation()
+  const navigate = useNavigate()
+  const abaRota = abaDaRota(location.pathname)
+  const valorTab =
+    abaRota === "britas" ? "britas" : abaRota === "acoes" ? "acoes" : "insumos"
   const [materiais, setMateriais] = useState<Material[]>([])
   const [recipientes, setRecipientes] = useState<RecipienteEstoque[]>([])
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([])
   const [filtroMaterial, setFiltroMaterial] = useState<string>("ALL")
   const [loading, setLoading] = useState(true)
+
+  // Recorte por material: a ROTA define o que aparece. Nenhum dado é
+  // copiado, migrado ou apagado — é a mesma tabela, só filtrada.
+  const ehCimento = abaRota === "cimento"
+  const ehAditivo = abaRota === "aditivo"
+  const materiaisVisiveis = materiais.filter((m) => {
+    if (ehCimento) return m.codigo === "cimento"
+    if (ehAditivo) return m.codigo === "aditivo"
+    return m.codigo === "cimento" || m.codigo === "aditivo"
+  })
+
+  // Mantém o histórico alinhado ao material da rota
+  useEffect(() => {
+    if (ehCimento || ehAditivo) {
+      const mat = materiais.find((m) => m.codigo === abaRota)
+      if (mat && filtroMaterial !== mat.id) setFiltroMaterial(mat.id)
+    } else if (abaRota === "todos" && filtroMaterial !== "ALL") {
+      setFiltroMaterial("ALL")
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abaRota, materiais])
 
   // Dialog Registrar Entrada
   const [openEntrada, setOpenEntrada] = useState(false)
@@ -330,9 +376,11 @@ export default function Estoque() {
             )}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Acompanhe o saldo dos silos de cimento e tanques de aditivo da
-            unidade {empresaAtiva?.nome || ""}. (Agregados têm controle
-            exclusivo por consumo).
+            {ehCimento
+              ? `Saldo dos silos de cimento da unidade ${empresaAtiva?.nome || ""}.`
+              : ehAditivo
+                ? `Saldo dos tanques de aditivo da unidade ${empresaAtiva?.nome || ""}.`
+                : `Saldos de cimento, aditivo e agregados da unidade ${empresaAtiva?.nome || ""}.`}
           </p>
         </div>
 
@@ -595,15 +643,20 @@ export default function Estoque() {
         </div>
       </div>
 
-      {/* Abas Principais de Estoque: Visão Geral vs Controle de Britas vs Ações */}
-      <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="space-y-4">
-        <TabsList className="bg-muted/60 p-1 border border-border/40">
+      {/* Navegação por MATERIAL: cada aba é uma rota real (/estoque/cimento etc.).
+          A tela é a mesma e lê as mesmas tabelas — só o recorte muda. */}
+      <Tabs
+        value={valorTab}
+        onValueChange={(v) => navigate(ROTA_DA_ABA[v] || "/estoque")}
+        className="space-y-4"
+      >
+        <TabsList className="bg-muted/60 p-1 border border-border/40 h-auto flex-wrap">
           <TabsTrigger
-            value="visao-geral"
+            value="insumos"
             className="text-xs gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground font-medium"
           >
             <Boxes className="w-4 h-4 text-primary" />
-            <span>Visão Geral do Estoque</span>
+            <span>{ehCimento || ehAditivo ? "Insumos" : "Visão Geral"}</span>
           </TabsTrigger>
 
           <TabsTrigger
@@ -637,7 +690,32 @@ export default function Estoque() {
           )}
         </TabsList>
 
-        <TabsContent value="visao-geral" className="space-y-6 mt-0">
+        <TabsContent value="insumos" className="space-y-6 mt-0">
+          {/* Seletor de MATERIAL — cada opção é uma rota própria */}
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { rota: "todos", label: "Todos os Insumos", icone: Boxes },
+              { rota: "cimento", label: "Cimento", icone: Package },
+              { rota: "aditivo", label: "Aditivo", icone: FlaskConical },
+            ].map((op) => {
+              const Icone = op.icone
+              const ativo = abaRota === op.rota
+              return (
+                <Link
+                  key={op.rota}
+                  to={ROTA_DA_ABA[op.rota]}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    ativo
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card text-muted-foreground border-border/60 hover:bg-accent hover:text-foreground"
+                  }`}
+                >
+                  <Icone className="w-3.5 h-3.5" />
+                  {op.label}
+                </Link>
+              )
+            })}
+          </div>
           {/* Alerta de Pedido Automático de Cimento (quando saldo > 0 e saldo < 20.000 kg) */}
           {(() => {
             const matCimento = materiais.find((m) => m.codigo === "cimento")
@@ -664,12 +742,20 @@ export default function Estoque() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-                Insumos com Controle de Estoque
+                {ehCimento
+                  ? "Estoque de Cimento"
+                  : ehAditivo
+                    ? "Estoque de Aditivo"
+                    : "Insumos com Controle de Estoque"}
                 <Badge
                   variant="outline"
                   className="text-xs text-primary border-primary/30"
                 >
-                  Silo & Tanque
+                  {ehCimento
+                    ? "Silos de Cimento"
+                    : ehAditivo
+                      ? "Tanques de Aditivo"
+                      : "Silo & Tanque"}
                 </Badge>
               </h2>
               <span className="text-xs text-muted-foreground">
@@ -677,355 +763,354 @@ export default function Estoque() {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {materiais
-                .filter((m) => m.codigo === "cimento" || m.codigo === "aditivo")
-                .map((mat) => {
-                  const saldo = mat.saldo || 0
-                  const critico =
-                    mat.estoque_minimo > 0 && saldo < mat.estoque_minimo
-                  const margem = saldo - mat.estoque_minimo
-                  // Âmbar quando próximo ao mínimo (margem positiva até 15% do mínimo)
-                  const atencao =
-                    !critico &&
-                    mat.estoque_minimo > 0 &&
-                    margem <= mat.estoque_minimo * 0.15
+            <div
+              className={`grid grid-cols-1 gap-4 ${
+                materiaisVisiveis.length > 1 ? "md:grid-cols-2" : "md:max-w-2xl"
+              }`}
+            >
+              {materiaisVisiveis.map((mat) => {
+                const saldo = mat.saldo || 0
+                const critico =
+                  mat.estoque_minimo > 0 && saldo < mat.estoque_minimo
+                const margem = saldo - mat.estoque_minimo
+                // Âmbar quando próximo ao mínimo (margem positiva até 15% do mínimo)
+                const atencao =
+                  !critico &&
+                  mat.estoque_minimo > 0 &&
+                  margem <= mat.estoque_minimo * 0.15
 
-                  return (
-                    <Card
-                      key={mat.id}
-                      className={`border-border/40 bg-card/70 relative overflow-hidden shadow-sm ${
+                return (
+                  <Card
+                    key={mat.id}
+                    className={`border-border/40 bg-card/70 relative overflow-hidden shadow-sm ${
+                      critico
+                        ? "border-destructive/40"
+                        : atencao
+                          ? "border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/10"
+                          : ""
+                    }`}
+                  >
+                    <div
+                      className={`h-1.5 w-full ${
                         critico
-                          ? "border-destructive/40"
+                          ? "bg-destructive"
                           : atencao
-                            ? "border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/10"
-                            : ""
+                            ? "bg-amber-500"
+                            : "bg-emerald-500"
                       }`}
-                    >
-                      <div
-                        className={`h-1.5 w-full ${
-                          critico
-                            ? "bg-destructive"
-                            : atencao
-                              ? "bg-amber-500"
-                              : "bg-emerald-500"
-                        }`}
-                      />
-                      <CardHeader className="pb-2">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <CardTitle className="text-lg font-semibold">
-                              {mat.nome}
-                            </CardTitle>
-                            <CardDescription className="text-xs uppercase tracking-wider font-mono">
-                              {mat.codigo === "cimento"
-                                ? `Silo de ${mat.nome}`
-                                : "Tanque de Aditivo Químico"}
-                            </CardDescription>
-                          </div>
-                          {critico ? (
-                            <Badge variant="destructive" className="text-xs">
-                              Reposição Urgente
-                            </Badge>
-                          ) : atencao ? (
-                            <Badge
-                              variant="outline"
-                              className="text-xs border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 font-semibold"
-                            >
-                              Atenção (Âmbar)
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 font-medium"
-                            >
-                              Estoque Regular (Verde)
-                            </Badge>
-                          )}
+                    />
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-lg font-semibold">
+                            {mat.nome}
+                          </CardTitle>
+                          <CardDescription className="text-xs uppercase tracking-wider font-mono">
+                            {mat.codigo === "cimento"
+                              ? `Silo de ${mat.nome}`
+                              : "Tanque de Aditivo Químico"}
+                          </CardDescription>
                         </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="flex items-baseline justify-between">
-                          <div>
-                            <span
-                              className={`text-3xl font-extrabold ${
-                                critico
-                                  ? "text-destructive"
-                                  : atencao
-                                    ? "text-amber-600 dark:text-amber-400"
-                                    : "text-foreground"
-                              }`}
-                            >
-                              {saldo.toLocaleString("pt-BR")}
-                            </span>{" "}
-                            <span className="text-sm font-medium text-muted-foreground">
-                              {mat.unidade}
-                            </span>
-                          </div>
-                          {saldo >= 1000 && mat.unidade === "kg" && (
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                              {(saldo / 1000).toFixed(2)} t
-                            </span>
-                          )}
+                        {critico ? (
+                          <Badge variant="destructive" className="text-xs">
+                            Reposição Urgente
+                          </Badge>
+                        ) : atencao ? (
+                          <Badge
+                            variant="outline"
+                            className="text-xs border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 font-semibold"
+                          >
+                            Atenção (Âmbar)
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 font-medium"
+                          >
+                            Estoque Regular (Verde)
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <span
+                            className={`text-3xl font-extrabold ${
+                              critico
+                                ? "text-destructive"
+                                : atencao
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-foreground"
+                            }`}
+                          >
+                            {saldo.toLocaleString("pt-BR")}
+                          </span>{" "}
+                          <span className="text-sm font-medium text-muted-foreground">
+                            {mat.unidade}
+                          </span>
                         </div>
+                        {saldo >= 1000 && mat.unidade === "kg" && (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                            {(saldo / 1000).toFixed(2)} t
+                          </span>
+                        )}
+                      </div>
 
-                        <div className="p-2.5 rounded-lg bg-background/50 border border-border/30 text-xs space-y-1">
-                          <div className="flex justify-between text-muted-foreground">
-                            <span>Estoque Mínimo (Alerta):</span>
-                            <span className="font-semibold text-foreground">
-                              {mat.estoque_minimo.toLocaleString("pt-BR")}{" "}
-                              {mat.unidade}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-muted-foreground">
-                            <span>Margem Operacional:</span>
-                            <span
-                              className={
-                                critico
-                                  ? "text-destructive font-bold"
-                                  : atencao
-                                    ? "text-amber-600 dark:text-amber-400 font-bold"
-                                    : "text-emerald-500 font-medium"
-                              }
-                            >
-                              {margem > 0 ? "+" : ""}
-                              {margem.toLocaleString("pt-BR")} {mat.unidade}
-                            </span>
-                          </div>
+                      <div className="p-2.5 rounded-lg bg-background/50 border border-border/30 text-xs space-y-1">
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Estoque Mínimo (Alerta):</span>
+                          <span className="font-semibold text-foreground">
+                            {mat.estoque_minimo.toLocaleString("pt-BR")}{" "}
+                            {mat.unidade}
+                          </span>
                         </div>
-
-                        <div className="flex items-center justify-between pt-1">
-                          {!isBalanceiro ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-xs h-8 text-muted-foreground hover:text-foreground gap-1 px-2"
-                              onClick={() => {
-                                setMaterialEditando(mat)
-                                setNovoMinimo(mat.estoque_minimo)
-                                setOpenMinimo(true)
-                              }}
-                            >
-                              <Settings2 className="w-3.5 h-3.5" />
-                              Alterar Mínimo
-                            </Button>
-                          ) : (
-                            <span className="text-[11px] text-muted-foreground">
-                              Mínimo:{" "}
-                              {mat.estoque_minimo.toLocaleString("pt-BR")}{" "}
-                              {mat.unidade}
-                            </span>
-                          )}
-
-                          <div className="flex items-center gap-1.5">
-                            {mat.codigo === "cimento" &&
-                              saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG && (
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  className="text-xs h-8 gap-1 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                                  onClick={() => {
-                                    const link = gerarLinkWhatsAppPedidoCimento(
-                                      {
-                                        unidadeNome:
-                                          empresaAtiva?.nome || "Unidade",
-                                        saldoAtualKg: saldo,
-                                        estoqueMinimoKg:
-                                          mat.estoque_minimo || 15000,
-                                        empresa: empresaAtiva,
-                                      },
-                                    )
-                                    window.open(
-                                      link,
-                                      "_blank",
-                                      "noopener,noreferrer",
-                                    )
-                                  }}
-                                >
-                                  <Send className="w-3.5 h-3.5" />
-                                  Pedir WhatsApp
-                                </Button>
-                              )}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-8 gap-1 px-2 text-primary hover:text-primary"
-                              onClick={() => {
-                                setMaterialEntradaId(mat.id)
-                                setOpenEntrada(true)
-                              }}
-                            >
-                              <PlusCircle className="w-3.5 h-3.5" />
-                              Repor Estoque
-                            </Button>
-                          </div>
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Margem Operacional:</span>
+                          <span
+                            className={
+                              critico
+                                ? "text-destructive font-bold"
+                                : atencao
+                                  ? "text-amber-600 dark:text-amber-400 font-bold"
+                                  : "text-emerald-500 font-medium"
+                            }
+                          >
+                            {margem > 0 ? "+" : ""}
+                            {margem.toLocaleString("pt-BR")} {mat.unidade}
+                          </span>
                         </div>
+                      </div>
 
-                        {/* SUB-LISTA DE RECIPIENTES (Silos e Tanques individuais de Patos) */}
-                        {(() => {
-                          const recsDoMaterial = recipientes.filter((r) => {
-                            if (r.material_id && r.material_id === mat.id)
-                              return true
-                            if (mat.codigo === "cimento")
-                              return (
-                                r.tipo === "silo" ||
-                                r.material_codigo === "cimento"
-                              )
-                            if (mat.codigo === "aditivo")
-                              return (
-                                r.tipo === "tanque" ||
-                                r.material_codigo === "aditivo"
-                              )
-                            return false
-                          })
+                      <div className="flex items-center justify-between pt-1">
+                        {!isBalanceiro ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-8 text-muted-foreground hover:text-foreground gap-1 px-2"
+                            onClick={() => {
+                              setMaterialEditando(mat)
+                              setNovoMinimo(mat.estoque_minimo)
+                              setOpenMinimo(true)
+                            }}
+                          >
+                            <Settings2 className="w-3.5 h-3.5" />
+                            Alterar Mínimo
+                          </Button>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground">
+                            Mínimo: {mat.estoque_minimo.toLocaleString("pt-BR")}{" "}
+                            {mat.unidade}
+                          </span>
+                        )}
 
-                          if (recsDoMaterial.length === 0) return null
+                        <div className="flex items-center gap-1.5">
+                          {mat.codigo === "cimento" &&
+                            saldo < LIMITE_AVISO_PEDIDO_CIMENTO_KG && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="text-xs h-8 gap-1 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                                onClick={() => {
+                                  const link = gerarLinkWhatsAppPedidoCimento({
+                                    unidadeNome:
+                                      empresaAtiva?.nome || "Unidade",
+                                    saldoAtualKg: saldo,
+                                    estoqueMinimoKg:
+                                      mat.estoque_minimo || 15000,
+                                    empresa: empresaAtiva,
+                                  })
+                                  window.open(
+                                    link,
+                                    "_blank",
+                                    "noopener,noreferrer",
+                                  )
+                                }}
+                              >
+                                <Send className="w-3.5 h-3.5" />
+                                Pedir WhatsApp
+                              </Button>
+                            )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-8 gap-1 px-2 text-primary hover:text-primary"
+                            onClick={() => {
+                              setMaterialEntradaId(mat.id)
+                              setOpenEntrada(true)
+                            }}
+                          >
+                            <PlusCircle className="w-3.5 h-3.5" />
+                            Repor Estoque
+                          </Button>
+                        </div>
+                      </div>
 
-                          return (
-                            <div className="pt-3 mt-3 border-t border-border/40 space-y-2">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="font-semibold text-foreground flex items-center gap-1.5">
-                                  <Cylinder className="w-3.5 h-3.5 text-primary" />
-                                  Saldos Individuais (
-                                  {mat.codigo === "cimento"
-                                    ? "Silos"
-                                    : "Tanques"}
-                                  ):
-                                </span>
-                                <span className="text-[10px] text-muted-foreground">
-                                  {recsDoMaterial.length} cadastrados
-                                </span>
-                              </div>
+                      {/* SUB-LISTA DE RECIPIENTES (Silos e Tanques individuais de Patos) */}
+                      {(() => {
+                        const recsDoMaterial = recipientes.filter((r) => {
+                          if (r.material_id && r.material_id === mat.id)
+                            return true
+                          if (mat.codigo === "cimento")
+                            return (
+                              r.tipo === "silo" ||
+                              r.material_codigo === "cimento"
+                            )
+                          if (mat.codigo === "aditivo")
+                            return (
+                              r.tipo === "tanque" ||
+                              r.material_codigo === "aditivo"
+                            )
+                          return false
+                        })
 
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {recsDoMaterial.map((rec) => {
-                                  const recCritico =
-                                    rec.estoque_minimo > 0 &&
-                                    rec.saldo_atual < rec.estoque_minimo
-                                  const recMargem =
-                                    rec.saldo_atual - rec.estoque_minimo
-                                  const recAtencao =
-                                    !recCritico &&
-                                    rec.estoque_minimo > 0 &&
-                                    rec.saldo_atual === rec.estoque_minimo
+                        if (recsDoMaterial.length === 0) return null
 
-                                  return (
-                                    <div
-                                      key={rec.id}
-                                      className={`p-2.5 rounded-lg border text-xs bg-background/70 space-y-1.5 ${
-                                        recCritico
-                                          ? "border-destructive/40 bg-destructive/5"
-                                          : recAtencao
-                                            ? "border-amber-500/40 bg-amber-500/5"
-                                            : "border-border/40"
-                                      }`}
-                                    >
-                                      <div className="flex items-center justify-between gap-1">
-                                        <span
-                                          className="font-semibold text-foreground truncate"
-                                          title={rec.nome}
+                        return (
+                          <div className="pt-3 mt-3 border-t border-border/40 space-y-2">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-foreground flex items-center gap-1.5">
+                                <Cylinder className="w-3.5 h-3.5 text-primary" />
+                                Saldos Individuais (
+                                {mat.codigo === "cimento" ? "Silos" : "Tanques"}
+                                ):
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {recsDoMaterial.length} cadastrados
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {recsDoMaterial.map((rec) => {
+                                const recCritico =
+                                  rec.estoque_minimo > 0 &&
+                                  rec.saldo_atual < rec.estoque_minimo
+                                const recMargem =
+                                  rec.saldo_atual - rec.estoque_minimo
+                                const recAtencao =
+                                  !recCritico &&
+                                  rec.estoque_minimo > 0 &&
+                                  rec.saldo_atual === rec.estoque_minimo
+
+                                return (
+                                  <div
+                                    key={rec.id}
+                                    className={`p-2.5 rounded-lg border text-xs bg-background/70 space-y-1.5 ${
+                                      recCritico
+                                        ? "border-destructive/40 bg-destructive/5"
+                                        : recAtencao
+                                          ? "border-amber-500/40 bg-amber-500/5"
+                                          : "border-border/40"
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between gap-1">
+                                      <span
+                                        className="font-semibold text-foreground truncate"
+                                        title={rec.nome}
+                                      >
+                                        {rec.nome}
+                                      </span>
+                                      {recCritico ? (
+                                        <Badge
+                                          variant="destructive"
+                                          className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-red-500/10 text-red-600 border-red-500/30 font-bold"
                                         >
-                                          {rec.nome}
-                                        </span>
-                                        {recCritico ? (
-                                          <Badge
-                                            variant="destructive"
-                                            className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-red-500/10 text-red-600 border-red-500/30 font-bold"
-                                          >
-                                            <AlertTriangle className="w-2.5 h-2.5" />
-                                            Abaixo
-                                          </Badge>
-                                        ) : recAtencao ? (
-                                          <Badge
-                                            variant="outline"
-                                            className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-amber-500/10 text-amber-600 border-amber-500/30 font-semibold"
-                                          >
-                                            <AlertTriangle className="w-2.5 h-2.5" />
-                                            No mínimo
-                                          </Badge>
-                                        ) : (
-                                          <Badge
-                                            variant="outline"
-                                            className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold"
-                                          >
-                                            <CheckCircle2 className="w-2.5 h-2.5" />
-                                            OK
-                                          </Badge>
-                                        )}
-                                      </div>
+                                          <AlertTriangle className="w-2.5 h-2.5" />
+                                          Abaixo
+                                        </Badge>
+                                      ) : recAtencao ? (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-amber-500/10 text-amber-600 border-amber-500/30 font-semibold"
+                                        >
+                                          <AlertTriangle className="w-2.5 h-2.5" />
+                                          No mínimo
+                                        </Badge>
+                                      ) : (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[9px] px-1.5 py-0 h-4 gap-0.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold"
+                                        >
+                                          <CheckCircle2 className="w-2.5 h-2.5" />
+                                          OK
+                                        </Badge>
+                                      )}
+                                    </div>
 
-                                      <div className="flex items-baseline justify-between font-mono">
-                                        <div>
-                                          <span
-                                            className={`text-sm font-bold ${
-                                              recCritico
-                                                ? "text-red-600 dark:text-red-400"
-                                                : "text-foreground"
-                                            }`}
-                                          >
-                                            {rec.saldo_atual.toLocaleString(
-                                              "pt-BR",
-                                            )}
-                                          </span>{" "}
-                                          <span className="text-[10px] text-muted-foreground font-normal">
-                                            {rec.unidade}
-                                          </span>
-                                        </div>
-                                        <span className="text-[10px] text-muted-foreground">
-                                          Mín:{" "}
-                                          {rec.estoque_minimo.toLocaleString(
+                                    <div className="flex items-baseline justify-between font-mono">
+                                      <div>
+                                        <span
+                                          className={`text-sm font-bold ${
+                                            recCritico
+                                              ? "text-red-600 dark:text-red-400"
+                                              : "text-foreground"
+                                          }`}
+                                        >
+                                          {rec.saldo_atual.toLocaleString(
                                             "pt-BR",
-                                          )}{" "}
+                                          )}
+                                        </span>{" "}
+                                        <span className="text-[10px] text-muted-foreground font-normal">
                                           {rec.unidade}
                                         </span>
                                       </div>
+                                      <span className="text-[10px] text-muted-foreground">
+                                        Mín:{" "}
+                                        {rec.estoque_minimo.toLocaleString(
+                                          "pt-BR",
+                                        )}{" "}
+                                        {rec.unidade}
+                                      </span>
                                     </div>
-                                  )
-                                })}
-                              </div>
+                                  </div>
+                                )
+                              })}
                             </div>
-                          )
-                        })()}
-                      </CardContent>
-                    </Card>
-                  )
-                })}
+                          </div>
+                        )
+                      })()}
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           </div>
 
-          {/* Seção Informativa: Materiais Apenas Consumo */}
-          <Card className="border-border/30 bg-muted/20">
-            <CardHeader className="py-3 px-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                <div>
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Boxes className="w-4 h-4 text-muted-foreground" />
-                    Agregados e Materiais em Modo Apenas Consumo
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Brita 12, Brita 19, Areia e Pó de Pedra são registrados
-                    diretamente no consumo das cargas (sem saldo de estoque,
-                    baixa ou alerta mínimo).
-                  </CardDescription>
+          {/* Seção Informativa: Materiais Apenas Consumo (só na visão geral) */}
+          {!ehCimento && !ehAditivo && (
+            <Card className="border-border/30 bg-muted/20">
+              <CardHeader className="py-3 px-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <div>
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Boxes className="w-4 h-4 text-muted-foreground" />
+                      Agregados e Materiais em Modo Apenas Consumo
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Brita 12, Brita 19, Areia e Pó de Pedra são registrados
+                      diretamente no consumo das cargas (sem saldo de estoque,
+                      baixa ou alerta mínimo).
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {materiais
+                      .filter(
+                        (m) => m.codigo !== "cimento" && m.codigo !== "aditivo",
+                      )
+                      .map((m) => (
+                        <Badge
+                          key={m.id}
+                          variant="secondary"
+                          className="text-xs font-normal"
+                        >
+                          {m.nome}
+                        </Badge>
+                      ))}
+                  </div>
                 </div>
-                <div className="flex gap-1.5 flex-wrap">
-                  {materiais
-                    .filter(
-                      (m) => m.codigo !== "cimento" && m.codigo !== "aditivo",
-                    )
-                    .map((m) => (
-                      <Badge
-                        key={m.id}
-                        variant="secondary"
-                        className="text-xs font-normal"
-                      >
-                        {m.nome}
-                      </Badge>
-                    ))}
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
+              </CardHeader>
+            </Card>
+          )}
 
           {/* Dialog Editar Estoque Mínimo */}
           <Dialog open={openMinimo} onOpenChange={setOpenMinimo}>
