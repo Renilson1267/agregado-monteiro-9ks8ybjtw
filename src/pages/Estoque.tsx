@@ -1491,7 +1491,6 @@ export default function Estoque() {
           <AbaControleBritas
             empresaAtiva={empresaAtiva}
             podeEditar={!isBalanceiro || isAdministrador || isGestor}
-            somenteEntradas
           />
         </TabsContent>
 
