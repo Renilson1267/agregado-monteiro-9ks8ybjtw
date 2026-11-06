@@ -232,12 +232,15 @@ export const ConcreteiraService = {
     materialId?: string,
     empresaId?: string,
     apenasControlados = true,
+    dataInicio?: string,
+    dataFim?: string,
   ): Promise<MovimentacaoEstoque[]> {
     let query = (supabase as any)
       .from("movimentacoes_estoque")
       .select("*, material:materiais(*)")
+      .order("data", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(300)
+      .limit(3000)
 
     if (empresaId) {
       query = query.eq("empresa_id", empresaId)
@@ -245,6 +248,14 @@ export const ConcreteiraService = {
 
     if (materialId && materialId !== "ALL") {
       query = query.eq("material_id", materialId)
+    }
+
+    // Filtro por período (campo `data`, formato YYYY-MM-DD)
+    if (dataInicio) {
+      query = query.gte("data", dataInicio)
+    }
+    if (dataFim) {
+      query = query.lte("data", dataFim)
     }
 
     const { data, error } = await query

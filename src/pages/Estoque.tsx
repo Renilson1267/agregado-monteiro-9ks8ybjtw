@@ -59,6 +59,8 @@ import {
   FileSpreadsheet,
   Send,
   Wrench,
+  CalendarDays,
+  FilterX,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Link, useLocation, useNavigate } from "react-router-dom"
@@ -113,6 +115,47 @@ export default function Estoque() {
   const [filtroMaterial, setFiltroMaterial] = useState<string>("ALL")
   const [loading, setLoading] = useState(true)
 
+  // ===== FILTRO DE PERÍODO DO HISTÓRICO =====
+  // dia | mes_atual | mes_anterior | mes_retrasado | personalizado
+  const hojeISO = () => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+  }
+  const [periodoHist, setPeriodoHist] =
+    useState<"dia" | "mes_atual" | "mes_anterior" | "personalizado">(
+      "mes_atual",
+    )
+  const [dataInicioHist, setDataInicioHist] = useState<string>("")
+  const [dataFimHist, setDataFimHist] = useState<string>("")
+
+  // Limites de cada atalho, calculados a partir de hoje
+  const limitesPeriodo = (p: typeof periodoHist) => {
+    const d = new Date()
+    const y = d.getFullYear()
+    const m = d.getMonth() // 0-11
+    const iso = (ano: number, mes0: number, dia: number) =>
+      `${ano}-${String(mes0 + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`
+    const ultimoDia = (ano: number, mes0: number) =>
+      new Date(ano, mes0 + 1, 0).getDate()
+
+    if (p === "dia") {
+      const hj = hojeISO()
+      return { inicio: hj, fim: hj }
+    }
+    if (p === "mes_atual") {
+      return { inicio: iso(y, m, 1), fim: iso(y, m, ultimoDia(y, m)) }
+    }
+    if (p === "mes_anterior") {
+      const anoAnt = m === 0 ? y - 1 : y
+      const mesAnt = m === 0 ? 11 : m - 1
+      return {
+        inicio: iso(anoAnt, mesAnt, 1),
+        fim: iso(anoAnt, mesAnt, ultimoDia(anoAnt, mesAnt)),
+      }
+    }
+    return { inicio: dataInicioHist, fim: dataFimHist }
+  }
+
   // Dialog Registrar Entrada
   const [openEntrada, setOpenEntrada] = useState(false)
   const [salvandoEntrada, setSalvandoEntrada] = useState(false)
@@ -142,12 +185,15 @@ export default function Estoque() {
     if (!empresaAtiva) return
     setLoading(true)
     try {
+      const lim = limitesPeriodo(periodoHist)
       const [mats, movs, recs] = await Promise.all([
         ConcreteiraService.getMateriais(empresaAtiva.id),
         ConcreteiraService.getMovimentacoes(
           filtroMaterial,
           empresaAtiva.id,
           true,
+          lim.inicio || undefined,
+          lim.fim || undefined,
         ),
         ConcreteiraService.getRecipientesEstoque(empresaAtiva.id),
       ])
@@ -183,7 +229,13 @@ export default function Estoque() {
       carregarDados()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroMaterial, empresaAtiva?.id])
+  }, [
+    filtroMaterial,
+    empresaAtiva?.id,
+    periodoHist,
+    dataInicioHist,
+    dataFimHist,
+  ])
 
   // ===== TRAVA DO MATERIAL =====
   // O formulário de entrada SEMPRE grava no material da rota. Sem isto o
@@ -1178,6 +1230,91 @@ export default function Estoque() {
                 </Select>
               </div>
             </CardHeader>
+
+            {/* BARRA DE FILTROS DE PERÍODO */}
+            <div className="px-4 sm:px-6 pb-3 flex flex-wrap items-center gap-2 border-b border-border/30">
+              <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-1">
+                <CalendarDays className="w-3.5 h-3.5" />
+                Período:
+              </span>
+
+              {[
+                { id: "dia", label: "DIA ATUAL" },
+                { id: "mes_atual", label: "MÊS ATUAL" },
+                { id: "mes_anterior", label: "MÊS ANTERIOR" },
+              ].map((b) => (
+                <Button
+                  key={b.id}
+                  type="button"
+                  size="sm"
+                  variant={periodoHist === b.id ? "default" : "outline"}
+                  onClick={() => setPeriodoHist(b.id as any)}
+                  className={`h-7 px-2.5 text-[10px] font-bold uppercase tracking-tight ${
+                    periodoHist === b.id
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {b.label}
+                </Button>
+              ))}
+
+              <span className="text-xs text-muted-foreground px-1">|</span>
+
+              <Input
+                type="date"
+                value={dataInicioHist}
+                onChange={(e) => {
+                  setDataInicioHist(e.target.value)
+                  setPeriodoHist("personalizado")
+                }}
+                className="h-7 w-[135px] text-xs"
+                title="Data inicial"
+              />
+              <span className="text-xs text-muted-foreground">até</span>
+              <Input
+                type="date"
+                value={dataFimHist}
+                onChange={(e) => {
+                  setDataFimHist(e.target.value)
+                  setPeriodoHist("personalizado")
+                }}
+                className="h-7 w-[135px] text-xs"
+                title="Data final"
+              />
+
+              {periodoHist === "personalizado" && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setDataInicioHist("")
+                    setDataFimHist("")
+                    setPeriodoHist("mes_atual")
+                  }}
+                  className="h-7 px-2 text-[10px] text-muted-foreground hover:text-foreground gap-1"
+                >
+                  <FilterX className="w-3 h-3" />
+                  Limpar
+                </Button>
+              )}
+
+              <div className="ml-auto flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-mono border-primary/30 text-primary"
+                >
+                  {limitesPeriodo(periodoHist).inicio ||
+                  limitesPeriodo(periodoHist).fim
+                    ? `${(limitesPeriodo(periodoHist).inicio || "…").split("-").reverse().join("/")} — ${(limitesPeriodo(periodoHist).fim || "…").split("-").reverse().join("/")}`
+                    : "todo o período"}
+                </Badge>
+                <Badge variant="secondary" className="text-[10px] font-mono">
+                  {movimentacoes.length} mov.
+                </Badge>
+              </div>
+            </div>
             <CardContent>
               <div className="overflow-x-auto max-h-[500px]">
                 <table className="w-full text-xs text-left">
