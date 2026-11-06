@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   Card,
   CardContent,
@@ -114,6 +114,10 @@ export default function Estoque() {
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([])
   const [filtroMaterial, setFiltroMaterial] = useState<string>("ALL")
   const [loading, setLoading] = useState(true)
+  // Histórico COMPLETO do material (sem recorte de período) — serve para
+  // calcular o saldo de abertura de cada mês exibido no extrato.
+  const [movimentacoesTodas, setMovimentacoesTodas] =
+    useState<MovimentacaoEstoque[]>([])
 
   // ===== FILTRO DE PERÍODO DO HISTÓRICO =====
   // dia | mes_atual | mes_anterior | mes_retrasado | personalizado
@@ -181,6 +185,55 @@ export default function Estoque() {
   const [modalConfirmarMinimoAberta, setModalConfirmarMinimoAberta] =
     useState(false)
 
+  // ===== SALDO DE ABERTURA POR MÊS =====
+  // Para cada mês presente no extrato, calcula quanto havia no início do mês,
+  // separado por recipiente (silo/tanque) quando a informação existe.
+  const aberturasPorMes = useMemo(() => {
+    if (movimentacoesTodas.length === 0) return new Map<string, any[]>()
+
+    // Ordena cronologicamente (data do movimento, depois criação)
+    const ordenadas = [...movimentacoesTodas].sort((a, b) => {
+      if (a.data !== b.data) return a.data < b.data ? -1 : 1
+      return (a.created_at || "") < (b.created_at || "") ? -1 : 1
+    })
+
+    // Acumula saldo por recipiente e total
+    const saldoRec = new Map<string, number>()
+    let saldoTotal = 0
+    const porMes = new Map<string, any[]>()
+    let mesCorrente = ""
+
+    const registraAbertura = (mes: string) => {
+      if (porMes.has(mes)) return
+      const linhas = Array.from(saldoRec.entries())
+        .filter(([, v]) => Math.abs(v) > 0.001)
+        .map(([nome, saldo]) => ({ recipiente: nome, saldo }))
+      porMes.set(mes, linhas)
+    }
+
+    for (const mov of ordenadas) {
+      const mes = (mov.data || "").substring(0, 7) // YYYY-MM
+      if (mes && mes !== mesCorrente) {
+        // Fecha todos os meses intermediários e registra a abertura do novo
+        mesCorrente = mes
+        registraAbertura(mes)
+      }
+      const q = Number(mov.quantidade) || 0
+      const sinal =
+        mov.tipo === "ENTRADA" ||
+        mov.tipo === "ABERTURA" ||
+        mov.tipo === "AJUSTE"
+          ? 1
+          : -1
+      const rec = (mov as any).recipiente_nome || ""
+      if (rec) {
+        saldoRec.set(rec, (saldoRec.get(rec) || 0) + sinal * q)
+      }
+      saldoTotal += sinal * q
+    }
+    return porMes
+  }, [movimentacoesTodas])
+
   const carregarDados = async () => {
     if (!empresaAtiva) return
     setLoading(true)
@@ -200,6 +253,21 @@ export default function Estoque() {
       setMateriais(mats)
       setMovimentacoes(movs)
       setRecipientes(recs || [])
+
+      // Busca o histórico COMPLETO do insumo (sem recorte) para os saldos de
+      // abertura dos meses. Uma única consulta por material selecionado.
+      const matSel =
+        filtroMaterial && filtroMaterial !== "ALL"
+          ? filtroMaterial
+          : mats.find((m) => m.codigo === codigoFixo)?.id
+      if (matSel) {
+        const todas = await ConcreteiraService.getMovimentacoes(
+          matSel,
+          empresaAtiva.id,
+          false,
+        )
+        setMovimentacoesTodas(todas)
+      }
 
       // Seleciona material inicial apenas dentre os controlados (cimento e aditivo)
       const matsControlados = mats.filter((m) =>
@@ -1348,93 +1416,182 @@ export default function Estoque() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/20">
-                      {movimentacoes.map((mov) => {
+                      {movimentacoes.map((mov, movIdx) => {
                         const isEntrada =
                           mov.tipo === "ENTRADA" || mov.tipo === "ABERTURA"
                         const mat =
                           materiais.find((m) => m.id === mov.material_id) ||
                           mov.material
 
+                        // Linha de ABERTURA DE MÊS: inserida antes do primeiro
+                        // movimento de cada mês do extrato.
+                        const mesMov = (mov.data || "").substring(0, 7)
+                        const mesAnterior = movimentacoes[
+                          movIdx - 1
+                        ]?.data?.substring(0, 7)
+                        const ehPrimeiroDoMes =
+                          mesMov !== mesAnterior && !!mesMov
+                        const abertura = aberturasPorMes.get(mesMov)
+                        const unidadeMat = mat?.unidade || "kg"
+
                         return (
-                          <tr
-                            key={mov.id}
-                            className="hover:bg-muted/20 transition-colors"
-                          >
-                            <td className="py-2.5 px-3 text-muted-foreground font-mono">
-                              {mov.data.split("-").reverse().join("/")}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              {isEntrada ? (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px] text-emerald-500 border-emerald-500/30 bg-emerald-500/10 gap-1 font-semibold"
-                                >
-                                  <TrendingUp className="w-3 h-3" />
-                                  {mov.tipo}
-                                </Badge>
-                              ) : (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px] text-rose-500 border-rose-500/30 bg-rose-500/10 gap-1 font-semibold"
-                                >
-                                  <TrendingDown className="w-3 h-3" />
-                                  SAÍDA (CARGA)
-                                </Badge>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-3 font-medium text-foreground">
-                              {mat?.nome || "—"}
-                            </td>
-                            <td className="py-2.5 px-3 text-muted-foreground text-xs">
-                              {(mov as any).recipiente_nome ||
-                                (mov as any).recipiente_id ||
-                                "—"}
-                            </td>
-                            <td className="py-2.5 px-3 font-mono font-bold">
-                              <span
-                                className={
-                                  isEntrada
-                                    ? "text-emerald-500"
-                                    : "text-rose-500"
-                                }
+                          <>
+                            {ehPrimeiroDoMes && (
+                              <tr
+                                key={`abertura-${mesMov}`}
+                                className="bg-primary/5 border-y border-primary/20"
                               >
-                                {isEntrada ? "+" : "-"}{" "}
-                                {Number(mov.quantidade).toLocaleString("pt-BR")}{" "}
-                                {mat?.unidade || ""}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 text-right font-mono text-muted-foreground">
-                              {isEntrada && mov.preco_unitario != null
-                                ? Number(mov.preco_unitario).toLocaleString(
-                                    "pt-BR",
-                                    {
-                                      style: "currency",
-                                      currency: "BRL",
-                                    },
-                                  )
-                                : "—"}
-                            </td>
-                            <td className="py-2.5 px-3 text-right font-mono font-medium text-foreground">
-                              {isEntrada && mov.valor_total != null
-                                ? Number(mov.valor_total).toLocaleString(
-                                    "pt-BR",
-                                    {
-                                      style: "currency",
-                                      currency: "BRL",
-                                    },
-                                  )
-                                : "—"}
-                            </td>
-                            <td className="py-2.5 px-3 text-muted-foreground font-mono text-[11px]">
-                              {mov.documento || "—"}
-                            </td>
-                            <td
-                              className="py-2.5 px-3 text-muted-foreground max-w-[250px] truncate"
-                              title={mov.observacao || ""}
+                                <td className="py-2 px-3 font-mono font-bold text-primary whitespace-nowrap">
+                                  01/{mesMov.substring(5)}/
+                                  {mesMov.substring(0, 4)}
+                                </td>
+                                <td className="py-2 px-3">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] font-bold text-primary border-primary/40 bg-primary/10 gap-1"
+                                  >
+                                    <CalendarDays className="w-3 h-3" />
+                                    SALDO INICIAL
+                                  </Badge>
+                                </td>
+                                <td className="py-2 px-3 font-semibold text-foreground">
+                                  {mat?.nome || "—"}
+                                </td>
+                                <td className="py-2 px-3 text-[11px] text-muted-foreground">
+                                  {abertura && abertura.length > 0 ? (
+                                    <div className="space-y-0.5">
+                                      {abertura.map((a: any) => (
+                                        <div
+                                          key={a.recipiente}
+                                          className="flex justify-between gap-3"
+                                        >
+                                          <span
+                                            className="truncate max-w-[150px]"
+                                            title={a.recipiente}
+                                          >
+                                            {a.recipiente}
+                                          </span>
+                                          <span className="font-mono font-semibold text-foreground whitespace-nowrap">
+                                            {a.saldo.toLocaleString("pt-BR", {
+                                              maximumFractionDigits: 0,
+                                            })}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    "—"
+                                  )}
+                                </td>
+                                <td className="py-2 px-3 font-mono font-bold text-primary">
+                                  {abertura
+                                    ? abertura
+                                        .reduce(
+                                          (s: number, a: any) => s + a.saldo,
+                                          0,
+                                        )
+                                        .toLocaleString("pt-BR", {
+                                          maximumFractionDigits: 0,
+                                        })
+                                    : "0"}{" "}
+                                  {unidadeMat}
+                                </td>
+                                <td className="py-2 px-3 text-right text-muted-foreground">
+                                  —
+                                </td>
+                                <td className="py-2 px-3 text-right text-muted-foreground">
+                                  —
+                                </td>
+                                <td className="py-2 px-3 text-muted-foreground font-mono text-[11px]">
+                                  ABERTURA {mesMov}
+                                </td>
+                                <td className="py-2 px-3 text-muted-foreground text-[11px]">
+                                  Saldo no início do mês
+                                </td>
+                              </tr>
+                            )}
+                            <tr
+                              key={mov.id}
+                              className="hover:bg-muted/20 transition-colors"
                             >
-                              {mov.observacao || "—"}
-                            </td>
-                          </tr>
+                              <td className="py-2.5 px-3 text-muted-foreground font-mono">
+                                {mov.data.split("-").reverse().join("/")}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                {isEntrada ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] text-emerald-500 border-emerald-500/30 bg-emerald-500/10 gap-1 font-semibold"
+                                  >
+                                    <TrendingUp className="w-3 h-3" />
+                                    {mov.tipo}
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] text-rose-500 border-rose-500/30 bg-rose-500/10 gap-1 font-semibold"
+                                  >
+                                    <TrendingDown className="w-3 h-3" />
+                                    SAÍDA (CARGA)
+                                  </Badge>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 font-medium text-foreground">
+                                {mat?.nome || "—"}
+                              </td>
+                              <td className="py-2.5 px-3 text-muted-foreground text-xs">
+                                {(mov as any).recipiente_nome ||
+                                  (mov as any).recipiente_id ||
+                                  "—"}
+                              </td>
+                              <td className="py-2.5 px-3 font-mono font-bold">
+                                <span
+                                  className={
+                                    isEntrada
+                                      ? "text-emerald-500"
+                                      : "text-rose-500"
+                                  }
+                                >
+                                  {isEntrada ? "+" : "-"}{" "}
+                                  {Number(mov.quantidade).toLocaleString(
+                                    "pt-BR",
+                                  )}{" "}
+                                  {mat?.unidade || ""}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono text-muted-foreground">
+                                {isEntrada && mov.preco_unitario != null
+                                  ? Number(mov.preco_unitario).toLocaleString(
+                                      "pt-BR",
+                                      {
+                                        style: "currency",
+                                        currency: "BRL",
+                                      },
+                                    )
+                                  : "—"}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono font-medium text-foreground">
+                                {isEntrada && mov.valor_total != null
+                                  ? Number(mov.valor_total).toLocaleString(
+                                      "pt-BR",
+                                      {
+                                        style: "currency",
+                                        currency: "BRL",
+                                      },
+                                    )
+                                  : "—"}
+                              </td>
+                              <td className="py-2.5 px-3 text-muted-foreground font-mono text-[11px]">
+                                {mov.documento || "—"}
+                              </td>
+                              <td
+                                className="py-2.5 px-3 text-muted-foreground max-w-[250px] truncate"
+                                title={mov.observacao || ""}
+                              >
+                                {mov.observacao || "—"}
+                              </td>
+                            </tr>
+                          </>
                         )
                       })}
                     </tbody>
