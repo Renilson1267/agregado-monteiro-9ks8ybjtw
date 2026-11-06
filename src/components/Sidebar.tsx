@@ -5,7 +5,9 @@ import {
   LayoutDashboard,
   TrendingUp,
   Truck,
-  Boxes,
+  Package,
+  Droplets,
+  Layers,
   FlaskConical,
   Users,
   CalendarDays,
@@ -164,11 +166,23 @@ export function Sidebar({
     },
     {
       id: "estoque_tracos",
-      label: "Estoque & Insumos",
+      label: "Estoque",
       items: [
         {
-          icon: Boxes,
-          label: "Estoque de Insumos",
+          icon: Package,
+          label: "Cimento",
+          path: "/estoque",
+          group: "estoque_tracos",
+        },
+        {
+          icon: Droplets,
+          label: "Aditivo",
+          path: "/estoque",
+          group: "estoque_tracos",
+        },
+        {
+          icon: Layers,
+          label: "Britas",
           path: "/estoque",
           group: "estoque_tracos",
         },
@@ -352,7 +366,7 @@ export function Sidebar({
 
                 const linkContent = (
                   <Link
-                    key={item.path}
+                    key={`${item.path}-${item.label}`}
                     to={item.path}
                     onClick={() => {
                       if (isMobileView && onMobileClose) onMobileClose()
@@ -397,7 +411,10 @@ export function Sidebar({
 
                 if (collapsed && !isMobileView) {
                   return (
-                    <Tooltip key={item.path} delayDuration={100}>
+                    <Tooltip
+                      key={`${item.path}-${item.label}`}
+                      delayDuration={100}
+                    >
                       <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
                       <TooltipContent
                         side="right"

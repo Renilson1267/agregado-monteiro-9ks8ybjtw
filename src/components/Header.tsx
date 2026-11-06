@@ -78,7 +78,7 @@ export function Header({
     if (path === "/painel") return "Painel Gerencial Executivo"
     if (path === "/lancamentos") return "Lançamento de Cargas"
     if (path === "/ordens") return "Ordens de Serviço & Recibos"
-    if (path === "/estoque") return "Estoque de Insumos"
+    if (path === "/estoque") return "Estoque"
     if (path === "/tracos") return "Traços & Dosagens"
     if (path === "/exames") return "Controle de Exames (ASO)"
     if (path === "/folha") return "Folha de Pagamento"

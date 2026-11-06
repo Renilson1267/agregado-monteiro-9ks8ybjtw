@@ -335,7 +335,10 @@ export class FolhaService {
     id: string,
     empresaId: string,
     competencia: string,
-    campos: { filhos: number familia?: number },
+    campos: {
+      filhos: number
+      familia?: number
+    },
   ): Promise<FolhaPagamentoLinha> {
     const familia = Number(campos.familia ?? 0)
     const dadosUpdate: Record<string, any> = {

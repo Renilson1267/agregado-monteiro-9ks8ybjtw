@@ -523,7 +523,11 @@ export default function FolhaPagamento() {
         nomeUpper.includes("RAIMUNDO") ||
         nomeUpper.includes("MARCIO LUAN")
 
-      const dados: { filhos: number familia?: number } = {
+      interface DadosFilhos {
+        filhos: number
+        familia?: number
+      }
+      const dados: DadosFilhos = {
         filhos: Number(novoValor) || 0,
       }
       if (isTerceiro) {
