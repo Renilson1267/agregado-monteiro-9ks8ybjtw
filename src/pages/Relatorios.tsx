@@ -951,6 +951,10 @@ export default function Relatorios() {
     .filter(Boolean)
     .join(" | ")
 
+  // Unidades do comparativo no escopo do componente (evita ReferenceError
+  // em blocos que ficam fora dos IIFEs de renderização)
+  const unim = dadosComparativo.unidades
+
   const labelPeriodoComparativo = (() => {
     if (
       tipoPeriodoComparativo === "todos" &&
