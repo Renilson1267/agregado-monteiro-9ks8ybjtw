@@ -207,6 +207,31 @@ export default function Estoque() {
       const linhas = Array.from(saldoRec.entries())
         .filter(([, v]) => Math.abs(v) > 0.001)
         .map(([nome, saldo]) => ({ recipiente: nome, saldo }))
+
+      // REGRA: zera SOMENTE o "Silo de Cimento Novo" na exibição.
+      // Ele recebeu baixas antes das entradas, então acumula saldo negativo.
+      // O déficit sai da linha do silo (fica em 0) e vai para "Não atribuído
+      // ao silo", então o total do mês continua igual ao saldo real do
+      // cimento. Nenhum outro silo/tanque é afetado.
+      const idxSiloNovo = linhas.findIndex((l) =>
+        (l.recipiente || "").toLowerCase().includes("cimento novo"),
+      )
+      if (idxSiloNovo >= 0 && linhas[idxSiloNovo].saldo < 0) {
+        const deficit = linhas[idxSiloNovo].saldo
+        linhas[idxSiloNovo].saldo = 0
+        const idxNaoAtribuido = linhas.findIndex(
+          (l) => l.recipiente === "Não atribuído ao silo",
+        )
+        if (idxNaoAtribuido >= 0) {
+          linhas[idxNaoAtribuido].saldo += deficit
+        } else {
+          linhas.push({
+            recipiente: "Não atribuído ao silo",
+            saldo: deficit,
+          })
+        }
+      }
+
       porMes.set(mes, linhas)
     }
 
