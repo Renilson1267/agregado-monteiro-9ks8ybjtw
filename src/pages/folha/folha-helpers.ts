@@ -122,6 +122,43 @@ export function verificarInativoPorCadastroOuLinha(
 }
 
 /**
+ * Verifica se o funcionário está DEMITIDO na competência informada (estado do
+ * CADASTRO): data_demissao com ano-mês <= competência, OU ativo=false sem
+ * data_demissao. INDEPENDENTE de linha.inativo — o cadastro demitido vence o
+ * inativo da linha (a linha pode estar inativo=true e mesmo assim a demissão
+ * no cadastro manda remover por completo a partir do mês da demissão).
+ */
+export function verificarDemitidoNaCompetencia(
+  mes: number,
+  ano: number,
+  infoCadastro?: {
+    data_demissao?: string | null
+    ativo?: boolean
+    inativo?: boolean
+  } | null,
+): boolean {
+  if (!infoCadastro) return false
+
+  const compNum = ano * 100 + mes
+
+  if (infoCadastro.data_demissao) {
+    const partes = infoCadastro.data_demissao.split("T")[0].split("-")
+    if (partes.length >= 2) {
+      const anoDem = parseInt(partes[0], 10)
+      const mesDem = parseInt(partes[1], 10)
+      if (!isNaN(anoDem) && !isNaN(mesDem)) {
+        const demNum = anoDem * 100 + mesDem
+        if (demNum <= compNum) return true
+      }
+    }
+    return false
+  }
+
+  // Demissão sem data: ativo=false no cadastro vale para todas as competências
+  return infoCadastro.ativo === false
+}
+
+/**
  * Verifica se o funcionário está DEMITIDO no cadastro (data_demissao preenchida
  * OU ativo=false) — independentemente da competência. Distinção importante:
  * demitido é estado do CADASTRO; oculto/inativo é flag da LINHA (0.0.420).
@@ -162,13 +199,17 @@ export function processarLinhaFolha(
     infoCadastro,
   )
 
-  // Demitido no cadastro a partir do mês da demissão: some por completo da folha
-  // (verificarInativoPorCadastroOuLinha já resolve o corte mês/ano da demissão e
-  // o caso ativo=false sem data_demissao). Oculto manual (linha.inativo) NÃO
-  // demite: segue a regra 0.0.420 — visível zerado, revelado pelo filtro.
+  // Demitido no cadastro a partir do mês da demissão: some por completo da folha,
+  // INDEPENDENTE de linha.inativo (o cadastro demitido vence o inativo da linha —
+  // a 0.0.458 exigia inativo !== true e demitidos com inativo=true vazavam na folha).
+  // Oculto manual SEM demissão no cadastro segue a regra 0.0.420 — visível zerado,
+  // revelado pelo filtro.
   const demitidoNoCadastro = verificarDemitidoNoCadastro(infoCadastro)
-  const ehDemitidoNaCompetencia =
-    demitidoNoCadastro && ehInativo && linha.inativo !== true
+  const ehDemitidoNaCompetencia = verificarDemitidoNaCompetencia(
+    mes,
+    ano,
+    infoCadastro,
+  )
 
   // Linhas inativas (ex.: demitidos com inativo=true ou demissão no cadastro a partir do mês da demissão)
   // não geram desembolso nem entram nos totais da unidade
