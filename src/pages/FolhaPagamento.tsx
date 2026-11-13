@@ -805,15 +805,38 @@ export default function FolhaPagamento() {
         ? `* Nota: O total oficial inclui colaboradores ocultos contabilizados como ativos (Inclui ocultos: ${formatarMoeda(difOcultos)}).`
         : undefined
 
+    // A PAGAR da quinzena = quinzena − adiantamento (mínimo 0), mesmo
+    // critério da tela da aba QUINZENA; totais somam só as linhas impressas
+    const somaAPagarImpressa =
+      Math.round(
+        linhasFiltradasVisual.reduce(
+          (acc, l) =>
+            acc +
+            Math.max(0, l.quinzenaCalculada - l.adiantamentoEfetivo) *
+              (l.inativo || l.inativoEfetivo ? 0 : 1),
+          0,
+        ) * 100,
+      ) / 100
+
     imprimirRelatorioA4({
       titulo: "FOLHA DE ADIANTAMENTO QUINZENAL (40%)",
       empresaNome: empresaAtiva?.nome || "GC MIX",
       competencia: competenciaAtiva,
-      colunas: ["Nº", "NOME", "A PAGAR", "PIX / CONTA", "ASSINATURA"],
+      colunas: [
+        "Nº",
+        "NOME",
+        "QUINZENA",
+        "ADIANTAMENTO",
+        "A PAGAR",
+        "PIX / CONTA",
+        "ASSINATURA",
+      ],
       linhas: linhasFiltradasVisual.map((l, i) => [
         i + 1,
         l.nome,
         formatarMoeda(l.quinzenaCalculada),
+        formatarMoeda(l.adiantamentoEfetivo),
+        formatarMoeda(Math.max(0, l.quinzenaCalculada - l.adiantamentoEfetivo)),
         l.pix || l.chave_pix || l.conta || "—",
         "",
       ]),
@@ -821,6 +844,8 @@ export default function FolhaPagamento() {
         "",
         "TOTAIS",
         formatarMoeda(totaisUnidadeAtiva.totalQuinzena),
+        formatarMoeda(totaisUnidadeAtiva.totalAdiantamento),
+        formatarMoeda(somaAPagarImpressa),
         "",
         "",
       ],
