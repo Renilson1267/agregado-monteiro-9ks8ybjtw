@@ -15,7 +15,10 @@ export interface LinhaFolhaProcessada
   extends FolhaPagamentoLinha {
   // Flag resolvido de inatividade (linha.inativo ou cadastro demitido/inativo)
   // Valores calculados resolvidos
+  // Demitido no cadastro (data_demissao preenchida OU ativo=false) a partir do mês
+  // da demissão: some POR COMPLETO das abas e impressões (não fica linha zerada)
   inativoEfetivo?: boolean
+  ehDemitidoNaCompetencia?: boolean
   quinzenaCalculada: number
   inssCalculado: number
   irrfCalculado: number
@@ -119,6 +122,23 @@ export function verificarInativoPorCadastroOuLinha(
 }
 
 /**
+ * Verifica se o funcionário está DEMITIDO no cadastro (data_demissao preenchida
+ * OU ativo=false) — independentemente da competência. Distinção importante:
+ * demitido é estado do CADASTRO; oculto/inativo é flag da LINHA (0.0.420).
+ */
+export function verificarDemitidoNoCadastro(
+  infoCadastro?: {
+    data_demissao?: string | null
+    ativo?: boolean
+    inativo?: boolean
+  } | null,
+): boolean {
+  if (!infoCadastro) return false
+  if (infoCadastro.data_demissao) return true
+  return infoCadastro.ativo === false
+}
+
+/**
  * Calcula os termos de uma linha da folha com as regras aprovadas do Grupo Cordeiro
  */
 export function processarLinhaFolha(
@@ -142,12 +162,21 @@ export function processarLinhaFolha(
     infoCadastro,
   )
 
+  // Demitido no cadastro a partir do mês da demissão: some por completo da folha
+  // (verificarInativoPorCadastroOuLinha já resolve o corte mês/ano da demissão e
+  // o caso ativo=false sem data_demissao). Oculto manual (linha.inativo) NÃO
+  // demite: segue a regra 0.0.420 — visível zerado, revelado pelo filtro.
+  const demitidoNoCadastro = verificarDemitidoNoCadastro(infoCadastro)
+  const ehDemitidoNaCompetencia =
+    demitidoNoCadastro && ehInativo && linha.inativo !== true
+
   // Linhas inativas (ex.: demitidos com inativo=true ou demissão no cadastro a partir do mês da demissão)
   // não geram desembolso nem entram nos totais da unidade
   if (ehInativo) {
     return {
       ...linha,
       inativoEfetivo: true,
+      ehDemitidoNaCompetencia,
       quinzenaCalculada: 0,
       inssCalculado: 0,
       irrfCalculado: 0,
@@ -302,6 +331,7 @@ export function processarLinhaFolha(
   return {
     ...linha,
     inativoEfetivo: false,
+    ehDemitidoNaCompetencia,
     quinzenaCalculada: quinzena,
     inssCalculado: inss,
     irrfCalculado: irrf,

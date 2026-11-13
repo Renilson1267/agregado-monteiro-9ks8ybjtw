@@ -377,10 +377,18 @@ export default function FolhaPagamento() {
   // Regra 0.0.420 (revendo 0.0.419): colaborador marcado como OCULTO some da folha
   // (tabelas e impressões A4), mas segue contabilizado como ativo em todos os totais.
   // Pode ser revelado via filtro Situação = 'OCULTOS' ou pelo botão 'Ver Ocultos' (mostrarOcultosGeral).
+  // Regra 0.0.458: DEMITIDO no cadastro (data_demissao OU ativo=false) a partir do
+  // mês da demissão some POR COMPLETO da folha — nenhuma aba, impressão A4 ou filtro
+  // mostra a linha (não fica linha zerada). Competências anteriores ao mês da
+  // demissão continuam com os valores históricos. Diferente de oculto manual
+  // (linha.inativo), que segue visível zerado com o filtro de ocultos.
   const linhasFiltradasVisual = useMemo<LinhaFolhaProcessada[]>(() => {
     const termoNorm = normalizarParaBusca(filtrosBusca.termo)
 
     return linhasProcessadasAtiva.filter((l) => {
+      // Demitido (cadastro) a partir do mês da demissão: remove por completo
+      if (l.ehDemitidoNaCompetencia) return false
+
       // Filtro Tipo
       if (filtrosBusca.tipo === "FUNCIONARIO" && l.tipo === "Terceiro")
         return false
