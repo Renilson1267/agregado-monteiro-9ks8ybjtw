@@ -390,6 +390,7 @@ export class FolhaService {
       gratificacao?: number
       adiantamento?: number
       adiantamento_destino?: string
+      quinzena?: number
     },
   ): Promise<FolhaPagamentoLinha> {
     const dadosUpdate: Record<string, any> = {
@@ -415,6 +416,8 @@ export class FolhaService {
       dadosUpdate.adiantamento = Number(campos.adiantamento || 0)
     if (campos.adiantamento_destino !== undefined)
       dadosUpdate.adiantamento_destino = campos.adiantamento_destino
+    if (campos.quinzena !== undefined)
+      dadosUpdate.quinzena = Number(campos.quinzena || 0)
 
     // Se obras ou valor_obra foram atualizados, atualiza também a coluna calculada 'producao' = obras * valor_obra
     if (campos.obras !== undefined || campos.valor_obra !== undefined) {

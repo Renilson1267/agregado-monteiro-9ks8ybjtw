@@ -509,6 +509,62 @@ export default function FolhaPagamento() {
     }
   }
 
+  // Salvar QUINZENA inline (aba QUINZENA) — valor digitado, salvo em folha_pagamento_linhas.quinzena
+  const handleSalvarQuinzenaInline = async (
+    linhaId: string,
+    novoValor: number,
+  ) => {
+    if (!empresaAtiva?.id) return
+    try {
+      await FolhaService.atualizarCamposProducaoLinha(
+        linhaId,
+        empresaAtiva.id,
+        competenciaAtiva,
+        { quinzena: novoValor },
+      )
+      toast({
+        title: "Quinzena atualizada",
+        description: `Valor da quinzena salvo com sucesso: ${formatarMoeda(novoValor)}`,
+      })
+      await carregarDadosFolha()
+    } catch (e) {
+      console.error("Erro ao salvar quinzena inline:", e)
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível atualizar o valor da quinzena.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Salvar ADIANTAMENTO inline (aba QUINZENA) — valor digitado, salvo em folha_pagamento_linhas.adiantamento
+  const handleSalvarAdiantamentoInline = async (
+    linhaId: string,
+    novoValor: number,
+  ) => {
+    if (!empresaAtiva?.id) return
+    try {
+      await FolhaService.atualizarCamposProducaoLinha(
+        linhaId,
+        empresaAtiva.id,
+        competenciaAtiva,
+        { adiantamento: novoValor },
+      )
+      toast({
+        title: "Adiantamento atualizado",
+        description: `Valor do adiantamento salvo com sucesso: ${formatarMoeda(novoValor)}`,
+      })
+      await carregarDadosFolha()
+    } catch (e) {
+      console.error("Erro ao salvar adiantamento inline:", e)
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível atualizar o valor do adiantamento.",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Salvar FILHOS inline (aba GERAL) — a família recalcula na recarga da linha
   const handleSalvarFilhosInline = async (
     linhaId: string,
@@ -1228,6 +1284,8 @@ export default function FolhaPagamento() {
           <AbaQuinzena
             linhas={linhasFiltradasVisual}
             totais={totaisUnidadeAtiva}
+            onSalvarQuinzenaInline={handleSalvarQuinzenaInline}
+            onSalvarAdiantamentoInline={handleSalvarAdiantamentoInline}
             onImprimirA4={imprimirA4Quinzena}
           />
         </TabsContent>
