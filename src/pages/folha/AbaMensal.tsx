@@ -6,7 +6,7 @@ import {
 } from "./folha-helpers"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Printer } from "lucide-react"
+import { Pencil, Printer } from "lucide-react"
 import { calcularSalarioFamilia } from "@/lib/folha-calculos"
 import { FolhaTabelaOficial } from "@/types/folha"
 
@@ -14,6 +14,7 @@ interface AbaMensalProps {
   linhas: LinhaFolhaProcessada[]
   totais: TotaisUnidadeCalculados
   tabelaOficial: FolhaTabelaOficial | null
+  onEditarLinha: (linha: LinhaFolhaProcessada) => void
   onImprimirA4: () => void
 }
 
@@ -21,6 +22,7 @@ export const AbaMensal: React.FC<AbaMensalProps> = ({
   linhas,
   totais,
   tabelaOficial,
+  onEditarLinha,
   onImprimirA4,
 }) => {
   const calcularFamiliaLinha = (l: LinhaFolhaProcessada): number => {
@@ -90,13 +92,14 @@ export const AbaMensal: React.FC<AbaMensalProps> = ({
                 MENSAL LÍQUIDO
               </th>
               <th className="py-2.5 px-3">CHAVE PIX / CONTA</th>
+              <th className="py-2.5 px-2 text-center w-20">AÇÕES</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {linhas.length === 0 ? (
               <tr>
                 <td
-                  colSpan={11}
+                  colSpan={12}
                   className="py-8 text-center text-muted-foreground"
                 >
                   Nenhum registro para exibição.
@@ -169,6 +172,17 @@ export const AbaMensal: React.FC<AbaMensalProps> = ({
                   <td className="py-2 px-3 text-muted-foreground text-[11px]">
                     {l.pix || l.chave_pix || l.conta || "—"}
                   </td>
+                  <td className="py-2 px-2 text-center">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onEditarLinha(l)}
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                      title="Editar valores mensais"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </td>
                 </tr>
               ))
             )}
@@ -200,6 +214,7 @@ export const AbaMensal: React.FC<AbaMensalProps> = ({
               <td className="py-2.5 px-2 text-right text-foreground bg-primary/10">
                 {formatarMoeda(totais.totalMensalPuro)}
               </td>
+              <td></td>
               <td></td>
             </tr>
           </tfoot>

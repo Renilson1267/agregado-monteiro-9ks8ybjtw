@@ -37,7 +37,10 @@ import { AbaVendas } from "./folha/AbaVendas"
 import { BlocoResumo } from "./folha/BlocoResumo"
 import { BlocoSomaDuasFolhas } from "./folha/BlocoSomaDuasFolhas"
 import { AbaDecimoTerceiro } from "@/components/AbaDecimoTerceiro"
-import { ModalEditarLinhaFolha } from "@/components/ModalEditarLinhaFolha"
+import {
+  ModalEditarLinhaFolha,
+  AbaContextoFolha,
+} from "@/components/ModalEditarLinhaFolha"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import {
@@ -111,10 +114,21 @@ export default function FolhaPagamento() {
   // Aba ativa (controlada) — usada para esconder os blocos Resumo/Soma na VENDAS
   const [abaAtiva, setAbaAtiva] = useState("geral")
 
-  // Modal de edição de linha
+  // Modal de edição de linha (coluna AÇÕES em todas as abas)
   const [linhaEmEdicao, setLinhaEmEdicao] =
     useState<FolhaPagamentoLinha | null>(null)
   const [modalEditarAberto, setModalEditarAberto] = useState(false)
+  const [abaContextoEdicao, setAbaContextoEdicao] =
+    useState<AbaContextoFolha>("geral")
+
+  const abrirEdicaoLinha = (
+    linha: LinhaFolhaProcessada,
+    contexto: AbaContextoFolha,
+  ) => {
+    setLinhaEmEdicao(linha)
+    setAbaContextoEdicao(contexto)
+    setModalEditarAberto(true)
+  }
 
   // Mês e Ano correntes
   const [ano, mes] = useMemo(() => {
@@ -1296,10 +1310,7 @@ export default function FolhaPagamento() {
             onSalvarFeriasInline={handleSalvarFeriasInline}
             onSalvarFilhosInline={handleSalvarFilhosInline}
             tabelaOficial={tabelaOficial}
-            onEditarLinha={(linha) => {
-              setLinhaEmEdicao(linha)
-              setModalEditarAberto(true)
-            }}
+            onEditarLinha={(linha) => abrirEdicaoLinha(linha, "geral")}
             onExcluirLinha={handleExcluirLinha}
             onImprimirA4={imprimirA4AbaGeral}
           />
@@ -1311,6 +1322,7 @@ export default function FolhaPagamento() {
             totais={totaisUnidadeAtiva}
             onSalvarQuinzenaInline={handleSalvarQuinzenaInline}
             onSalvarAdiantamentoInline={handleSalvarAdiantamentoInline}
+            onEditarLinha={(linha) => abrirEdicaoLinha(linha, "quinzena")}
             onImprimirA4={imprimirA4Quinzena}
           />
         </TabsContent>
@@ -1320,6 +1332,7 @@ export default function FolhaPagamento() {
             linhas={linhasFiltradasVisual}
             totais={totaisUnidadeAtiva}
             tabelaOficial={tabelaOficial}
+            onEditarLinha={(linha) => abrirEdicaoLinha(linha, "mensal")}
             onImprimirA4={imprimirA4Mensal}
           />
         </TabsContent>
@@ -1329,6 +1342,7 @@ export default function FolhaPagamento() {
             linhas={linhasFiltradasVisual}
             totais={totaisUnidadeAtiva}
             onAtualizarCamposInline={handleAtualizarProducaoInline}
+            onEditarLinha={(linha) => abrirEdicaoLinha(linha, "producao")}
             onImprimirA4={imprimirA4Producao}
           />
         </TabsContent>
@@ -1339,6 +1353,7 @@ export default function FolhaPagamento() {
             totais={totaisUnidadeAtiva}
             faixasComissao={faixasComissao}
             onAtualizarCamposVendasInline={handleAtualizarVendasInline}
+            onEditarLinha={(linha) => abrirEdicaoLinha(linha, "vendas")}
             onImprimirA4={imprimirA4Vendas}
           />
         </TabsContent>
@@ -1445,28 +1460,25 @@ export default function FolhaPagamento() {
         />
       )}
 
-      {/* MODAL EDITAR LINHA FOLHA COMPLETO */}
-      {modalEditarAberto && linhaEmEdicao && (
-        <ModalEditarLinhaFolha
-          open={modalEditarAberto}
-          onOpenChange={(aberto) => {
-            setModalEditarAberto(aberto)
-            if (!aberto) setLinhaEmEdicao(null)
-          }}
-          linha={linhaEmEdicao}
-          empresaId={empresaAtiva?.id || ""}
-          competencia={competenciaAtiva}
-          ano={ano}
-          tabelaOficial={tabelaOficial}
-          onSalvo={async () => {
-            toast({
-              title: "Linha atualizada",
-              description: "Dados do colaborador salvos com sucesso.",
-            })
-            await carregarDadosFolha()
-          }}
-        />
-      )}
+      {/* MODAL EDITAR LINHA FOLHA (coluna AÇÕES em todas as abas) */}
+      <ModalEditarLinhaFolha
+        aberto={modalEditarAberto && !!linhaEmEdicao}
+        onOpenChange={(aberto) => {
+          setModalEditarAberto(aberto)
+          if (!aberto) setLinhaEmEdicao(null)
+        }}
+        linha={linhaEmEdicao}
+        abaContexto={abaContextoEdicao}
+        percentualQuinzena={0.4}
+        tabelaOficial={tabelaOficial}
+        onSalvoSucesso={async () => {
+          toast({
+            title: "Linha atualizada",
+            description: "Dados do colaborador salvos com sucesso.",
+          })
+          await carregarDadosFolha()
+        }}
+      />
     </div>
   )
 }

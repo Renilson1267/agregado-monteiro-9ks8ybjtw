@@ -7,7 +7,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Printer, Check } from "lucide-react"
+import { Printer, Check, Pencil } from "lucide-react"
 
 interface AbaProducaoProps {
   linhas: LinhaFolhaProcessada[]
@@ -16,6 +16,7 @@ interface AbaProducaoProps {
     linhaId: string,
     campos: Record<string, number>,
   ) => Promise<void>
+  onEditarLinha: (linha: LinhaFolhaProcessada) => void
   onImprimirA4: () => void
 }
 
@@ -23,6 +24,7 @@ export const AbaProducao: React.FC<AbaProducaoProps> = ({
   linhas,
   totais,
   onAtualizarCamposInline,
+  onEditarLinha,
   onImprimirA4,
 }) => {
   const [editandoLinhaId, setEditandoLinhaId] = useState<string | null>(null)
@@ -142,13 +144,14 @@ export const AbaProducao: React.FC<AbaProducaoProps> = ({
               <th className="py-2.5 px-2 text-right font-bold text-foreground bg-primary/10">
                 A PAGAR (PRODUÇÃO)
               </th>
+              <th className="py-2.5 px-2 text-center w-20">AÇÕES</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {linhas.length === 0 ? (
               <tr>
                 <td
-                  colSpan={10}
+                  colSpan={11}
                   className="py-8 text-center text-muted-foreground"
                 >
                   Nenhum registro para exibição.
@@ -228,6 +231,17 @@ export const AbaProducao: React.FC<AbaProducaoProps> = ({
                   <td className="py-2 px-2 text-right font-bold text-foreground bg-primary/10">
                     {formatarMoeda(l.producaoAPagar)}
                   </td>
+                  <td className="py-2 px-2 text-center">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onEditarLinha(l)}
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                      title="Editar lançamento de produção"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </td>
                 </tr>
               ))
             )}
@@ -250,6 +264,7 @@ export const AbaProducao: React.FC<AbaProducaoProps> = ({
               <td className="py-2.5 px-2 text-right text-foreground bg-primary/10">
                 {formatarMoeda(totais.totalProducaoAPagar)}
               </td>
+              <td></td>
             </tr>
           </tfoot>
         </table>

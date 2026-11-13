@@ -7,7 +7,7 @@ import {
 import { FaixaComissaoProgressiva } from "@/types/folha"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Printer, Check, ChevronDown, ChevronRight } from "lucide-react"
+import { Printer, Check, ChevronDown, ChevronRight, Pencil } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 import { CamposAtualizacaoVendas } from "./folha-types"
@@ -21,6 +21,7 @@ interface AbaVendasProps {
     linhaId: string,
     campos: CamposAtualizacaoVendas,
   ) => Promise<void>
+  onEditarLinha: (linha: LinhaFolhaProcessada) => void
   onImprimirA4: () => void
 }
 
@@ -29,6 +30,7 @@ export const AbaVendas: React.FC<AbaVendasProps> = ({
   totais,
   faixasComissao,
   onAtualizarCamposVendasInline,
+  onEditarLinha,
   onImprimirA4,
 }) => {
   const [editandoLinhaId, setEditandoLinhaId] = useState<string | null>(null)
@@ -145,13 +147,14 @@ export const AbaVendas: React.FC<AbaVendasProps> = ({
               <th className="py-2.5 px-2 text-right font-bold text-foreground bg-primary/10">
                 TOTAL A PAGAR
               </th>
+              <th className="py-2.5 px-2 text-center w-20">AÇÕES</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {linhasVendedores.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="py-8 text-center text-muted-foreground"
                 >
                   Nenhum colaborador com comissão ou ajuda de vendas na
@@ -165,6 +168,7 @@ export const AbaVendas: React.FC<AbaVendasProps> = ({
                 const total = comissao + ajuda
                 const expandido = Boolean(expandidos[l.id])
                 const podeExpandir = comissao > 0
+                const isLinhaVendas = true
 
                 return (
                   <React.Fragment key={l.id}>
@@ -225,12 +229,25 @@ export const AbaVendas: React.FC<AbaVendasProps> = ({
                       <td className="py-2 px-2 text-right font-bold text-foreground bg-primary/10">
                         {formatarMoeda(total)}
                       </td>
+                      {isLinhaVendas && (
+                        <td className="py-2 px-2 text-center">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onEditarLinha(l)}
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                            title="Editar vendas / comissões"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      )}
                     </tr>
 
                     {/* EXPANSÃO: MEMÓRIA DE CÁLCULO DA COMISSÃO (só exibição) */}
                     {expandido && (
                       <tr className="bg-muted/10 border-b">
-                        <td colSpan={6} className="p-3">
+                        <td colSpan={7} className="p-3">
                           <div className="bg-card p-3 rounded border space-y-1">
                             <div className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">
                               Memória de Cálculo da Comissão — {l.nome}
@@ -265,6 +282,7 @@ export const AbaVendas: React.FC<AbaVendasProps> = ({
                   totais.totalComissaoVendas + totais.totalAjudaCustoVendas,
                 )}
               </td>
+              <td></td>
             </tr>
           </tfoot>
         </table>
